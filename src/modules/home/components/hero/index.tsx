@@ -1,33 +1,18 @@
-import { Github } from "@medusajs/icons"
-import { Button, Heading } from "@medusajs/ui"
-
 const Hero = () => {
   return (
-    <div className="h-[75vh] w-full border-b border-ui-border-base relative bg-ui-bg-subtle">
-      <div className="absolute inset-0 z-10 flex flex-col justify-center items-center text-center small:p-32 gap-6">
-        <span>
-          <Heading
-            level="h1"
-            className="text-3xl leading-10 text-ui-fg-base font-normal"
-          >
-            Ecommerce Starter Template
-          </Heading>
-          <Heading
-            level="h2"
-            className="text-3xl leading-10 text-ui-fg-subtle font-normal"
-          >
-            Powered by Medusa and Next.js
-          </Heading>
-        </span>
-        <a
-          href="https://github.com/medusajs/nextjs-starter-medusa"
-          target="_blank"
-        >
-          <Button variant="secondary">
-            View on GitHub
-            <Github />
-          </Button>
-        </a>
+    <div
+      className="h-[65vh] max-h-[673px] w-full bg-no-repeat bg-center bg-cover flex flex-col justify-center items-center"
+      style={{
+        backgroundImage:
+          "url('/images/pages/home/daveedi_86763_chef_holding_holding_plate_with_cooked_beef_with__27ca7625-54c2-493b-8445-ab117b3c9f80.jpg')",
+      }}
+    >
+      <div className="text-center small:p-32 gap-6">
+        <div className="max-w-[820px]">
+          <h1 className="text-white  text-h1-mobile md:text-h1">
+            Quality is the standard. Kosher is the promise.
+          </h1>
+        </div>
       </div>
     </div>
   )

@@ -12,6 +12,9 @@ module.exports = {
   ],
   theme: {
     extend: {
+      spacing: {
+        4.5: "18px",
+      },
       transitionProperty: {
         width: "width margin",
         height: "height",
@@ -34,6 +37,20 @@ module.exports = {
           80: "#1F2937",
           90: "#111827",
         },
+        Black: "#001B23",
+        Charcoal: "#2A2828",
+        Smoke: "#686674",
+        Pewter: "#B1A6A2",
+        SilverPlate: "#D3D5D3",
+        Scroll: "#F0F0ED",
+        IsraelBlue: "#2D479D",
+        RichGold: "#BB925C",
+        Gold: "#E5B565",
+        CopperBrown: "#735048",
+        Teal: "#83C2C7",
+        Crimson: "#951D20",
+        VibrantRed: "#D05740",
+        White: "#fff",
       },
       borderRadius: {
         none: "0px",
@@ -44,6 +61,7 @@ module.exports = {
         circle: "9999px",
       },
       maxWidth: {
+        "7xl": "1340px",
         "8xl": "100rem",
       },
       screens: {
@@ -57,6 +75,28 @@ module.exports = {
       },
       fontSize: {
         "3xl": "2rem",
+        h1: ["80px", { lineHeight: "110%" }],
+        "h1-mobile": ["36px", { lineHeight: "110%" }],
+        h2: ["60px", { lineHeight: "110%" }],
+        "h2-mobile": ["30px", { lineHeight: "110%" }],
+        h3: ["42px", { lineHeight: "115%" }],
+        h4: ["22px", { lineHeight: "125%" }],
+        h5: ["14px", { lineHeight: "130%" }],
+        h6: ["11px", { lineHeight: "150%" }],
+        "p-sm": ["14px", { lineHeight: "140%" }],
+        "p-sm-bold": ["15px", { lineHeight: "140%" }],
+        "p-md": ["16px", { lineHeight: "140%" }],
+        "p-md-bold": ["16px", { lineHeight: "140%" }],
+        "p-lg": ["19px", { lineHeight: "140%" }],
+        "p-lg-bold": ["19px", { lineHeight: "140%" }],
+        a: ["16px", { lineHeight: "140%" }],
+        "p-ex-sm-mono": ["12px", { lineHeight: "18px" }],
+        "p-ex-sm-mono-bold": ["12px", { lineHeight: "18px" }],
+        "p-sm-mono": ["14px", { lineHeight: "140%" }],
+        "p-md-mono": ["16px", { lineHeight: "140%" }],
+        "header-lg": ["150px", { lineHeight: "110%" }],
+        quote: ["72px", { lineHeight: "115%" }],
+        "quote-mobile": ["36px", { lineHeight: "115%" }],
       },
       fontFamily: {
         sans: [
