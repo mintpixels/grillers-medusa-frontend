@@ -115,9 +115,9 @@
   }
 
   .btn-primary {
-    @apply py-[18px] px-[42px] rounded-[5px] border border-Charcoal bg-Gold text-Charcoal text-h6 font-bold uppercase transition-opacity hover:opacity-95 inline-flex items-center gap-[9px] shrink-0;
+    @apply py-[18px] px-[42px] rounded-[5px] border border-Charcoal bg-Gold text-Charcoal text-h6 font-bold uppercase transition-opacity hover:opacity-95 inline-flex items-center justify-center text-center gap-[9px] shrink-0;
   }
   .btn-outline {
-    @apply py-[18px] px-[42px] rounded-[5px] border border-Charcoal bg-transparent text-Charcoal text-h6 font-bold uppercase transition-opacity hover:opacity-95 inline-flex items-center gap-[9px] shrink-0;
+    @apply py-[18px] px-[42px] rounded-[5px] border border-Charcoal bg-transparent text-Charcoal text-h6 font-bold uppercase transition-opacity hover:opacity-95 inline-flex items-center justify-center text-center gap-[9px] shrink-0;
   }
 }
