@@ -24,7 +24,7 @@ const ProductTemplate: React.FC<ProductTemplateProps> = ({
   }
 
   return (
-    <>
+    <Suspense fallback={null}>
       <ProductDetail
         product={product}
         region={region}
@@ -33,7 +33,7 @@ const ProductTemplate: React.FC<ProductTemplateProps> = ({
       <HowItWorksSection />
       <HowItFitsSection />
       <WhyUsSection />
-    </>
+    </Suspense>
   )
 }
 
