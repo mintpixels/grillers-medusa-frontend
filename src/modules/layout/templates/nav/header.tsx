@@ -3,19 +3,13 @@ import { Suspense } from "react"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import CartButton from "@modules/layout/components/cart-button"
 import Image from "next/image"
+import { MobileNavMenu } from "./menu"
 
 const Header = () => {
   return (
     <header className="sticky top-0 inset-x-0 z-10 bg-white border-b border-[#000/25]">
       <nav className="flex items-center justify-between w-full h-[106px] px-4 lg:px-8">
-        <button type="button" className="md:hidden">
-          <Image
-            src={"/images/icons/hamburger.svg"}
-            alt="account"
-            width={24}
-            height={24}
-          />
-        </button>
+        <MobileNavMenu />
 
         <div className="flex items-center gap-4">
           <LocalizedClientLink href="/" data-testid="nav-store-link">
