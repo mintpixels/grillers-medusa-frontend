@@ -1,18 +1,32 @@
 import React from "react"
 import Image from "next/image"
+import { BlocksRenderer } from "@strapi/blocks-react-renderer"
 
-export default function TestimonialSection() {
+export default function TestimonialSection({
+  data,
+}: {
+  data: {
+    TestimonialTitle: string
+    BackgroundImage: {
+      url: string
+    }
+    Quote: any
+    Author: string
+  }
+}) {
   return (
-    <section className=" bg-Scroll overflow-hidden ">
+    <section className="bg-Scroll overflow-hidden">
       <div className="pt-24 pb-16 md:pt-20 md:pb-28 md:mb-20 mt-4 relative">
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <Image
-            src="/images/pages/home/Litho_Challah_Gold_1.png"
-            alt="bg"
-            fill
-            className="object-contain"
-            sizes="(max-width: 768px) 80vw, 50vw"
-          />
+          {data?.BackgroundImage?.url && (
+            <Image
+              src={data.BackgroundImage.url}
+              alt="bg"
+              fill
+              className="object-contain"
+              sizes="(max-width: 768px) 80vw, 50vw"
+            />
+          )}
         </div>
 
         <div className="relative max-w-7xl mx-auto text-center px-4">
@@ -40,14 +54,17 @@ export default function TestimonialSection() {
             ))}
           </div>
 
-          <blockquote className="text-quote-mobile md:text-quote text-Charcoal mb-6">
-            “The kosher quality I’ve come to expect. Wow, this is the best damn
-            tasting cuts around. Will order again!”
-          </blockquote>
+          {data?.Quote && (
+            <blockquote className="text-quote-mobile md:text-quote text-Charcoal mb-6">
+              <BlocksRenderer content={data.Quote} />
+            </blockquote>
+          )}
 
-          <cite className="block text-h5 not-italic uppercase text-Charcoal">
-            John H.
-          </cite>
+          {data?.Author && (
+            <cite className="block text-h5 not-italic uppercase text-Charcoal">
+              {data.Author}
+            </cite>
+          )}
         </div>
       </div>
     </section>

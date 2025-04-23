@@ -41,6 +41,10 @@ const nextConfig = {
         protocol: "https",
         hostname: "placehold.co",
       },
+      {
+        protocol: "https",
+        hostname: "**.media.strapiapp.com",
+      },
     ],
   },
 }

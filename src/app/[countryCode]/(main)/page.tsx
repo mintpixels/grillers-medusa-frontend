@@ -10,6 +10,8 @@ import FollowUsSection from "@modules/home/components/follow-us"
 import BlogExploreSection from "@modules/home/components/blog-explore"
 import { listCollections } from "@lib/data/collections"
 import { getRegion } from "@lib/data/regions"
+import strapiClient from "@lib/strapi"
+import { GetHomePageQuery } from "@lib/data/strapi/home"
 
 export const metadata: Metadata = {
   title: "Medusa Next.js Starter Template",
@@ -34,15 +36,49 @@ export default async function Home(props: {
     return null
   }
 
+  const strapiData: any = await strapiClient.request(GetHomePageQuery)
+
+  console.log("strapiData", strapiData?.home?.Sections)
+
+  const renderSections = () => {
+    if (strapiData?.home?.Sections) {
+      return strapiData?.home?.Sections.map((section: any) => {
+        switch (section.__typename) {
+          case "ComponentHomeHero":
+            return <Hero key={section.__typename} data={section} />
+          case "ComponentHomeBestsellers":
+            return (
+              <BestsellersSection key={section.__typename} data={section} />
+            )
+          case "ComponentHomeKosherPromise":
+            return (
+              <KosherPromiseSection key={section.__typename} data={section} />
+            )
+          case "ComponentHomeShopCollections":
+            return (
+              <ShopCollectionsSection key={section.__typename} data={section} />
+            )
+          case "ComponentHomeTestimonial":
+            return (
+              <TestimonialSection key={section.__typename} data={section} />
+            )
+          case "ComponentHomeFollowUs":
+            return <FollowUsSection key={section.__typename} data={section} />
+          case "ComponentHomeBlogExplore":
+            return (
+              <BlogExploreSection key={section.__typename} data={section} />
+            )
+          default:
+            return null
+        }
+      })
+    }
+    return null
+  }
+
   return (
     <>
-      <Hero />
-      <BestsellersSection />
-      <KosherPromiseSection />
-      <ShopCollectionsSection />
-      <TestimonialSection />
-      <FollowUsSection />
-      <BlogExploreSection />
+      {renderSections()}
       {/* <div className="py-12">
         <ul className="flex flex-col gap-x-6">
           <FeaturedProducts collections={collections} region={region} />
