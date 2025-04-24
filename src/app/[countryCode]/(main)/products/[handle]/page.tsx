@@ -92,8 +92,6 @@ export default async function ProductPage(props: Props) {
 
   const strapiData: any = await strapiClient.request(GetCommonPdpQuery)
 
-  console.log("strapiData", strapiData)
-
   return (
     <ProductTemplate
       product={pricedProduct}

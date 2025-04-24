@@ -172,7 +172,7 @@ const DesktopNavMenu = () => (
           item.links ? (
             <Menu
               as="div"
-              className="relative inline-block text-left"
+              className="relative inline-flex text-left h-[20px]"
               key={item.href}
             >
               <MenuButton className="inline-flex items-center text-p-sm-mono font-maison-neue-mono uppercase text-black hover:opacity-70 focus:outline-none gap-0.5">
@@ -203,7 +203,7 @@ const DesktopNavMenu = () => (
                 leaveFrom="transform opacity-100 scale-100"
                 leaveTo="transform opacity-0 scale-95"
               >
-                <MenuItems className="absolute mt-2 w-48 bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
+                <MenuItems className="absolute mt-[34px] w-48 bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
                   {item.links.map((sub) => (
                     <MenuItem key={sub.href + sub.label}>
                       {({ active }) => (
@@ -225,7 +225,7 @@ const DesktopNavMenu = () => (
             <LocalizedClientLink
               key={item.href}
               href={item.href}
-              className="text-p-sm-mono font-maison-neue-mono uppercase text-black hover:opacity-70"
+              className="text-p-sm-mono font-maison-neue-mono uppercase text-black hover:opacity-70 h-[20px]"
             >
               {item.label}
             </LocalizedClientLink>
