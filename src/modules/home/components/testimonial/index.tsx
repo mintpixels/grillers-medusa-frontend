@@ -55,13 +55,13 @@ export default function TestimonialSection({
           </div>
 
           {data?.Quote && (
-            <blockquote className="text-quote-mobile md:text-quote text-Charcoal mb-6">
+            <blockquote className="text-quote-mobile md:text-quote font-gyst text-Charcoal mb-6">
               <BlocksRenderer content={data.Quote} />
             </blockquote>
           )}
 
           {data?.Author && (
-            <cite className="block text-h5 not-italic uppercase text-Charcoal">
+            <cite className="block text-h5 font-rexton not-italic uppercase text-Charcoal">
               {data.Author}
             </cite>
           )}

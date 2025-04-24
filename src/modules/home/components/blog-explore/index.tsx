@@ -26,11 +26,11 @@ export default function BlogExploreSection({
       <div className="mx-auto max-w-7xl bg-Gold relative">
         <div className="grid grid-cols-1 md:grid-cols-2 items-center gap-6">
           <div className="p-6 md:px-14 md:py-[70px]">
-            <p className="text-h6 font-bold uppercase text-Scroll mb-3">
+            <p className="text-h6 font-rexton font-bold uppercase text-Scroll mb-3">
               {data?.CategoryLabel}
             </p>
             <div className="h-[1px] w-[473px] bg-Scroll mb-5" />
-            <h3 className="text-h2 text-Charcoal mb-12">
+            <h3 className="text-h2 font-gyst text-Charcoal mb-12">
               {data?.BlogExploreTitle}
             </h3>
             {data?.Button?.Text && data?.Button?.Url && (

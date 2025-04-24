@@ -27,10 +27,10 @@ export default function ShopCollectionsSection({
     <section className="pt-14 md:pt-32 pb-8 bg-Scroll overflow-hidden">
       <div className="mx-auto max-w-7xl px-4.5">
         <div className="flex justify-between items-end mb-12">
-          <h3 className="text-h2-mobile md:text-h2 text-Charcoal">
+          <h3 className="text-h2-mobile font-gyst md:text-h2 text-Charcoal">
             {data?.CollectionsTitle}
           </h3>
-          <a
+          <LocalizedClientLink
             href="/collections"
             className="h-[44px] w-[44px] border border-black rounded-full flex items-center justify-center"
           >
@@ -40,7 +40,7 @@ export default function ShopCollectionsSection({
               height={12}
               alt="See all collections"
             />
-          </a>
+          </LocalizedClientLink>
         </div>
 
         {/* Slider */}
@@ -72,12 +72,12 @@ export default function ShopCollectionsSection({
                   <div className="py-8">
                     <h4
                       id={`collection-${col.id}-title`}
-                      className="text-h4 font-bold text-Charcoal pb-6 border-b border-Charcoal"
+                      className="text-h4 font-gyst font-bold text-Charcoal pb-6 border-b border-Charcoal"
                     >
                       {col?.Title}
                     </h4>
                     <div className="pt-4 inline-flex items-center gap-2">
-                      <span className="text-p-sm-mono uppercase font-bold">
+                      <span className="text-p-sm-mono font-rexton uppercase font-bold">
                         Explore
                       </span>
                       <Image

@@ -3,6 +3,8 @@ import { notFound } from "next/navigation"
 import { listProducts } from "@lib/data/products"
 import { getRegion, listRegions } from "@lib/data/regions"
 import ProductTemplate from "@modules/products/templates"
+import strapiClient from "@lib/strapi"
+import { GetCommonPdpQuery } from "@lib/data/strapi/pdp"
 
 type Props = {
   params: Promise<{ countryCode: string; handle: string }>
@@ -88,11 +90,16 @@ export default async function ProductPage(props: Props) {
     notFound()
   }
 
+  const strapiData: any = await strapiClient.request(GetCommonPdpQuery)
+
+  console.log("strapiData", strapiData)
+
   return (
     <ProductTemplate
       product={pricedProduct}
       region={region}
       countryCode={params.countryCode}
+      commonPdpData={strapiData?.pdp}
     />
   )
 }

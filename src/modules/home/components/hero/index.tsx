@@ -17,7 +17,7 @@ const Hero = ({
     >
       <div className="text-center small:p-32 gap-6">
         <div className="max-w-[820px]">
-          <h1 className="text-white  text-h1-mobile md:text-h1">
+          <h1 className="text-white font-gyst text-h1-mobile md:text-h1">
             {data?.HeroTitle}
           </h1>
         </div>

@@ -46,12 +46,14 @@ export default function FollowUsSection({
 
           <div className="bg-white p-8 flex flex-col justify-center h-full px-10 md:px-24">
             {data?.FollowUsTitle && (
-              <h3 className="text-h3 text-Charcoal mb-10">
+              <h3 className="text-h3 font-gyst text-Charcoal mb-10">
                 {data.FollowUsTitle}
               </h3>
             )}
             {data?.Description && (
-              <p className="text-p-md text-Charcoal">{data.Description}</p>
+              <p className="text-p-md font-maison-neue text-Charcoal">
+                {data.Description}
+              </p>
             )}
           </div>
         </div>

@@ -12,6 +12,11 @@ module.exports = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        rexton: ["var(--font-rexton)"],
+        "maison-neue": ["var(--font-maison-neue)"],
+        "maison-neue-mono": ["var(--font-maison-neue-mono)"],
+      },
       spacing: {
         4.5: "18px",
       },
@@ -97,18 +102,6 @@ module.exports = {
         "header-lg": ["150px", { lineHeight: "110%" }],
         quote: ["72px", { lineHeight: "115%" }],
         "quote-mobile": ["36px", { lineHeight: "115%" }],
-      },
-      fontFamily: {
-        sans: [
-          "Inter",
-          "-apple-system",
-          "BlinkMacSystemFont",
-          "Segoe UI",
-          "Roboto",
-          "Helvetica Neue",
-          "Ubuntu",
-          "sans-serif",
-        ],
       },
       keyframes: {
         ring: {

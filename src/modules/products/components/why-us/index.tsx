@@ -18,19 +18,37 @@ const features = [
   },
 ]
 
-export default function WhyUsSection() {
+export default function WhyUsSection({
+  data,
+}: {
+  data: {
+    Title: string
+    Image: {
+      url: string
+    }
+    List: {
+      id: string
+      Title: string
+      Description: string
+    }[]
+  }
+}) {
   return (
     <section className="py-10 md:py-20 bg-Scroll">
       <div className="mx-auto max-w-7xl px-4.5 grid grid-cols-1 md:grid-cols-[0.7fr_1.3fr] gap-8">
         <div className="flex flex-col justify-between py-4 max-w-[365px]">
-          <h3 className="text-h2 text-Charcoal mb-6">Why Us?</h3>
-          <dl className="space-y-8 divide-y divide-Charcoal ">
-            {features.map((f, i) => (
-              <div key={i} className="pt-5 pb-3 border-t border-Charcoal">
-                <dt className="text-h4 font-bold text-Charcoal pb-2 mb-2">
-                  {f.title}
+          <h3 className="text-h2 font-gyst text-Charcoal mb-6">
+            {data?.Title}
+          </h3>
+          <dl className="space-y-8 divide-y divide-Charcoal">
+            {data?.List?.slice(0, 3)?.map((item) => (
+              <div key={item.id} className="pt-5 pb-3 border-t border-Charcoal">
+                <dt className="text-h4 font-gyst font-bold text-Charcoal pb-2 mb-2">
+                  {item?.Title}
                 </dt>
-                <dd className="text-p-md text-Charcoal">{f.desc}</dd>
+                <dd className="text-p-md font-maison-neue text-Charcoal">
+                  {item?.Description}
+                </dd>
               </div>
             ))}
           </dl>
@@ -38,8 +56,8 @@ export default function WhyUsSection() {
 
         <div className="relative w-full aspect-square overflow-hidden">
           <Image
-            src="https://placehold.co/920x920/png"
-            alt="Free-range chickens in a field"
+            src={data?.Image?.url}
+            alt={data?.Title}
             fill
             className="object-cover"
           />

@@ -27,7 +27,7 @@ export default function BestsellersSection({
     <section className="py-10 md:py-20 bg-Scroll overflow-hidden">
       <div className="mx-auto max-w-7xl px-4.5">
         <div className="flex justify-between items-end mb-12">
-          <h3 className="text-h2-mobile md:text-h2 text-Charcoal">
+          <h3 className="text-h2-mobile md:text-h2 font-gyst text-Charcoal">
             {data?.BestsellersTitle}
           </h3>
           <a
@@ -80,21 +80,23 @@ export default function BestsellersSection({
                     <div className="py-8">
                       <h4
                         id={`product-${product.id}-title`}
-                        className="text-h4 font-bold text-Charcoal pb-6 border-b border-Charcoal"
+                        className="text-h4 font-gyst font-bold text-Charcoal pb-6 border-b border-Charcoal"
                       >
                         {product.Title}
                       </h4>
                       <p className="text-Charcoal py-7 border-b border-Charcoal">
-                        <span className="text-h3">${product.Price}</span>{" "}
-                        <span className="text-p-sm-mono uppercase ml-2">
+                        <span className="text-h3 font-gyst">
+                          ${product.Price}
+                        </span>{" "}
+                        <span className="text-p-sm-mono font-maison-neue-mono uppercase ml-2">
                           per lb
                         </span>
                       </p>
-                      <p className="text-p-sm text-black py-6">
+                      <p className="text-p-sm font-maison-neue text-black py-6">
                         {product.Description}
                       </p>
                       <p className="inline-flex gap-3">
-                        <span className="text-Charcoal text-h6 font-bold uppercase">
+                        <span className="text-Charcoal font-rexton text-h6 font-bold uppercase">
                           View Details
                         </span>
                         <Image

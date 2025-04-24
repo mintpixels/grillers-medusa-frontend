@@ -12,16 +12,20 @@ type ProductTemplateProps = {
   product: HttpTypes.StoreProduct
   region: HttpTypes.StoreRegion
   countryCode: string
+  commonPdpData: any
 }
 
 const ProductTemplate: React.FC<ProductTemplateProps> = ({
   product,
   region,
   countryCode,
+  commonPdpData,
 }) => {
   if (!product || !product.id) {
     return notFound()
   }
+
+  console.log("commonPdpData", commonPdpData)
 
   return (
     <Suspense fallback={null}>
@@ -30,9 +34,9 @@ const ProductTemplate: React.FC<ProductTemplateProps> = ({
         region={region}
         countryCode={countryCode}
       />
-      <HowItWorksSection />
+      <HowItWorksSection data={commonPdpData?.HowItWorks} />
       <HowItFitsSection />
-      <WhyUsSection />
+      <WhyUsSection data={commonPdpData?.WhyUs} />
     </Suspense>
   )
 }

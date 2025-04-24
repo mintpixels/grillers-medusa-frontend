@@ -80,7 +80,9 @@ export const MobileNavMenu = () => {
 
         <DialogPanel className="fixed inset-y-0 left-0 z-40 w-full max-w-sm bg-white  shadow-lg p-6">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-lg font-semibold uppercase">Menu</h2>
+            <h2 className="text-lg font-semibold font-maison-neue-mono uppercase">
+              Menu
+            </h2>
             <button
               onClick={() => setMobileOpen(false)}
               className="p-2 focus:outline-none"
@@ -109,7 +111,7 @@ export const MobileNavMenu = () => {
                     onClick={() =>
                       setExpandedIndex(expandedIndex === idx ? null : idx)
                     }
-                    className="px-4 py-2 w-full flex items-center justify-between text-p-sm-mono uppercase focus:outline-none"
+                    className="px-4 py-2 w-full flex items-center justify-between text-p-sm-mono font-maison-neue-mono uppercase focus:outline-none"
                   >
                     <span>{item.label}</span>
                     <Image
@@ -128,7 +130,7 @@ export const MobileNavMenu = () => {
                 ) : (
                   <LocalizedClientLink
                     href={item.href}
-                    className="block px-4 py-2 text-p-sm-mono uppercase hover:bg-gray-100 rounded"
+                    className="block px-4 py-2 text-p-sm-mono font-maison-neue-mono uppercase hover:bg-gray-100 rounded"
                   >
                     {item.label}
                   </LocalizedClientLink>
@@ -142,7 +144,7 @@ export const MobileNavMenu = () => {
                             <LocalizedClientLink
                               key={sub.href + sub.label}
                               href={sub.href}
-                              className="block px-4 py-2 text-p-sm-mono uppercase hover:bg-gray-100 rounded"
+                              className="block px-4 py-2 text-p-sm-mono font-maison-neue-mono uppercase hover:bg-gray-100 rounded"
                             >
                               {sub.label}
                             </LocalizedClientLink>
@@ -173,7 +175,7 @@ const DesktopNavMenu = () => (
               className="relative inline-block text-left"
               key={item.href}
             >
-              <MenuButton className="inline-flex items-center text-p-sm-mono uppercase text-black hover:opacity-70 focus:outline-none gap-0.5">
+              <MenuButton className="inline-flex items-center text-p-sm-mono font-maison-neue-mono uppercase text-black hover:opacity-70 focus:outline-none gap-0.5">
                 {({ active }) => (
                   <>
                     {item.label}
@@ -207,7 +209,7 @@ const DesktopNavMenu = () => (
                       {({ active }) => (
                         <LocalizedClientLink
                           href={sub.href}
-                          className={`block px-4 py-2 text-p-sm-mono uppercase ${
+                          className={`block px-4 py-2 text-p-sm-mono font-maison-neue-mono uppercase ${
                             active ? "bg-gray-100" : ""
                           }`}
                         >
@@ -223,7 +225,7 @@ const DesktopNavMenu = () => (
             <LocalizedClientLink
               key={item.href}
               href={item.href}
-              className="text-p-sm-mono uppercase text-black hover:opacity-70"
+              className="text-p-sm-mono font-maison-neue-mono uppercase text-black hover:opacity-70"
             >
               {item.label}
             </LocalizedClientLink>

@@ -44,7 +44,7 @@ const Header = () => {
         </div>
 
         <div className="flex items-center gap-8">
-          <span className="hidden md:inline-block text-p-md text-Charcoal">
+          <span className="hidden md:inline-block text-p-md font-maison-neue text-Charcoal">
             (888) 627-3284
           </span>
 

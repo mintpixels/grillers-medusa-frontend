@@ -80,15 +80,17 @@ export default function ProductDetail({
         </div>
 
         {/* Right: product info */}
-        <div className="flex flex-col max-w-[494px] ml-auto pt-4">
+        <div className="flex flex-col max-w-[510px] ml-auto pt-4">
           {/* Tag + Title + Certification icon */}
           <div className="mb-6">
-            <span className="bg-Black text-White text-p-sm px-2 py-1 rounded-full uppercase tracking-wide">
+            <span className="bg-Black text-White font-maison-neue-mono leading-none text-p-sm px-4 pt-2 pb-1.5 rounded-full uppercase tracking-wide">
               {mockedProduct.tag}
             </span>
           </div>
           <div className="flex items-center justify-between mb-7">
-            <h1 className="text-h3 text-Charcoal">{mockedProduct.title}</h1>
+            <h1 className="text-h3 font-gyst text-Charcoal">
+              {mockedProduct.title}
+            </h1>
             <Image
               src="/images/pages/pdp/CertifiedKosher.png"
               width={90}
@@ -98,28 +100,28 @@ export default function ProductDetail({
           </div>
 
           {/* Price & pack info */}
-          <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr] border-t border-b border-Charcoal mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 border-t border-b border-Charcoal mb-6">
             {/* price per lb */}
             <div className="border-r border-Charcoal py-6">
-              <span className="text-h3 text-Charcoal">
+              <span className="text-h3 font-gyst text-Charcoal">
                 ${mockedProduct.pricePerLb.toFixed(2)}
               </span>
-              <span className="text-p-sm-mono uppercase text-Charcoal pl-6">
+              <span className="text-p-sm-mono font-maison-neue-mono uppercase text-Charcoal pl-5">
                 per lb
               </span>
             </div>
 
             {/* avg pack info */}
             <div className="flex flex-col items-end md:pl-8 mt-4 md:mt-0 py-6">
-              <span className="text-p-sm-mono uppercase text-Charcoal">
+              <span className="text-p-sm-mono font-maison-neue-mono uppercase text-Charcoal">
                 avg pack price:
-                <span className="text-p-sm-bold text-Charcoal font-bold ml-1">
+                <span className="inline-block text-right text-p-sm-bold font-maison-neue text-Charcoal font-bold ml-1 min-w-[50px]">
                   ${mockedProduct.avgPackPrice.toFixed(2)}
                 </span>
               </span>
-              <span className="text-p-sm-mono uppercase text-Charcoal mt-2">
+              <span className="text-p-sm-mono font-maison-neue-mono uppercase text-Charcoal mt-2">
                 avg pack weight:
-                <span className="text-p-sm-bold text-Charcoal font-bold ml-1">
+                <span className="inline-block text-right text-p-sm-bold font-maison-neue text-Charcoal font-bold ml-1 min-w-[50px]">
                   {mockedProduct.avgPackWeight} lbs
                 </span>
               </span>
@@ -129,7 +131,7 @@ export default function ProductDetail({
           {/* Quantity + Add to Cart */}
           <div className="flex flex-col md:flex-row items-center mb-6 gap-y-4 md:gap-y-0 md:gap-x-8">
             {/* qty selector */}
-            <div className="flex border border-Charcoal h-full">
+            <div className="flex border border-Charcoal h-full font-maison-neue text-p-lg">
               <button
                 onClick={decrement}
                 className="px-4 text-Charcoal hover:bg-SilverPlate transition w-[50px]"
@@ -155,7 +157,7 @@ export default function ProductDetail({
           </div>
 
           {/* Key product facts */}
-          <div className="flex flex-wrap items-center justify-between mb-6 gap-4 border-y border-Charcoal py-4">
+          <div className="flex flex-wrap items-center justify-between mb-6 gap-1 border-y border-Charcoal py-4">
             {mockedProduct.inStock && (
               <span className="inline-flex items-center">
                 <Image
@@ -164,7 +166,7 @@ export default function ProductDetail({
                   height={32}
                   alt=""
                 />
-                <span className="ml-0.5 text-p-ex-sm-mono text-Charcoal">
+                <span className="ml-0.5 text-p-ex-sm-mono font-maison-neue-mono uppercase text-Charcoal">
                   In Stock
                 </span>
               </span>
@@ -176,7 +178,7 @@ export default function ProductDetail({
                 height={32}
                 alt=""
               />
-              <span className="ml-0.5 text-p-ex-sm-mono text-Charcoal">
+              <span className="ml-0.5 text-p-ex-sm-mono font-maison-neue-mono uppercase text-Charcoal">
                 Serves {mockedProduct.serves}
               </span>
             </span>
@@ -187,7 +189,7 @@ export default function ProductDetail({
                 height={32}
                 alt=""
               />
-              <span className="ml-0.5 text-p-ex-sm-mono text-Charcoal">
+              <span className="ml-0.5 text-p-ex-sm-mono font-maison-neue-mono uppercase text-Charcoal">
                 Uncooked
               </span>
             </span>
@@ -198,28 +200,28 @@ export default function ProductDetail({
                 height={32}
                 alt=""
               />
-              <span className="ml-0.5 text-p-ex-sm-mono text-Charcoal">
+              <span className="ml-0.5 text-p-ex-sm-mono font-maison-neue-mono uppercase text-Charcoal">
                 {mockedProduct.piecesPerPack} pieces per pack
               </span>
             </span>
           </div>
 
           {/* Description */}
-          <h2 className="text-p-sm-mono font-bold uppercase text-Charcoal pb-2">
+          <h2 className="text-p-sm-mono font-maison-neue font-bold uppercase text-Charcoal pb-2">
             Description
           </h2>
-          <p className="text-p-md text-Charcoal mb-8">
+          <p className="text-p-md font-maison-neue text-Charcoal mb-8">
             {mockedProduct.description}
           </p>
 
           {/* Details & Certifications */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 border-t border-Charcoal">
+          <div className="grid grid-cols-1 md:grid-cols-2 border-t border-Charcoal">
             {/* Details */}
             <div className="border-r border-Charcoal pt-4">
-              <h3 className="text-p-sm-mono font-bold uppercase text-Charcoal mb-4">
+              <h3 className="text-p-sm-mono font-maison-neue font-bold uppercase text-Charcoal mb-4">
                 Details
               </h3>
-              <div className="flex space-x-9">
+              <div className="flex gap-x-6">
                 {mockedProduct.details.map((d, i) => (
                   <div key={i} className="flex flex-col items-center">
                     <Image
@@ -228,7 +230,7 @@ export default function ProductDetail({
                       height={48}
                       alt={d.label}
                     />
-                    <span className="text-p-sm-mono text-Charcoal mt-2">
+                    <span className="text-p-sm-mono font-maison-neue-mono text-Charcoal mt-2">
                       {d.label}
                     </span>
                   </div>
@@ -237,11 +239,11 @@ export default function ProductDetail({
             </div>
 
             {/* Certifications */}
-            <div className="pt-4">
-              <h3 className="text-p-sm-mono font-bold uppercase text-Charcoal mb-4">
+            <div className="pt-4 pl-8">
+              <h3 className="text-p-sm-mono font-maison-neue font-bold uppercase text-Charcoal mb-4">
                 Certifications
               </h3>
-              <div className="flex space-x-9">
+              <div className="flex gap-x-6">
                 {mockedProduct.certifications.map((c, i) => (
                   <div key={i} className="flex flex-col items-center">
                     <Image
@@ -250,7 +252,7 @@ export default function ProductDetail({
                       height={48}
                       alt={c.label}
                     />
-                    <span className="text-p-sm-mono text-Charcoal mt-2">
+                    <span className="text-p-sm-mono font-maison-neue-mono text-Charcoal mt-2">
                       {c.label}
                     </span>
                   </div>

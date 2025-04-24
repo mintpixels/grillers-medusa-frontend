@@ -4,6 +4,7 @@ import React from "react"
 import { Swiper, SwiperSlide } from "swiper/react"
 import "swiper/css"
 import Image from "next/image"
+import LocalizedClientLink from "@modules/common/components/localized-client-link"
 
 // Example “recipes” data
 const recipes = [
@@ -59,17 +60,17 @@ export default function HowItFitsSection() {
         <div className="flex justify-between items-center mb-20">
           <div className="hidden md:block size-[44px]" />
           <div className="md:text-center w-[calc(100%-60px)] md:w-auto">
-            <h3 className="text-h2-mobile md:text-h2 text-Charcoal mb-4 md:mb-8">
+            <h3 className="text-h2-mobile md:text-h2 font-gyst text-Charcoal mb-4 md:mb-8">
               How It Fits On Your Table
             </h3>
-            <p className="text-p-md text-Charcoal max-w-[571px] k">
+            <p className="text-p-md font-maison-neue text-Charcoal max-w-[571px] k">
               Etiam id nisi scelerisque, consequat diam eget, imperdiet urna.
               Aliquam erat volutpat. Aliquam sed nisl at sem molestie
               condimentum.
             </p>
           </div>
 
-          <a
+          <LocalizedClientLink
             href="#"
             className="h-[44px] w-[44px] border border-Charcoal rounded-full flex items-center justify-center flex-shrink-0"
           >
@@ -79,7 +80,7 @@ export default function HowItFitsSection() {
               height={12}
               alt="See more"
             />
-          </a>
+          </LocalizedClientLink>
         </div>
 
         {/* Slider */}
@@ -113,11 +114,11 @@ export default function HowItFitsSection() {
                   <div className="pt-8">
                     <h4
                       id={`recipe-${recipe.id}-title`}
-                      className="text-h4 font-bold text-Charcoal pb-3 border-b border-Charcoal mb-4"
+                      className="text-h4 font-gyst font-bold text-Charcoal pb-3 border-b border-Charcoal mb-4"
                     >
                       {recipe.title}
                     </h4>
-                    <p className="text-p-sm text-Charcoal pb-4 border-b border-Charcoal">
+                    <p className="text-p-sm font-maison-neue text-Charcoal pb-4 border-b border-Charcoal">
                       {recipe.description}
                     </p>
                   </div>

@@ -38,8 +38,6 @@ export default async function Home(props: {
 
   const strapiData: any = await strapiClient.request(GetHomePageQuery)
 
-  console.log("strapiData", strapiData?.home?.Sections)
-
   const renderSections = () => {
     if (strapiData?.home?.Sections) {
       return strapiData?.home?.Sections.map((section: any) => {
