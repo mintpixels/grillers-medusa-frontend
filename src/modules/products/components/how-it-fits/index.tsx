@@ -65,7 +65,7 @@ export default function HowItFitsSection({ recipes }: { recipes: Recipe[] }) {
                 className="pb-4 outline-none"
                 aria-labelledby={`recipe-${recipe.documentId}-title`}
               >
-                <article className="">
+                <LocalizedClientLink href={`/recipes/${recipe.Slug}`}>
                   <figure className="relative w-full aspect-square bg-gray-50 h-[552px]">
                     {recipe?.Image?.url && (
                       <Image
@@ -88,7 +88,7 @@ export default function HowItFitsSection({ recipes }: { recipes: Recipe[] }) {
                       {recipe.ShortDescription}
                     </p>
                   </div>
-                </article>
+                </LocalizedClientLink>
               </SwiperSlide>
             ))}
           </Swiper>
