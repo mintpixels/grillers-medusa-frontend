@@ -4,7 +4,7 @@ import { listProducts } from "@lib/data/products"
 import { getRegion, listRegions } from "@lib/data/regions"
 import ProductTemplate from "@modules/products/templates"
 import strapiClient from "@lib/strapi"
-import { GetCommonPdpQuery } from "@lib/data/strapi/pdp"
+import { GetCommonPdpQuery, GetProductQuery } from "@lib/data/strapi/pdp"
 
 type Props = {
   params: Promise<{ countryCode: string; handle: string }>
@@ -90,14 +90,18 @@ export default async function ProductPage(props: Props) {
     notFound()
   }
 
-  const strapiData: any = await strapiClient.request(GetCommonPdpQuery)
+  const strapiCommonPdpData: any = await strapiClient.request(GetCommonPdpQuery)
+  const strapiProductData: any = await strapiClient.request(GetProductQuery, {
+    medusa_product_id: pricedProduct.id,
+  })
 
   return (
     <ProductTemplate
       product={pricedProduct}
       region={region}
       countryCode={params.countryCode}
-      commonPdpData={strapiData?.pdp}
+      strapiCommonPdpData={strapiCommonPdpData?.pdp}
+      strapiProductData={strapiProductData?.products?.[0]}
     />
   )
 }

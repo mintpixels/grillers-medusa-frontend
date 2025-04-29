@@ -6,53 +6,17 @@ import "swiper/css"
 import Image from "next/image"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 
-// Example “recipes” data
-const recipes = [
-  {
-    id: 1,
-    title: "Recipe Title",
-    description:
-      "Etiam id nisi scelerisque, consequat diam eget, imperdiet urna.",
-    imageUrl: "https://placehold.co/365x552/png",
-  },
-  {
-    id: 2,
-    title: "Recipe Title",
-    description:
-      "Etiam id nisi scelerisque, consequat diam eget, imperdiet urna.",
-    imageUrl: "https://placehold.co/365x552/png",
-  },
-  {
-    id: 3,
-    title: "Recipe Title",
-    description:
-      "Etiam id nisi scelerisque, consequat diam eget, imperdiet urna.",
-    imageUrl: "https://placehold.co/365x552/png",
-  },
-  {
-    id: 4,
-    title: "Recipe Title",
-    description:
-      "Etiam id nisi scelerisque, consequat diam eget, imperdiet urna.",
-    imageUrl: "https://placehold.co/365x552/png",
-  },
-  {
-    id: 5,
-    title: "Recipe Title",
-    description:
-      "Etiam id nisi scelerisque, consequat diam eget, imperdiet urna.",
-    imageUrl: "https://placehold.co/365x552/png",
-  },
-  {
-    id: 6,
-    title: "Recipe Title",
-    description:
-      "Etiam id nisi scelerisque, consequat diam eget, imperdiet urna.",
-    imageUrl: "https://placehold.co/365x552/png",
-  },
-]
+type Recipe = {
+  documentId: string
+  Title: string
+  Slug: string
+  Image: {
+    url: string
+  }
+  ShortDescription: string
+}
 
-export default function HowItFitsSection() {
+export default function HowItFitsSection({ recipes }: { recipes: Recipe[] }) {
   return (
     <section className="py-16 md:py-32 bg-Scroll overflow-hidden">
       <div className="mx-auto max-w-7xl px-4.5">
@@ -97,29 +61,31 @@ export default function HowItFitsSection() {
           >
             {recipes.map((recipe) => (
               <SwiperSlide
-                key={recipe.id}
+                key={recipe.documentId}
                 className="pb-4 outline-none"
-                aria-labelledby={`recipe-${recipe.id}-title`}
+                aria-labelledby={`recipe-${recipe.documentId}-title`}
               >
                 <article className="">
                   <figure className="relative w-full aspect-square bg-gray-50 h-[552px]">
-                    <Image
-                      src={recipe.imageUrl}
-                      alt={recipe.title}
-                      fill
-                      className="object-cover"
-                    />
+                    {recipe?.Image?.url && (
+                      <Image
+                        src={recipe.Image.url}
+                        alt={recipe.Title}
+                        fill
+                        className="object-cover"
+                      />
+                    )}
                   </figure>
 
                   <div className="pt-8">
                     <h4
-                      id={`recipe-${recipe.id}-title`}
+                      id={`recipe-${recipe.documentId}-title`}
                       className="text-h4 font-gyst font-bold text-Charcoal pb-3 border-b border-Charcoal mb-4"
                     >
-                      {recipe.title}
+                      {recipe.Title}
                     </h4>
                     <p className="text-p-sm font-maison-neue text-Charcoal pb-4 border-b border-Charcoal">
-                      {recipe.description}
+                      {recipe.ShortDescription}
                     </p>
                   </div>
                 </article>

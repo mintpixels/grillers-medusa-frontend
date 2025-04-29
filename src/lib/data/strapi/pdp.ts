@@ -28,3 +28,40 @@ export const GetCommonPdpQuery = gql`
     }
   }
 `
+
+export const GetProductQuery = gql`
+  query ExampleQuery($medusa_product_id: String) {
+    products(
+      filters: { medusa_product_id: { eq: $medusa_product_id } }
+      pagination: { limit: 1 }
+    ) {
+      documentId
+      medusa_product_id
+      Title
+      FeaturedImage {
+        url
+      }
+      GalleryImages {
+        url
+      }
+      Metadata {
+        GlutenFree
+        Uncooked
+        Cooked
+        AvgPackSize
+        AvgPackWeight
+        Serves
+        PiecesPerPack
+      }
+      Recipes {
+        documentId
+        Title
+        Slug
+        ShortDescription
+        Image {
+          url
+        }
+      }
+    }
+  }
+`
