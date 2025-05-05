@@ -9,7 +9,19 @@ export const GetRecipeBySlugQuery = gql`
       Image {
         url
       }
-      Content
+      PublishedDate
+      TotalTime
+      PrepTime
+      CookTime
+      Servings
+      Ingredients {
+        ingredient
+        id
+      }
+      Steps {
+        id
+        instruction
+      }
     }
   }
 `
@@ -18,7 +30,7 @@ export const GetPaginatedRecipesQuery = gql`
   query PaginatedRecipes($page: Int!, $pageSize: Int!) {
     recipes_connection(
       pagination: { page: $page, pageSize: $pageSize }
-      sort: ["publishedAt:asc"]
+      sort: ["PublishedDate:desc"]
       status: PUBLISHED
     ) {
       nodes {
