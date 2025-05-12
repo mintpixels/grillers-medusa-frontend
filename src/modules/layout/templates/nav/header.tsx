@@ -7,7 +7,7 @@ import { MobileNavMenu } from "./menu"
 
 const Header = () => {
   return (
-    <header className="sticky top-0 inset-x-0 z-10 bg-white border-b border-[#000/25]">
+    <header className="sticky top-0 inset-x-0 z-20 bg-white border-b border-[#000/25]">
       <nav className="flex items-center justify-between w-full h-[106px] px-4 lg:px-8">
         <MobileNavMenu />
 
