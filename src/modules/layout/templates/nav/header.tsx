@@ -4,6 +4,7 @@ import LocalizedClientLink from "@modules/common/components/localized-client-lin
 import CartButton from "@modules/layout/components/cart-button"
 import Image from "next/image"
 import { MobileNavMenu } from "./menu"
+import SearchBar from "./search-bar"
 
 const Header = () => {
   return (
@@ -36,11 +37,12 @@ const Header = () => {
 
         {/* Search Bar */}
         <div className="hidden md:block w-1/2 max-w-[558px] h-[50px] mx-4">
-          <input
+          <SearchBar />
+          {/* <input
             type="search"
             placeholder="Search..."
             className="w-full h-full border rounded-[5px] border-Charcoal px-5 py-3 focus:outline-none focus:border-gray-500 text-p-md text-Pewter"
-          />
+          /> */}
         </div>
 
         <div className="flex items-center gap-8">

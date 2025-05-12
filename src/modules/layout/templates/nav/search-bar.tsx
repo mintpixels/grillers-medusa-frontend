@@ -1,0 +1,124 @@
+"use client"
+
+import { Fragment, useCallback } from "react"
+import Image from "next/image"
+import { useRouter } from "next/navigation"
+import {
+  Combobox,
+  ComboboxInput,
+  ComboboxButton,
+  ComboboxOptions,
+  ComboboxOption,
+} from "@headlessui/react"
+import {
+  InstantSearch,
+  Configure,
+  useSearchBox,
+  useHits,
+} from "react-instantsearch"
+import { searchLiteClient } from "@lib/algolia"
+import { PRODUCT_INDEX } from "@lib/algolia/indexes"
+
+type Product = {
+  objectID: string
+  Title: string
+  [key: string]: any
+}
+
+const ClearButton = ({ onClick }: { onClick: () => void }) => (
+  <ComboboxButton
+    onClick={onClick}
+    className="absolute right-3 top-1/2 -translate-y-1/2 p-1"
+  >
+    <Image
+      src="/images/icons/x-mark.svg"
+      alt="Clear search"
+      width={19}
+      height={19}
+    />
+  </ComboboxButton>
+)
+
+const SearchIcon = () => (
+  <div className="absolute right-3 top-1/2 -translate-y-1/2 p-1 pointer-events-none">
+    <Image
+      src="/images/icons/magnifier.svg"
+      alt="Search icon"
+      width={19}
+      height={19}
+    />
+  </div>
+)
+
+function InstantComboboxInput() {
+  const { query, refine, clear } = useSearchBox()
+
+  return (
+    <div className="relative">
+      <ComboboxInput
+        className="w-full h-[50px] border rounded-[5px] border-Charcoal px-5 py-3 focus:outline-none focus:border-gray-500 text-p-md text-Charcoal placeholder:text-Pewter"
+        placeholder="Search products…"
+        value={query}
+        onChange={(e) => refine(e.target.value)}
+        displayValue={(hit: Product) => hit?.Title || ""}
+      />
+      {query ? <ClearButton onClick={clear} /> : <SearchIcon />}
+    </div>
+  )
+}
+
+function InstantComboboxOptions() {
+  const { items } = useHits<Product>()
+
+  return (
+    <ComboboxOptions className="absolute z-10 mt-1 w-full bg-white border rounded shadow-lg max-h-60 overflow-auto">
+      {items.length === 0 ? (
+        <div className="px-4 py-2 text-p-md text-Pewter">No results found.</div>
+      ) : (
+        items.map((item) => (
+          <ComboboxOption key={item.objectID} value={item} as={Fragment}>
+            {({ focus }) => (
+              <div
+                className={`px-4 py-2 cursor-pointer ${
+                  focus ? "bg-gray-100 text-Charcoal" : "text-Pewter"
+                }`}
+              >
+                {item.Title}
+              </div>
+            )}
+          </ComboboxOption>
+        ))
+      )}
+    </ComboboxOptions>
+  )
+}
+
+export default function SearchBar() {
+  const router = useRouter()
+  const onSelect = useCallback(
+    (product: Product) => {
+      if (product) {
+        alert(JSON.stringify(product))
+      }
+      // router.push(`/products/${product.objectID}`)
+    },
+    [router]
+  )
+
+  return (
+    <InstantSearch
+      searchClient={searchLiteClient}
+      indexName={PRODUCT_INDEX}
+      stalledSearchDelay={200}
+    >
+      <Configure hitsPerPage={10} />
+
+      <Combobox onChange={onSelect}>
+        <div className="relative w-full max-w-md mx-auto">
+          <InstantComboboxInput />
+          <InstantComboboxOptions />
+        </div>
+      </Combobox>
+    </InstantSearch>
+  )
+}
