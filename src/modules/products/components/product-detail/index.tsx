@@ -10,7 +10,9 @@ import { isEqual } from "lodash"
 import { addToCart } from "@lib/data/cart"
 import { useIntersection } from "@lib/hooks/use-in-view"
 
-import { getProductPrice } from "@lib/util/get-product-price"
+import ProductActions from "./components/product-actions"
+import ProductPrice from "./components/product-price"
+
 type ProductTemplateProps = {
   product: HttpTypes.StoreProduct
   region: HttpTypes.StoreRegion
@@ -80,48 +82,20 @@ const ProductImages = ({
   )
 }
 
-const ProductPrice = ({
-  product,
-  variant,
-}: {
-  product: HttpTypes.StoreProduct
-  variant?: HttpTypes.StoreProductVariant
-}) => {
-  const { cheapestPrice, variantPrice } = getProductPrice({
-    product,
-    variantId: variant?.id,
-  })
-
-  const selectedPrice = variant ? variantPrice : cheapestPrice
-
-  if (!selectedPrice) {
-    return <div className="block w-32 h-9 bg-gray-100 animate-pulse" />
-  }
-
-  return (
-    <div className="border-r border-Charcoal py-6">
-      <span className="text-h3 font-gyst text-Charcoal">
-        {selectedPrice.calculated_price}
-      </span>
-      <span className="text-p-sm-mono font-maison-neue-mono uppercase text-Charcoal pl-5">
-        per lb
-      </span>
-    </div>
-  )
-}
-
 function ProductDetail({
   product,
   region,
   countryCode,
   strapiProductData,
   selectedVariant,
+  quantity,
+  increment,
+  decrement,
+  inStock,
+  isAdding,
+  isValidVariant,
+  handleAddToCart,
 }: ProductTemplateProps) {
-  const [quantity, setQuantity] = useState(1)
-
-  const increment = () => setQuantity((q) => q + 1)
-  const decrement = () => setQuantity((q) => Math.max(1, q - 1))
-
   const mockedProduct = {
     tag: "Kosher for Passover",
     title: "Kosher Organic Chicken Breasts",
@@ -203,36 +177,21 @@ function ProductDetail({
           </div>
 
           {/* Quantity + Add to Cart */}
-          <div className="flex flex-col md:flex-row items-center mb-6 gap-y-4 md:gap-y-0 md:gap-x-8">
-            {/* qty selector */}
-            <div className="flex border border-Charcoal h-full font-maison-neue text-p-lg">
-              <button
-                onClick={decrement}
-                className="px-4 text-Charcoal hover:bg-SilverPlate transition w-[50px]"
-              >
-                –
-              </button>
-              <span className="inline-flex items-center justify-center px-4 border-x border-Charcoal text-Charcoal w-[50px]">
-                {quantity}
-              </span>
-              <button
-                onClick={increment}
-                className="px-4 text-Charcoal hover:bg-SilverPlate transition w-[50px]"
-              >
-                +
-              </button>
-            </div>
-
-            {/* add to cart */}
-            <button className="flex-1 btn-primary">
-              Add to Cart – $
-              {(mockedProduct.avgPackPrice * quantity).toFixed(2)}
-            </button>
-          </div>
+          <ProductActions
+            product={product}
+            variant={selectedVariant}
+            inStock={inStock}
+            isAdding={isAdding}
+            isValidVariant={isValidVariant}
+            quantity={quantity}
+            increment={increment}
+            decrement={decrement}
+            handleAddToCart={handleAddToCart}
+          />
 
           {/* Key product facts */}
           <div className="flex flex-wrap items-center justify-between mb-6 gap-1 border-y border-Charcoal py-4">
-            {mockedProduct.inStock && (
+            {inStock && (
               <span className="inline-flex items-center">
                 <Image
                   src="/images/icons/icon-circle-check.svg"
@@ -370,6 +329,9 @@ export default function ProductDetailContainer({
   countryCode: string
   strapiProductData: any
 }) {
+  const [quantity, setQuantity] = useState(1)
+  const increment = () => setQuantity((q) => q + 1)
+  const decrement = () => setQuantity((q) => Math.max(1, q - 1))
   const [options, setOptions] = useState<Record<string, string | undefined>>({})
   const [isAdding, setIsAdding] = useState(false)
 
@@ -444,7 +406,7 @@ export default function ProductDetailContainer({
 
     await addToCart({
       variantId: selectedVariant.id,
-      quantity: 1,
+      quantity,
       countryCode,
     })
 
@@ -458,6 +420,13 @@ export default function ProductDetailContainer({
       countryCode={countryCode}
       strapiProductData={strapiProductData}
       selectedVariant={selectedVariant}
+      inStock={inStock}
+      isAdding={isAdding}
+      isValidVariant={isValidVariant}
+      quantity={quantity}
+      increment={increment}
+      decrement={decrement}
+      handleAddToCart={handleAddToCart}
     />
   )
 }
