@@ -2,6 +2,18 @@ import { getProductPrice } from "@lib/util/get-product-price"
 import { HttpTypes } from "@medusajs/types"
 import Button from "@modules/common/components/button"
 
+type ProductActionsProps = {
+  product: HttpTypes.StoreProduct
+  variant?: HttpTypes.StoreProductVariant
+  inStock?: boolean
+  isAdding?: boolean
+  isValidVariant?: boolean
+  quantity: number
+  increment: () => void
+  decrement: () => void
+  handleAddToCart: () => void
+}
+
 export default function ProductActions({
   product,
   variant,
@@ -12,10 +24,7 @@ export default function ProductActions({
   isAdding,
   isValidVariant,
   handleAddToCart,
-}: {
-  product: HttpTypes.StoreProduct
-  variant?: HttpTypes.StoreProductVariant
-}) {
+}: ProductActionsProps) {
   const { cheapestPrice, variantPrice } = getProductPrice({
     product,
     variantId: variant?.id,
