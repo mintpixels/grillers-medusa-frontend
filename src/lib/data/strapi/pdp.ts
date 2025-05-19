@@ -32,7 +32,7 @@ export const GetCommonPdpQuery = gql`
 export const GetProductQuery = gql`
   query ExampleQuery($medusa_product_id: String) {
     products(
-      filters: { medusa_product_id: { eq: $medusa_product_id } }
+      filters: { MedusaProduct: { ProductId: { eq: $medusa_product_id } } }
       pagination: { limit: 1 }
     ) {
       documentId
@@ -60,6 +60,20 @@ export const GetProductQuery = gql`
         ShortDescription
         Image {
           url
+        }
+      }
+      MedusaProduct {
+        ProductId
+        Title
+        Description
+        Handle
+        Variants {
+          VariantId
+          Title
+          Price {
+            OriginalPriceNumber
+            CalculatedPriceNumber
+          }
         }
       }
     }

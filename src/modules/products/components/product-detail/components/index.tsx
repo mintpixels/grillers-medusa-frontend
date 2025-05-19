@@ -8,11 +8,13 @@ import { HttpTypes } from "@medusajs/types"
 import ProductActions from "./product-actions"
 import ProductPrice from "./product-price"
 
+import type { StrapiProductData } from "types/strapi"
+
 type ProductTemplateProps = {
   product: HttpTypes.StoreProduct
   region: HttpTypes.StoreRegion
   countryCode: string
-  strapiProductData: any
+  strapiProductData: StrapiProductData
   selectedVariant?: HttpTypes.StoreProductVariant
   inStock?: boolean
   isAdding?: boolean
@@ -143,7 +145,9 @@ export default function ProductDetail({
             </span>
           </div>
           <div className="flex items-center justify-between mb-7">
-            <h1 className="text-h3 font-gyst text-Charcoal">{product.title}</h1>
+            <h1 className="text-h3 font-gyst text-Charcoal">
+              {strapiProductData?.MedusaProduct?.Title}
+            </h1>
             <Image
               src="/images/pages/pdp/CertifiedKosher.png"
               width={90}
@@ -232,13 +236,13 @@ export default function ProductDetail({
                 </span>
               </span>
             )}
-            {strapiProductData.Metadata.PiecesPerPack && (
+            {strapiProductData?.Metadata?.PiecesPerPack && (
               <span className="inline-flex items-center">
                 <Image
                   src="/images/icons/icon-circle-check.svg"
                   width={32}
                   height={32}
-                  alt={strapiProductData.Metadata.PiecesPerPack}
+                  alt={strapiProductData.Metadata.PiecesPerPack.toString()}
                 />
                 <span className="ml-0.5 text-p-ex-sm-mono font-maison-neue-mono uppercase text-Charcoal">
                   {strapiProductData.Metadata.PiecesPerPack} pieces per pack
@@ -248,13 +252,13 @@ export default function ProductDetail({
           </div>
 
           {/* Description */}
-          {product?.description && (
+          {strapiProductData?.MedusaProduct?.Description && (
             <>
               <h2 className="text-p-sm-mono font-maison-neue font-bold uppercase text-Charcoal pb-2">
                 Description
               </h2>
               <p className="text-p-md font-maison-neue text-Charcoal mb-8">
-                {product.description}
+                {strapiProductData.MedusaProduct.Description}
               </p>{" "}
             </>
           )}
