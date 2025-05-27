@@ -1,5 +1,5 @@
 import React from "react"
-
+import classNames from "classnames"
 import UnderlineLink from "@modules/common/components/interactive-link"
 
 import AccountNav from "../components/account-nav"
@@ -17,7 +17,11 @@ const AccountLayout: React.FC<AccountLayoutProps> = ({
   return (
     <div className="flex-1 small:py-12" data-testid="account-page">
       <div className="flex-1 content-container h-full max-w-7xl mx-auto bg-white flex flex-col">
-        <div className="grid grid-cols-1  small:grid-cols-[240px_1fr] py-12">
+        <div
+          className={classNames("grid grid-cols-1 py-12", {
+            "small:grid-cols-[240px_1fr]": customer,
+          })}
+        >
           <div>{customer && <AccountNav customer={customer} />}</div>
           <div className="flex-1">{children}</div>
         </div>
