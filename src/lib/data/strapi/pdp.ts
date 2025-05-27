@@ -30,7 +30,7 @@ export const GetCommonPdpQuery = gql`
 `
 
 export const GetProductQuery = gql`
-  query ExampleQuery($medusa_product_id: String) {
+  query GetProductQuery($medusa_product_id: String) {
     products(
       filters: { MedusaProduct: { ProductId: { eq: $medusa_product_id } } }
       pagination: { limit: 1 }
@@ -75,6 +75,19 @@ export const GetProductQuery = gql`
             CalculatedPriceNumber
           }
         }
+      }
+    }
+  }
+`
+
+export const GetProductFeaturedImageQuery = gql`
+  query GetProductFeaturedImageQuery($medusa_product_id: String) {
+    products(
+      filters: { MedusaProduct: { ProductId: { eq: $medusa_product_id } } }
+      pagination: { limit: 1 }
+    ) {
+      FeaturedImage {
+        url
       }
     }
   }

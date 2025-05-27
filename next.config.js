@@ -7,6 +7,8 @@ checkEnvVariables()
  */
 const nextConfig = {
   env: {
+    STRAPI_ENDPOINT: process.env.STRAPI_ENDPOINT,
+    STRAPI_API_TOKEN: process.env.STRAPI_API_TOKEN,
     ALGOLIA_APPLICATION_ID: process.env.ALGOLIA_APPLICATION_ID,
     ALGOLIA_SEARCH_API_KEY: process.env.ALGOLIA_SEARCH_API_KEY,
   },
@@ -23,6 +25,7 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   images: {
+    dangerouslyAllowSVG: true,
     qualities: [100],
     remotePatterns: [
       {
