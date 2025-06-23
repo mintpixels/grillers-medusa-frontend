@@ -1,7 +1,7 @@
 "use client"
 
 import { Badge, Heading, Input, Label, Text, Tooltip } from "@medusajs/ui"
-import React, { useActionState } from "react";
+import React, { useActionState } from "react"
 
 import { applyPromotions, submitPromotionForm } from "@lib/data/cart"
 import { convertToLocale } from "@lib/util/money"
@@ -59,10 +59,10 @@ const DiscountCode: React.FC<DiscountCodeProps> = ({ cart }) => {
             <button
               onClick={() => setIsOpen(!isOpen)}
               type="button"
-              className="txt-medium text-ui-fg-interactive hover:text-ui-fg-interactive-hover"
+              className="txt-medium text-ui-fg-interactive hover:text-ui-fg-interactive-hover underline"
               data-testid="add-discount-button"
             >
-              Add Promotion Code(s)
+              Add Promotion Code
             </button>
 
             {/* <Tooltip content="You can add multiple promotion codes">
