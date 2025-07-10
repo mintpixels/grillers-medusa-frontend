@@ -4,6 +4,7 @@ import { RadioGroup, Radio } from "@headlessui/react"
 import { setShippingMethod } from "@lib/data/cart"
 import { calculatePriceForShippingOption } from "@lib/data/fulfillment"
 import { convertToLocale } from "@lib/util/money"
+
 import { CheckCircleSolid, Loader } from "@medusajs/icons"
 import { HttpTypes } from "@medusajs/types"
 import { Button, Heading, Text, clx } from "@medusajs/ui"
@@ -12,6 +13,8 @@ import Divider from "@modules/common/components/divider"
 import MedusaRadio from "@modules/common/components/radio"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useState } from "react"
+
+import ArriveFoodCalendar from "../arrival-calendar"
 
 const PICKUP_OPTION_ON = "__PICKUP_ON"
 const PICKUP_OPTION_OFF = "__PICKUP_OFF"
@@ -222,9 +225,7 @@ const Shipping: React.FC<ShippingProps> = ({
                         <MedusaRadio
                           checked={showPickupOptions === PICKUP_OPTION_ON}
                         />
-                        <span className="text-base-regular">
-                          Pick up your order
-                        </span>
+                        <span className="text-base-regular">Local Pick Up</span>
                       </div>
                       <span className="justify-self-end text-ui-fg-base">
                         -
@@ -350,6 +351,37 @@ const Shipping: React.FC<ShippingProps> = ({
                       )
                     })}
                   </RadioGroup>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {showPickupOptions === PICKUP_OPTION_OFF && (
+            <div className="grid">
+              <div className="flex flex-col">
+                <span className="font-medium txt-medium text-ui-fg-base">
+                  Shipment
+                </span>
+                <span className="mb-4 text-ui-fg-muted txt-medium">
+                  When do you want the food to arrive?
+                </span>
+              </div>
+              <div data-testid="shipment-options-container">
+                <div className="pb-8 md:pt-0 pt-2">
+                  <div className="flex items-start gap-x-1 w-full">
+                    <div className="w-2/5 ">
+                      <ArriveFoodCalendar />
+                    </div>
+                    <div className="w-3/5 flex flex-col gap-y-2 pt-8 pl-12">
+                      <span className="font-normal font-sans txt-medium text-gray-400">
+                        Not Available
+                      </span>
+                      <span className="font-normal font-sans txt-medium text-ui-fg-subtle pt-10">
+                        *This is estimate and specific days are not guarenteed.
+                        We do not control the world’s logistic systems.
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
