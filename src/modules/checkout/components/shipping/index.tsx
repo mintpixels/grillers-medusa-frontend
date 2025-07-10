@@ -356,7 +356,7 @@ const Shipping: React.FC<ShippingProps> = ({
             </div>
           )}
 
-          {showPickupOptions === PICKUP_OPTION_OFF && (
+          {shippingMethodId && showPickupOptions === PICKUP_OPTION_OFF && (
             <div className="grid">
               <div className="flex flex-col">
                 <span className="font-medium txt-medium text-ui-fg-base">
