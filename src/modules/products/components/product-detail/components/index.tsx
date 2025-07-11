@@ -126,7 +126,7 @@ export default function ProductDetail({
   const images = [
     strapiProductData.FeaturedImage,
     ...strapiProductData.GalleryImages,
-  ].filter((image) => image.url)
+  ].filter((image) => image?.url)
 
   return (
     <section className="py-8 md:pt-8 md:pb-16 bg-Scroll relative">

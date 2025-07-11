@@ -97,10 +97,7 @@ export default function SearchBar() {
   const router = useRouter()
   const onSelect = useCallback(
     (product: Product) => {
-      if (product) {
-        alert(JSON.stringify(product))
-      }
-      // router.push(`/products/${product.objectID}`)
+      router.push(`/products/${product.MedusaProduct.Handle}`)
     },
     [router]
   )
