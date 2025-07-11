@@ -13,6 +13,7 @@ import LocalizedClientLink from "@modules/common/components/localized-client-lin
 import Spinner from "@modules/common/icons/spinner"
 import Thumbnail from "@modules/products/components/thumbnail"
 import { useState } from "react"
+import { useProductFeaturedImageSrc } from "@lib/hooks/use-product-featured-image"
 
 type ItemProps = {
   item: HttpTypes.StoreCartLineItem
@@ -44,6 +45,11 @@ const Item = ({ item, type = "full", currencyCode }: ItemProps) => {
   const maxQtyFromInventory = 10
   const maxQuantity = item.variant?.manage_inventory ? 10 : maxQtyFromInventory
 
+  const imgSrc = useProductFeaturedImageSrc(
+    item?.product?.id,
+    "https://placehold.co/96x96"
+  )
+
   return (
     <Table.Row className="w-full" data-testid="product-row">
       <Table.Cell className="!pl-0 p-4 w-24">
@@ -55,7 +61,7 @@ const Item = ({ item, type = "full", currencyCode }: ItemProps) => {
           })}
         >
           <Thumbnail
-            thumbnail={item.thumbnail}
+            thumbnail={imgSrc}
             images={item.variant?.product?.images}
             size="square"
           />

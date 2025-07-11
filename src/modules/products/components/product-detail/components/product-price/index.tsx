@@ -20,7 +20,7 @@ export default function ProductPrice({
   }
 
   return (
-    <div className="border-r border-Charcoal py-6">
+    <div className="border-b sm:border-b-0 sm:border-r border-Charcoal py-6">
       <span className="text-h3 font-gyst text-Charcoal">
         {selectedPrice.calculated_price}
       </span>

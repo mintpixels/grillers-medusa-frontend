@@ -35,7 +35,7 @@ const ProductImages = ({
   const swiperRef = useRef<SwiperType | null>(null)
 
   return (
-    <div className="absolute w-[50vw] left-0 h-[calc(100%-98px)]">
+    <div className="relative md:absolute md:w-[50vw] md:left-0 h-96 md:h-[calc(100%-98px)]">
       <Swiper
         spaceBetween={24}
         slidesPerView={1}
@@ -137,7 +137,7 @@ export default function ProductDetail({
         </div>
 
         {/* Right: product info */}
-        <div className="flex flex-col max-w-[510px] ml-auto pt-4">
+        <div className="flex flex-col md:max-w-[510px] ml-auto pt-4">
           {/* Tag + Title + Certification icon */}
           <div className="mb-6">
             <span className="bg-Black text-White font-maison-neue-mono leading-none text-p-sm px-4 pt-2 pb-1.5 rounded-full uppercase tracking-wide">
@@ -157,12 +157,12 @@ export default function ProductDetail({
           </div>
 
           {/* Price & pack info */}
-          <div className="grid grid-cols-1 md:grid-cols-2 border-t border-b border-Charcoal mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 border-t border-b border-Charcoal mb-6">
             {/* price per lb */}
             <ProductPrice product={product} variant={selectedVariant} />
 
             {/* avg pack info */}
-            <div className="flex flex-col items-end md:pl-8 mt-4 md:mt-0 py-6">
+            <div className="flex flex-col sm:items-end md:pl-8 md:mt-0 py-6">
               {strapiProductData?.Metadata?.AvgPackSize && (
                 <span className="text-p-sm-mono font-maison-neue-mono uppercase text-Charcoal">
                   avg pack size:
@@ -264,9 +264,9 @@ export default function ProductDetail({
           )}
 
           {/* Details & Certifications */}
-          <div className="grid grid-cols-1 md:grid-cols-2 border-t border-Charcoal">
+          <div className="grid grid-cols-1 sm:grid-cols-2 border-t border-Charcoal">
             {/* Details */}
-            <div className="border-r border-Charcoal pt-4">
+            <div className="sm:border-r border-Charcoal pt-4 pb-4 sm:pb-0">
               <h3 className="text-p-sm-mono font-maison-neue font-bold uppercase text-Charcoal mb-4">
                 Details
               </h3>
@@ -288,7 +288,7 @@ export default function ProductDetail({
             </div>
 
             {/* Certifications */}
-            <div className="pt-4 pl-8">
+            <div className="pt-4 sm:pl-8 border-t sm:border-t-0 border-Charcoal">
               <h3 className="text-p-sm-mono font-maison-neue font-bold uppercase text-Charcoal mb-4">
                 Certifications
               </h3>
