@@ -3,14 +3,15 @@ import { Suspense } from "react"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import CartButton from "@modules/layout/components/cart-button"
 import Image from "next/image"
+import type { HeaderNavLink } from "@lib/data/strapi/header"
 import { MobileNavMenu } from "./menu"
 import SearchBar from "./search-bar"
 
-const Header = () => {
+const Header = ({ navLinks }: { navLinks: HeaderNavLink[] }) => {
   return (
     <header className="sticky top-0 inset-x-0 z-20 bg-white border-b border-[#000/25]">
       <nav className="flex items-center justify-between w-full h-[106px] px-4 lg:px-8">
-        <MobileNavMenu />
+        <MobileNavMenu navLinks={navLinks} />
 
         <div className="flex items-center gap-4">
           <LocalizedClientLink href="/" data-testid="nav-store-link">

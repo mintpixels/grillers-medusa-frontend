@@ -12,34 +12,10 @@ import {
 import classNames from "classnames"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import Image from "next/image"
-
-const menuItems = [
-  {
-    label: "Beef",
-    href: "/beef",
-    links: [
-      { label: "Beef1", href: "/beef" },
-      { label: "Beef2", href: "/beef" },
-      { label: "Beef3", href: "/beef" },
-    ],
-  },
-  {
-    label: "Poultry",
-    href: "/poultry",
-    links: [
-      { label: "Poultry1", href: "/poultry" },
-      { label: "Poultry2", href: "/poultry" },
-      { label: "Poultry3", href: "/poultry" },
-    ],
-  },
-  { label: "Prepared Food", href: "/prepared-food" },
-  { label: "Bakery & Grocery", href: "/bakery-grocery" },
-  { label: "Other Meats", href: "/other-meats" },
-  { label: "Best Sellers", href: "/best-sellers" },
-]
+import type { HeaderNavLink } from "@lib/data/strapi/header"
 
 // Mobile version
-export const MobileNavMenu = () => {
+export const MobileNavMenu = ({ navLinks }: { navLinks: HeaderNavLink[] }) => {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null)
 
@@ -104,16 +80,16 @@ export const MobileNavMenu = () => {
             </button>
           </div>
           <nav className="flex flex-col space-y-2">
-            {menuItems.map((item, idx) => (
-              <div key={item.href}>
-                {item?.links ? (
+            {navLinks?.map((item, idx) => (
+              <div key={item.Link.id}>
+                {item?.Children?.length ? (
                   <button
                     onClick={() =>
                       setExpandedIndex(expandedIndex === idx ? null : idx)
                     }
                     className="px-4 py-2 w-full flex items-center justify-between text-p-sm-mono font-maison-neue-mono uppercase focus:outline-none"
                   >
-                    <span>{item.label}</span>
+                    <span>{item.Link.Text}</span>
                     <Image
                       className={classNames(
                         "ml-1 transform transition-transform duration-200",
@@ -129,24 +105,24 @@ export const MobileNavMenu = () => {
                   </button>
                 ) : (
                   <LocalizedClientLink
-                    href={item.href}
+                    href={item.Link.Url}
                     className="block px-4 py-2 text-p-sm-mono font-maison-neue-mono uppercase hover:bg-gray-100 rounded"
                   >
-                    {item.label}
+                    {item.Link.Text}
                   </LocalizedClientLink>
                 )}
-                {item?.links && (
+                {item?.Children?.length && (
                   <>
                     <div className="ml-4 mt-1">
                       {expandedIndex === idx && (
                         <div className="mt-1 flex flex-col space-y-1">
-                          {item.links.map((sub) => (
+                          {item.Children.map((sub) => (
                             <LocalizedClientLink
-                              key={sub.href + sub.label}
-                              href={sub.href}
+                              key={sub.id}
+                              href={sub.Url}
                               className="block px-4 py-2 text-p-sm-mono font-maison-neue-mono uppercase hover:bg-gray-100 rounded"
                             >
-                              {sub.label}
+                              {sub.Text}
                             </LocalizedClientLink>
                           ))}
                         </div>
@@ -164,21 +140,21 @@ export const MobileNavMenu = () => {
 }
 
 // Desktop version
-const DesktopNavMenu = () => (
+const DesktopNavMenu = ({ navLinks }: { navLinks: HeaderNavLink[] }) => (
   <div className="hidden md:block sticky top-[107px] inset-x-0 z-10">
     <nav className="bg-white border-b border-[#000/25]">
       <div className="flex items-center justify-center space-x-8 py-2 h-12">
-        {menuItems.map((item) =>
-          item.links ? (
+        {navLinks.map((item) =>
+          item?.Children?.length > 0 ? (
             <Menu
               as="div"
               className="relative inline-flex text-left h-[20px]"
-              key={item.href}
+              key={item.Link.id}
             >
               <MenuButton className="inline-flex items-center text-p-sm-mono font-maison-neue-mono uppercase text-black hover:opacity-70 focus:outline-none gap-0.5">
                 {({ active }) => (
                   <>
-                    {item.label}
+                    {item.Link.Text}
                     <Image
                       className={classNames(
                         "ml-1 transform transition-transform duration-200",
@@ -204,16 +180,16 @@ const DesktopNavMenu = () => (
                 leaveTo="transform opacity-0 scale-95"
               >
                 <MenuItems className="absolute mt-[34px] w-48 bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
-                  {item.links.map((sub) => (
-                    <MenuItem key={sub.href + sub.label}>
+                  {item.Children.map((sub) => (
+                    <MenuItem key={sub.id}>
                       {({ active }) => (
                         <LocalizedClientLink
-                          href={sub.href}
+                          href={sub.Url}
                           className={`block px-4 py-2 text-p-sm-mono font-maison-neue-mono uppercase ${
                             active ? "bg-gray-100" : ""
                           }`}
                         >
-                          {sub.label}
+                          {sub.Text}
                         </LocalizedClientLink>
                       )}
                     </MenuItem>
@@ -223,11 +199,11 @@ const DesktopNavMenu = () => (
             </Menu>
           ) : (
             <LocalizedClientLink
-              key={item.href}
-              href={item.href}
+              key={item.Link.id}
+              href={item.Link.Url}
               className="text-p-sm-mono font-maison-neue-mono uppercase text-black hover:opacity-70 h-[20px]"
             >
-              {item.label}
+              {item.Link.Text}
             </LocalizedClientLink>
           )
         )}
@@ -236,9 +212,9 @@ const DesktopNavMenu = () => (
   </div>
 )
 
-const NavMenu = () => (
+const NavMenu = ({ navLinks }: { navLinks: HeaderNavLink[] }) => (
   <>
-    <DesktopNavMenu />
+    <DesktopNavMenu navLinks={navLinks} />
   </>
 )
 
