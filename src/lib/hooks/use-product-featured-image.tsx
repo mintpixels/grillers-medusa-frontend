@@ -6,6 +6,10 @@ export function useProductFeaturedImageSrc(
   medusaProductId?: string,
   placeholderUrl: string = "https://placehold.co/600x400"
 ): string {
+  if (!medusaProductId) {
+    return placeholderUrl
+  }
+
   const shouldFetch = Boolean(medusaProductId)
 
   const { data: featuredUrl } = useSWR<string>(

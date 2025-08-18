@@ -17,6 +17,22 @@ import Thumbnail from "@modules/products/components/thumbnail"
 import { usePathname } from "next/navigation"
 import { Fragment, useEffect, useRef, useState } from "react"
 import Image from "next/image"
+import { useProductFeaturedImageSrc } from "@lib/hooks/use-product-featured-image"
+
+const CartItemImage = ({ item }: { item: HttpTypes.StoreCartLineItem }) => {
+  const imgSrc = useProductFeaturedImageSrc(
+    item?.product?.id,
+    "https://placehold.co/96x96"
+  )
+
+  return (
+    <Thumbnail
+      thumbnail={imgSrc}
+      images={item.variant?.product?.images}
+      size="square"
+    />
+  )
+}
 
 const CartDropdown = ({
   cart: cartState,
@@ -136,11 +152,7 @@ const CartDropdown = ({
                           href={`/products/${item.product_handle}`}
                           className="w-24"
                         >
-                          <Thumbnail
-                            thumbnail={item.thumbnail}
-                            images={item.variant?.product?.images}
-                            size="square"
-                          />
+                          <CartItemImage item={item} />
                         </LocalizedClientLink>
                         <div className="flex flex-col justify-between flex-1">
                           <div className="flex flex-col flex-1">

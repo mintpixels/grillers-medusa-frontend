@@ -214,6 +214,26 @@ export async function deleteLineItem(lineId: string) {
     .catch(medusaError)
 }
 
+export async function setRequestedDeliveryDate({
+  cartId,
+  date,
+}: {
+  cartId: string
+  date: string
+}) {
+  const headers = {
+    ...(await getAuthHeaders()),
+  }
+
+  return sdk.store.cart
+    .update(cartId, { metadata: { requestedDeliveryDate: date } }, {}, headers)
+    .then(async () => {
+      const cartCacheTag = await getCacheTag("carts")
+      revalidateTag(cartCacheTag)
+    })
+    .catch(medusaError)
+}
+
 export async function setShippingMethod({
   cartId,
   shippingMethodId,
