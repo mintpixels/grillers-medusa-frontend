@@ -1,11 +1,23 @@
 import { Metadata } from "next"
 import { notFound } from "next/navigation"
+import strapiClient from "@lib/strapi"
 
-import { getCollectionByHandle, listCollections } from "@lib/data/collections"
+import {
+  AllProductCollectionsQuery,
+  GetProductCollectionQuery,
+} from "@lib/data/strapi/collections"
 import { listRegions } from "@lib/data/regions"
-import { StoreCollection, StoreRegion } from "@medusajs/types"
-import CollectionTemplate from "@modules/collections/templates"
+import { StoreRegion } from "@medusajs/types"
 import { SortOptions } from "@modules/store/components/refinement-list/sort-products"
+import CollectionTemplate from "@modules/collections/templates"
+
+interface AllProductCollectionsResponse {
+  productCollections: { Slug: string }[]
+}
+
+interface GetProductCollectionResponse {
+  productCollections: { Name: string }[]
+}
 
 type Props = {
   params: Promise<{ handle: string; countryCode: string }>
@@ -15,14 +27,18 @@ type Props = {
   }>
 }
 
-export const PRODUCT_LIMIT = 12
+type StaticParams = {
+  countryCode: string
+  handle: string
+}
 
-export async function generateStaticParams() {
-  const { collections } = await listCollections({
-    fields: "*products",
-  })
+export async function generateStaticParams(): Promise<StaticParams[]> {
+  const { productCollections } =
+    await strapiClient.request<AllProductCollectionsResponse>(
+      AllProductCollectionsQuery
+    )
 
-  if (!collections) {
+  if (!productCollections) {
     return []
   }
 
@@ -34,13 +50,13 @@ export async function generateStaticParams() {
         .filter(Boolean) as string[]
   )
 
-  const collectionHandles = collections.map(
-    (collection: StoreCollection) => collection.handle
+  const productCollectionsHandles = productCollections.map(
+    (collection) => collection.Slug
   )
 
   const staticParams = countryCodes
     ?.map((countryCode: string) =>
-      collectionHandles.map((handle: string | undefined) => ({
+      productCollectionsHandles.map((handle: string) => ({
         countryCode,
         handle,
       }))
@@ -52,39 +68,42 @@ export async function generateStaticParams() {
 
 export async function generateMetadata(props: Props): Promise<Metadata> {
   const params = await props.params
-  const collection = await getCollectionByHandle(params.handle)
+  const { handle } = params
 
-  if (!collection) {
+  if (!handle) {
     notFound()
   }
 
   const metadata = {
-    title: `${collection.title} | Medusa Store`,
-    description: `${collection.title} collection`,
+    title: `${handle} | Medusa Store`,
+    description: `${handle} collection`,
   } as Metadata
 
   return metadata
 }
 
 export default async function CollectionPage(props: Props) {
-  const searchParams = await props.searchParams
   const params = await props.params
-  const { sortBy, page } = searchParams
+  const { countryCode, handle } = params
 
-  const collection = await getCollectionByHandle(params.handle).then(
-    (collection: StoreCollection) => collection
+  if (!handle || handle.length === 0) {
+    return notFound()
+  }
+
+  const res = await strapiClient.request<GetProductCollectionResponse>(
+    GetProductCollectionQuery
   )
+  const collection = res?.productCollections?.[0]
 
   if (!collection) {
-    notFound()
+    return notFound()
   }
 
   return (
     <CollectionTemplate
-      collection={collection}
-      page={page}
-      sortBy={sortBy}
-      countryCode={params.countryCode}
+      title={collection.Name}
+      slug={handle}
+      countryCode={countryCode}
     />
   )
 }

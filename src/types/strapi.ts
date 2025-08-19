@@ -29,10 +29,13 @@ export interface MedusaProduct {
 }
 
 export interface StrapiProductData {
+  objectID: string
   Title: string
+  Categorization: any
+  Metadata: Metadata
+  id: number
   FeaturedImage: StrapiImage
   GalleryImages: StrapiImage[]
-  Metadata: Metadata
   Certifications?: { icon: string; label: string }[]
   MedusaProduct: MedusaProduct
 }

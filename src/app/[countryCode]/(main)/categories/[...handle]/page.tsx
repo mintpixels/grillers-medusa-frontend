@@ -15,10 +15,7 @@ interface AllCategoryTreeResponse {
 }
 
 interface CategoryPageParams {
-  params: {
-    countryCode: string
-    handle: string[]
-  }
+  params: StaticCategoryParam
 }
 
 type StaticCategoryParam = {
