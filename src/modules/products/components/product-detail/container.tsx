@@ -31,6 +31,8 @@ export default function ProductDetailContainer({
     quantity,
     increment,
     decrement,
+    options,
+    setOptionValue,
     selectedVariant,
     isValidVariant,
     inStock,
@@ -48,6 +50,8 @@ export default function ProductDetailContainer({
       countryCode={countryCode}
       strapiProductData={strapiProductData}
       selectedVariant={selectedVariant}
+      options={options}
+      setOptionValue={setOptionValue}
       inStock={inStock}
       isAdding={isAdding}
       isValidVariant={isValidVariant}

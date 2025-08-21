@@ -7,6 +7,7 @@ import { HttpTypes } from "@medusajs/types"
 
 import ProductActions from "./product-actions"
 import ProductPrice from "./product-price"
+import ProductVariantPicker from "./product-variant-picker"
 
 import type { StrapiProductData } from "types/strapi"
 
@@ -16,6 +17,8 @@ type ProductTemplateProps = {
   countryCode: string
   strapiProductData: StrapiProductData
   selectedVariant?: HttpTypes.StoreProductVariant
+  options: Record<string, string>
+  setOptionValue: (optionId: string, value: string) => void
   inStock?: boolean
   isAdding?: boolean
   isValidVariant?: boolean
@@ -92,6 +95,8 @@ export default function ProductDetail({
   countryCode,
   strapiProductData,
   selectedVariant,
+  options,
+  setOptionValue,
   quantity,
   increment,
   decrement,
@@ -181,6 +186,12 @@ export default function ProductDetail({
               )}
             </div>
           </div>
+
+          <ProductVariantPicker
+            product={product}
+            options={options}
+            setOptionValue={setOptionValue}
+          />
 
           {/* Quantity + Add to Cart */}
           <ProductActions

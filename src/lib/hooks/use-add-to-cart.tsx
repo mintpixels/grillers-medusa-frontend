@@ -28,10 +28,19 @@ export function useAddToCart(
   const [options, setOptions] = useState<Record<string, string>>({})
   const [isAdding, setIsAdding] = useState(false)
 
-  // If there is only 1 variant, preselect the options
+  // If there are variants, preselect the first available one
   useEffect(() => {
-    if (product.variants?.length === 1) {
-      const variantOptions = optionsAsKeymap(product.variants[0].options)
+    if (product.variants?.length) {
+      // pick the first variant that is purchasable
+      const first =
+        product.variants.find(
+          (v) =>
+            !v.manage_inventory ||
+            v.allow_backorder ||
+            (v.inventory_quantity || 0) > 0
+        ) ?? product.variants[0]
+
+      const variantOptions = optionsAsKeymap(first.options)
       setOptions(variantOptions ?? {})
     }
   }, [product.variants])
