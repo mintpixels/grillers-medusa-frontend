@@ -129,8 +129,8 @@ export default function ProductDetail({
   }
 
   const images = [
-    strapiProductData.FeaturedImage,
-    ...strapiProductData.GalleryImages,
+    strapiProductData?.FeaturedImage,
+    ...strapiProductData?.GalleryImages,
   ].filter((image) => image?.url)
 
   return (
