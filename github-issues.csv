@@ -1,0 +1,1029 @@
+title,body,labels
+"[Home] Update home page metadata to Grillers Pride branding","## Description
+Current metadata shows ""Medusa Next.js Starter Template"" instead of Grillers Pride branding.
+
+## Location
+`src/app/[countryCode]/(main)/page.tsx:16-20`
+
+## Current State
+```typescript
+export const metadata: Metadata = {
+  title: ""Medusa Next.js Starter Template"",
+  description: ""A performant frontend ecommerce starter template with Next.js 15 and Medusa."",
+}
+```
+
+## Expected State
+Update to Grillers Pride branding with appropriate title and description.
+
+## Acceptance Criteria
+- [ ] Title reflects Grillers Pride brand
+- [ ] Description is customer-facing and SEO-optimized","bug,high-priority,home-page"
+"[Home] Add hero CTA button component","## Description
+Hero section only displays title. Add configurable CTA button from Strapi for primary conversion action.
+
+## Location
+`src/modules/home/components/hero/index.tsx`
+
+## Requirements
+- CTA button text configurable from Strapi
+- CTA button link configurable from Strapi
+- Button styling consistent with brand guidelines
+
+## Acceptance Criteria
+- [ ] CTA button renders below hero title
+- [ ] Button text and link come from Strapi CMS
+- [ ] Button is responsive on mobile","feature,medium-priority,home-page"
+"[Home] Add newsletter signup section to home page","## Description
+Per SOW email marketing requirements, add newsletter subscription component. No newsletter functionality exists currently.
+
+## SOW Reference
+> Email Marketing: Segmented campaigns and automation
+
+## Requirements
+- Email input field with validation
+- Submit button
+- Success/error state handling
+- Integration with email marketing platform (Klaviyo, Mailchimp, etc.)
+
+## Acceptance Criteria
+- [ ] Newsletter signup form displays on home page
+- [ ] Email validation works correctly
+- [ ] Form submits to email marketing platform
+- [ ] Success message displays after submission","feature,high-priority,home-page"
+"[Home] Implement lazy loading for home page sections","## Description
+Add intersection observer-based lazy loading for below-fold sections (testimonials, blog, follow-us) to improve initial page load performance.
+
+## Sections to Lazy Load
+- Testimonial Section
+- Blog Explore Section
+- Follow Us Section
+
+## Acceptance Criteria
+- [ ] Below-fold sections load when scrolled into view
+- [ ] Loading skeletons display while content loads
+- [ ] Core Web Vitals (LCP) improved","enhancement,medium-priority,home-page,performance"
+"[Home] Add JSON-LD structured data for Organization","## Description
+No structured data exists. Add Organization schema markup for rich search results.
+
+## SOW Reference
+> SEO Strategy: On-page and technical SEO
+
+## Requirements
+Add JSON-LD script with:
+- Organization name
+- Logo
+- Contact information
+- Social media profiles
+- Address
+
+## Acceptance Criteria
+- [ ] Organization schema renders in page head
+- [ ] Schema validates in Google Rich Results Test
+- [ ] Includes all required Organization properties","seo,high-priority,home-page"
+"[Home] Add accessibility improvements to hero section","## Description
+Hero background image needs proper `role=""img""` and accessible text alternative. Currently uses inline `backgroundImage` style without accessibility attributes.
+
+## Location
+`src/modules/home/components/hero/index.tsx`
+
+## SOW Reference
+> ADA Compliance with WCAG 2.1 Level AA Standards
+
+## Acceptance Criteria
+- [ ] Hero has appropriate ARIA attributes
+- [ ] Screen readers can understand the hero content
+- [ ] Color contrast meets WCAG AA standards","accessibility,high-priority,home-page"
+"[Header] Add mobile search bar","## Description
+Search bar is hidden on mobile (`hidden md:block` at line 40 in header.tsx). Comment indicates ""Search bar for mobile"" at line 91 but not implemented.
+
+## Location
+`src/modules/layout/templates/nav/header.tsx:40-47, 91-92`
+
+## Requirements
+- Search icon in mobile header
+- Expandable search input on tap
+- Same Algolia functionality as desktop
+
+## Acceptance Criteria
+- [ ] Search is accessible on mobile devices
+- [ ] Search results display correctly on mobile
+- [ ] Search can be dismissed/closed","feature,high-priority,header"
+"[Header] Add skip-to-main-content link for accessibility","## Description
+WCAG 2.1 AA requires skip navigation link. Not present in current implementation.
+
+## SOW Reference
+> ADA Compliance with WCAG 2.1 Level AA Standards
+
+## Requirements
+- Visually hidden link that appears on focus
+- Links to main content area
+- First focusable element on page
+
+## Acceptance Criteria
+- [ ] Skip link is first focusable element
+- [ ] Skip link visible when focused
+- [ ] Skip link jumps to main content","accessibility,high-priority,header"
+"[Header] Add announcement bar component","## Description
+`announcement-bar.tsx` file exists but not integrated into main header. Implement for promotions/alerts.
+
+## Location
+`src/modules/layout/templates/nav/announcement-bar.tsx`
+
+## Requirements
+- Dismissible banner
+- Content from Strapi CMS
+- Optional link/CTA
+- Configurable background color
+
+## Acceptance Criteria
+- [ ] Announcement bar displays above header
+- [ ] Content is editable from Strapi
+- [ ] Users can dismiss the banner
+- [ ] Dismissed state persists in session","feature,medium-priority,header"
+"[Header] Implement country/region selector in header","## Description
+`country-select` component exists but not visible in header. Add for multi-region support.
+
+## Location
+`src/modules/layout/components/country-select/index.tsx`
+
+## Requirements
+- Display current region/country
+- Dropdown to select different region
+- Updates cart and pricing accordingly
+
+## Acceptance Criteria
+- [ ] Region selector visible in header
+- [ ] Selecting region updates URL country code
+- [ ] Cart and prices update to selected region","feature,medium-priority,header"
+"[Header] Add keyboard navigation for dropdown menus","## Description
+Desktop menu dropdowns use Headless UI but need explicit keyboard trap and focus management testing.
+
+## SOW Reference
+> ADA Compliance with WCAG 2.1 Level AA Standards
+
+## Requirements
+- Arrow key navigation within dropdowns
+- Escape key closes dropdown
+- Tab trapping within open menu
+- Focus returns to trigger on close
+
+## Acceptance Criteria
+- [ ] All menu items reachable via keyboard
+- [ ] Focus is properly managed
+- [ ] Escape closes menus","accessibility,high-priority,header"
+"[Header] Phone number should be clickable (tel: link)","## Description
+Phone number at line 50-51 is plain text, should be a clickable tel: link.
+
+## Location
+`src/modules/layout/templates/nav/header.tsx:50-51`
+
+## Current State
+```tsx
+<span className=""hidden md:inline-block..."">(888) 627-3284</span>
+```
+
+## Expected State
+```tsx
+<a href=""tel:+18886273284"" className=""..."">(888) 627-3284</a>
+```
+
+## Acceptance Criteria
+- [ ] Phone number is clickable
+- [ ] Opens phone app on mobile devices","enhancement,low-priority,header"
+"[Footer] Replace Medusa branding with Grillers Pride","## Description
+Footer shows ""Medusa Store"" and links to Medusa GitHub/docs. Update to Grillers Pride branding.
+
+## Location
+`src/modules/layout/templates/footer/index.tsx`
+
+## Items to Update
+- Line 23-24: ""Medusa Store"" text
+- Lines 112-144: Medusa links section (GitHub, Documentation, Source code)
+- Line 151: Copyright ""Medusa Store""
+
+## Acceptance Criteria
+- [ ] All Medusa references removed
+- [ ] Grillers Pride branding throughout
+- [ ] Relevant company links added","bug,critical,footer"
+"[Footer] Add newsletter signup form","## Description
+Per SOW email marketing requirements. Common footer placement for email capture.
+
+## SOW Reference
+> Email Marketing: Segmented campaigns and automation
+
+## Requirements
+- Email input with validation
+- Subscribe button
+- Privacy policy link
+- Success/error states
+
+## Acceptance Criteria
+- [ ] Newsletter form in footer
+- [ ] Form integrates with email platform
+- [ ] GDPR-compliant with privacy link","feature,high-priority,footer"
+"[Footer] Add social media links section","## Description
+Footer should include Instagram, Facebook, Pinterest, TikTok links per SOW social media strategy.
+
+## SOW Reference
+> Social Media: Instagram, Facebook, Pinterest, TikTok
+
+## Requirements
+- Social media icons
+- Links to Grillers Pride social profiles
+- Icons from Strapi for flexibility
+
+## Acceptance Criteria
+- [ ] Social icons display in footer
+- [ ] Links open in new tab
+- [ ] Icons have accessible labels","feature,medium-priority,footer"
+"[Footer] Add Strapi-driven footer content","## Description
+Footer content (contact info, policies, about) should come from Strapi CMS for admin editability.
+
+## Requirements
+- Footer links from Strapi
+- Contact information from Strapi
+- Policy pages links (Privacy, Terms, etc.)
+
+## Acceptance Criteria
+- [ ] Footer content editable in Strapi
+- [ ] Changes reflect without code deployment","feature,medium-priority,footer"
+"[Footer] Add payment method icons","## Description
+Display accepted payment methods (Visa, MC, Amex, PayPal) for trust signals.
+
+## Requirements
+- Payment provider icons
+- Display in footer bottom section
+
+## Acceptance Criteria
+- [ ] Payment icons display in footer
+- [ ] Icons match accepted payment methods","enhancement,low-priority,footer"
+"[Footer] Add kosher certification badge","## Description
+Display kosher certification for brand trust. Important for target audience.
+
+## Requirements
+- Kosher certification logo/badge
+- Link to certification details if applicable
+
+## Acceptance Criteria
+- [ ] Certification badge visible in footer
+- [ ] Badge is high quality/crisp","feature,medium-priority,footer"
+"[PDP] Update metadata to use Grillers Pride branding","## Description
+Metadata at line 74 shows ""Medusa Store"". Update to ""Grillers Pride"".
+
+## Location
+`src/app/[countryCode]/(main)/products/[handle]/page.tsx:74-81`
+
+## Current State
+```typescript
+return {
+  title: `${product.title} | Medusa Store`,
+  ...
+}
+```
+
+## Acceptance Criteria
+- [ ] Product titles show ""| Grillers Pride""
+- [ ] OpenGraph tags use correct branding","bug,high-priority,pdp"
+"[PDP] Add JSON-LD Product structured data","## Description
+No Product schema markup. Add for rich search results (price, availability, reviews).
+
+## SOW Reference
+> SEO Strategy: On-page and technical SEO
+
+## Requirements
+Add JSON-LD with:
+- Product name, description, image
+- Price and currency
+- Availability status
+- Brand
+- SKU
+- Reviews/ratings (when available)
+
+## Acceptance Criteria
+- [ ] Product schema renders on all PDPs
+- [ ] Schema validates in Google Rich Results Test
+- [ ] Price updates with variant selection","seo,high-priority,pdp"
+"[PDP] Add breadcrumb navigation","## Description
+No breadcrumbs on PDP. Add for UX and SEO (BreadcrumbList schema).
+
+## Requirements
+- Home > Category > Product Name
+- Clickable links
+- JSON-LD BreadcrumbList schema
+
+## Acceptance Criteria
+- [ ] Breadcrumbs display on PDP
+- [ ] Links navigate correctly
+- [ ] Schema markup included","feature,medium-priority,pdp,seo"
+"[PDP] Add product reviews/ratings display","## Description
+Testimonial shows star ratings but no product-specific reviews. Integrate reviews system.
+
+## Requirements
+- Display average rating
+- Show review count
+- List individual reviews
+- Consider integration (Yotpo, Judge.me, etc.)
+
+## Acceptance Criteria
+- [ ] Reviews display on PDP
+- [ ] Rating aggregate shows
+- [ ] Reviews are real customer reviews","feature,medium-priority,pdp"
+"[PDP] Add social sharing buttons","## Description
+Add share to Facebook, Pinterest, Twitter for products.
+
+## Requirements
+- Share buttons on PDP
+- Pre-populated share text/image
+- Pinterest especially important for food products
+
+## Acceptance Criteria
+- [ ] Share buttons visible on PDP
+- [ ] Sharing works correctly
+- [ ] Shared content includes product image","feature,low-priority,pdp"
+"[PDP] Add wishlist functionality","## Description
+No wishlist feature currently exists. Allow customers to save products for later.
+
+## Requirements
+- Add to wishlist button
+- Wishlist page in account
+- Persist for logged-in users
+- Guest wishlist via localStorage
+
+## Acceptance Criteria
+- [ ] Users can add products to wishlist
+- [ ] Wishlist accessible in account
+- [ ] Wishlist persists across sessions","feature,low-priority,pdp"
+"[PDP] Add weight/nutritional information display","## Description
+Strapi has metadata fields (avg_pack_size, weight, serves) - verify all display correctly.
+
+## Location
+Verify `src/modules/products/components/product-detail/`
+
+## Fields to Verify
+- Average pack size
+- Weight
+- Serves count
+- Pieces per pack
+- Gluten-free flag
+- Certifications
+
+## Acceptance Criteria
+- [ ] All metadata fields display when populated
+- [ ] Missing fields don't show empty sections","feature,medium-priority,pdp"
+"[PDP] Fix image gallery accessibility","## Description
+Ensure all product images have descriptive alt text and gallery is keyboard navigable.
+
+## SOW Reference
+> ADA Compliance with WCAG 2.1 Level AA Standards
+
+## Requirements
+- Descriptive alt text on all images
+- Keyboard navigation for gallery
+- Focus indicators on thumbnails
+- Screen reader announcements for image changes
+
+## Acceptance Criteria
+- [ ] All images have meaningful alt text
+- [ ] Gallery navigable via keyboard
+- [ ] Focus visible on all interactive elements","accessibility,high-priority,pdp"
+"[PDP] Add related products loading skeleton","## Description
+Add skeleton loader for related products while data loads.
+
+## Requirements
+- Skeleton matches product card layout
+- Displays during data fetch
+- Smooth transition to loaded content
+
+## Acceptance Criteria
+- [ ] Skeleton displays while loading
+- [ ] No layout shift when content loads","enhancement,low-priority,pdp"
+"[Collections] Update metadata to use Grillers Pride branding","## Description
+Metadata at line 78 shows ""Medusa Store"". Update to Grillers Pride.
+
+## Location
+`src/app/[countryCode]/(main)/collections/[handle]/page.tsx:77-83`
+
+## Acceptance Criteria
+- [ ] Collection titles show ""| Grillers Pride""","bug,high-priority,collections"
+"[Collections] Add collection description from Strapi","## Description
+Collection pages should display marketing description from CMS.
+
+## Requirements
+- Description text area in collection header
+- Rich text support from Strapi
+- SEO-friendly description
+
+## Acceptance Criteria
+- [ ] Collection description displays
+- [ ] Description editable in Strapi","feature,medium-priority,collections"
+"[Collections] Add JSON-LD CollectionPage structured data","## Description
+Add structured data for collection/category pages.
+
+## Requirements
+- CollectionPage or ItemList schema
+- Include products in list
+- Pagination handling
+
+## Acceptance Criteria
+- [ ] Schema renders on collection pages
+- [ ] Validates in testing tools","seo,medium-priority,collections"
+"[Collections] Add filtering by product attributes","## Description
+Algolia integration exists but need filters for dietary (gluten-free), certifications, price range.
+
+## Requirements
+- Gluten-free filter
+- Certification filters
+- Price range slider
+- Clear all filters option
+
+## Acceptance Criteria
+- [ ] Filters display in collection sidebar
+- [ ] Filtering updates product grid
+- [ ] Active filters clearly shown","feature,high-priority,collections"
+"[Collections] Add collection banner/hero image","## Description
+Collections should have customizable hero image from Strapi.
+
+## Requirements
+- Hero image at top of collection
+- Title overlay
+- Optional CTA button
+- Mobile-responsive
+
+## Acceptance Criteria
+- [ ] Hero image displays on collections
+- [ ] Image configurable in Strapi","feature,medium-priority,collections"
+"[Collections] Remove legacy collection pages","## Description
+Delete deprecated `collections-old` and `categories-old` routes.
+
+## Location
+- `src/app/[countryCode]/(main)/collections-old/`
+- `src/app/[countryCode]/(main)/categories-old/`
+
+## Acceptance Criteria
+- [ ] Legacy routes removed
+- [ ] No broken links to old routes","cleanup,low-priority,collections"
+"[Collections] Add product count display","## Description
+Show total product count in collection header.
+
+## Requirements
+- ""Showing X products"" text
+- Updates with filtering
+
+## Acceptance Criteria
+- [ ] Product count displays
+- [ ] Count updates with filters","enhancement,low-priority,collections"
+"[General] Implement Google Analytics 4 tracking","## Description
+No analytics implementation. Per SOW Data & Analytics plan, implement GA4.
+
+## SOW Reference
+> Event Capture Plan: Configure tracking in Google Tag Manager and Google Analytics
+
+## Requirements
+- GA4 property setup
+- Page view tracking
+- Enhanced ecommerce events
+- User properties
+
+## Acceptance Criteria
+- [ ] GA4 script loads on all pages
+- [ ] Page views tracked
+- [ ] Ecommerce events fire correctly","feature,critical,analytics"
+"[General] Implement Google Tag Manager","## Description
+Per SOW event capture plan, set up GTM for event tracking.
+
+## SOW Reference
+> Configure tracking in Google Tag Manager
+
+## Requirements
+- GTM container on all pages
+- Data layer implementation
+- Event triggers configured
+
+## Acceptance Criteria
+- [ ] GTM container loads
+- [ ] Data layer populates correctly
+- [ ] Events fire to GTM","feature,critical,analytics"
+"[General] Add cookie consent banner","## Description
+Per SOW Cookies & Privacy requirements. GDPR/CCPA compliance needed.
+
+## SOW Reference
+> Cookies & Privacy: Design a detailed event capture plan
+
+## Requirements
+- Cookie consent popup
+- Granular consent options
+- Consent stored in cookie
+- Block tracking until consent
+
+## Acceptance Criteria
+- [ ] Consent banner displays for new visitors
+- [ ] Users can accept/reject cookies
+- [ ] Preference persists
+- [ ] Tracking respects preferences","feature,critical,legal"
+"[General] Add event tracking for key user actions","## Description
+Track: add_to_cart, begin_checkout, purchase, view_item, search events.
+
+## SOW Reference
+> Event Capture Plan: form submissions, button clicks
+
+## Events to Track
+- view_item
+- add_to_cart
+- remove_from_cart
+- begin_checkout
+- add_shipping_info
+- add_payment_info
+- purchase
+- search
+- view_item_list
+
+## Acceptance Criteria
+- [ ] All events fire correctly
+- [ ] Events contain required parameters
+- [ ] Events appear in GA4","feature,high-priority,analytics"
+"[General] Setup unit testing framework","## Description
+No tests exist. Setup Jest + React Testing Library.
+
+## SOW Reference
+> Quality Assurance Process: rigorous testing, including unit, integration tests
+
+## Requirements
+- Jest configuration
+- React Testing Library setup
+- Coverage reporting
+- CI integration
+
+## Acceptance Criteria
+- [ ] Jest runs successfully
+- [ ] Sample tests pass
+- [ ] Coverage reports generate","testing,high-priority"
+"[General] Setup E2E testing framework","## Description
+Setup Playwright for critical path testing (checkout flow).
+
+## SOW Reference
+> Quality Assurance Process: user acceptance tests
+
+## Requirements
+- Playwright configuration
+- Critical path test scripts
+- CI/CD integration
+
+## Test Scenarios
+- Complete checkout flow
+- User registration/login
+- Product search and filter
+- Add to cart
+
+## Acceptance Criteria
+- [ ] Playwright configured
+- [ ] Checkout flow test passes
+- [ ] Tests run in CI","testing,high-priority"
+"[General] Add component integration tests","## Description
+Test key components: cart, checkout forms, product detail.
+
+## Components to Test
+- Cart item management
+- Checkout address form
+- Product variant selector
+- Search functionality
+
+## Acceptance Criteria
+- [ ] Key component tests written
+- [ ] Tests cover happy path and edge cases","testing,medium-priority"
+"[General] Complete WCAG 2.1 AA accessibility audit","## Description
+Only 25 ARIA attributes found across codebase. Comprehensive audit needed per SOW ADA compliance.
+
+## SOW Reference
+> ADA Compliance with WCAG 2.1 Level AA Standards
+
+## Audit Areas
+- Color contrast
+- Keyboard navigation
+- Screen reader compatibility
+- Focus management
+- Form labels and errors
+- Image alt text
+- Heading hierarchy
+
+## Acceptance Criteria
+- [ ] Full audit completed
+- [ ] Issues documented
+- [ ] Remediation plan created","accessibility,critical"
+"[General] Add focus visible styles throughout","## Description
+Ensure all interactive elements have visible focus indicators.
+
+## SOW Reference
+> ADA Compliance with WCAG 2.1 Level AA Standards
+
+## Requirements
+- Consistent focus ring style
+- High contrast focus indicators
+- No outline:none without replacement
+
+## Acceptance Criteria
+- [ ] All buttons have focus style
+- [ ] All links have focus style
+- [ ] All form inputs have focus style","accessibility,high-priority"
+"[General] Add ARIA live regions for dynamic content","## Description
+Cart updates, form errors, loading states need aria-live announcements.
+
+## SOW Reference
+> ADA Compliance with WCAG 2.1 Level AA Standards
+
+## Areas Needing Live Regions
+- Cart item add/remove
+- Form validation errors
+- Loading states
+- Search results updates
+- Toast notifications
+
+## Acceptance Criteria
+- [ ] Screen readers announce dynamic changes
+- [ ] Appropriate politeness levels used","accessibility,high-priority"
+"[General] Generate and verify sitemap.xml","## Description
+`next-sitemap.js` exists but verify it generates correctly with all routes.
+
+## Location
+`/next-sitemap.js`
+
+## Requirements
+- All public pages included
+- Proper lastmod dates
+- Correct priority values
+- Submitted to Google Search Console
+
+## Acceptance Criteria
+- [ ] Sitemap generates on build
+- [ ] All pages included
+- [ ] No excluded pages that should be included","seo,high-priority"
+"[General] Add canonical URLs to all pages","## Description
+Prevent duplicate content issues with proper canonical tags.
+
+## Requirements
+- Self-referencing canonicals on all pages
+- Handle pagination canonicals
+- Handle filtered page canonicals
+
+## Acceptance Criteria
+- [ ] All pages have canonical tag
+- [ ] Canonicals are absolute URLs","seo,medium-priority"
+"[General] Add hreflang tags for multi-region","## Description
+Site supports multiple regions but no hreflang implementation.
+
+## Requirements
+- hreflang tags for each region
+- x-default fallback
+- Reciprocal tags on all variants
+
+## Acceptance Criteria
+- [ ] hreflang tags on all pages
+- [ ] Tags validate correctly","seo,medium-priority"
+"[General] Create 500 error page","## Description
+Only 404 handler exists. Add custom 500 error page.
+
+## Requirements
+- Branded error page
+- Helpful messaging
+- Link back to home
+- Error logging
+
+## Acceptance Criteria
+- [ ] 500 page displays on server errors
+- [ ] Page matches site branding","feature,medium-priority"
+"[General] Add page transition loading states","## Description
+Add loading indicators during page navigation.
+
+## Requirements
+- Progress bar or spinner
+- Consistent across navigation
+- Accessible loading announcements
+
+## Acceptance Criteria
+- [ ] Loading indicator shows during navigation
+- [ ] Smooth transitions","enhancement,low-priority"
+"[General] Document component library","## Description
+Per SOW CMS Documentation requirements.
+
+## SOW Reference
+> CMS Documentation: Develop detailed documentation for the CMS
+
+## Requirements
+- Component usage examples
+- Props documentation
+- Storybook or similar tool
+
+## Acceptance Criteria
+- [ ] All components documented
+- [ ] Examples provided","documentation,medium-priority"
+"[General] Create technical stack documentation","## Description
+Per SOW Tech Stack Documentation requirements.
+
+## SOW Reference
+> Tech Stack Documentation: Document the complete technology stack
+
+## Requirements
+- Architecture overview
+- Technology choices rationale
+- Setup instructions
+- Deployment guide
+
+## Acceptance Criteria
+- [ ] README updated
+- [ ] Architecture documented
+- [ ] Setup guide complete","documentation,medium-priority"
+"[Checkout] Add checkout metadata with Grillers Pride branding","## Description
+Checkout title is just ""Checkout"" - add full branding.
+
+## Location
+`src/app/[countryCode]/(checkout)/checkout/page.tsx:9-11`
+
+## Acceptance Criteria
+- [ ] Title includes Grillers Pride
+- [ ] Meta description added","bug,high-priority,checkout"
+"[Checkout] Add credit card verification display","## Description
+Per SOW: ""Develop and integrate a credit card verification system"" - show CVV verification status.
+
+## SOW Reference
+> Develop and integrate a credit card verification system to ensure customers submit valid credit card information
+
+## Requirements
+- CVV verification indicator
+- Card validation feedback
+- Clear error messages for invalid cards
+
+## Acceptance Criteria
+- [ ] Card validation feedback displays
+- [ ] Invalid card errors are clear","feature,high-priority,checkout"
+"[Checkout] Integrate UPS API for real-time shipping rates","## Description
+Per SOW: shipping with transit days and real-time rates. Currently uses flat/calculated but not UPS API.
+
+## SOW Reference
+> UPS API Integration: Access the UPS API to retrieve essential shipping parameters such as transit days and real-time shipping rates
+
+## Requirements
+- UPS API integration in backend
+- Display transit days
+- Real-time rate calculation
+- Handle API errors gracefully
+
+## Acceptance Criteria
+- [ ] UPS rates display at checkout
+- [ ] Transit days shown
+- [ ] Rates update based on address","feature,critical,checkout,shipping"
+"[Checkout] Add shipping box estimation display","## Description
+Per SOW: ""Calculate estimated weight and dimensions of shipping boxes""
+
+## SOW Reference
+> Shipping Box Estimation: Calculate the estimated weight and dimensions of the shipping boxes required for UPS shipments
+
+## Requirements
+- Display estimated package weight
+- Show box dimensions
+- Factor into shipping calculation
+
+## Acceptance Criteria
+- [ ] Package weight displays
+- [ ] Information helps customer understand shipping","feature,high-priority,checkout,shipping"
+"[Checkout] Add dry ice calculation display","## Description
+Per SOW: ""Determine total dry ice needed for temperature-sensitive products""
+
+## SOW Reference
+> Dry Ice Requirement Calculation: Determine the total dry ice needed for temperature-sensitive products during UPS shipping
+
+## Requirements
+- Calculate dry ice based on products
+- Display dry ice info to customer
+- Factor into shipping if applicable
+
+## Acceptance Criteria
+- [ ] Dry ice requirements shown when applicable
+- [ ] Customer informed about cold shipping","feature,high-priority,checkout,shipping"
+"[Checkout] Fix typo in shipping disclaimer","## Description
+""guarenteed"" should be ""guaranteed"" at line 382.
+
+## Location
+`src/modules/checkout/components/shipping/index.tsx:382`
+
+## Current
+```
+*This is estimate and specific days are not guarenteed.
+```
+
+## Expected
+```
+*This is an estimate and specific days are not guaranteed.
+```
+
+## Acceptance Criteria
+- [ ] Typo fixed
+- [ ] Grammar corrected (""is estimate"" -> ""is an estimate"")","bug,low-priority,checkout"
+"[Checkout] Add plant pickup discount display","## Description
+Per SOW: ""Plant Pickup Incentive Discounts"" - show savings when selecting pickup.
+
+## SOW Reference
+> Plant Pickup Incentive Discounts: Incorporate discount percentages for customers who opt for plant pickup
+
+## Requirements
+- Show savings amount for pickup
+- Highlight discount compared to shipping
+- Clear messaging about pickup benefits
+
+## Acceptance Criteria
+- [ ] Pickup savings displayed
+- [ ] Customer understands discount","feature,medium-priority,checkout,shipping"
+"[Checkout] Add order summary sticky behavior on scroll","## Description
+Keep order summary visible while scrolling through long checkout form.
+
+## Requirements
+- Sticky positioning on desktop
+- Doesn't overlap content on mobile
+- Smooth scroll behavior
+
+## Acceptance Criteria
+- [ ] Summary stays visible on desktop
+- [ ] Mobile experience not degraded","enhancement,medium-priority,checkout"
+"[Checkout] Add express checkout options","## Description
+Add Apple Pay, Google Pay buttons for faster checkout.
+
+## Requirements
+- Apple Pay integration
+- Google Pay integration
+- Stripe Payment Request Button
+- Display based on device support
+
+## Acceptance Criteria
+- [ ] Express checkout buttons display when supported
+- [ ] Payment completes successfully","feature,medium-priority,checkout"
+"[Checkout] Add checkout progress indicator","## Description
+Visual stepper showing Address -> Delivery -> Payment -> Review.
+
+## Requirements
+- Step indicator component
+- Current step highlighted
+- Completed steps marked
+- Clickable to go back (when valid)
+
+## Acceptance Criteria
+- [ ] Progress indicator displays
+- [ ] Current step clear
+- [ ] Navigation works","feature,medium-priority,checkout"
+"[Checkout] Add gift options/messaging","## Description
+Allow gift messages and gift wrapping options.
+
+## Requirements
+- Gift message text field
+- Gift wrapping option (if offered)
+- Message included on packing slip
+- Hide prices on gift orders
+
+## Acceptance Criteria
+- [ ] Gift message option available
+- [ ] Message appears on order","feature,low-priority,checkout"
+"[Checkout] Add promo code validation feedback","## Description
+Show success/error states clearly when applying discount codes.
+
+## Requirements
+- Loading state while validating
+- Success message with discount amount
+- Clear error for invalid codes
+- Remove code option
+
+## Acceptance Criteria
+- [ ] Validation feedback is clear
+- [ ] Discount amount shown on success
+- [ ] Errors are helpful","enhancement,medium-priority,checkout"
+"[Checkout] Fix shipping option negative price workaround","## Description
+Line 247 hides options with price < -10. Properly fix the underlying issue.
+
+## Location
+`src/modules/checkout/components/shipping/index.tsx:247`
+
+## Current Workaround
+```tsx
+calculatedPricesMap[option.id] > -10 && (
+```
+
+## Issue
+This is a workaround for negative pricing. The root cause should be identified and fixed properly.
+
+## Acceptance Criteria
+- [ ] Root cause identified
+- [ ] Proper fix implemented
+- [ ] Workaround removed","bug,medium-priority,checkout,shipping"
+"[Recipes] Update metadata with Grillers Pride branding","## Description
+Generic description ""Browse our collection of delicious recipes"" should include branding.
+
+## Location
+`src/app/[countryCode]/(main)/recipes/page.tsx:13-16`
+
+## Acceptance Criteria
+- [ ] Title includes Grillers Pride
+- [ ] Description is brand-specific","bug,medium-priority,recipes"
+"[Recipes] Add JSON-LD Recipe structured data","## Description
+Add Recipe schema for rich search results (cook time, ingredients, nutrition).
+
+## Requirements
+Add JSON-LD with:
+- Recipe name and description
+- Cook time, prep time
+- Ingredients list
+- Instructions
+- Nutrition info (if available)
+- Images
+- Ratings (if available)
+
+## Acceptance Criteria
+- [ ] Recipe schema on all recipe pages
+- [ ] Schema validates in testing tools
+- [ ] Rich results appear in search","seo,high-priority,recipes"
+"[Recipes] Add recipe filtering/categories","## Description
+Filter recipes by category, cooking method, difficulty, dietary restrictions.
+
+## Requirements
+- Category filter
+- Cooking method filter (grill, oven, etc.)
+- Difficulty level
+- Dietary tags (gluten-free, etc.)
+
+## Acceptance Criteria
+- [ ] Filters display on recipes page
+- [ ] Filtering works correctly
+- [ ] URL updates with filters","feature,medium-priority,recipes"
+"[Recipes] Add recipe search functionality","## Description
+Search within recipes content.
+
+## Requirements
+- Search input on recipes page
+- Search recipe titles and content
+- Instant results or dedicated results page
+
+## Acceptance Criteria
+- [ ] Recipe search works
+- [ ] Results are relevant","feature,medium-priority,recipes"
+"[Recipes] Add recipe print functionality","## Description
+Printer-friendly recipe format.
+
+## Requirements
+- Print button on recipe page
+- Print stylesheet
+- Clean format without navigation
+
+## Acceptance Criteria
+- [ ] Print button available
+- [ ] Printed recipe is clean and readable","feature,low-priority,recipes"
+"[Recipes] Add recipe social sharing","## Description
+Share recipes to Pinterest (major recipe traffic source), Facebook, Twitter.
+
+## Requirements
+- Share buttons on recipe pages
+- Pinterest especially important for food
+- Pre-populated share content
+
+## Acceptance Criteria
+- [ ] Share buttons display
+- [ ] Pinterest sharing works with recipe image","feature,low-priority,recipes"
+"[Recipes] Add related products on recipe pages","## Description
+Cross-link products used in recipes for conversion.
+
+## Requirements
+- Products section on recipe page
+- Products linked from Strapi recipe
+- Add to cart functionality
+
+## Acceptance Criteria
+- [ ] Related products display
+- [ ] Products can be added to cart from recipe","feature,medium-priority,recipes"
+"[Recipes] Add recipe ratings/reviews","## Description
+Allow users to rate recipes.
+
+## Requirements
+- Star rating input
+- Average rating display
+- Review comments (optional)
+
+## Acceptance Criteria
+- [ ] Users can rate recipes
+- [ ] Average rating displays","feature,low-priority,recipes"
+"[Recipes] Add recipe save/favorites","## Description
+Allow logged-in users to save favorite recipes.
+
+## Requirements
+- Save/heart button
+- Saved recipes in account
+- Persist across sessions
+
+## Acceptance Criteria
+- [ ] Users can save recipes
+- [ ] Saved recipes accessible in account","feature,low-priority,recipes"
+"[Recipes] Add cooking tips/video embeds","## Description
+Support video content in recipes from Strapi.
+
+## Requirements
+- Video embed support
+- YouTube/Vimeo integration
+- Responsive video player
+
+## Acceptance Criteria
+- [ ] Videos display in recipes
+- [ ] Videos are responsive","feature,medium-priority,recipes"
