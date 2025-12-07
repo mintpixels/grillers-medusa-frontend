@@ -13,7 +13,10 @@ export type CookieConsentData = {
     AcceptButtonText: string
     RejectButtonText: string
     PreferencesButtonText: string
-    PrivacyPolicyLink?: string
+    PrivacyPolicyLink?: {
+      Text: string
+      Url: string
+    }
     CookieCategories: CookieCategory[]
     Position?: string
     BackgroundColor?: string
@@ -28,7 +31,10 @@ export const GetCookieConsentQuery = gql`
       AcceptButtonText
       RejectButtonText
       PreferencesButtonText
-      PrivacyPolicyLink
+      PrivacyPolicyLink {
+        Text
+        Url
+      }
       CookieCategories {
         id
         Name

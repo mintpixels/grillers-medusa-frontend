@@ -15,7 +15,10 @@ type CookieConsentBannerProps = {
   acceptText: string
   rejectText: string
   preferencesText: string
-  privacyLink?: string
+  privacyLink?: {
+    Text: string
+    Url: string
+  }
   categories: CookieCategory[]
   position?: string
   backgroundColor?: string
@@ -41,9 +44,9 @@ export default function CookieConsentBanner({
   })
 
   useEffect(() => {
-    // Check if consent has already been given
-    const consent = getConsentCookie()
-    if (!consent) {
+    // Check if banner was dismissed in this session
+    const sessionDismissed = sessionStorage.getItem("cookie_banner_dismissed")
+    if (sessionDismissed !== "true") {
       setShowBanner(true)
     }
   }, [])
@@ -51,6 +54,7 @@ export default function CookieConsentBanner({
   const handleAcceptAll = () => {
     acceptAllCookies()
     setShowBanner(false)
+    sessionStorage.setItem("cookie_banner_dismissed", "true")
     // Reload to load GTM/GA4
     window.location.reload()
   }
@@ -58,6 +62,7 @@ export default function CookieConsentBanner({
   const handleRejectAll = () => {
     rejectAllCookies()
     setShowBanner(false)
+    sessionStorage.setItem("cookie_banner_dismissed", "true")
   }
 
   const handleSavePreferences = () => {
@@ -66,6 +71,7 @@ export default function CookieConsentBanner({
       timestamp: Date.now(),
     })
     setShowBanner(false)
+    sessionStorage.setItem("cookie_banner_dismissed", "true")
     // Reload if analytics was accepted to load GTM/GA4
     if (preferences.analytics) {
       window.location.reload()
@@ -96,11 +102,11 @@ export default function CookieConsentBanner({
               <p className="text-sm md:text-base">{message}</p>
               {privacyLink && (
                 <Link
-                  href={privacyLink}
+                  href={privacyLink.Url}
                   className="text-sm underline hover:opacity-80 mt-2 inline-block"
                   style={{ color: textColor }}
                 >
-                  Privacy Policy
+                  {privacyLink.Text}
                 </Link>
               )}
             </div>
