@@ -2,8 +2,8 @@ import { getBaseURL } from "@lib/util/env"
 import { Metadata } from "next"
 import { rexton, maisonNeue, maisonNeueMono } from "styles/fonts/fonts"
 import NextTopLoader from "nextjs-toploader"
-import AnalyticsProvider from "@/components/analytics-provider"
-import CookieConsentProvider from "@/components/cookie-consent-provider"
+import AnalyticsProvider from "../components/analytics-provider"
+import CookieConsentProvider from "../components/cookie-consent-provider"
 import "styles/globals.css"
 
 export const metadata: Metadata = {

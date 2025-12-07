@@ -3,7 +3,7 @@ import Image from "next/image"
 import Link from "next/link"
 import strapiClient from "@lib/strapi"
 import { GetFooterQuery, type FooterData } from "@lib/data/strapi/footer"
-import NewsletterForm from "@/components/newsletter-form"
+import NewsletterForm from "../../../../components/newsletter-form"
 
 async function getFooterData(): Promise<FooterData | null> {
   try {

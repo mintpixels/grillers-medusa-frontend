@@ -7,7 +7,7 @@
 import { HeaderNavQuery } from "@lib/data/strapi/header"
 import type { HeaderNavLink } from "@lib/data/strapi/header"
 import strapiClient from "@lib/strapi"
-import AnnouncementBarProvider from "@/components/announcement-bar-provider"
+import AnnouncementBarProvider from "../../../../components/announcement-bar-provider"
 import Header from "./header"
 import Menu from "./menu"
 
