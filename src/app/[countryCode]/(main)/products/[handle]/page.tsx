@@ -98,10 +98,27 @@ export default async function ProductPage(props: Props) {
     notFound()
   }
 
-  const strapiCommonPdpData: any = await strapiClient.request(GetCommonPdpQuery)
-  const strapiProductData: any = await strapiClient.request(GetProductQuery, {
-    medusa_product_id: pricedProduct.id,
-  })
+  // Debug logging
+  console.log('Medusa product ID:', pricedProduct.id)
+  console.log('Product handle:', params.handle)
+
+  let strapiCommonPdpData: any = null
+  let strapiProductData: any = null
+
+  try {
+    strapiCommonPdpData = await strapiClient.request(GetCommonPdpQuery)
+  } catch (error) {
+    console.error('Failed to fetch common PDP data from Strapi:', error)
+  }
+
+  try {
+    strapiProductData = await strapiClient.request(GetProductQuery, {
+      medusa_product_id: pricedProduct.id,
+    })
+    console.log('Strapi product data response:', strapiProductData)
+  } catch (error) {
+    console.error('Failed to fetch product data from Strapi for ID:', pricedProduct.id, error)
+  }
 
   return (
     <ProductTemplate

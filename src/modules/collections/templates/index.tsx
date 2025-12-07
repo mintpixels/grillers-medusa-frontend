@@ -1,6 +1,6 @@
 "use client"
 
-import React from "react"
+import React, { useState } from "react"
 import { InstantSearch, Configure } from "react-instantsearch"
 
 import { searchLiteClient } from "@lib/algolia"
@@ -8,6 +8,7 @@ import { PRODUCT_INDEX } from "@lib/algolia/indexes"
 import ProductCardHits from "@modules/algolia/components/product-card-hits"
 import Pagination from "@modules/algolia/components/pagination"
 import RefinementList from "@modules/algolia/components/refinement-list"
+import ViewToggle, { ViewMode } from "@modules/algolia/components/view-toggle"
 
 const CATEGORY_FILTER_ATTRIBUTES =
   "Categorization.ProductCollections.Slug" as const
@@ -23,6 +24,7 @@ export default function CollectionTemplate({
   slug,
   countryCode,
 }: CollectionTemplateProps) {
+  const [viewMode, setViewMode] = useState<ViewMode>("list")
   const filters = CATEGORY_FILTER_ATTRIBUTES + ":" + slug
 
   return (
@@ -52,11 +54,14 @@ export default function CollectionTemplate({
 
           {/* Product grid and pagination */}
           <main className="flex-1">
-            <h1 className="text-h3 font-gyst text-Charcoal capitalize mb-8">
-              {title}
-            </h1>
+            <div className="flex items-center justify-between mb-8">
+              <h1 className="text-h3 font-gyst text-Charcoal capitalize">
+                {title}
+              </h1>
+              <ViewToggle viewMode={viewMode} onViewModeChange={setViewMode} />
+            </div>
             <Configure filters={filters} hitsPerPage={12} />
-            <ProductCardHits />
+            <ProductCardHits viewMode={viewMode} />
             <div className="mt-8 flex justify-center">
               <Pagination />
             </div>

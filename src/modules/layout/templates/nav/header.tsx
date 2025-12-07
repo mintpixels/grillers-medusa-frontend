@@ -10,6 +10,12 @@ import SearchBar from "./search-bar"
 const Header = ({ navLinks }: { navLinks: HeaderNavLink[] }) => {
   return (
     <header className="sticky top-0 inset-x-0 z-20 bg-white border-b border-[#000/25]">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-white focus:text-black focus:border focus:border-black focus:rounded"
+      >
+        Skip to main content
+      </a>
       <nav className="flex items-center justify-between w-full h-[106px] px-4 lg:px-8">
         <MobileNavMenu navLinks={navLinks} />
 
@@ -47,9 +53,9 @@ const Header = ({ navLinks }: { navLinks: HeaderNavLink[] }) => {
         </div>
 
         <div className="flex items-center gap-8">
-          <span className="hidden md:inline-block text-p-md font-maison-neue text-Charcoal">
+          <a href="tel:+18886273284" className="hidden md:inline-block text-p-md font-maison-neue text-Charcoal hover:underline">
             (888) 627-3284
-          </span>
+          </a>
 
           <div className="flex items-center gap-4">
             <div className="h-full">

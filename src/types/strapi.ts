@@ -7,6 +7,7 @@ export interface Metadata {
   AvgPackWeight?: string
   Serves?: string
   Uncooked?: boolean
+  Cooked?: boolean
   PiecesPerPack?: number
   GlutenFree?: boolean
   // add additional metadata keys here as needed

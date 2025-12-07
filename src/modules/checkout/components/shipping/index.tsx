@@ -377,8 +377,8 @@ const Shipping: React.FC<ShippingProps> = ({
                         Not Available
                       </span>
                       <span className="font-normal font-sans txt-medium text-ui-fg-subtle pt-10">
-                        *This is estimate and specific days are not guarenteed.
-                        We do not control the world’s logistic systems.
+                        *This is an estimate and specific days are not guaranteed.
+                        We do not control the world's logistic systems.
                       </span>
                     </div>
                   </div>

@@ -15,6 +15,7 @@ export const GetProductCollectionQuery = gql`
       pagination: { limit: 1 }
     ) {
       Name
+      Slug
     }
   }
 `

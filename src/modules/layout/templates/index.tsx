@@ -8,7 +8,7 @@ const Layout: React.FC<{
   return (
     <div>
       <Nav />
-      <main className="relative">{children}</main>
+      <main id="main-content" className="relative">{children}</main>
     </div>
   )
 }
