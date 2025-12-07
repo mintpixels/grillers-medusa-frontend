@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState } from "react"
-import { InstantSearch, Configure } from "react-instantsearch"
+import { InstantSearch, Configure, useStats } from "react-instantsearch"
 
 import { searchLiteClient } from "@lib/algolia"
 import { PRODUCT_INDEX } from "@lib/algolia/indexes"
@@ -17,6 +17,16 @@ interface CollectionTemplateProps {
   title: string
   slug: string
   countryCode: string
+}
+
+function ProductCount() {
+  const { nbHits } = useStats()
+  
+  return (
+    <p className="text-sm text-gray-600">
+      Showing {nbHits} {nbHits === 1 ? 'product' : 'products'}
+    </p>
+  )
 }
 
 export default function CollectionTemplate({
@@ -54,12 +64,14 @@ export default function CollectionTemplate({
 
           {/* Product grid and pagination */}
           <main className="flex-1">
-            <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center justify-between mb-4">
               <h1 className="text-h3 font-gyst text-Charcoal capitalize">
                 {title}
               </h1>
               <ViewToggle viewMode={viewMode} onViewModeChange={setViewMode} />
             </div>
+            <ProductCount />
+            <div className="mb-8" />
             <Configure filters={filters} hitsPerPage={12} />
             <ProductCardHits viewMode={viewMode} />
             <div className="mt-8 flex justify-center">

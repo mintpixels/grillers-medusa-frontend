@@ -7,6 +7,8 @@ import ProductDetail from "@modules/products/components/product-detail"
 import HowItWorksSection from "@modules/products/components/how-it-works"
 import HowItFitsSection from "@modules/products/components/how-it-fits"
 import WhyUsSection from "@modules/products/components/why-us"
+import RelatedProducts from "@modules/products/components/related-products"
+import SkeletonRelatedProducts from "@modules/skeletons/templates/skeleton-related-products"
 
 type ProductTemplateProps = {
   product: HttpTypes.StoreProduct
@@ -28,17 +30,24 @@ const ProductTemplate: React.FC<ProductTemplateProps> = ({
   }
 
   return (
-    <Suspense fallback={null}>
-      <ProductDetail
-        product={product}
-        region={region}
-        countryCode={countryCode}
-        strapiProductData={strapiProductData}
-      />
-      <HowItWorksSection data={strapiCommonPdpData?.HowItWorks} />
-      <HowItFitsSection recipes={strapiProductData?.Recipes} />
-      <WhyUsSection data={strapiCommonPdpData?.WhyUs} />
-    </Suspense>
+    <>
+      <Suspense fallback={null}>
+        <ProductDetail
+          product={product}
+          region={region}
+          countryCode={countryCode}
+          strapiProductData={strapiProductData}
+        />
+        <HowItWorksSection data={strapiCommonPdpData?.HowItWorks} />
+        <HowItFitsSection recipes={strapiProductData?.Recipes} />
+        <WhyUsSection data={strapiCommonPdpData?.WhyUs} />
+      </Suspense>
+      <div className="content-container my-16">
+        <Suspense fallback={<SkeletonRelatedProducts />}>
+          <RelatedProducts product={product} countryCode={countryCode} />
+        </Suspense>
+      </div>
+    </>
   )
 }
 

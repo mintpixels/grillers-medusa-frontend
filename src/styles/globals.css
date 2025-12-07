@@ -2,6 +2,47 @@
 @import "tailwindcss/components";
 @import "tailwindcss/utilities";
 
+@layer base {
+  /* WCAG 2.1 AA Focus Visible Styles */
+  *:focus {
+    outline: none;
+  }
+
+  *:focus-visible {
+    outline: 2px solid #1A1A1A; /* Charcoal color */
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  /* Specific focus styles for buttons */
+  button:focus-visible,
+  [role="button"]:focus-visible {
+    outline: 2px solid #1A1A1A;
+    outline-offset: 2px;
+  }
+
+  /* Specific focus styles for links */
+  a:focus-visible {
+    outline: 2px solid #1A1A1A;
+    outline-offset: 2px;
+    text-decoration: underline;
+  }
+
+  /* Form inputs - use ring instead of outline for better appearance */
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible {
+    outline: 2px solid #1A1A1A;
+    outline-offset: 0px;
+  }
+
+  /* For elements with light backgrounds on dark backgrounds */
+  .dark *:focus-visible,
+  [data-theme="dark"] *:focus-visible {
+    outline-color: #FFFFFF;
+  }
+}
+
 @layer utilities {
   /* Chrome, Safari and Opera */
   .no-scrollbar::-webkit-scrollbar {
