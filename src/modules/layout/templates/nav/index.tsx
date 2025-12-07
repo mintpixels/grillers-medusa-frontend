@@ -7,7 +7,7 @@
 import { HeaderNavQuery } from "@lib/data/strapi/header"
 import type { HeaderNavLink } from "@lib/data/strapi/header"
 import strapiClient from "@lib/strapi"
-import AnnouncementBar from "./announcement-bar"
+import AnnouncementBarProvider from "@/components/announcement-bar-provider"
 import Header from "./header"
 import Menu from "./menu"
 
@@ -17,7 +17,7 @@ export default async function Nav() {
 
   return (
     <>
-      <AnnouncementBar />
+      <AnnouncementBarProvider />
       <Header navLinks={navLinks} />
       <Menu navLinks={navLinks} />
     </>

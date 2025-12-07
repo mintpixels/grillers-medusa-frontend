@@ -2,6 +2,8 @@ import { getBaseURL } from "@lib/util/env"
 import { Metadata } from "next"
 import { rexton, maisonNeue, maisonNeueMono } from "styles/fonts/fonts"
 import NextTopLoader from "nextjs-toploader"
+import AnalyticsProvider from "@/components/analytics-provider"
+import CookieConsentProvider from "@/components/cookie-consent-provider"
 import "styles/globals.css"
 
 export const metadata: Metadata = {
@@ -19,6 +21,8 @@ export default function RootLayout(props: { children: React.ReactNode }) {
         <link rel="stylesheet" href="https://use.typekit.net/ddo8gwe.css" />
       </head>
       <body>
+        <AnalyticsProvider />
+        <CookieConsentProvider />
         <NextTopLoader
           color="#1A1A1A"
           initialPosition={0.08}
