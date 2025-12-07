@@ -10,9 +10,28 @@ type PageProps = {
   searchParams: { page?: string }
 }
 
-export const metadata: Metadata = {
-  title: "Recipes",
-  description: "Browse our collection of delicious recipes",
+export async function generateMetadata(): Promise<Metadata> {
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://grillerspride.com"
+
+  return {
+    title: "Recipes | Grillers Pride",
+    description:
+      "Discover delicious kosher recipes from Grillers Pride. Expert cooking tips and recipes for premium kosher meats, perfect for Shabbat dinners and Jewish holidays.",
+    openGraph: {
+      title: "Recipes | Grillers Pride",
+      description:
+        "Discover delicious kosher recipes from Grillers Pride. Expert cooking tips for premium kosher meats.",
+      type: "website",
+      url: `${baseUrl}/recipes`,
+      siteName: "Grillers Pride",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: "Recipes | Grillers Pride",
+      description:
+        "Discover delicious kosher recipes from Grillers Pride. Expert cooking tips for premium kosher meats.",
+    },
+  }
 }
 
 const DEFAULT_PAGE_SIZE = 9

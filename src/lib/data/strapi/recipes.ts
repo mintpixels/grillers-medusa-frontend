@@ -1,4 +1,21 @@
 import { gql } from "graphql-request"
+import type { StrapiSEO, StrapiSocialMeta } from "./seo"
+
+export type RecipeData = {
+  Title: string
+  Slug: string
+  ShortDescription?: string
+  Image?: { url: string }
+  PublishedDate?: string
+  TotalTime?: string
+  PrepTime?: string
+  CookTime?: string
+  Servings?: string
+  Ingredients?: { ingredient: string; id: string }[]
+  Steps?: { id: string; instruction: string }[]
+  SEO?: StrapiSEO
+  SocialMeta?: StrapiSocialMeta
+}
 
 export const GetRecipeBySlugQuery = gql`
   query GetRecipeBySlug($slug: String!) {
@@ -21,6 +38,30 @@ export const GetRecipeBySlugQuery = gql`
       Steps {
         id
         instruction
+      }
+      SEO {
+        metaTitle
+        metaDescription
+        keywords
+        canonicalUrl
+      }
+      SocialMeta {
+        ogTitle
+        ogDescription
+        ogImage {
+          url
+        }
+        ogImageAlt
+        ogType
+        twitterCard
+        twitterTitle
+        twitterDescription
+        twitterImage {
+          url
+        }
+        twitterImageAlt
+        twitterCreator
+        twitterSite
       }
     }
   }
@@ -47,6 +88,42 @@ export const GetPaginatedRecipesQuery = gql`
         pageSize
         pageCount
         total
+      }
+    }
+  }
+`
+
+export type RecipesPageData = {
+  SEO?: StrapiSEO
+  SocialMeta?: StrapiSocialMeta
+}
+
+export const GetRecipesPageSEOQuery = gql`
+  query RecipesPageSEO {
+    recipesPage {
+      SEO {
+        metaTitle
+        metaDescription
+        keywords
+        canonicalUrl
+      }
+      SocialMeta {
+        ogTitle
+        ogDescription
+        ogImage {
+          url
+        }
+        ogImageAlt
+        ogType
+        twitterCard
+        twitterTitle
+        twitterDescription
+        twitterImage {
+          url
+        }
+        twitterImageAlt
+        twitterCreator
+        twitterSite
       }
     }
   }

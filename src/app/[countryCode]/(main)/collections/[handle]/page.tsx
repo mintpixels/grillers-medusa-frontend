@@ -5,6 +5,7 @@ import strapiClient from "@lib/strapi"
 import {
   AllProductCollectionsQuery,
   GetProductCollectionQuery,
+  type ProductCollectionData,
 } from "@lib/data/strapi/collections"
 import { listRegions } from "@lib/data/regions"
 import { StoreRegion } from "@medusajs/types"
@@ -15,13 +16,8 @@ interface AllProductCollectionsResponse {
   productCollections: { Slug: string }[]
 }
 
-interface ProductCollection {
-  Name: string
-  Slug: string
-}
-
 interface GetProductCollectionResponse {
-  productCollections: ProductCollection[]
+  productCollections: ProductCollectionData[]
 }
 
 type Props = {
@@ -79,7 +75,6 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
     notFound()
   }
 
-  // Fetch collection data for metadata
   const res = await strapiClient.request<GetProductCollectionResponse>(
     GetProductCollectionQuery,
     { handle }
@@ -88,118 +83,107 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
 
   if (!collection) {
     return {
-      title: "Collection Not Found | Grillers",
+      title: "Collection Not Found | Grillers Pride",
       description: "The requested collection could not be found.",
     }
   }
 
-  // Generate SEO-optimized content from available data
-  const formattedName = collection.Name
-  const title = `${formattedName} | Griller's Pride`
-  
-  const description = `Shop our ${formattedName} collection of premium kosher meats. Fresh, high-quality cuts delivered to your door. 100% kosher certified, expertly prepared, and ready for your grill.`
-
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://grillers.com"
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://grillerspride.com"
   const canonicalUrl = `${baseUrl}/${countryCode}/collections/${handle}`
-  
-  // Generate relevant keywords based on collection name
-  const keywords = `${formattedName}, kosher meat, kosher ${formattedName.toLowerCase()}, premium meat, grillers, kosher certified, ${formattedName.toLowerCase()} delivery, fresh ${formattedName.toLowerCase()}`
-  
+
+  // Use Strapi SEO data if available, otherwise generate from collection name
+  const seo = collection.SEO
+  const socialMeta = collection.SocialMeta
+
+  const title = seo?.metaTitle || `${collection.Name} | Grillers Pride`
+  const description =
+    seo?.metaDescription ||
+    `Shop our ${collection.Name} collection of premium kosher meats. Fresh, high-quality cuts delivered to your door. 100% kosher certified.`
+
   const metadata: Metadata = {
     title,
     description,
-    keywords,
     alternates: {
       canonical: canonicalUrl,
     },
     openGraph: {
-      title,
-      description,
-      type: "website",
+      title: socialMeta?.ogTitle || title,
+      description: socialMeta?.ogDescription || description,
+      type: (socialMeta?.ogType as any) || "website",
       url: canonicalUrl,
-      siteName: "Grillers",
-      // Use a default collection image - could be customized per collection slug
-      images: [
-        {
-          url: `${baseUrl}/images/pages/collections/${handle}.jpg`,
-          width: 1200,
-          height: 630,
-          alt: formattedName,
-        }
-      ],
+      siteName: "Grillers Pride",
+      images: socialMeta?.ogImage?.url
+        ? [
+            {
+              url: socialMeta.ogImage.url,
+              alt: socialMeta.ogImageAlt || collection.Name,
+            },
+          ]
+          : undefined,
     },
     twitter: {
-      card: "summary_large_image",
-      title,
-      description,
-      site: "@grillers",
-      images: [`${baseUrl}/images/pages/collections/${handle}.jpg`],
+      card: (socialMeta?.twitterCard as any) || "summary_large_image",
+      title: socialMeta?.twitterTitle || title,
+      description: socialMeta?.twitterDescription || description,
+      images: socialMeta?.twitterImage?.url
+        ? [socialMeta.twitterImage.url]
+        : undefined,
+      site: socialMeta?.twitterSite,
+      creator: socialMeta?.twitterCreator,
     },
     robots: {
       index: true,
       follow: true,
-      "max-image-preview": "large",
-      "max-snippet": -1,
-      "max-video-preview": -1,
-      googleBot: {
-        index: true,
-        follow: true,
-        "max-image-preview": "large",
-        "max-snippet": -1,
-        "max-video-preview": -1,
-      },
     },
   }
 
   return metadata
 }
 
-function generateCollectionJsonLd(collection: ProductCollection, countryCode: string) {
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://grillers.com"
+function generateCollectionJsonLd(
+  collection: ProductCollectionData,
+  countryCode: string
+) {
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://grillerspride.com"
   const canonicalUrl = `${baseUrl}/${countryCode}/collections/${collection.Slug}`
-  const description = `Shop our ${collection.Name} collection of premium kosher meats. Fresh, high-quality cuts delivered to your door.`
-  
+  const description =
+    collection.SEO?.metaDescription ||
+    `Shop our ${collection.Name} collection of premium kosher meats.`
+
   return {
     "@context": "https://schema.org",
     "@type": "CollectionPage",
-    "name": collection.Name,
-    "description": description,
-    "url": canonicalUrl,
-    "image": `${baseUrl}/images/pages/collections/${collection.Slug}.jpg`,
-    "breadcrumb": {
+    name: collection.Name,
+    description: description,
+    url: canonicalUrl,
+    breadcrumb: {
       "@type": "BreadcrumbList",
-      "itemListElement": [
+      itemListElement: [
         {
           "@type": "ListItem",
-          "position": 1,
-          "name": "Home",
-          "item": `${baseUrl}/${countryCode}`
+          position: 1,
+          name: "Home",
+          item: `${baseUrl}/${countryCode}`,
         },
         {
           "@type": "ListItem",
-          "position": 2,
-          "name": "Collections",
-          "item": `${baseUrl}/${countryCode}/collections`
+          position: 2,
+          name: "Collections",
+          item: `${baseUrl}/${countryCode}/collections`,
         },
         {
           "@type": "ListItem",
-          "position": 3,
-          "name": collection.Name,
-          "item": canonicalUrl
-        }
-      ]
+          position: 3,
+          name: collection.Name,
+          item: canonicalUrl,
+        },
+      ],
     },
-    "mainEntity": {
-      "@type": "ItemList",
-      "name": collection.Name,
-      "description": description,
-      "numberOfItems": 12 // This could be dynamic based on actual product count
-    },
-    "isPartOf": {
+    isPartOf: {
       "@type": "WebSite",
-      "name": "Grillers",
-      "url": `${baseUrl}`
-    }
+      name: "Grillers Pride",
+      url: `${baseUrl}`,
+    },
   }
 }
 

@@ -1,155 +1,195 @@
-import { listCategories } from "@lib/data/categories"
-import { listCollections } from "@lib/data/collections"
-import { Text, clx } from "@medusajs/ui"
+import { Text } from "@medusajs/ui"
+import Image from "next/image"
+import Link from "next/link"
+import strapiClient from "@lib/strapi"
+import { GetFooterQuery, type FooterData } from "@lib/data/strapi/footer"
 
-import LocalizedClientLink from "@modules/common/components/localized-client-link"
-import MedusaCTA from "@modules/layout/components/medusa-cta"
+async function getFooterData(): Promise<FooterData | null> {
+  try {
+    const data = await strapiClient.request<FooterData>({
+      document: GetFooterQuery,
+    })
+    return data
+  } catch (error) {
+    console.error("Error fetching footer data:", error)
+    return null
+  }
+}
 
 export default async function Footer() {
-  const { collections } = await listCollections({
-    fields: "*products",
-  })
-  const productCategories = await listCategories()
+  const footerData = await getFooterData()
+  const footer = footerData?.footer
 
-  return (
-    <footer className="border-t border-ui-border-base w-full">
-      <div className="content-container flex flex-col w-full">
-        <div className="flex flex-col gap-y-6 xsmall:flex-row items-start justify-between py-40">
-          <div>
-            <LocalizedClientLink
-              href="/"
-              className="txt-compact-xlarge-plus text-ui-fg-subtle hover:text-ui-fg-base uppercase"
-            >
-              Medusa Store
-            </LocalizedClientLink>
-          </div>
-          <div className="text-small-regular gap-10 md:gap-x-16 grid grid-cols-2 sm:grid-cols-3">
-            {productCategories && productCategories?.length > 0 && (
-              <div className="flex flex-col gap-y-2">
-                <span className="txt-small-plus txt-ui-fg-base">
-                  Categories
-                </span>
-                <ul
-                  className="grid grid-cols-1 gap-2"
-                  data-testid="footer-categories"
-                >
-                  {productCategories?.slice(0, 6).map((c) => {
-                    if (c.parent_category) {
-                      return
-                    }
+  // Fallback values if Strapi data is not available
+  const copyrightText =
+    footer?.CopyrightText ||
+    `© ${new Date().getFullYear()} Grillers Pride. All rights reserved.`
 
-                    const children =
-                      c.category_children?.map((child) => ({
-                        name: child.name,
-                        handle: child.handle,
-                        id: child.id,
-                      })) || null
-
-                    return (
-                      <li
-                        className="flex flex-col gap-2 text-ui-fg-subtle txt-small"
-                        key={c.id}
-                      >
-                        <LocalizedClientLink
-                          className={clx(
-                            "hover:text-ui-fg-base",
-                            children && "txt-small-plus"
-                          )}
-                          href={`/categories/${c.handle}`}
-                          data-testid="category-link"
-                        >
-                          {c.name}
-                        </LocalizedClientLink>
-                        {children && (
-                          <ul className="grid grid-cols-1 ml-3 gap-2">
-                            {children &&
-                              children.map((child) => (
-                                <li key={child.id}>
-                                  <LocalizedClientLink
-                                    className="hover:text-ui-fg-base"
-                                    href={`/categories/${child.handle}`}
-                                    data-testid="category-link"
-                                  >
-                                    {child.name}
-                                  </LocalizedClientLink>
-                                </li>
-                              ))}
-                          </ul>
-                        )}
-                      </li>
-                    )
-                  })}
-                </ul>
-              </div>
-            )}
-            {collections && collections.length > 0 && (
-              <div className="flex flex-col gap-y-2">
-                <span className="txt-small-plus txt-ui-fg-base">
-                  Collections
-                </span>
-                <ul
-                  className={clx(
-                    "grid grid-cols-1 gap-2 text-ui-fg-subtle txt-small",
-                    {
-                      "grid-cols-2": (collections?.length || 0) > 3,
-                    }
-                  )}
-                >
-                  {collections?.slice(0, 6).map((c) => (
-                    <li key={c.id}>
-                      <LocalizedClientLink
-                        className="hover:text-ui-fg-base"
-                        href={`/collections/${c.handle}`}
-                      >
-                        {c.title}
-                      </LocalizedClientLink>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            <div className="flex flex-col gap-y-2">
-              <span className="txt-small-plus txt-ui-fg-base">Medusa</span>
-              <ul className="grid grid-cols-1 gap-y-2 text-ui-fg-subtle txt-small">
-                <li>
-                  <a
-                    href="https://github.com/medusajs"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="hover:text-ui-fg-base"
-                  >
-                    GitHub
-                  </a>
-                </li>
-                <li>
-                  <a
-                    href="https://docs.medusajs.com"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="hover:text-ui-fg-base"
-                  >
-                    Documentation
-                  </a>
-                </li>
-                <li>
-                  <a
-                    href="https://github.com/medusajs/nextjs-starter-medusa"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="hover:text-ui-fg-base"
-                  >
-                    Source code
-                  </a>
-                </li>
-              </ul>
-            </div>
+  // If no footer data at all, show simple fallback footer
+  if (!footer) {
+    return (
+      <footer className="bg-Charcoal text-white w-full">
+        <div className="content-container flex flex-col w-full py-12">
+          <div className="flex flex-col items-center gap-y-6">
+            <Link href="/" className="inline-block">
+              <Image
+                src="/images/logos/logo-horizontal.svg"
+                alt="Grillers Pride"
+                width={200}
+                height={40}
+                className="brightness-0 invert"
+              />
+            </Link>
+            <Text className="text-sm text-gray-400 text-center">
+              {copyrightText}
+            </Text>
           </div>
         </div>
-        <div className="flex w-full mb-16 justify-between text-ui-fg-muted">
-          <Text className="txt-compact-small">
-            © {new Date().getFullYear()} Medusa Store. All rights reserved.
-          </Text>
-          <MedusaCTA />
+      </footer>
+    )
+  }
+
+  return (
+    <footer className="bg-Charcoal text-white w-full">
+      <div className="content-container flex flex-col w-full">
+        {/* Main Footer Content */}
+        <div className="flex flex-col gap-y-8 lg:flex-row lg:justify-between py-12 lg:py-16">
+          {/* Logo and Contact Info */}
+          <div className="flex flex-col gap-y-6 lg:max-w-xs">
+            <Link href="/" className="inline-block">
+              <Image
+                src="/images/logos/logo-horizontal.svg"
+                alt="Grillers Pride"
+                width={200}
+                height={40}
+                className="brightness-0 invert"
+              />
+            </Link>
+
+            {/* Contact Information */}
+            {(footer?.ContactPhone ||
+              footer?.ContactEmail ||
+              footer?.ContactAddress) && (
+              <div className="flex flex-col gap-y-2 text-sm text-gray-300">
+                {footer?.ContactPhone && (
+                  <a
+                    href={`tel:${footer.ContactPhone.replace(/\D/g, "")}`}
+                    className="hover:text-white transition-colors"
+                  >
+                    {footer.ContactPhone}
+                  </a>
+                )}
+                {footer?.ContactEmail && (
+                  <a
+                    href={`mailto:${footer.ContactEmail}`}
+                    className="hover:text-white transition-colors"
+                  >
+                    {footer.ContactEmail}
+                  </a>
+                )}
+                {footer?.ContactAddress && (
+                  <p className="text-gray-400">{footer.ContactAddress}</p>
+                )}
+              </div>
+            )}
+
+            {/* Social Links */}
+            {footer?.SocialLinks && footer.SocialLinks.length > 0 && (
+              <div className="flex gap-x-4">
+                {footer.SocialLinks.map((social) => (
+                  <a
+                    key={social.id}
+                    href={social.Url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-gray-400 hover:text-white transition-colors"
+                    aria-label={social.Platform}
+                  >
+                    {social.Icon?.url ? (
+                      <Image
+                        src={social.Icon.url}
+                        alt={social.Platform}
+                        width={24}
+                        height={24}
+                        className="brightness-0 invert opacity-70 hover:opacity-100"
+                      />
+                    ) : (
+                      <span className="text-sm">{social.Platform}</span>
+                    )}
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Navigation Columns */}
+          {footer?.NavigationColumns && footer.NavigationColumns.length > 0 && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-8 lg:gap-12">
+              {footer.NavigationColumns.map((column) => (
+                <div key={column.id} className="flex flex-col gap-y-3">
+                  <h3 className="text-sm font-semibold uppercase tracking-wider text-white">
+                    {column.Title}
+                  </h3>
+                  <ul className="flex flex-col gap-y-2">
+                    {column.Links.map((link) => (
+                      <li key={link.id}>
+                        <Link
+                          href={link.Url}
+                          className="text-sm text-gray-400 hover:text-white transition-colors"
+                        >
+                          {link.Text}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Certification Badges */}
+        {footer?.CertificationBadges &&
+          footer.CertificationBadges.length > 0 && (
+            <div className="flex flex-wrap justify-center gap-6 py-8 border-t border-gray-700">
+              {footer.CertificationBadges.map((badge) => (
+                <div
+                  key={badge.id}
+                  className="flex items-center gap-x-2"
+                  title={badge.Description || badge.Name}
+                >
+                  {badge.Image?.url && (
+                    <Image
+                      src={badge.Image.url}
+                      alt={badge.Name}
+                      width={48}
+                      height={48}
+                      className="object-contain"
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+        {/* Bottom Bar */}
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-y-4 py-6 border-t border-gray-700">
+          <Text className="text-sm text-gray-400">{copyrightText}</Text>
+
+          {/* Legal Links */}
+          {footer?.LegalLinks && footer.LegalLinks.length > 0 && (
+            <div className="flex flex-wrap gap-x-6 gap-y-2">
+              {footer.LegalLinks.map((link) => (
+                <Link
+                  key={link.id}
+                  href={link.Url}
+                  className="text-sm text-gray-400 hover:text-white transition-colors"
+                >
+                  {link.Text}
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </footer>

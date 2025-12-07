@@ -1,13 +1,39 @@
 import { retrieveCart } from "@lib/data/cart"
 import { retrieveCustomer } from "@lib/data/customer"
+import strapiClient from "@lib/strapi"
+import { GetCheckoutSEOQuery, type CheckoutPageData } from "@lib/data/strapi/checkout"
 import PaymentWrapper from "@modules/checkout/components/payment-wrapper"
 import CheckoutForm from "@modules/checkout/templates/checkout-form"
 import CheckoutSummary from "@modules/checkout/templates/checkout-summary"
 import { Metadata } from "next"
 import { notFound } from "next/navigation"
 
-export const metadata: Metadata = {
-  title: "Checkout",
+export async function generateMetadata(): Promise<Metadata> {
+  try {
+    const data = await strapiClient.request<CheckoutPageData>(GetCheckoutSEOQuery)
+    const seo = data?.checkout?.SEO
+
+    return {
+      title: seo?.metaTitle || "Checkout | Grillers Pride",
+      description:
+        seo?.metaDescription ||
+        "Complete your order at Grillers Pride. Secure checkout for premium kosher meats delivered fresh to your door.",
+      robots: {
+        index: false,
+        follow: false,
+      },
+    }
+  } catch (error) {
+    return {
+      title: "Checkout | Grillers Pride",
+      description:
+        "Complete your order at Grillers Pride. Secure checkout for premium kosher meats.",
+      robots: {
+        index: false,
+        follow: false,
+      },
+    }
+  }
 }
 
 export default async function Checkout() {

@@ -1,8 +1,41 @@
 import { gql } from "graphql-request"
+import type { StrapiSEO, StrapiSocialMeta } from "./seo"
+
+export type HomePageData = {
+  home: {
+    Sections: any[]
+    SEO?: StrapiSEO
+    SocialMeta?: StrapiSocialMeta
+  }
+}
 
 export const GetHomePageQuery = gql`
   query HomePageQuery {
     home {
+      SEO {
+        metaTitle
+        metaDescription
+        keywords
+        canonicalUrl
+      }
+      SocialMeta {
+        ogTitle
+        ogDescription
+        ogImage {
+          url
+        }
+        ogImageAlt
+        ogType
+        twitterCard
+        twitterTitle
+        twitterDescription
+        twitterImage {
+          url
+        }
+        twitterImageAlt
+        twitterCreator
+        twitterSite
+      }
       Sections {
         __typename
         ... on ComponentHomeHero {

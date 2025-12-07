@@ -1,6 +1,5 @@
 import { Metadata } from "next"
 
-// import FeaturedProducts from "@modules/home/components/featured-products"
 import Hero from "@modules/home/components/hero"
 import BestsellersSection from "@modules/home/components/shop-bestsellers"
 import KosherPromiseSection from "@modules/home/components/kosher-promise"
@@ -11,12 +10,61 @@ import BlogExploreSection from "@modules/home/components/blog-explore"
 import { listCollections } from "@lib/data/collections"
 import { getRegion } from "@lib/data/regions"
 import strapiClient from "@lib/strapi"
-import { GetHomePageQuery } from "@lib/data/strapi/home"
+import { GetHomePageQuery, type HomePageData } from "@lib/data/strapi/home"
 
-export const metadata: Metadata = {
-  title: "Medusa Next.js Starter Template",
-  description:
-    "A performant frontend ecommerce starter template with Next.js 15 and Medusa.",
+export async function generateMetadata(): Promise<Metadata> {
+  try {
+    const strapiData = await strapiClient.request<HomePageData>(GetHomePageQuery)
+    const seo = strapiData?.home?.SEO
+    const socialMeta = strapiData?.home?.SocialMeta
+
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://grillerspride.com"
+
+    return {
+      title: seo?.metaTitle || "Grillers Pride | Premium Kosher Meats",
+      description:
+        seo?.metaDescription ||
+        "Shop premium kosher meats at Grillers Pride. Fresh, high-quality cuts delivered to your door. 100% kosher certified.",
+      openGraph: {
+        title: socialMeta?.ogTitle || seo?.metaTitle || "Grillers Pride",
+        description:
+          socialMeta?.ogDescription ||
+          seo?.metaDescription ||
+          "Premium kosher meats delivered fresh to your door.",
+        type: (socialMeta?.ogType as any) || "website",
+        url: baseUrl,
+        siteName: "Grillers Pride",
+        images: socialMeta?.ogImage?.url
+          ? [
+              {
+                url: socialMeta.ogImage.url,
+                alt: socialMeta.ogImageAlt || "Grillers Pride",
+              },
+            ]
+          : undefined,
+      },
+      twitter: {
+        card: (socialMeta?.twitterCard as any) || "summary_large_image",
+        title: socialMeta?.twitterTitle || seo?.metaTitle || "Grillers Pride",
+        description:
+          socialMeta?.twitterDescription ||
+          seo?.metaDescription ||
+          "Premium kosher meats delivered fresh.",
+        images: socialMeta?.twitterImage?.url
+          ? [socialMeta.twitterImage.url]
+          : undefined,
+        site: socialMeta?.twitterSite,
+        creator: socialMeta?.twitterCreator,
+      },
+    }
+  } catch (error) {
+    console.error("Error fetching home page SEO:", error)
+    return {
+      title: "Grillers Pride | Premium Kosher Meats",
+      description:
+        "Shop premium kosher meats at Grillers Pride. Fresh, high-quality cuts delivered to your door.",
+    }
+  }
 }
 
 export default async function Home(props: {
@@ -36,7 +84,7 @@ export default async function Home(props: {
     return null
   }
 
-  const strapiData: any = await strapiClient.request(GetHomePageQuery)
+  const strapiData = await strapiClient.request<HomePageData>(GetHomePageQuery)
 
   const renderSections = () => {
     if (strapiData?.home?.Sections) {
@@ -74,14 +122,5 @@ export default async function Home(props: {
     return null
   }
 
-  return (
-    <>
-      {renderSections()}
-      {/* <div className="py-12">
-        <ul className="flex flex-col gap-x-6">
-          <FeaturedProducts collections={collections} region={region} />
-        </ul>
-      </div> */}
-    </>
-  )
+  return <>{renderSections()}</>
 }

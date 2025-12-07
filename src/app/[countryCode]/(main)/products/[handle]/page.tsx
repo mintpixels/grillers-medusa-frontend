@@ -70,12 +70,39 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
     notFound()
   }
 
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://grillerspride.com"
+  const productUrl = `${baseUrl}/${params.countryCode}/products/${handle}`
+
+  const title = `${product.title} | Grillers Pride`
+  const description =
+    product.description ||
+    `Shop ${product.title} at Grillers Pride. Premium kosher meats delivered fresh to your door.`
+
   return {
-    title: `${product.title} | Medusa Store`,
-    description: `${product.title}`,
+    title,
+    description,
+    alternates: {
+      canonical: productUrl,
+    },
     openGraph: {
-      title: `${product.title} | Medusa Store`,
-      description: `${product.title}`,
+      title,
+      description,
+      type: "product",
+      url: productUrl,
+      siteName: "Grillers Pride",
+      images: product.thumbnail
+        ? [
+            {
+              url: product.thumbnail,
+              alt: product.title,
+            },
+          ]
+        : [],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
       images: product.thumbnail ? [product.thumbnail] : [],
     },
   }
@@ -98,26 +125,25 @@ export default async function ProductPage(props: Props) {
     notFound()
   }
 
-  // Debug logging
-  console.log('Medusa product ID:', pricedProduct.id)
-  console.log('Product handle:', params.handle)
-
   let strapiCommonPdpData: any = null
   let strapiProductData: any = null
 
   try {
     strapiCommonPdpData = await strapiClient.request(GetCommonPdpQuery)
   } catch (error) {
-    console.error('Failed to fetch common PDP data from Strapi:', error)
+    console.error("Failed to fetch common PDP data from Strapi:", error)
   }
 
   try {
     strapiProductData = await strapiClient.request(GetProductQuery, {
       medusa_product_id: pricedProduct.id,
     })
-    console.log('Strapi product data response:', strapiProductData)
   } catch (error) {
-    console.error('Failed to fetch product data from Strapi for ID:', pricedProduct.id, error)
+    console.error(
+      "Failed to fetch product data from Strapi for ID:",
+      pricedProduct.id,
+      error
+    )
   }
 
   return (

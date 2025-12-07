@@ -2,6 +2,72 @@ export interface StrapiImage {
   url: string
 }
 
+// SEO Types
+export interface StrapiSEO {
+  metaTitle: string
+  metaDescription: string
+  shareImage?: StrapiImage
+}
+
+export interface StrapiSocialMeta {
+  ogTitle?: string
+  ogDescription?: string
+  ogImage?: StrapiImage
+  ogImageAlt?: string
+  ogType?: string
+  twitterCard?: string
+  twitterTitle?: string
+  twitterDescription?: string
+  twitterImage?: StrapiImage
+  twitterImageAlt?: string
+  twitterCreator?: string
+  twitterSite?: string
+}
+
+// Footer Types
+export interface FooterLink {
+  id: string
+  Text: string
+  Url: string
+}
+
+export interface FooterNavigationColumn {
+  id: string
+  Title: string
+  Links: FooterLink[]
+}
+
+export interface FooterSocialLink {
+  id: string
+  Platform: string
+  Url: string
+  Icon?: StrapiImage
+}
+
+export interface FooterCertificationBadge {
+  id: string
+  Name: string
+  Image?: StrapiImage
+  Description?: string
+}
+
+export interface StrapiFooterData {
+  footer: {
+    NavigationColumns: FooterNavigationColumn[]
+    SocialLinks: FooterSocialLink[]
+    ContactEmail?: string
+    ContactPhone?: string
+    ContactAddress?: string
+    LegalLinks: FooterLink[]
+    CertificationBadges: FooterCertificationBadge[]
+    CopyrightText?: string
+    ShowNewsletterSection?: boolean
+    NewsletterTitle?: string
+    NewsletterDescription?: string
+  }
+}
+
+// Product Types
 export interface Metadata {
   AvgPackSize?: string
   AvgPackWeight?: string
@@ -10,7 +76,6 @@ export interface Metadata {
   Cooked?: boolean
   PiecesPerPack?: number
   GlutenFree?: boolean
-  // add additional metadata keys here as needed
 }
 
 export interface MedusaProductVariant {
@@ -21,6 +86,7 @@ export interface MedusaProductVariant {
     OriginalPriceNumber: number
   }
 }
+
 export interface MedusaProduct {
   ProductId: string
   Title: string
