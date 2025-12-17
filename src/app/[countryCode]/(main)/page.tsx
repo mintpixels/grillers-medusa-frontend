@@ -11,20 +11,28 @@ import { listCollections } from "@lib/data/collections"
 import { getRegion } from "@lib/data/regions"
 import strapiClient from "@lib/strapi"
 import { GetHomePageQuery, type HomePageData } from "@lib/data/strapi/home"
+import { generateAlternates } from "@lib/util/seo"
 
-export async function generateMetadata(): Promise<Metadata> {
+type PageProps = {
+  params: Promise<{ countryCode: string }>
+}
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { countryCode } = await params
   try {
     const strapiData = await strapiClient.request<HomePageData>(GetHomePageQuery)
     const seo = strapiData?.home?.SEO
     const socialMeta = strapiData?.home?.SocialMeta
 
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://grillerspride.com"
+    const alternates = await generateAlternates("", countryCode)
 
     return {
       title: seo?.metaTitle || "Grillers Pride | Premium Kosher Meats",
       description:
         seo?.metaDescription ||
         "Shop premium kosher meats at Grillers Pride. Fresh, high-quality cuts delivered to your door. 100% kosher certified.",
+      alternates,
       openGraph: {
         title: socialMeta?.ogTitle || seo?.metaTitle || "Grillers Pride",
         description:

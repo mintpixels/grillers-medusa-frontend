@@ -1,6 +1,11 @@
 import { gql } from "graphql-request"
 import type { StrapiSEO, StrapiSocialMeta } from "./seo"
 
+export type RecipeCategory = {
+  Name: string
+  Slug: string
+}
+
 export type RecipeData = {
   Title: string
   Slug: string
@@ -13,8 +18,20 @@ export type RecipeData = {
   Servings?: string
   Ingredients?: { ingredient: string; id: string }[]
   Steps?: { id: string; instruction: string }[]
+  Category?: RecipeCategory
+  CookingMethod?: string
+  Difficulty?: string
+  DietaryTags?: string[]
   SEO?: StrapiSEO
   SocialMeta?: StrapiSocialMeta
+}
+
+export type RecipeFilterParams = {
+  category?: string
+  cookingMethod?: string
+  difficulty?: string
+  dietaryTag?: string
+  search?: string
 }
 
 export const GetRecipeBySlugQuery = gql`
@@ -82,6 +99,13 @@ export const GetPaginatedRecipesQuery = gql`
         Image {
           url
         }
+        Category {
+          Name
+          Slug
+        }
+        CookingMethod
+        Difficulty
+        DietaryTags
       }
       pageInfo {
         page
@@ -89,6 +113,70 @@ export const GetPaginatedRecipesQuery = gql`
         pageCount
         total
       }
+    }
+  }
+`
+
+// Filtered recipes query with dynamic filters
+export const GetFilteredRecipesQuery = gql`
+  query FilteredRecipes(
+    $page: Int!
+    $pageSize: Int!
+    $filters: RecipeFiltersInput
+  ) {
+    recipes_connection(
+      pagination: { page: $page, pageSize: $pageSize }
+      sort: ["PublishedDate:desc"]
+      status: PUBLISHED
+      filters: $filters
+    ) {
+      nodes {
+        documentId
+        Slug
+        Title
+        ShortDescription
+        Image {
+          url
+        }
+        Category {
+          Name
+          Slug
+        }
+        CookingMethod
+        Difficulty
+        DietaryTags
+      }
+      pageInfo {
+        page
+        pageSize
+        pageCount
+        total
+      }
+    }
+  }
+`
+
+// Get all recipe categories for filter dropdown
+export const GetRecipeCategoriesQuery = gql`
+  query RecipeCategories {
+    recipeCategories {
+      Name
+      Slug
+    }
+  }
+`
+
+// Get distinct filter options from recipes
+export const GetRecipeFilterOptionsQuery = gql`
+  query RecipeFilterOptions {
+    recipes(pagination: { limit: 100 }, status: PUBLISHED) {
+      Category {
+        Name
+        Slug
+      }
+      CookingMethod
+      Difficulty
+      DietaryTags
     }
   }
 `

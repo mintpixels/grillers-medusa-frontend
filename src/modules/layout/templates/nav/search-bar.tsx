@@ -1,6 +1,6 @@
 "use client"
 
-import { Fragment, useCallback } from "react"
+import { Fragment, useCallback, useEffect, useRef } from "react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
 import {
@@ -18,6 +18,7 @@ import {
 } from "react-instantsearch"
 import { searchLiteClient } from "@lib/algolia"
 import { PRODUCT_INDEX } from "@lib/algolia/indexes"
+import { trackSearch } from "@lib/gtm"
 
 type Product = {
   objectID: string
@@ -52,6 +53,18 @@ const SearchIcon = () => (
 
 function InstantComboboxInput() {
   const { query, refine, clear } = useSearchBox()
+  const lastTrackedQuery = useRef<string>("")
+
+  // Track search event with debounce (when query is at least 3 chars and different)
+  useEffect(() => {
+    if (query.length >= 3 && query !== lastTrackedQuery.current) {
+      const timer = setTimeout(() => {
+        trackSearch(query)
+        lastTrackedQuery.current = query
+      }, 500) // 500ms debounce
+      return () => clearTimeout(timer)
+    }
+  }, [query])
 
   return (
     <div className="relative">

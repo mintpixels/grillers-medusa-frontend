@@ -2,13 +2,14 @@
 
 import { setAddresses } from "@lib/data/cart"
 import compareAddresses from "@lib/util/compare-addresses"
+import { trackBeginCheckout } from "@lib/gtm"
 import { CheckCircleSolid } from "@medusajs/icons"
 import { HttpTypes } from "@medusajs/types"
 import { Heading, Text, useToggleState } from "@medusajs/ui"
 import Divider from "@modules/common/components/divider"
 import Spinner from "@modules/common/icons/spinner"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
-import { useActionState } from "react"
+import { useActionState, useEffect, useRef } from "react"
 import BillingAddress from "../billing_address"
 import ErrorMessage from "../error-message"
 import ShippingAddress from "../shipping-address"
@@ -32,6 +33,25 @@ const Addresses = ({
       ? compareAddresses(cart?.shipping_address, cart?.billing_address)
       : true
   )
+
+  // Track begin_checkout event once on component mount
+  const hasTrackedCheckout = useRef(false)
+  useEffect(() => {
+    if (cart && !hasTrackedCheckout.current) {
+      hasTrackedCheckout.current = true
+      trackBeginCheckout({
+        id: cart.id,
+        total: (cart.total || 0) / 100,
+        currency: cart.currency_code?.toUpperCase(),
+        items: cart.items?.map(item => ({
+          id: item.product_id || item.id,
+          title: item.product_title || '',
+          price: (item.unit_price || 0) / 100,
+          quantity: item.quantity,
+        })) || [],
+      })
+    }
+  }, [cart])
 
   const handleEdit = () => {
     router.push(pathname + "?step=address")

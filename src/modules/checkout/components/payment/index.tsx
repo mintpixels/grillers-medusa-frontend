@@ -3,6 +3,7 @@
 import { RadioGroup } from "@headlessui/react"
 import { isStripe as isStripeFunc, paymentInfoMap } from "@lib/constants"
 import { initiatePaymentSession } from "@lib/data/cart"
+import { trackAddPaymentInfo } from "@lib/gtm"
 import { CheckCircleSolid, CreditCard } from "@medusajs/icons"
 import { Button, Container, Heading, Text, clx } from "@medusajs/ui"
 import ErrorMessage from "@modules/checkout/components/error-message"
@@ -88,6 +89,19 @@ const Payment = ({
       }
 
       if (!shouldInputCard) {
+        // Track add_payment_info event
+        trackAddPaymentInfo({
+          total: (cart.total || 0) / 100,
+          currency: cart.currency_code?.toUpperCase(),
+          paymentType: paymentInfoMap[selectedPaymentMethod]?.title || selectedPaymentMethod,
+          items: cart.items?.map((item: any) => ({
+            id: item.product_id || item.id,
+            title: item.product_title || '',
+            price: (item.unit_price || 0) / 100,
+            quantity: item.quantity,
+          })) || [],
+        })
+        
         return router.push(
           pathname + "?" + createQueryString("step", "review"),
           {

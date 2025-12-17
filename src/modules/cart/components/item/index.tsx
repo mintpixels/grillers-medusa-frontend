@@ -99,7 +99,17 @@ const Item = ({ item, type = "full", currencyCode }: ItemProps) => {
       {type === "full" && (
         <Table.Cell>
           <div className="flex gap-2 items-center w-28">
-            <DeleteButton id={item.id} data-testid="product-delete-button" />
+            <DeleteButton 
+              id={item.id} 
+              data-testid="product-delete-button"
+              productInfo={{
+                id: item.product_id || item.id,
+                title: item.product_title || '',
+                price: item.unit_price ? item.unit_price / 100 : undefined,
+                quantity: item.quantity,
+                currency: currencyCode,
+              }}
+            />
             <CartItemSelect
               value={item.quantity}
               onChange={(value) => changeQuantity(parseInt(value.target.value))}

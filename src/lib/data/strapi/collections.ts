@@ -1,9 +1,20 @@
 import { gql } from "graphql-request"
 import type { StrapiSEO, StrapiSocialMeta } from "./seo"
 
+export type ProductCollectionHeroCTA = {
+  Label: string
+  Url: string
+}
+
 export type ProductCollectionData = {
   Name: string
   Slug: string
+  Description?: string
+  HeroImage?: {
+    url: string
+    alternativeText?: string
+  }
+  HeroCTA?: ProductCollectionHeroCTA
   SEO?: StrapiSEO
   SocialMeta?: StrapiSocialMeta
 }
@@ -24,6 +35,15 @@ export const GetProductCollectionQuery = gql`
     ) {
       Name
       Slug
+      Description
+      HeroImage {
+        url
+        alternativeText
+      }
+      HeroCTA {
+        Label
+        Url
+      }
       SEO {
         metaTitle
         metaDescription

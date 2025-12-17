@@ -217,6 +217,7 @@ export default async function CollectionPage(props: Props) {
         title={collection.Name}
         slug={handle}
         countryCode={countryCode}
+        collection={collection}
       />
     </>
   )

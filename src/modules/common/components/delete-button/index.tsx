@@ -2,20 +2,43 @@ import { deleteLineItem } from "@lib/data/cart"
 import { Spinner, Trash } from "@medusajs/icons"
 import { clx } from "@medusajs/ui"
 import { useState } from "react"
+import { trackRemoveFromCart } from "@lib/gtm"
+
+type ProductInfo = {
+  id: string
+  title: string
+  price?: number
+  quantity: number
+  currency?: string
+}
 
 const DeleteButton = ({
   id,
   children,
   className,
+  productInfo,
 }: {
   id: string
   children?: React.ReactNode
   className?: string
+  productInfo?: ProductInfo
 }) => {
   const [isDeleting, setIsDeleting] = useState(false)
 
   const handleDelete = async (id: string) => {
     setIsDeleting(true)
+    
+    // Track remove_from_cart event before deletion
+    if (productInfo) {
+      trackRemoveFromCart({
+        id: productInfo.id,
+        title: productInfo.title,
+        price: productInfo.price,
+        quantity: productInfo.quantity,
+        currency: productInfo.currency,
+      })
+    }
+    
     await deleteLineItem(id).catch((err) => {
       setIsDeleting(false)
     })

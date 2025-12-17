@@ -5,6 +5,7 @@ import { AllCategoryTreeQuery } from "@lib/data/strapi/categories"
 import { listRegions } from "@lib/data/regions"
 import { StoreRegion } from "@medusajs/types"
 import CategoryTemplate from "@modules/categories/templates"
+import { generateAlternates } from "@lib/util/seo"
 
 interface AllCategoryTreeResponse {
   aisles: { Slug: string }[]
@@ -140,12 +141,20 @@ export async function generateStaticParams(): Promise<StaticCategoryParam[]> {
 export async function generateMetadata({
   params,
 }: MetadataProps): Promise<Metadata> {
-  const { handle } = params
+  const { handle, countryCode } = params
   try {
     const title = handle
       .map((segment) => segment.replace(/-/g, " "))
       .join(" / ")
-    return { title }
+    
+    const path = `/categories/${handle.join("/")}`
+    const alternates = await generateAlternates(path, countryCode)
+    
+    return { 
+      title: `${title} | Grillers Pride`,
+      description: `Shop our selection of ${title.toLowerCase()} at Grillers Pride.`,
+      alternates,
+    }
   } catch (error) {
     notFound()
   }

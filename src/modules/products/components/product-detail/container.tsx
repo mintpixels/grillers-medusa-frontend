@@ -1,9 +1,10 @@
 "use client"
 
-import React, { useRef } from "react"
+import React, { useRef, useEffect } from "react"
 import { HttpTypes } from "@medusajs/types"
 import { useIntersection } from "@lib/hooks/use-in-view"
 import { useAddToCart } from "@lib/hooks/use-add-to-cart"
+import { trackViewItem } from "@lib/gtm"
 
 import ProductDetail from "./components"
 
@@ -42,6 +43,24 @@ export default function ProductDetailContainer({
 
   const actionsRef = useRef<HTMLDivElement>(null)
   const inView = useIntersection(actionsRef, "0px")
+
+  // Track view_item event when product is viewed
+  useEffect(() => {
+    if (product?.id) {
+      const price = selectedVariant?.calculated_price?.calculated_amount
+        ? selectedVariant.calculated_price.calculated_amount / 100
+        : undefined
+      
+      trackViewItem({
+        id: product.id,
+        title: product.title || '',
+        price,
+        currency: region?.currency_code?.toUpperCase() || 'USD',
+        category: product.collection?.title,
+        variant: selectedVariant?.title,
+      })
+    }
+  }, [product?.id]) // Only track once on mount
 
   return (
     <ProductDetail

@@ -3,6 +3,7 @@
 import React from "react"
 import NextImage from "next/image"
 import SocialShare from "@modules/common/components/social-share"
+import FavoriteButton from "@modules/recipes/components/favorite-button"
 
 type Recipe = {
   Title: string
@@ -16,6 +17,12 @@ type Recipe = {
   TotalTime: string
   Ingredients: { id: number; ingredient: string }[]
   Steps: { id: number; instruction: string }[]
+}
+
+type RecipeTemplateProps = {
+  recipe: Recipe
+  isLoggedIn?: boolean
+  isFavorited?: boolean
 }
 
 const PrintButton = () => {
@@ -47,9 +54,10 @@ const PrintButton = () => {
   )
 }
 
-const RecipeTemplate = ({ recipe }: { recipe: Recipe }) => {
+const RecipeTemplate = ({ recipe, isLoggedIn = false, isFavorited = false }: RecipeTemplateProps) => {
   const {
     Title,
+    Slug,
     ShortDescription,
     PublishedDate,
     PrepTime,
@@ -69,7 +77,16 @@ const RecipeTemplate = ({ recipe }: { recipe: Recipe }) => {
           <header>
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
               <h1 className="text-h2 font-gyst text-Charcoal">{Title}</h1>
-              <PrintButton />
+              <div className="print-hide flex items-center gap-3">
+                <FavoriteButton
+                  recipeSlug={Slug}
+                  recipeTitle={Title}
+                  initialFavorited={isFavorited}
+                  isLoggedIn={isLoggedIn}
+                  variant="button"
+                />
+                <PrintButton />
+              </div>
             </div>
             <p className="mt-1 text-p-md font-maison-neue text-Charcoal/80">
               Published {new Date(PublishedDate).toLocaleDateString()}

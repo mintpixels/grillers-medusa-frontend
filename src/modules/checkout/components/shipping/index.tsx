@@ -4,6 +4,7 @@ import { RadioGroup, Radio } from "@headlessui/react"
 import { setShippingMethod } from "@lib/data/cart"
 import { calculatePriceForShippingOption } from "@lib/data/fulfillment"
 import { convertToLocale } from "@lib/util/money"
+import { trackAddShippingInfo } from "@lib/gtm"
 
 import { CheckCircleSolid, Loader } from "@medusajs/icons"
 import { HttpTypes } from "@medusajs/types"
@@ -114,6 +115,20 @@ const Shipping: React.FC<ShippingProps> = ({
   }
 
   const handleSubmit = () => {
+    // Track add_shipping_info event
+    const selectedMethod = availableShippingMethods?.find(m => m.id === shippingMethodId)
+    trackAddShippingInfo({
+      total: (cart.total || 0) / 100,
+      currency: cart.currency_code?.toUpperCase(),
+      shippingTier: selectedMethod?.name,
+      items: cart.items?.map(item => ({
+        id: item.product_id || item.id,
+        title: item.product_title || '',
+        price: (item.unit_price || 0) / 100,
+        quantity: item.quantity,
+      })) || [],
+    })
+    
     router.push(pathname + "?step=payment", { scroll: false })
   }
 

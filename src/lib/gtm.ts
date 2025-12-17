@@ -83,6 +83,203 @@ export function trackPurchase(order: any) {
   })
 }
 
+// Track view_item event when viewing a product detail page
+export function trackViewItem(product: {
+  id: string
+  title: string
+  price?: number
+  currency?: string
+  category?: string
+  variant?: string
+}) {
+  pushToDataLayer({
+    event: 'view_item',
+    ecommerce: {
+      currency: product.currency || 'USD',
+      value: product.price || 0,
+      items: [
+        {
+          item_id: product.id,
+          item_name: product.title,
+          price: product.price,
+          item_category: product.category,
+          item_variant: product.variant,
+        },
+      ],
+    },
+  })
+}
+
+// Track remove_from_cart event
+export function trackRemoveFromCart(product: {
+  id: string
+  title: string
+  price?: number
+  quantity: number
+  currency?: string
+}) {
+  pushToDataLayer({
+    event: 'remove_from_cart',
+    ecommerce: {
+      currency: product.currency || 'USD',
+      value: (product.price || 0) * product.quantity,
+      items: [
+        {
+          item_id: product.id,
+          item_name: product.title,
+          price: product.price,
+          quantity: product.quantity,
+        },
+      ],
+    },
+  })
+}
+
+// Track begin_checkout event
+export function trackBeginCheckout(cart: {
+  id: string
+  total: number
+  currency?: string
+  items: Array<{
+    id: string
+    title: string
+    price: number
+    quantity: number
+  }>
+}) {
+  pushToDataLayer({
+    event: 'begin_checkout',
+    ecommerce: {
+      currency: cart.currency || 'USD',
+      value: cart.total,
+      items: cart.items.map((item) => ({
+        item_id: item.id,
+        item_name: item.title,
+        price: item.price,
+        quantity: item.quantity,
+      })),
+    },
+  })
+}
+
+// Track add_shipping_info event
+export function trackAddShippingInfo(cart: {
+  total: number
+  currency?: string
+  shippingTier?: string
+  items: Array<{
+    id: string
+    title: string
+    price: number
+    quantity: number
+  }>
+}) {
+  pushToDataLayer({
+    event: 'add_shipping_info',
+    ecommerce: {
+      currency: cart.currency || 'USD',
+      value: cart.total,
+      shipping_tier: cart.shippingTier,
+      items: cart.items.map((item) => ({
+        item_id: item.id,
+        item_name: item.title,
+        price: item.price,
+        quantity: item.quantity,
+      })),
+    },
+  })
+}
+
+// Track add_payment_info event
+export function trackAddPaymentInfo(cart: {
+  total: number
+  currency?: string
+  paymentType?: string
+  items: Array<{
+    id: string
+    title: string
+    price: number
+    quantity: number
+  }>
+}) {
+  pushToDataLayer({
+    event: 'add_payment_info',
+    ecommerce: {
+      currency: cart.currency || 'USD',
+      value: cart.total,
+      payment_type: cart.paymentType,
+      items: cart.items.map((item) => ({
+        item_id: item.id,
+        item_name: item.title,
+        price: item.price,
+        quantity: item.quantity,
+      })),
+    },
+  })
+}
+
+// Track search event
+export function trackSearch(searchTerm: string) {
+  pushToDataLayer({
+    event: 'search',
+    search_term: searchTerm,
+  })
+}
+
+// Track view_item_list event for collection/category pages
+export function trackViewItemList(params: {
+  listId: string
+  listName: string
+  items: Array<{
+    id: string
+    title: string
+    price?: number
+    position?: number
+  }>
+}) {
+  pushToDataLayer({
+    event: 'view_item_list',
+    ecommerce: {
+      item_list_id: params.listId,
+      item_list_name: params.listName,
+      items: params.items.map((item, index) => ({
+        item_id: item.id,
+        item_name: item.title,
+        price: item.price,
+        index: item.position ?? index,
+      })),
+    },
+  })
+}
+
+// Track select_item event when clicking a product in a list
+export function trackSelectItem(params: {
+  listId: string
+  listName: string
+  product: {
+    id: string
+    title: string
+    price?: number
+    position?: number
+  }
+}) {
+  pushToDataLayer({
+    event: 'select_item',
+    ecommerce: {
+      item_list_id: params.listId,
+      item_list_name: params.listName,
+      items: [
+        {
+          item_id: params.product.id,
+          item_name: params.product.title,
+          price: params.product.price,
+          index: params.product.position,
+        },
+      ],
+    },
+  })
+}
+
 // Declare dataLayer on window
 declare global {
   interface Window {
