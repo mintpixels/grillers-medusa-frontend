@@ -1,7 +1,7 @@
 "use client"
 
 import { convertToLocale } from "@lib/util/money"
-import React from "react"
+import React, { useState } from "react"
 
 type CartTotalsProps = {
   totals: {
@@ -14,9 +14,51 @@ type CartTotalsProps = {
     currency_code: string
     shipping_subtotal?: number | null
   }
+  hasNetWeightItems?: boolean
 }
 
-const CartTotals: React.FC<CartTotalsProps> = ({ totals }) => {
+// Net-weight info tooltip component
+const NetWeightTooltip = () => {
+  const [isOpen, setIsOpen] = useState(false)
+
+  return (
+    <div className="relative inline-block">
+      <button
+        type="button"
+        className="ml-1 text-Charcoal/50 hover:text-Charcoal transition-colors"
+        onMouseEnter={() => setIsOpen(true)}
+        onMouseLeave={() => setIsOpen(false)}
+        onClick={() => setIsOpen(!isOpen)}
+        aria-label="Learn about estimated pricing"
+      >
+        <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+          <path
+            fillRule="evenodd"
+            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+            clipRule="evenodd"
+          />
+        </svg>
+      </button>
+      {isOpen && (
+        <div className="absolute z-10 bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-3 bg-Charcoal text-white text-xs rounded-lg shadow-lg">
+          <p className="mb-2">
+            <strong>Why estimated?</strong>
+          </p>
+          <p className="text-white/80">
+            Some items in your cart are priced by weight. The final charge will
+            be based on the actual weight when your order is fulfilled and may
+            vary slightly.
+          </p>
+          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-full">
+            <div className="border-8 border-transparent border-t-Charcoal" />
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+const CartTotals: React.FC<CartTotalsProps> = ({ totals, hasNetWeightItems = false }) => {
   const {
     currency_code,
     total,
@@ -79,7 +121,10 @@ const CartTotals: React.FC<CartTotalsProps> = ({ totals }) => {
       </div>
       <div className="h-px w-full border-b border-gray-200 my-4" />
       <div className="flex items-center justify-between text-ui-fg-base mb-2 txt-medium ">
-        <span>Total</span>
+        <span className="flex items-center">
+          {hasNetWeightItems ? "Estimated Total" : "Total"}
+          {hasNetWeightItems && <NetWeightTooltip />}
+        </span>
         <span
           className="txt-xlarge-plus"
           data-testid="cart-total"
@@ -88,6 +133,19 @@ const CartTotals: React.FC<CartTotalsProps> = ({ totals }) => {
           {convertToLocale({ amount: total ?? 0, currency_code })}
         </span>
       </div>
+
+      {/* Net-weight disclaimer */}
+      {hasNetWeightItems && (
+        <div className="bg-Gold/10 border border-Gold/30 rounded-md p-3 mt-4">
+          <p className="text-xs text-Charcoal/70 leading-relaxed">
+            <strong className="text-Charcoal">Note:</strong> Your cart contains
+            items priced by weight. The final charge will be based on actual
+            product weights at fulfillment and may vary slightly from this
+            estimate.
+          </p>
+        </div>
+      )}
+
       <div className="h-px w-full border-b border-gray-200 mt-4" />
     </div>
   )

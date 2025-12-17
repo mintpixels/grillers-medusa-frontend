@@ -17,6 +17,62 @@ async function getFooterData(): Promise<FooterData | null> {
   }
 }
 
+// Payment method icons
+const PaymentIcon = ({ method }: { method: string }) => {
+  const iconClass = "h-6 w-auto"
+  
+  switch (method.toLowerCase()) {
+    case "visa":
+      return (
+        <svg className={iconClass} viewBox="0 0 48 32" aria-hidden="true">
+          <rect width="48" height="32" rx="4" fill="#1A1F71"/>
+          <path d="M19.5 21.5h-3l1.9-11.5h3l-1.9 11.5zm8.1-11.2c-.6-.2-1.5-.5-2.7-.5-3 0-5.1 1.5-5.1 3.7 0 1.6 1.5 2.5 2.6 3 1.2.6 1.6 1 1.6 1.5 0 .8-1 1.2-1.9 1.2-1.2 0-1.9-.2-2.9-.6l-.4-.2-.4 2.5c.7.3 2.1.6 3.5.6 3.2 0 5.2-1.5 5.2-3.8 0-1.3-.8-2.3-2.5-3.1-1-.5-1.7-.9-1.7-1.4 0-.5.5-1 1.7-1 1 0 1.7.2 2.3.4l.3.1.4-2.4zm7.9-.3h-2.3c-.7 0-1.3.2-1.6.9l-4.5 10.6h3.2l.6-1.7h3.9l.4 1.7h2.8l-2.5-11.5zm-3.7 7.4l1.2-3.2.3-.9.2.8.7 3.3h-2.4zM15 10l-3 7.9-.3-1.5c-.5-1.8-2.2-3.8-4.1-4.8l2.7 9.8h3.2l4.8-11.4H15z" fill="#fff"/>
+          <path d="M9.5 10H4.6l-.1.3c3.8.9 6.3 3.2 7.4 5.9l-1.1-5.3c-.2-.7-.7-.9-1.3-.9z" fill="#F9A533"/>
+        </svg>
+      )
+    case "mastercard":
+      return (
+        <svg className={iconClass} viewBox="0 0 48 32" aria-hidden="true">
+          <rect width="48" height="32" rx="4" fill="#000"/>
+          <circle cx="18" cy="16" r="9" fill="#EB001B"/>
+          <circle cx="30" cy="16" r="9" fill="#F79E1B"/>
+          <path d="M24 9.3a9 9 0 0 0-3.4 6.7 9 9 0 0 0 3.4 6.7 9 9 0 0 0 3.4-6.7 9 9 0 0 0-3.4-6.7z" fill="#FF5F00"/>
+        </svg>
+      )
+    case "amex":
+    case "american express":
+      return (
+        <svg className={iconClass} viewBox="0 0 48 32" aria-hidden="true">
+          <rect width="48" height="32" rx="4" fill="#006FCF"/>
+          <path d="M11 21.5v-6l-3 3.5h-.8l-3-3.5v6H2v-11h2.2l3.4 4 3.4-4H13v11h-2zm7.5-4.5h-3.2v1.5h3.2v2h-3.2v2h3.7v2H13v-11h5.5v2h-3.2v1.5h3.2v2zm5.5 4.5l-2-3.5H21v3.5h-2v-11h4.2c2 0 3.3 1.3 3.3 3.3 0 1.5-.8 2.6-2.1 3l2.3 4.7h-2.7zm-.5-9h-1.8v3.5h1.8c1 0 1.5-.7 1.5-1.7 0-1.1-.5-1.8-1.5-1.8zm6 9h-2v-11h2v11zm7.8-4l3.2 4H38l-2.5-3.2-2.5 3.2h-2.5l3.2-4-3.2-4h2.5l2.5 3.2L38 10.5h2.5l-3.2 4z" fill="#fff"/>
+        </svg>
+      )
+    case "paypal":
+      return (
+        <svg className={iconClass} viewBox="0 0 48 32" aria-hidden="true">
+          <rect width="48" height="32" rx="4" fill="#fff" stroke="#E5E5E5"/>
+          <path d="M19.5 8h-6c-.4 0-.8.3-.9.7l-2.4 15.1c0 .3.2.5.5.5h2.9c.4 0 .8-.3.9-.7l.6-4.1c0-.4.4-.7.9-.7h2c4.3 0 6.8-2.1 7.5-6.2.3-1.8 0-3.2-.9-4.2-.9-1-2.6-1.4-5.1-1.4z" fill="#003087"/>
+          <path d="M20.2 14.5c-.4 2.3-2.2 2.3-4 2.3h-1l.7-4.5c0-.2.2-.4.5-.4h.5c1.2 0 2.3 0 2.9.7.4.4.5 1.1.4 1.9z" fill="#003087"/>
+          <path d="M35 8h-6c-.4 0-.8.3-.9.7l-2.4 15.1c0 .3.2.5.5.5h3.1c.3 0 .5-.2.6-.5l.7-4.3c0-.4.4-.7.9-.7h2c4.3 0 6.8-2.1 7.5-6.2.3-1.8 0-3.2-.9-4.2-1-1-2.6-1.4-5.1-1.4z" fill="#009CDE"/>
+          <path d="M35.7 14.5c-.4 2.3-2.2 2.3-4 2.3h-1l.7-4.5c0-.2.2-.4.5-.4h.5c1.2 0 2.3 0 2.9.7.3.4.5 1.1.4 1.9z" fill="#009CDE"/>
+        </svg>
+      )
+    case "discover":
+      return (
+        <svg className={iconClass} viewBox="0 0 48 32" aria-hidden="true">
+          <rect width="48" height="32" rx="4" fill="#fff" stroke="#E5E5E5"/>
+          <path d="M24 22c-3.3 0-6-2.7-6-6s2.7-6 6-6 6 2.7 6 6-2.7 6-6 6z" fill="#F47216"/>
+          <path d="M5 13h2.5c1.4 0 2.5 1.1 2.5 2.5S8.9 18 7.5 18H6v3H5v-8zm1 4h1.5c.8 0 1.5-.7 1.5-1.5S8.3 14 7.5 14H6v3zm6-4h1v8h-1v-8zm3 0h1.8c2 0 3.2 1.6 3.2 4s-1.2 4-3.2 4H15v-8zm1 7h.8c1.4 0 2.2-1.2 2.2-3s-.8-3-2.2-3H16v6z" fill="#000"/>
+        </svg>
+      )
+    default:
+      return null
+  }
+}
+
+// Accepted payment methods
+const PAYMENT_METHODS = ["visa", "mastercard", "amex", "paypal"]
+
 // Social media icons with built-in SVGs for common platforms
 const SocialIcon = ({ platform }: { platform: string }) => {
   const iconClass = "w-5 h-5 fill-current"
@@ -297,29 +353,46 @@ export default async function Footer() {
           </div>
         )}
 
-        {/* Bottom Bar - Copyright & Legal */}
+        {/* Bottom Bar - Copyright, Legal & Payment Methods */}
         <div className="py-6 border-t border-white/10">
-          <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-            <Text className="text-p-ex-sm-mono text-Pewter/60 text-center sm:text-left">
-              {copyrightText}
-            </Text>
+          <div className="flex flex-col gap-4">
+            {/* Top row: Copyright & Legal */}
+            <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+              <Text className="text-p-ex-sm-mono text-Pewter/60 text-center sm:text-left">
+                {copyrightText}
+              </Text>
 
-            {hasLegalLinks && (
-              <nav aria-label="Legal links">
-                <ul className="flex flex-wrap justify-center gap-x-6 gap-y-2">
-                  {footer.LegalLinks.map((link) => (
-                    <li key={link.id}>
-                      <Link
-                        href={link.Url}
-                        className="text-p-ex-sm-mono text-Pewter/60 hover:text-Gold transition-colors"
-                      >
-                        {link.Text}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </nav>
-            )}
+              {hasLegalLinks && (
+                <nav aria-label="Legal links">
+                  <ul className="flex flex-wrap justify-center gap-x-6 gap-y-2">
+                    {footer.LegalLinks.map((link) => (
+                      <li key={link.id}>
+                        <Link
+                          href={link.Url}
+                          className="text-p-ex-sm-mono text-Pewter/60 hover:text-Gold transition-colors"
+                        >
+                          {link.Text}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </nav>
+              )}
+            </div>
+
+            {/* Payment Methods */}
+            <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-4 border-t border-white/5">
+              <Text className="text-p-ex-sm-mono text-Pewter/60">
+                Accepted Payment Methods
+              </Text>
+              <div className="flex items-center gap-3" aria-label="Accepted payment methods">
+                {PAYMENT_METHODS.map((method) => (
+                  <div key={method} className="opacity-80 hover:opacity-100 transition-opacity">
+                    <PaymentIcon method={method} />
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       </div>

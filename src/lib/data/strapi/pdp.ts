@@ -92,3 +92,22 @@ export const GetProductFeaturedImageQuery = gql`
     }
   }
 `
+
+export const GetProductMetadataQuery = gql`
+  query GetProductMetadataQuery($medusa_product_id: String) {
+    products(
+      filters: { MedusaProduct: { ProductId: { eq: $medusa_product_id } } }
+      pagination: { limit: 1 }
+    ) {
+      Metadata {
+        AvgPackWeight
+        AvgPackSize
+      }
+    }
+  }
+`
+
+export type ProductMetadata = {
+  AvgPackWeight?: string | null
+  AvgPackSize?: string | null
+}

@@ -166,3 +166,102 @@
     @apply font-['gyst-variable'];
   }
 }
+
+/* Print Styles for Recipes */
+@media print {
+  /* Hide non-essential elements */
+  header,
+  footer,
+  nav,
+  .announcement-bar,
+  .print-hide,
+  button,
+  .social-share,
+  [role="navigation"] {
+    display: none !important;
+  }
+
+  /* Reset page margins */
+  @page {
+    margin: 1.5cm;
+  }
+
+  /* Body styles */
+  body {
+    font-size: 12pt;
+    line-height: 1.5;
+    color: #000 !important;
+    background: #fff !important;
+  }
+
+  /* Recipe container */
+  .recipe-print-container {
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Recipe title */
+  .recipe-print-container h1 {
+    font-size: 24pt;
+    margin-bottom: 12pt;
+    color: #000 !important;
+  }
+
+  /* Section headings */
+  .recipe-print-container h2 {
+    font-size: 16pt;
+    margin-top: 18pt;
+    margin-bottom: 8pt;
+    color: #000 !important;
+    page-break-after: avoid;
+  }
+
+  /* Recipe stats */
+  .recipe-print-container .recipe-stats {
+    border: 1px solid #000;
+    padding: 8pt;
+    margin: 12pt 0;
+  }
+
+  /* Ingredients list */
+  .recipe-print-container ul {
+    margin-left: 15pt;
+  }
+
+  .recipe-print-container li {
+    margin-bottom: 4pt;
+  }
+
+  /* Steps */
+  .recipe-print-container dl {
+    margin-top: 12pt;
+  }
+
+  .recipe-print-container dt {
+    font-weight: bold;
+    margin-top: 12pt;
+  }
+
+  .recipe-print-container dd {
+    margin-left: 0;
+    margin-bottom: 8pt;
+  }
+
+  /* Images */
+  .recipe-print-container img {
+    max-width: 100%;
+    height: auto;
+    page-break-inside: avoid;
+  }
+
+  /* Avoid page breaks inside sections */
+  .recipe-print-container section {
+    page-break-inside: avoid;
+  }
+
+  /* Links - show URL */
+  a[href]:after {
+    content: none;
+  }
+}

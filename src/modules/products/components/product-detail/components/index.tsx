@@ -8,6 +8,8 @@ import { HttpTypes } from "@medusajs/types"
 import ProductActions from "./product-actions"
 import ProductPrice from "./product-price"
 import ProductVariantPicker from "./product-variant-picker"
+import Breadcrumb, { buildProductBreadcrumbs } from "@modules/common/components/breadcrumb"
+import SocialShare from "@modules/common/components/social-share"
 
 import type { StrapiProductData } from "types/strapi"
 
@@ -133,8 +135,19 @@ export default function ProductDetail({
     ...(strapiProductData?.GalleryImages || []),
   ].filter((image) => image?.url)
 
+  // Build breadcrumb items
+  const breadcrumbItems = buildProductBreadcrumbs(product.collection, countryCode)
+
   return (
     <section className="py-8 md:pt-8 md:pb-16 bg-Scroll relative">
+      {/* Breadcrumb Navigation */}
+      <div className="mx-auto max-w-7xl px-4.5">
+        <Breadcrumb
+          items={breadcrumbItems}
+          currentPage={product.title || "Product"}
+        />
+      </div>
+
       <div className="mx-auto max-w-7xl px-4.5 grid grid-cols-1 md:grid-cols-2 gap-8 ">
         {/* Left: product image + nav buttons */}
         <div>
@@ -268,11 +281,21 @@ export default function ProductDetail({
               <h2 className="text-p-sm-mono font-maison-neue font-bold uppercase text-Charcoal pb-2">
                 Description
               </h2>
-              <p className="text-p-md font-maison-neue text-Charcoal mb-8">
+              <p className="text-p-md font-maison-neue text-Charcoal mb-6">
                 {strapiProductData.MedusaProduct.Description}
-              </p>{" "}
+              </p>
             </>
           )}
+
+          {/* Social Share */}
+          <div className="mb-8">
+            <SocialShare
+              url={typeof window !== "undefined" ? window.location.href : `/${countryCode}/products/${product.handle}`}
+              title={product.title || ""}
+              description={strapiProductData?.MedusaProduct?.Description || product.description || ""}
+              imageUrl={strapiProductData?.FeaturedImage?.url || product.thumbnail || ""}
+            />
+          </div>
 
           {/* Details & Certifications */}
           <div className="grid grid-cols-1 sm:grid-cols-2 border-t border-Charcoal">

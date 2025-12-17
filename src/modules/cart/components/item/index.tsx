@@ -9,11 +9,13 @@ import DeleteButton from "@modules/common/components/delete-button"
 import LineItemOptions from "@modules/common/components/line-item-options"
 import LineItemPrice from "@modules/common/components/line-item-price"
 import LineItemUnitPrice from "@modules/common/components/line-item-unit-price"
+import NetWeightPricing, { NetWeightBadge } from "@modules/common/components/net-weight-pricing"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import Spinner from "@modules/common/icons/spinner"
 import Thumbnail from "@modules/products/components/thumbnail"
 import { useState } from "react"
 import { useProductFeaturedImageSrc } from "@lib/hooks/use-product-featured-image"
+import { useProductMetadata } from "@lib/hooks/use-product-metadata"
 
 type ItemProps = {
   item: HttpTypes.StoreCartLineItem
@@ -50,6 +52,10 @@ const Item = ({ item, type = "full", currencyCode }: ItemProps) => {
     "https://placehold.co/96x96"
   )
 
+  // Fetch product metadata for net-weight pricing
+  const metadata = useProductMetadata(item?.product?.id)
+  const isNetWeight = Boolean(metadata?.AvgPackWeight)
+
   return (
     <Table.Row className="w-full" data-testid="product-row">
       <Table.Cell className="!pl-0 p-4 w-24">
@@ -76,6 +82,18 @@ const Item = ({ item, type = "full", currencyCode }: ItemProps) => {
           {item.product_title}
         </Text>
         <LineItemOptions variant={item.variant} data-testid="product-variant" />
+        {isNetWeight && (
+          <div className="mt-2 space-y-1">
+            <NetWeightBadge />
+            <NetWeightPricing
+              unitPrice={item.unit_price || 0}
+              currencyCode={currencyCode}
+              avgWeight={metadata?.AvgPackWeight}
+              isNetWeight={isNetWeight}
+              variant="compact"
+            />
+          </div>
+        )}
       </Table.Cell>
 
       {type === "full" && (

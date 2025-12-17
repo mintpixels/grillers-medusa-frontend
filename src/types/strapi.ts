@@ -106,3 +106,30 @@ export interface StrapiProductData {
   Certifications?: { icon: string; label: string }[]
   MedusaProduct: MedusaProduct
 }
+
+// Testimonial Types
+export interface StrapiTestimonial {
+  id: string
+  documentId: string
+  CustomerName: string
+  CustomerTitle?: string
+  CustomerCompany?: string
+  CustomerLocation?: string
+  CustomerPhoto?: StrapiImage
+  TestimonialText: string
+  Rating: number // 1-5
+  Featured?: boolean
+  Tags?: string[]
+  PublishedDate?: string
+}
+
+export interface StrapiTestimonialSection {
+  Title?: string
+  Subtitle?: string
+  DisplayMode: "carousel" | "grid" | "featured" | "list"
+  MaxItems?: number
+  FilterByTags?: string[]
+  ShowRatings?: boolean
+  AutoRotate?: boolean
+  AutoRotateInterval?: number
+}

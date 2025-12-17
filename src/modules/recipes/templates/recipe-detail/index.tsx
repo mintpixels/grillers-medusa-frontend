@@ -1,5 +1,8 @@
+"use client"
+
 import React from "react"
 import NextImage from "next/image"
+import SocialShare from "@modules/common/components/social-share"
 
 type Recipe = {
   Title: string
@@ -13,6 +16,35 @@ type Recipe = {
   TotalTime: string
   Ingredients: { id: number; ingredient: string }[]
   Steps: { id: number; instruction: string }[]
+}
+
+const PrintButton = () => {
+  const handlePrint = () => {
+    window.print()
+  }
+
+  return (
+    <button
+      onClick={handlePrint}
+      className="print-hide inline-flex items-center gap-2 px-4 py-2 bg-Charcoal/5 hover:bg-Charcoal/10 text-Charcoal/70 hover:text-Charcoal rounded-[5px] transition-colors text-p-sm font-maison-neue"
+      aria-label="Print this recipe"
+    >
+      <svg
+        className="w-5 h-5"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <polyline points="6 9 6 2 18 2 18 9" />
+        <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+        <rect x="6" y="14" width="12" height="8" />
+      </svg>
+      Print Recipe
+    </button>
+  )
 }
 
 const RecipeTemplate = ({ recipe }: { recipe: Recipe }) => {
@@ -31,11 +63,14 @@ const RecipeTemplate = ({ recipe }: { recipe: Recipe }) => {
 
   return (
     <section className="py-10 md:py-16 bg-white text-Charcoal">
-      <div className="mx-auto max-w-4xl px-4">
+      <div className="mx-auto max-w-4xl px-4 recipe-print-container">
         <article className="space-y-12">
           {/* Header */}
           <header>
-            <h1 className="text-h2 font-gyst text-Charcoal">{Title}</h1>
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
+              <h1 className="text-h2 font-gyst text-Charcoal">{Title}</h1>
+              <PrintButton />
+            </div>
             <p className="mt-1 text-p-md font-maison-neue text-Charcoal/80">
               Published {new Date(PublishedDate).toLocaleDateString()}
             </p>
@@ -62,7 +97,7 @@ const RecipeTemplate = ({ recipe }: { recipe: Recipe }) => {
 
           {/* Stats */}
           <section aria-label="Recipe timing and serving info">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 border-t border-b border-Charcoal py-4 text-center">
+            <div className="recipe-stats grid grid-cols-2 sm:grid-cols-4 gap-4 border-t border-b border-Charcoal py-4 text-center">
               {[
                 { label: "Total Time", value: TotalTime },
                 { label: "Prep Time", value: PrepTime },
@@ -122,6 +157,21 @@ const RecipeTemplate = ({ recipe }: { recipe: Recipe }) => {
                 </div>
               ))}
             </dl>
+          </section>
+
+          {/* Social Share */}
+          <section className="print-hide border-t border-Charcoal/20 pt-8">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <p className="text-p-md font-maison-neue text-Charcoal">
+                Enjoyed this recipe? Share it with friends!
+              </p>
+              <SocialShare
+                url={typeof window !== "undefined" ? window.location.href : `/recipes/${recipe.Slug}`}
+                title={Title}
+                description={ShortDescription || `Check out this delicious ${Title} recipe from Grillers Pride!`}
+                imageUrl={Image?.url || ""}
+              />
+            </div>
           </section>
         </article>
       </div>
