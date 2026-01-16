@@ -176,3 +176,4 @@ export async function isRecipeFavorited(slug: string): Promise<boolean> {
   return favorites.some((fav) => fav.slug === slug)
 }
 
+

@@ -8,3 +8,4 @@ export { default as TestimonialList } from "./testimonial-list"
 // Re-export types
 export type { StrapiTestimonial, StrapiTestimonialSection } from "types/strapi"
 
+

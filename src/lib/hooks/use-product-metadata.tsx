@@ -28,3 +28,4 @@ export function useProductMetadata(
   return data ?? null
 }
 
+

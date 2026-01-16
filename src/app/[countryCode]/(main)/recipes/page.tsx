@@ -12,20 +12,21 @@ import { extractFilterOptions, buildStrapiFilters } from "@modules/recipes/compo
 import { generateAlternates } from "@lib/util/seo"
 
 type PageProps = {
-  params: { countryCode: string }
-  searchParams: { 
+  params: Promise<{ countryCode: string }>
+  searchParams: Promise<{ 
     page?: string
     category?: string
     method?: string
     difficulty?: string
     dietary?: string
     q?: string
-  }
+  }>
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { countryCode } = await params
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://grillerspride.com"
-  const alternates = await generateAlternates("/recipes", params.countryCode)
+  const alternates = await generateAlternates("/recipes", countryCode)
 
   return {
     title: "Recipes | Grillers Pride",
@@ -51,10 +52,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 const DEFAULT_PAGE_SIZE = 9
 
-export default async function RecipesPage({
-  params: { countryCode },
-  searchParams,
-}: PageProps) {
+export default async function RecipesPage(props: PageProps) {
+  const { countryCode } = await props.params
+  const searchParams = await props.searchParams
   const page = Math.max(1, parseInt(searchParams.page || "1", 10))
   const pageSize = DEFAULT_PAGE_SIZE
 

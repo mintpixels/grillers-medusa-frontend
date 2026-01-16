@@ -9,16 +9,16 @@ import { retrieveCustomer } from "@lib/data/customer"
 import { isRecipeFavorited } from "@lib/data/favorites"
 
 type PageProps = {
-  params: {
+  params: Promise<{
     countryCode: string
     handle: string
-  }
+  }>
 }
 
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
-  const { handle, countryCode } = params
+  const { handle, countryCode } = await params
 
   try {
     const response = await strapiClient.request(GetRecipeBySlugQuery, {
@@ -51,7 +51,7 @@ export async function generateMetadata({
 }
 
 export default async function RecipePage({ params }: PageProps) {
-  const { handle } = params
+  const { handle } = await params
   const response = await strapiClient.request(GetRecipeBySlugQuery, {
     slug: handle,
   })

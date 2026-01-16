@@ -6,11 +6,12 @@ import { notFound } from "next/navigation"
 import { generateAlternates } from "@lib/util/seo"
 
 type PageProps = {
-  params: { countryCode: string }
+  params: Promise<{ countryCode: string }>
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const alternates = await generateAlternates("/cart", params.countryCode)
+  const { countryCode } = await params
+  const alternates = await generateAlternates("/cart", countryCode)
   
   return {
     title: "Cart | Grillers Pride",
