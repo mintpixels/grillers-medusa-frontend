@@ -6,6 +6,17 @@ export type RecipeCategory = {
   Slug: string
 }
 
+export type RecipeNutritionInfo = {
+  Calories?: string
+  Protein?: string
+  Fat?: string
+  Carbohydrates?: string
+  Fiber?: string
+  Sugar?: string
+  Sodium?: string
+  ServingSize?: string
+}
+
 export type RecipeData = {
   Title: string
   Slug: string
@@ -22,6 +33,10 @@ export type RecipeData = {
   CookingMethod?: string
   Difficulty?: string
   DietaryTags?: string[]
+  VideoUrl?: string
+  AverageRating?: number
+  RatingCount?: number
+  NutritionInfo?: RecipeNutritionInfo
   SEO?: StrapiSEO
   SocialMeta?: StrapiSocialMeta
 }
@@ -48,6 +63,10 @@ export const GetRecipeBySlugQuery = gql`
       PrepTime
       CookTime
       Servings
+      Difficulty
+      VideoUrl
+      AverageRating
+      RatingCount
       Ingredients {
         ingredient
         id
@@ -55,6 +74,16 @@ export const GetRecipeBySlugQuery = gql`
       Steps {
         id
         instruction
+      }
+      NutritionInfo {
+        Calories
+        Protein
+        Fat
+        Carbohydrates
+        Fiber
+        Sugar
+        Sodium
+        ServingSize
       }
       SEO {
         metaTitle
@@ -216,3 +245,143 @@ export const GetRecipesPageSEOQuery = gql`
     }
   }
 `
+
+/**
+ * Generates Recipe JSON-LD schema for SEO
+ */
+export function generateRecipeJsonLd(
+  recipe: {
+    Title: string
+    Slug: string
+    ShortDescription?: string
+    Image?: { url: string }
+    PublishedDate?: string
+    PrepTime?: string
+    CookTime?: string
+    TotalTime?: string
+    Servings?: string
+    Difficulty?: string
+    Ingredients?: { ingredient: string; id: string }[]
+    Steps?: { id: string; instruction: string }[]
+    VideoUrl?: string
+    AverageRating?: number
+    RatingCount?: number
+    NutritionInfo?: RecipeNutritionInfo
+  },
+  baseUrl: string,
+  countryCode: string
+) {
+  const recipeUrl = `${baseUrl}/${countryCode}/recipes/${recipe.Slug}`
+
+  // Convert time strings like "30 minutes" to ISO 8601 duration format
+  const parseTimeToISO = (timeStr?: string): string | undefined => {
+    if (!timeStr) return undefined
+    const match = timeStr.match(/(\d+)\s*(min|minute|hour|hr)/i)
+    if (!match) return undefined
+    const value = parseInt(match[1])
+    const unit = match[2].toLowerCase()
+    if (unit.startsWith("hour") || unit === "hr") {
+      return `PT${value}H`
+    }
+    return `PT${value}M`
+  }
+
+  // Build nutrition info if available
+  const nutritionInfo = recipe.NutritionInfo
+    ? {
+        "@type": "NutritionInformation",
+        ...(recipe.NutritionInfo.Calories && {
+          calories: recipe.NutritionInfo.Calories,
+        }),
+        ...(recipe.NutritionInfo.Protein && {
+          proteinContent: recipe.NutritionInfo.Protein,
+        }),
+        ...(recipe.NutritionInfo.Fat && {
+          fatContent: recipe.NutritionInfo.Fat,
+        }),
+        ...(recipe.NutritionInfo.Carbohydrates && {
+          carbohydrateContent: recipe.NutritionInfo.Carbohydrates,
+        }),
+        ...(recipe.NutritionInfo.Fiber && {
+          fiberContent: recipe.NutritionInfo.Fiber,
+        }),
+        ...(recipe.NutritionInfo.Sugar && {
+          sugarContent: recipe.NutritionInfo.Sugar,
+        }),
+        ...(recipe.NutritionInfo.Sodium && {
+          sodiumContent: recipe.NutritionInfo.Sodium,
+        }),
+        ...(recipe.NutritionInfo.ServingSize && {
+          servingSize: recipe.NutritionInfo.ServingSize,
+        }),
+      }
+    : undefined
+
+  // Build aggregate rating if available
+  const aggregateRating =
+    recipe.AverageRating && recipe.RatingCount
+      ? {
+          "@type": "AggregateRating",
+          ratingValue: recipe.AverageRating,
+          ratingCount: recipe.RatingCount,
+          bestRating: 5,
+          worstRating: 1,
+        }
+      : undefined
+
+  return {
+    "@context": "https://schema.org",
+    "@type": "Recipe",
+    name: recipe.Title,
+    description: recipe.ShortDescription,
+    url: recipeUrl,
+    ...(recipe.Image?.url && { image: recipe.Image.url }),
+    ...(recipe.PublishedDate && { datePublished: recipe.PublishedDate }),
+    ...(parseTimeToISO(recipe.PrepTime) && {
+      prepTime: parseTimeToISO(recipe.PrepTime),
+    }),
+    ...(parseTimeToISO(recipe.CookTime) && {
+      cookTime: parseTimeToISO(recipe.CookTime),
+    }),
+    ...(parseTimeToISO(recipe.TotalTime) && {
+      totalTime: parseTimeToISO(recipe.TotalTime),
+    }),
+    ...(recipe.Servings && { recipeYield: recipe.Servings }),
+    ...(recipe.Difficulty && {
+      recipeDifficulty: recipe.Difficulty,
+    }),
+    ...(recipe.Ingredients &&
+      recipe.Ingredients.length > 0 && {
+        recipeIngredient: recipe.Ingredients.map((i) => i.ingredient),
+      }),
+    ...(recipe.Steps &&
+      recipe.Steps.length > 0 && {
+        recipeInstructions: recipe.Steps.map((step, index) => ({
+          "@type": "HowToStep",
+          position: index + 1,
+          text: step.instruction,
+        })),
+      }),
+    ...(recipe.VideoUrl && {
+      video: {
+        "@type": "VideoObject",
+        name: `How to make ${recipe.Title}`,
+        description: recipe.ShortDescription || `Watch how to make ${recipe.Title}`,
+        contentUrl: recipe.VideoUrl,
+        ...(recipe.Image?.url && { thumbnailUrl: recipe.Image.url }),
+      },
+    }),
+    ...(nutritionInfo && { nutrition: nutritionInfo }),
+    ...(aggregateRating && { aggregateRating }),
+    author: {
+      "@type": "Organization",
+      name: "Grillers Pride",
+    },
+    publisher: {
+      "@type": "Organization",
+      name: "Grillers Pride",
+    },
+    recipeCategory: "Main Course",
+    recipeCuisine: "Kosher",
+  }
+}

@@ -2,12 +2,20 @@ import { Suspense } from "react"
 
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import CartButton from "@modules/layout/components/cart-button"
+import HeaderCountrySelect from "@modules/layout/components/header-country-select"
 import Image from "next/image"
 import type { HeaderNavLink } from "@lib/data/strapi/header"
+import type { HttpTypes } from "@medusajs/types"
 import { MobileNavMenu } from "./menu"
 import SearchBar from "./search-bar"
+import MobileSearch from "./mobile-search"
 
-const Header = ({ navLinks }: { navLinks: HeaderNavLink[] }) => {
+type HeaderProps = {
+  navLinks: HeaderNavLink[]
+  regions: HttpTypes.StoreRegion[]
+}
+
+const Header = ({ navLinks, regions }: HeaderProps) => {
   return (
     <header className="sticky top-0 inset-x-0 z-20 bg-white border-b border-[#000/25]">
       <a
@@ -53,22 +61,32 @@ const Header = ({ navLinks }: { navLinks: HeaderNavLink[] }) => {
         </div>
 
         <div className="flex items-center gap-8">
+          {/* Country Selector - Desktop */}
+          <div className="hidden md:block">
+            <HeaderCountrySelect regions={regions} />
+          </div>
+
           <a href="tel:+18886273284" className="hidden md:inline-block text-p-md font-maison-neue text-Charcoal hover:underline">
             (888) 627-3284
           </a>
 
           <div className="flex items-center gap-4">
+            {/* Mobile Search */}
+            <MobileSearch />
+
             <div className="h-full">
               <LocalizedClientLink
-                className="hover:text-ui-fg-base"
+                className="hover:text-ui-fg-base focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold rounded"
                 href="/account"
                 data-testid="nav-account-link"
+                aria-label="My account"
               >
                 <Image
                   src={"/images/icons/account.svg"}
-                  alt="account"
+                  alt=""
                   width={24}
                   height={24}
+                  aria-hidden="true"
                 />
               </LocalizedClientLink>
             </div>
@@ -78,12 +96,14 @@ const Header = ({ navLinks }: { navLinks: HeaderNavLink[] }) => {
                   className="hover:text-ui-fg-base flex gap-2"
                   href="/cart"
                   data-testid="nav-cart-link"
+                  aria-label="Shopping cart"
                 >
                   <Image
                     src={"/images/icons/cart.svg"}
-                    alt="account"
+                    alt=""
                     width={24}
                     height={24}
+                    aria-hidden="true"
                   />
                 </LocalizedClientLink>
               }
@@ -93,8 +113,6 @@ const Header = ({ navLinks }: { navLinks: HeaderNavLink[] }) => {
           </div>
         </div>
       </nav>
-
-      {/* Search bar for mobile  */}
     </header>
   )
 }

@@ -7,10 +7,12 @@ import ShopCollectionsSection from "@modules/home/components/shop-collections"
 import TestimonialSection from "@modules/home/components/testimonial"
 import FollowUsSection from "@modules/home/components/follow-us"
 import BlogExploreSection from "@modules/home/components/blog-explore"
+import LazySection from "@modules/common/components/lazy-section"
 import { listCollections } from "@lib/data/collections"
 import { getRegion } from "@lib/data/regions"
 import strapiClient from "@lib/strapi"
 import { GetHomePageQuery, type HomePageData } from "@lib/data/strapi/home"
+import { GetGlobalQuery, type GlobalData, generateOrganizationJsonLd } from "@lib/data/strapi/global"
 import { generateAlternates } from "@lib/util/seo"
 
 type PageProps = {
@@ -93,12 +95,29 @@ export default async function Home(props: {
   }
 
   const strapiData = await strapiClient.request<HomePageData>(GetHomePageQuery)
+  
+  // Fetch global data for Organization JSON-LD
+  let globalData: GlobalData | null = null
+  try {
+    globalData = await strapiClient.request<GlobalData>(GetGlobalQuery)
+  } catch (error) {
+    console.error("Error fetching global data:", error)
+  }
+
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://grillerspride.com"
+  const organizationJsonLd = globalData?.global 
+    ? generateOrganizationJsonLd(globalData.global, baseUrl)
+    : null
 
   const renderSections = () => {
     if (strapiData?.home?.Sections) {
-      return strapiData?.home?.Sections.map((section: any) => {
+      return strapiData?.home?.Sections.map((section: any, index: number) => {
+        // Above-the-fold sections (first 3) render immediately
+        const isAboveFold = index < 3
+
         switch (section.__typename) {
           case "ComponentHomeHero":
+            // Hero always renders immediately
             return <Hero key={section.__typename} data={section} />
           case "ComponentHomeBestsellers":
             return (
@@ -113,14 +132,31 @@ export default async function Home(props: {
               <ShopCollectionsSection key={section.__typename} data={section} />
             )
           case "ComponentHomeTestimonial":
-            return (
+            // Lazy load testimonial section (typically below fold)
+            return isAboveFold ? (
               <TestimonialSection key={section.__typename} data={section} />
+            ) : (
+              <LazySection key={section.__typename} minHeight="500px">
+                <TestimonialSection data={section} />
+              </LazySection>
             )
           case "ComponentHomeFollowUs":
-            return <FollowUsSection key={section.__typename} data={section} />
+            // Lazy load follow us section (typically below fold)
+            return isAboveFold ? (
+              <FollowUsSection key={section.__typename} data={section} />
+            ) : (
+              <LazySection key={section.__typename} minHeight="400px">
+                <FollowUsSection data={section} />
+              </LazySection>
+            )
           case "ComponentHomeBlogExplore":
-            return (
+            // Lazy load blog section (typically below fold)
+            return isAboveFold ? (
               <BlogExploreSection key={section.__typename} data={section} />
+            ) : (
+              <LazySection key={section.__typename} minHeight="500px">
+                <BlogExploreSection data={section} />
+              </LazySection>
             )
           default:
             return null
@@ -130,5 +166,16 @@ export default async function Home(props: {
     return null
   }
 
-  return <>{renderSections()}</>
+  return (
+    <>
+      {/* Organization JSON-LD for SEO */}
+      {organizationJsonLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+        />
+      )}
+      {renderSections()}
+    </>
+  )
 }

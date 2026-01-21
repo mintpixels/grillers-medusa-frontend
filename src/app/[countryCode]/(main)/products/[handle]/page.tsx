@@ -4,7 +4,7 @@ import { listProducts } from "@lib/data/products"
 import { getRegion, listRegions } from "@lib/data/regions"
 import ProductTemplate from "@modules/products/templates"
 import strapiClient from "@lib/strapi"
-import { GetCommonPdpQuery, GetProductQuery } from "@lib/data/strapi/pdp"
+import { GetCommonPdpQuery, GetProductQuery, generateProductJsonLd } from "@lib/data/strapi/pdp"
 
 type Props = {
   params: Promise<{ countryCode: string; handle: string }>
@@ -146,14 +146,29 @@ export default async function ProductPage(props: Props) {
     )
   }
 
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://grillerspride.com"
+  const productJsonLd = generateProductJsonLd(
+    pricedProduct,
+    strapiProductData?.products?.[0] || null,
+    baseUrl,
+    params.countryCode
+  )
+
   return (
-    <ProductTemplate
-      product={pricedProduct}
-      region={region}
-      countryCode={params.countryCode}
-      strapiCommonPdpData={strapiCommonPdpData?.pdp}
-      strapiProductData={strapiProductData?.products?.[0]}
-    />
+    <>
+      {/* Product JSON-LD for SEO */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }}
+      />
+      <ProductTemplate
+        product={pricedProduct}
+        region={region}
+        countryCode={params.countryCode}
+        strapiCommonPdpData={strapiCommonPdpData?.pdp}
+        strapiProductData={strapiProductData?.products?.[0]}
+      />
+    </>
   )
 }
 

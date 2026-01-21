@@ -43,6 +43,10 @@ export const GetHomePageQuery = gql`
           BackgroundImage {
             url
           }
+          CTAButton {
+            Text
+            Url
+          }
         }
         ... on ComponentHomeBestsellers {
           BestsellersTitle: Title

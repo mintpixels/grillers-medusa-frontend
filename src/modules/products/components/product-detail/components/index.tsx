@@ -1,4 +1,4 @@
-import React, { useRef } from "react"
+import React, { useRef, useState, useCallback } from "react"
 import Image from "next/image"
 import { Swiper, SwiperSlide } from "swiper/react"
 import type { Swiper as SwiperType } from "swiper"
@@ -38,9 +38,51 @@ const ProductImages = ({
   images: any[]
 }) => {
   const swiperRef = useRef<SwiperType | null>(null)
+  const [currentIndex, setCurrentIndex] = useState(0)
+  const [announcement, setAnnouncement] = useState("")
+  const totalImages = images.length
+
+  const handleSlideChange = useCallback((swiper: SwiperType) => {
+    const newIndex = swiper.realIndex
+    setCurrentIndex(newIndex)
+    setAnnouncement(`Image ${newIndex + 1} of ${totalImages}: ${product.title}`)
+  }, [totalImages, product.title])
+
+  const handlePrev = useCallback(() => {
+    swiperRef.current?.slidePrev()
+  }, [])
+
+  const handleNext = useCallback(() => {
+    swiperRef.current?.slideNext()
+  }, [])
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === "ArrowLeft") {
+      e.preventDefault()
+      handlePrev()
+    } else if (e.key === "ArrowRight") {
+      e.preventDefault()
+      handleNext()
+    }
+  }, [handlePrev, handleNext])
 
   return (
-    <div className="relative md:absolute md:w-[50vw] md:left-0 h-96 md:h-[calc(100%-98px)]">
+    <div
+      className="relative md:absolute md:w-[50vw] md:left-0 h-96 md:h-[calc(100%-98px)]"
+      role="region"
+      aria-label={`Product image gallery for ${product.title}`}
+      aria-roledescription="carousel"
+      onKeyDown={handleKeyDown}
+    >
+      {/* Screen reader announcements for image changes */}
+      <div
+        aria-live="polite"
+        aria-atomic="true"
+        className="sr-only"
+      >
+        {announcement}
+      </div>
+
       <Swiper
         spaceBetween={24}
         slidesPerView={1}
@@ -48,13 +90,26 @@ const ProductImages = ({
         onSwiper={(swiper) => {
           swiperRef.current = swiper
         }}
+        onSlideChange={handleSlideChange}
         loop={true}
+        a11y={{
+          enabled: true,
+          prevSlideMessage: "Previous image",
+          nextSlideMessage: "Next image",
+          firstSlideMessage: "This is the first image",
+          lastSlideMessage: "This is the last image",
+        }}
       >
         {images.map((image, index) => (
-          <SwiperSlide key={index} className="">
+          <SwiperSlide
+            key={index}
+            role="group"
+            aria-roledescription="slide"
+            aria-label={`${index + 1} of ${totalImages}`}
+          >
             <Image
               src={image.url}
-              alt={product.title + index}
+              alt={`${product.title} - Image ${index + 1} of ${totalImages}`}
               fill
               className="object-cover"
             />
@@ -62,30 +117,42 @@ const ProductImages = ({
         ))}
       </Swiper>
 
-      {/* Slider nav */}
-      <div className="absolute bottom-4 right-4 flex space-x-2 z-[1]">
+      {/* Slider nav with enhanced accessibility */}
+      <div className="absolute bottom-4 right-4 flex space-x-2 z-[1]" role="group" aria-label="Gallery navigation">
         <button
-          onClick={() => swiperRef.current?.slidePrev()}
-          className="h-10 w-10 bg-white/80 rounded-full flex items-center justify-center hover:bg-white transition"
+          onClick={handlePrev}
+          className="h-10 w-10 bg-white/80 rounded-full flex items-center justify-center hover:bg-white transition focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold focus-visible:ring-offset-2"
+          aria-label="Previous image"
         >
           <Image
             src="/images/icons/arrow-left.svg"
             width={12}
             height={20}
-            alt="Prev"
+            alt=""
+            aria-hidden="true"
           />
         </button>
         <button
-          onClick={() => swiperRef.current?.slideNext()}
-          className="h-10 w-10 bg-white/80 rounded-full flex items-center justify-center hover:bg-white transition"
+          onClick={handleNext}
+          className="h-10 w-10 bg-white/80 rounded-full flex items-center justify-center hover:bg-white transition focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold focus-visible:ring-offset-2"
+          aria-label="Next image"
         >
           <Image
             src="/images/icons/arrow-right.svg"
             width={12}
             height={20}
-            alt="Next"
+            alt=""
+            aria-hidden="true"
           />
         </button>
+      </div>
+
+      {/* Image counter for visual users */}
+      <div
+        className="absolute bottom-4 left-4 bg-black/60 text-white px-3 py-1 rounded-full text-sm font-maison-neue z-[1]"
+        aria-hidden="true"
+      >
+        {currentIndex + 1} / {totalImages}
       </div>
     </div>
   )

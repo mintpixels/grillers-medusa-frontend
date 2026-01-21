@@ -4,6 +4,7 @@ import React from "react"
 import NextImage from "next/image"
 import SocialShare from "@modules/common/components/social-share"
 import FavoriteButton from "@modules/recipes/components/favorite-button"
+import VideoEmbed from "@modules/common/components/video-embed"
 
 type Recipe = {
   Title: string
@@ -17,6 +18,7 @@ type Recipe = {
   TotalTime: string
   Ingredients: { id: number; ingredient: string }[]
   Steps: { id: number; instruction: string }[]
+  VideoUrl?: string
 }
 
 type RecipeTemplateProps = {
@@ -67,6 +69,7 @@ const RecipeTemplate = ({ recipe, isLoggedIn = false, isFavorited = false }: Rec
     Ingredients,
     Steps,
     Image,
+    VideoUrl,
   } = recipe
 
   return (
@@ -110,6 +113,19 @@ const RecipeTemplate = ({ recipe, isLoggedIn = false, isFavorited = false }: Rec
                 priority
               />
             </div>
+          )}
+
+          {/* Video */}
+          {VideoUrl && (
+            <section aria-labelledby="video-heading" className="print-hide">
+              <h2
+                id="video-heading"
+                className="text-h3 font-gyst text-Charcoal mb-6"
+              >
+                Watch How It&apos;s Made
+              </h2>
+              <VideoEmbed url={VideoUrl} title={`How to make ${Title}`} />
+            </section>
           )}
 
           {/* Stats */}

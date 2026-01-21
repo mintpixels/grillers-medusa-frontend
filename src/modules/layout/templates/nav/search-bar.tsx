@@ -69,11 +69,13 @@ function InstantComboboxInput() {
   return (
     <div className="relative">
       <ComboboxInput
-        className="w-full h-[50px] border rounded-[5px] border-Charcoal px-5 py-3 focus:outline-none focus:border-gray-500 text-p-md text-Charcoal placeholder:text-Pewter"
+        className="w-full h-[50px] border rounded-[5px] border-Charcoal px-5 py-3 focus:outline-none focus:border-gray-500 text-p-md text-Charcoal placeholder:text-Pewter focus-visible:ring-2 focus-visible:ring-Gold focus-visible:ring-offset-2"
         placeholder="Search products…"
         value={query}
         onChange={(e) => refine(e.target.value)}
         displayValue={(hit: Product) => hit?.Title || ""}
+        aria-label="Search products"
+        aria-autocomplete="list"
       />
       {query ? <ClearButton onClick={clear} /> : <SearchIcon />}
     </div>
@@ -82,27 +84,49 @@ function InstantComboboxInput() {
 
 function InstantComboboxOptions() {
   const { items } = useHits<Product>()
+  const { query } = useSearchBox()
 
   return (
-    <ComboboxOptions className="absolute z-10 mt-1 w-full bg-white border rounded shadow-lg max-h-60 overflow-auto">
-      {items.length === 0 ? (
-        <div className="px-4 py-2 text-p-md text-Pewter">No results found.</div>
-      ) : (
-        items.map((item) => (
-          <ComboboxOption key={item.objectID} value={item} as={Fragment}>
-            {({ focus }) => (
-              <div
-                className={`px-4 py-2 cursor-pointer ${
-                  focus ? "bg-gray-100 text-Charcoal" : "text-Pewter"
-                }`}
-              >
-                {item.Title}
-              </div>
-            )}
-          </ComboboxOption>
-        ))
-      )}
-    </ComboboxOptions>
+    <>
+      {/* ARIA live region for search results */}
+      <div
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        className="sr-only"
+      >
+        {query.length >= 2 && (
+          items.length === 0
+            ? "No results found"
+            : `${items.length} result${items.length !== 1 ? "s" : ""} found`
+        )}
+      </div>
+
+      <ComboboxOptions
+        className="absolute z-10 mt-1 w-full bg-white border rounded shadow-lg max-h-60 overflow-auto"
+        aria-label="Search results"
+      >
+        {items.length === 0 ? (
+          <div className="px-4 py-2 text-p-md text-Pewter" role="option" aria-selected="false">
+            No results found.
+          </div>
+        ) : (
+          items.map((item) => (
+            <ComboboxOption key={item.objectID} value={item} as={Fragment}>
+              {({ focus }) => (
+                <div
+                  className={`px-4 py-2 cursor-pointer ${
+                    focus ? "bg-gray-100 text-Charcoal" : "text-Pewter"
+                  }`}
+                >
+                  {item.Title}
+                </div>
+              )}
+            </ComboboxOption>
+          ))
+        )}
+      </ComboboxOptions>
+    </>
   )
 }
 

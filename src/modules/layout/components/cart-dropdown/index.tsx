@@ -43,6 +43,7 @@ const CartDropdown = ({
     undefined
   )
   const [cartDropdownOpen, setCartDropdownOpen] = useState(false)
+  const [announcement, setAnnouncement] = useState("")
 
   const open = () => setCartDropdownOpen(true)
   const close = () => setCartDropdownOpen(false)
@@ -83,9 +84,18 @@ const CartDropdown = ({
   const pathname = usePathname()
 
   // open cart dropdown when modifying the cart items, but only if we're not on the cart page
+  // Also announce cart changes for screen readers
   useEffect(() => {
     if (itemRef.current !== totalItems && !pathname.includes("/cart")) {
       timedOpen()
+      // Announce cart update to screen readers
+      const diff = totalItems - itemRef.current
+      if (diff > 0) {
+        setAnnouncement(`${diff} item${diff > 1 ? "s" : ""} added to cart. Cart now has ${totalItems} item${totalItems > 1 ? "s" : ""}.`)
+      } else if (diff < 0) {
+        setAnnouncement(`Item removed from cart. Cart now has ${totalItems} item${totalItems !== 1 ? "s" : ""}.`)
+      }
+      itemRef.current = totalItems
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [totalItems, itemRef.current])
@@ -96,8 +106,21 @@ const CartDropdown = ({
       onMouseEnter={openAndCancel}
       onMouseLeave={close}
     >
+      {/* ARIA live region for cart updates */}
+      <div
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        className="sr-only"
+      >
+        {announcement}
+      </div>
+
       <Popover className="relative h-full">
-        <PopoverButton className="h-full flex">
+        <PopoverButton
+          className="h-full flex"
+          aria-label={`Shopping cart with ${totalItems} item${totalItems !== 1 ? "s" : ""}`}
+        >
           <LocalizedClientLink
             className="hover:text-ui-fg-base inline-flex gap-1 items-center justify-center"
             href="/cart"
@@ -106,12 +129,13 @@ const CartDropdown = ({
             <>
               <Image
                 src={"/images/icons/cart.svg"}
-                alt="account"
+                alt=""
                 width={24}
                 height={24}
+                aria-hidden="true"
               />
 
-              {`(${totalItems})`}
+              <span aria-hidden="true">{`(${totalItems})`}</span>
             </>
           </LocalizedClientLink>
         </PopoverButton>
