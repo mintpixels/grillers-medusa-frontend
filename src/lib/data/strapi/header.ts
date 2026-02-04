@@ -1,31 +1,73 @@
 import { gql } from "graphql-request"
 
-export type HeaderNavLink = {
-  Link: {
-    id: string
-    Text: string
-    Url: string
+export type NavItem = {
+  Text: string
+  Url: string
+}
+
+export type NavSection = {
+  title: string
+  items: NavItem[]
+}
+
+export type NavFeatured = {
+  title: string
+  description: string
+  badge: string
+  image?: {
+    url: string
   }
-  Children: {
-    id: string
-    Text: string
-    Url: string
-  }[]
+}
+
+export type NavCertification = {
+  icon: string
+  text: string
+}
+
+export type NavBottomBar = {
+  certifications: NavCertification[]
+  viewAllText: string
+  viewAllUrl: string
+}
+
+export type HeaderNavLink = {
+  id: string
+  slug: string
+  title: string
+  sections: NavSection[]
+  featured: NavFeatured
+  bottomBar: NavBottomBar
 }
 
 export const HeaderNavQuery = gql`
   query HeaderNav {
     header {
       HeaderNav {
-        Link {
-          id
-          Text
-          Url
+        id
+        slug
+        title
+        sections {
+          title
+          items {
+            Text
+            Url
+          }
         }
-        Children {
-          id
-          Text
-          Url
+        featured {
+          title
+          description
+          badge
+          image {
+            url
+          }
+        }
+        bottomBar {
+          certifications {
+            icon
+            text
+          }
+          viewAllText
+          viewAllUrl
         }
       }
     }

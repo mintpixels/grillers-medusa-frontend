@@ -1,0 +1,1292 @@
+[
+  {
+    "fullName": "L1: Butcher Counter",
+    "value": "Butcher Counter",
+    "level": "L1",
+    "count": 1
+  },
+  {
+    "fullName": "L1: Deli Counter",
+    "value": "Deli Counter",
+    "level": "L1",
+    "count": 1
+  },
+  {
+    "fullName": "L1: Kitchen Counter",
+    "value": "Kitchen Counter",
+    "level": "L1",
+    "count": 1
+  },
+  {
+    "fullName": "L1: Provisions",
+    "value": "Provisions",
+    "level": "L1",
+    "count": 1
+  },
+  {
+    "fullName": "L2: Baking Supplies",
+    "value": "Baking Supplies",
+    "level": "L2",
+    "count": 1
+  },
+  {
+    "fullName": "L2: Beef",
+    "value": "Beef",
+    "level": "L2",
+    "count": 1
+  },
+  {
+    "fullName": "L2: Beef Entrees",
+    "value": "Beef Entrees",
+    "level": "L2",
+    "count": 1
+  },
+  {
+    "fullName": "L2: Charcuterie",
+    "value": "Charcuterie",
+    "level": "L2",
+    "count": 1
+  },
+  {
+    "fullName": "L2: Chicken",
+    "value": "Chicken",
+    "level": "L2",
+    "count": 1
+  },
+  {
+    "fullName": "L2: Chicken Entrees",
+    "value": "Chicken Entrees",
+    "level": "L2",
+    "count": 1
+  },
+  {
+    "fullName": "L2: Cured Meats",
+    "value": "Cured Meats",
+    "level": "L2",
+    "count": 1
+  },
+  {
+    "fullName": "L2: Dairy",
+    "value": "Dairy",
+    "level": "L2",
+    "count": 1
+  },
+  {
+    "fullName": "L2: Desserts",
+    "value": "Desserts",
+    "level": "L2",
+    "count": 1
+  },
+  {
+    "fullName": "L2: Duck",
+    "value": "Duck",
+    "level": "L2",
+    "count": 1
+  },
+  {
+    "fullName": "L2: Fish",
+    "value": "Fish",
+    "level": "L2",
+    "count": 1
+  },
+  {
+    "fullName": "L2: Franks & Dogs",
+    "value": "Franks & Dogs",
+    "level": "L2",
+    "count": 1
+  },
+  {
+    "fullName": "L2: Frozen & Refrigerated",
+    "value": "Frozen & Refrigerated",
+    "level": "L2",
+    "count": 1
+  },
+  {
+    "fullName": "L2: Hand Pies & Rolls",
+    "value": "Hand Pies & Rolls",
+    "level": "L2",
+    "count": 1
+  },
+  {
+    "fullName": "L2: Lamb",
+    "value": "Lamb",
+    "level": "L2",
+    "count": 1
+  },
+  {
+    "fullName": "L2: Meal Kits",
+    "value": "Meal Kits",
+    "level": "L2",
+    "count": 1
+  },
+  {
+    "fullName": "L2: Prepared Specialties",
+    "value": "Prepared Specialties",
+    "level": "L2",
+    "count": 1
+  },
+  {
+    "fullName": "L2: Sides",
+    "value": "Sides",
+    "level": "L2",
+    "count": 1
+  },
+  {
+    "fullName": "L2: Sliced Meats",
+    "value": "Sliced Meats",
+    "level": "L2",
+    "count": 1
+  },
+  {
+    "fullName": "L2: Soup Mixes & Seasonings",
+    "value": "Soup Mixes & Seasonings",
+    "level": "L2",
+    "count": 1
+  },
+  {
+    "fullName": "L2: Soups",
+    "value": "Soups",
+    "level": "L2",
+    "count": 1
+  },
+  {
+    "fullName": "L2: Sweets & Baked Goods",
+    "value": "Sweets & Baked Goods",
+    "level": "L2",
+    "count": 1
+  },
+  {
+    "fullName": "L2: Turkey",
+    "value": "Turkey",
+    "level": "L2",
+    "count": 1
+  },
+  {
+    "fullName": "L2: Turkey Entrees",
+    "value": "Turkey Entrees",
+    "level": "L2",
+    "count": 1
+  },
+  {
+    "fullName": "L2: Veal",
+    "value": "Veal",
+    "level": "L2",
+    "count": 1
+  },
+  {
+    "fullName": "L2: Bakery",
+    "value": "Bakery",
+    "level": "L2",
+    "count": 0
+  },
+  {
+    "fullName": "L2: Bakery",
+    "value": "Bakery",
+    "level": "L2",
+    "count": 0
+  },
+  {
+    "fullName": "L2: Beverages",
+    "value": "Beverages",
+    "level": "L2",
+    "count": 0
+  },
+  {
+    "fullName": "L2: Canned & Jarred",
+    "value": "Canned & Jarred",
+    "level": "L2",
+    "count": 0
+  },
+  {
+    "fullName": "L2: Pantry",
+    "value": "Pantry",
+    "level": "L2",
+    "count": 0
+  },
+  {
+    "fullName": "L2: Veal Entrees",
+    "value": "Veal Entrees",
+    "level": "L2",
+    "count": 0
+  },
+  {
+    "fullName": "L3: Baking Essentials",
+    "value": "Baking Essentials",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Beef Chili",
+    "value": "Beef Chili",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Beef Fat",
+    "value": "Beef Fat",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Beef Fry",
+    "value": "Beef Fry",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Beef Pepperoni",
+    "value": "Beef Pepperoni",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Beef Roasts",
+    "value": "Beef Roasts",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Beef Stew",
+    "value": "Beef Stew",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Beef Burgers",
+    "value": "Beef Burgers",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Beef Franks",
+    "value": "Beef Franks",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Beef Offal",
+    "value": "Beef Offal",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Beef Ribs",
+    "value": "Beef Ribs",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Beef Sausages",
+    "value": "Beef Sausages",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Biltong",
+    "value": "Biltong",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Bologna",
+    "value": "Bologna",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Bone-In Breasts",
+    "value": "Bone-In Breasts",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Boneless Breasts",
+    "value": "Boneless Breasts",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Boneless Thighs (Pargiot)",
+    "value": "Boneless Thighs (Pargiot)",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Breaded Cutlets",
+    "value": "Breaded Cutlets",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Breaded Fish",
+    "value": "Breaded Fish",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Brisket",
+    "value": "Brisket",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Brisket Deckel",
+    "value": "Brisket Deckel",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Brisket First Cut",
+    "value": "Brisket First Cut",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Broiled Liver",
+    "value": "Broiled Liver",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Buffalo Wings",
+    "value": "Buffalo Wings",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Butter",
+    "value": "Butter",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Canned Tuna",
+    "value": "Canned Tuna",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Carrot Kugel",
+    "value": "Carrot Kugel",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Cheese",
+    "value": "Cheese",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Chicken Bones & Parts",
+    "value": "Chicken Bones & Parts",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Chicken Cutlets",
+    "value": "Chicken Cutlets",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Chicken Franks",
+    "value": "Chicken Franks",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Chicken Nuggets",
+    "value": "Chicken Nuggets",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Chicken Offal",
+    "value": "Chicken Offal",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Chicken Sausages",
+    "value": "Chicken Sausages",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Chicken Soup",
+    "value": "Chicken Soup",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Chicken Tenders",
+    "value": "Chicken Tenders",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Chicken Thighs",
+    "value": "Chicken Thighs",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Chicken Wings",
+    "value": "Chicken Wings",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Chocolate",
+    "value": "Chocolate",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Chocolate Chips",
+    "value": "Chocolate Chips",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Chopped Liver",
+    "value": "Chopped Liver",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Cocktail Franks",
+    "value": "Cocktail Franks",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Cut-Up Chicken",
+    "value": "Cut-Up Chicken",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Duck",
+    "value": "Duck",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Flanken",
+    "value": "Flanken",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Fried Chicken",
+    "value": "Fried Chicken",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Gefilte Fish",
+    "value": "Gefilte Fish",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Ground & Stew Lamb",
+    "value": "Ground & Stew Lamb",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Ground Beef",
+    "value": "Ground Beef",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Ground Turkey",
+    "value": "Ground Turkey",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Herbs & Spices",
+    "value": "Herbs & Spices",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Imitation Crab",
+    "value": "Imitation Crab",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Chuckeye Steaks",
+    "value": "Chuckeye Steaks",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Corned Beef",
+    "value": "Corned Beef",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Deli Rolls",
+    "value": "Deli Rolls",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Drumsticks",
+    "value": "Drumsticks",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Extracts",
+    "value": "Extracts",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Flat Iron Steaks",
+    "value": "Flat Iron Steaks",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Grilled Chicken",
+    "value": "Grilled Chicken",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Ground & Stew Veal",
+    "value": "Ground & Stew Veal",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Ground Chicken",
+    "value": "Ground Chicken",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Hanger Steak",
+    "value": "Hanger Steak",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Kishke",
+    "value": "Kishke",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Kitchen Desserts",
+    "value": "Kitchen Desserts",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Knockwurst",
+    "value": "Knockwurst",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Lamb Chops",
+    "value": "Lamb Chops",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Lamb Riblets",
+    "value": "Lamb Riblets",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Lamb Roasts",
+    "value": "Lamb Roasts",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Lamb Shanks",
+    "value": "Lamb Shanks",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Lamb Specialty",
+    "value": "Lamb Specialty",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: London Broil",
+    "value": "London Broil",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Matzo Meal",
+    "value": "Matzo Meal",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Meal Kits & Bundles",
+    "value": "Meal Kits & Bundles",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Meatballs",
+    "value": "Meatballs",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Meatloaf",
+    "value": "Meatloaf",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Mini Salami",
+    "value": "Mini Salami",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Minute Steak",
+    "value": "Minute Steak",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Noodle Kugel",
+    "value": "Noodle Kugel",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Oxtail",
+    "value": "Oxtail",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Packaged Sweets",
+    "value": "Packaged Sweets",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Pastrami",
+    "value": "Pastrami",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Pocket Pies",
+    "value": "Pocket Pies",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Potato Sides",
+    "value": "Potato Sides",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Prepared Brisket",
+    "value": "Prepared Brisket",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Pulled Beef",
+    "value": "Pulled Beef",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Polish Sausage",
+    "value": "Polish Sausage",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Potato Kugel",
+    "value": "Potato Kugel",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Prepared Beef",
+    "value": "Prepared Beef",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Prepared Chicken",
+    "value": "Prepared Chicken",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Prime Rib",
+    "value": "Prime Rib",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Rack & Rib Chops",
+    "value": "Rack & Rib Chops",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Ribeye Steaks",
+    "value": "Ribeye Steaks",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Rice & Grains",
+    "value": "Rice & Grains",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Roast Beef",
+    "value": "Roast Beef",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Roasted Chicken",
+    "value": "Roasted Chicken",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Roasted Whole Chicken",
+    "value": "Roasted Whole Chicken",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Salami",
+    "value": "Salami",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Salami Chubs",
+    "value": "Salami Chubs",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Salmon Burgers",
+    "value": "Salmon Burgers",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Sauced Chicken",
+    "value": "Sauced Chicken",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Schmaltz",
+    "value": "Schmaltz",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Shepherd's Pie",
+    "value": "Shepherd's Pie",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Shredded Cheese",
+    "value": "Shredded Cheese",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Skirt Steak",
+    "value": "Skirt Steak",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Sliced Turkey",
+    "value": "Sliced Turkey",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Smoked Fish",
+    "value": "Smoked Fish",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Smoked Salmon",
+    "value": "Smoked Salmon",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Smoked Turkey Breast",
+    "value": "Smoked Turkey Breast",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Smoked Turkey Drumsticks",
+    "value": "Smoked Turkey Drumsticks",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Smoked Turkey Wings",
+    "value": "Smoked Turkey Wings",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Smoked Whole Chicken",
+    "value": "Smoked Whole Chicken",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Smoked Whole Turkey",
+    "value": "Smoked Whole Turkey",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Souffles",
+    "value": "Souffles",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Soup & Marrow Bones",
+    "value": "Soup & Marrow Bones",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Soup Mixes",
+    "value": "Soup Mixes",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Specialty Charcuterie",
+    "value": "Specialty Charcuterie",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Specialty Cuts",
+    "value": "Specialty Cuts",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Specialty Steaks",
+    "value": "Specialty Steaks",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Stew & Braising Meat",
+    "value": "Stew & Braising Meat",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Tongue",
+    "value": "Tongue",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Strip Steaks",
+    "value": "Strip Steaks",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Turkey Breast Bone-In",
+    "value": "Turkey Breast Bone-In",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Turkey Breast Boneless",
+    "value": "Turkey Breast Boneless",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Turkey Drumsticks",
+    "value": "Turkey Drumsticks",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Turkey Franks",
+    "value": "Turkey Franks",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Turkey Parts",
+    "value": "Turkey Parts",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Turkey Pastrami",
+    "value": "Turkey Pastrami",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Turkey Sausages",
+    "value": "Turkey Sausages",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Turkey Thighs",
+    "value": "Turkey Thighs",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Turkey Wings",
+    "value": "Turkey Wings",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Tzimmes",
+    "value": "Tzimmes",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Value Steaks",
+    "value": "Value Steaks",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Veal Bones & Offal",
+    "value": "Veal Bones & Offal",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Veal Chops",
+    "value": "Veal Chops",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Veal Cutlets & Schnitzel",
+    "value": "Veal Cutlets & Schnitzel",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Veal Ribs",
+    "value": "Veal Ribs",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Veal Roasts",
+    "value": "Veal Roasts",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Vegetable Sides",
+    "value": "Vegetable Sides",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Vegetable Soup",
+    "value": "Vegetable Soup",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Whipped Topping",
+    "value": "Whipped Topping",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Whole Chickens",
+    "value": "Whole Chickens",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Whole Packer Brisket",
+    "value": "Whole Packer Brisket",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: Whole Turkeys",
+    "value": "Whole Turkeys",
+    "level": "L3",
+    "count": 1
+  },
+  {
+    "fullName": "L3: BBQ Chicken",
+    "value": "BBQ Chicken",
+    "level": "L3",
+    "count": 0
+  },
+  {
+    "fullName": "L3: BBQ Seasonings",
+    "value": "BBQ Seasonings",
+    "level": "L3",
+    "count": 0
+  },
+  {
+    "fullName": "L3: Blintzes",
+    "value": "Blintzes",
+    "level": "L3",
+    "count": 0
+  },
+  {
+    "fullName": "L3: Babka",
+    "value": "Babka",
+    "level": "L3",
+    "count": 0
+  },
+  {
+    "fullName": "L3: Beef Facon",
+    "value": "Beef Facon",
+    "level": "L3",
+    "count": 0
+  },
+  {
+    "fullName": "L3: Breads",
+    "value": "Breads",
+    "level": "L3",
+    "count": 0
+  },
+  {
+    "fullName": "L3: Canned Fruit",
+    "value": "Canned Fruit",
+    "level": "L3",
+    "count": 0
+  },
+  {
+    "fullName": "L3: Challah",
+    "value": "Challah",
+    "level": "L3",
+    "count": 0
+  },
+  {
+    "fullName": "L3: Cooking Oils",
+    "value": "Cooking Oils",
+    "level": "L3",
+    "count": 0
+  },
+  {
+    "fullName": "L3: Dried Fruit",
+    "value": "Dried Fruit",
+    "level": "L3",
+    "count": 0
+  },
+  {
+    "fullName": "L3: Coffee Creamer",
+    "value": "Coffee Creamer",
+    "level": "L3",
+    "count": 0
+  },
+  {
+    "fullName": "L3: Frozen Goods",
+    "value": "Frozen Goods",
+    "level": "L3",
+    "count": 0
+  },
+  {
+    "fullName": "L3: Herring",
+    "value": "Herring",
+    "level": "L3",
+    "count": 0
+  },
+  {
+    "fullName": "L3: Juices",
+    "value": "Juices",
+    "level": "L3",
+    "count": 0
+  },
+  {
+    "fullName": "L3: Leg Quarters",
+    "value": "Leg Quarters",
+    "level": "L3",
+    "count": 0
+  },
+  {
+    "fullName": "L3: Macaroons",
+    "value": "Macaroons",
+    "level": "L3",
+    "count": 0
+  },
+  {
+    "fullName": "L3: Margarine",
+    "value": "Margarine",
+    "level": "L3",
+    "count": 0
+  },
+  {
+    "fullName": "L3: Matzo Balls",
+    "value": "Matzo Balls",
+    "level": "L3",
+    "count": 0
+  },
+  {
+    "fullName": "L3: Nuts",
+    "value": "Nuts",
+    "level": "L3",
+    "count": 0
+  },
+  {
+    "fullName": "L3: Olives",
+    "value": "Olives",
+    "level": "L3",
+    "count": 0
+  },
+  {
+    "fullName": "L3: Pickled Beef",
+    "value": "Pickled Beef",
+    "level": "L3",
+    "count": 0
+  },
+  {
+    "fullName": "L3: Pot Pies",
+    "value": "Pot Pies",
+    "level": "L3",
+    "count": 0
+  },
+  {
+    "fullName": "L3: Prepared Veal",
+    "value": "Prepared Veal",
+    "level": "L3",
+    "count": 0
+  },
+  {
+    "fullName": "L3: Pickles",
+    "value": "Pickles",
+    "level": "L3",
+    "count": 0
+  },
+  {
+    "fullName": "L3: Salmon",
+    "value": "Salmon",
+    "level": "L3",
+    "count": 0
+  },
+  {
+    "fullName": "L3: Sauces & Condiments",
+    "value": "Sauces & Condiments",
+    "level": "L3",
+    "count": 0
+  },
+  {
+    "fullName": "L3: Sliced Cheese",
+    "value": "Sliced Cheese",
+    "level": "L3",
+    "count": 0
+  },
+  {
+    "fullName": "L3: Smoked Turkey Thighs",
+    "value": "Smoked Turkey Thighs",
+    "level": "L3",
+    "count": 0
+  },
+  {
+    "fullName": "L3: Specialty Kugels",
+    "value": "Specialty Kugels",
+    "level": "L3",
+    "count": 0
+  },
+  {
+    "fullName": "L3: Stuffed Cabbage",
+    "value": "Stuffed Cabbage",
+    "level": "L3",
+    "count": 0
+  },
+  {
+    "fullName": "L3: Starches",
+    "value": "Starches",
+    "level": "L3",
+    "count": 0
+  },
+  {
+    "fullName": "L3: Tea",
+    "value": "Tea",
+    "level": "L3",
+    "count": 0
+  },
+  {
+    "fullName": "L3: Veal Specialty",
+    "value": "Veal Specialty",
+    "level": "L3",
+    "count": 0
+  },
+  {
+    "fullName": "L3: Vinegars & Wines",
+    "value": "Vinegars & Wines",
+    "level": "L3",
+    "count": 0
+  },
+  {
+    "fullName": "Tag 1",
+    "value": "Tag 1",
+    "level": "Other",
+    "count": 0
+  },
+  {
+    "fullName": "Tag 2",
+    "value": "Tag 2",
+    "level": "Other",
+    "count": 0
+  },
+  {
+    "fullName": "Tag 3",
+    "value": "Tag 3",
+    "level": "Other",
+    "count": 0
+  }
+]

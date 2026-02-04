@@ -70,40 +70,77 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
     notFound()
   }
 
+  // Fetch Strapi product data for SEO
+  let strapiProductData: any = null
+  try {
+    strapiProductData = await strapiClient.request(GetProductQuery, {
+      medusa_product_id: product.id,
+    })
+  } catch (error) {
+    console.error("Failed to fetch Strapi product SEO data:", error)
+  }
+
+  const strapiProduct = strapiProductData?.products?.[0]
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://grillerspride.com"
   const productUrl = `${baseUrl}/${params.countryCode}/products/${handle}`
 
-  const title = `${product.title} | Grillers Pride`
+  // Use Strapi SEO data if available, otherwise fallback to Medusa
+  const seo = strapiProduct?.SEO
+  const socialMeta = strapiProduct?.SocialMeta
+  
+  // Build title - always append " | Grillers Pride" if not already present
+  const baseTitle = seo?.metaTitle || strapiProduct?.Title || product.title
+  const title = baseTitle.includes("Grillers Pride") 
+    ? baseTitle 
+    : `${baseTitle} | Grillers Pride`
+  
   const description =
+    seo?.metaDescription ||
+    strapiProduct?.MedusaProduct?.Description ||
     product.description ||
-    `Shop ${product.title} at Grillers Pride. Premium kosher meats delivered fresh to your door.`
+    `Shop ${strapiProduct?.Title || product.title} at Grillers Pride. Premium kosher meats delivered fresh to your door.`
+  
+  const imageUrl = strapiProduct?.FeaturedImage?.url || product.thumbnail
 
   return {
     title,
     description,
     alternates: {
-      canonical: productUrl,
+      canonical: seo?.canonicalUrl || productUrl,
     },
     openGraph: {
-      title,
-      description,
-      type: "website",
+      title: socialMeta?.ogTitle || title,
+      description: socialMeta?.ogDescription || description,
+      type: (socialMeta?.ogType as any) || "website",
       url: productUrl,
       siteName: "Grillers Pride",
-      images: product.thumbnail
+      images: socialMeta?.ogImage?.url
         ? [
             {
-              url: product.thumbnail,
-              alt: product.title,
+              url: socialMeta.ogImage.url,
+              alt: socialMeta.ogImageAlt || strapiProduct?.Title || product.title,
+            },
+          ]
+        : imageUrl
+        ? [
+            {
+              url: imageUrl,
+              alt: strapiProduct?.Title || product.title,
             },
           ]
         : [],
     },
     twitter: {
-      card: "summary_large_image",
-      title,
-      description,
-      images: product.thumbnail ? [product.thumbnail] : [],
+      card: (socialMeta?.twitterCard as any) || "summary_large_image",
+      title: socialMeta?.twitterTitle || title,
+      description: socialMeta?.twitterDescription || description,
+      images: socialMeta?.twitterImage?.url
+        ? [socialMeta.twitterImage.url]
+        : imageUrl
+        ? [imageUrl]
+        : [],
+      site: socialMeta?.twitterSite,
+      creator: socialMeta?.twitterCreator,
     },
   }
 }

@@ -37,9 +37,9 @@ export default async function RelatedProducts({
     queryParams,
     countryCode,
   }).then(({ response }) => {
-    return response.products.filter(
-      (responseProduct) => responseProduct.id !== product.id
-    )
+    return response.products
+      .filter((responseProduct) => responseProduct.id !== product.id)
+      .slice(0, 6) // Limit to max 6 products
   })
 
   if (!products.length) {
@@ -47,23 +47,23 @@ export default async function RelatedProducts({
   }
 
   return (
-    <div className="product-page-constraint">
-      <div className="flex flex-col items-center text-center mb-16">
-        <span className="text-base-regular text-gray-600 mb-6">
+    <div className="mx-auto max-w-7xl px-6">
+      <div className="flex flex-col items-center text-center mb-12">
+        <h2 className="text-p-sm-mono font-maison-neue-mono uppercase text-gray-600 mb-3 tracking-wider">
           Related products
-        </span>
-        <p className="text-2xl-regular text-ui-fg-base max-w-lg">
+        </h2>
+        <p className="text-h4 font-gyst text-Charcoal max-w-2xl">
           You might also want to check out these products.
         </p>
       </div>
 
-      <ul className="grid grid-cols-2 small:grid-cols-3 medium:grid-cols-4 gap-x-6 gap-y-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
         {products.map((product) => (
-          <li key={product.id}>
+          <div key={product.id}>
             <Product region={region} product={product} />
-          </li>
+          </div>
         ))}
-      </ul>
+      </div>
     </div>
   )
 }

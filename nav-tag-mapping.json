@@ -1,0 +1,973 @@
+{
+  "mappings": [
+    {
+      "menu": "Prepared Foods",
+      "section": "Ready to Eat",
+      "menuItem": "Soups & Matzo Balls",
+      "tagValue": "Soups",
+      "tagLevel": "L2",
+      "tagSlug": "soups",
+      "tagId": "fwlfihv7ogbn9183my1apy96",
+      "matchType": "auto"
+    },
+    {
+      "menu": "Prepared Foods",
+      "section": "Ready to Eat",
+      "menuItem": "Desserts",
+      "tagValue": "Desserts",
+      "tagLevel": "L2",
+      "tagSlug": "desserts",
+      "tagId": "s9ni6clsmmnfef7b9m84umiz",
+      "matchType": "auto"
+    },
+    {
+      "menu": "Prepared Foods",
+      "section": "Ready to Cook",
+      "menuItem": "Meal Kits",
+      "tagValue": "Meal Kits",
+      "tagLevel": "L2",
+      "tagSlug": "meal-kits",
+      "tagId": "uc0nz1mjb1ye8hkzat16atd6",
+      "matchType": "auto"
+    },
+    {
+      "menu": "Prepared Foods",
+      "section": "Smoked & Cured",
+      "menuItem": "Smoked Salmon",
+      "tagValue": "Smoked Salmon",
+      "tagLevel": "L3",
+      "tagSlug": "smoked-salmon",
+      "tagId": "w8kqrqm1lla973bwqfeprr81",
+      "matchType": "auto"
+    },
+    {
+      "menu": "Prepared Foods",
+      "section": "Smoked & Cured",
+      "menuItem": "Pocket Pies",
+      "tagValue": "Pocket Pies",
+      "tagLevel": "L3",
+      "tagSlug": "pocket-pies",
+      "tagId": "u1xi8nd5v8vu1tb07b6ofzq1",
+      "matchType": "auto"
+    },
+    {
+      "menu": "Prepared Foods",
+      "section": "Smoked & Cured",
+      "menuItem": "Deli Rolls",
+      "tagValue": "Deli Rolls",
+      "tagLevel": "L3",
+      "tagSlug": "deli-rolls",
+      "tagId": "im5os80x6nd4tmijivfgjlg2",
+      "matchType": "auto"
+    },
+    {
+      "menu": "Beef",
+      "section": "By Cut",
+      "menuItem": "Briskets",
+      "tagValue": "Brisket",
+      "tagLevel": "L3",
+      "tagSlug": "brisket",
+      "tagId": "ygix4rxamzbz79wzrv21e85f",
+      "matchType": "auto"
+    },
+    {
+      "menu": "Beef",
+      "section": "By Cut",
+      "menuItem": "Steaks",
+      "tagValue": "Chuckeye Steaks",
+      "tagLevel": "L3",
+      "tagSlug": "chuckeye-steaks",
+      "tagId": "bip52g9pgnlzze81pt4yutkr",
+      "matchType": "auto"
+    },
+    {
+      "menu": "Beef",
+      "section": "By Cut",
+      "menuItem": "Roasts",
+      "tagValue": "Beef Roasts",
+      "tagLevel": "L3",
+      "tagSlug": "beef-roasts",
+      "tagId": "h9u6zj89dy5gd1sw1j92nn7c",
+      "matchType": "auto"
+    },
+    {
+      "menu": "Beef",
+      "section": "By Cut",
+      "menuItem": "Ground Beef",
+      "tagValue": "Ground Beef",
+      "tagLevel": "L3",
+      "tagSlug": "ground-beef",
+      "tagId": "gkeev3uus5of3wa4r80h6ubt",
+      "matchType": "auto"
+    },
+    {
+      "menu": "Beef",
+      "section": "By Cut",
+      "menuItem": "Ribs & Flanken",
+      "tagValue": "Flanken",
+      "tagLevel": "L3",
+      "tagSlug": "flanken",
+      "tagId": "nxbl7bc1h9rhjly6gkdr8bh4",
+      "matchType": "auto"
+    },
+    {
+      "menu": "Beef",
+      "section": "By Cut",
+      "menuItem": "London Broils",
+      "tagValue": "London Broil",
+      "tagLevel": "L3",
+      "tagSlug": "london-broil",
+      "tagId": "kdxwzhpsz0jivgqajct7sjsa",
+      "matchType": "auto"
+    },
+    {
+      "menu": "Beef",
+      "section": "Specialty",
+      "menuItem": "Corned Beef",
+      "tagValue": "Corned Beef",
+      "tagLevel": "L3",
+      "tagSlug": "corned-beef",
+      "tagId": "nm8t9ljfwlv8q1udhqj3fdi3",
+      "matchType": "auto"
+    },
+    {
+      "menu": "Beef",
+      "section": "Specialty",
+      "menuItem": "Beef Liver",
+      "tagValue": "Beef",
+      "tagLevel": "L2",
+      "tagSlug": "beef",
+      "tagId": "ulbe4mv2aphcmy0x0bbba53h",
+      "matchType": "auto"
+    },
+    {
+      "menu": "Poultry",
+      "section": "Chicken",
+      "menuItem": "Whole Chickens",
+      "tagValue": "Whole Chickens",
+      "tagLevel": "L3",
+      "tagSlug": "whole-chickens",
+      "tagId": "ay3znpk7aqu4oyqr0mwqvshk",
+      "matchType": "auto"
+    },
+    {
+      "menu": "Poultry",
+      "section": "Chicken",
+      "menuItem": "Breasts",
+      "tagValue": "Bone-In Breasts",
+      "tagLevel": "L3",
+      "tagSlug": "bone-in-breasts",
+      "tagId": "rkwtewy1jcp2j0rolkr6qusf",
+      "matchType": "auto"
+    },
+    {
+      "menu": "Poultry",
+      "section": "Chicken",
+      "menuItem": "Thighs",
+      "tagValue": "Boneless Thighs (Pargiot)",
+      "tagLevel": "L3",
+      "tagSlug": "boneless-thighs-pargiot",
+      "tagId": "nww6ee3p1pxjeiddampbvfna",
+      "matchType": "auto"
+    },
+    {
+      "menu": "Poultry",
+      "section": "Chicken",
+      "menuItem": "Wings",
+      "tagValue": "Buffalo Wings",
+      "tagLevel": "L3",
+      "tagSlug": "buffalo-wings",
+      "tagId": "mvm3162rvb1jnoqr9xqlbftm",
+      "matchType": "auto"
+    },
+    {
+      "menu": "Poultry",
+      "section": "Chicken",
+      "menuItem": "Ground Chicken",
+      "tagValue": "Ground Chicken",
+      "tagLevel": "L3",
+      "tagSlug": "ground-chicken",
+      "tagId": "xtpf9jwlvaig7oj2ad2qb614",
+      "matchType": "auto"
+    },
+    {
+      "menu": "Poultry",
+      "section": "Chicken",
+      "menuItem": "Schnitzel",
+      "tagValue": "Veal Cutlets & Schnitzel",
+      "tagLevel": "L3",
+      "tagSlug": "veal-cutlets-schnitzel",
+      "tagId": "ynw0psb4x3vfcbz45r2h5umz",
+      "matchType": "auto"
+    },
+    {
+      "menu": "Poultry",
+      "section": "Turkey & Duck",
+      "menuItem": "Whole Turkey",
+      "tagValue": "Turkey",
+      "tagLevel": "L2",
+      "tagSlug": "turkey",
+      "tagId": "j1os6sbt65ri3zvzwu2q9t7f",
+      "matchType": "auto"
+    },
+    {
+      "menu": "Poultry",
+      "section": "Turkey & Duck",
+      "menuItem": "Turkey Breasts",
+      "tagValue": "Turkey",
+      "tagLevel": "L2",
+      "tagSlug": "turkey",
+      "tagId": "j1os6sbt65ri3zvzwu2q9t7f",
+      "matchType": "auto"
+    },
+    {
+      "menu": "Poultry",
+      "section": "Turkey & Duck",
+      "menuItem": "Ground Turkey",
+      "tagValue": "Ground Turkey",
+      "tagLevel": "L3",
+      "tagSlug": "ground-turkey",
+      "tagId": "nplat2mmni3vkbwagp7i8mo3",
+      "matchType": "auto"
+    },
+    {
+      "menu": "Poultry",
+      "section": "Turkey & Duck",
+      "menuItem": "Whole Duck",
+      "tagValue": "Duck",
+      "tagLevel": "L2",
+      "tagSlug": "duck",
+      "tagId": "ayayu3am5l6mtg0gqzjdj07p",
+      "matchType": "auto"
+    },
+    {
+      "menu": "Poultry",
+      "section": "Turkey & Duck",
+      "menuItem": "Duck Breasts",
+      "tagValue": "Duck",
+      "tagLevel": "L2",
+      "tagSlug": "duck",
+      "tagId": "ayayu3am5l6mtg0gqzjdj07p",
+      "matchType": "auto"
+    },
+    {
+      "menu": "Lamb & Veal",
+      "section": "Lamb Cuts",
+      "menuItem": "Leg of Lamb",
+      "tagValue": "Lamb",
+      "tagLevel": "L2",
+      "tagSlug": "lamb",
+      "tagId": "ie5ro37jkfgvua1fajyg6y2x",
+      "matchType": "auto"
+    },
+    {
+      "menu": "Lamb & Veal",
+      "section": "Lamb Cuts",
+      "menuItem": "Lamb Chops",
+      "tagValue": "Lamb Chops",
+      "tagLevel": "L3",
+      "tagSlug": "lamb-chops",
+      "tagId": "pctynjr0u6l0n8b84pdg35xv",
+      "matchType": "auto"
+    },
+    {
+      "menu": "Lamb & Veal",
+      "section": "Lamb Cuts",
+      "menuItem": "Rack of Lamb",
+      "tagValue": "Lamb",
+      "tagLevel": "L2",
+      "tagSlug": "lamb",
+      "tagId": "ie5ro37jkfgvua1fajyg6y2x",
+      "matchType": "auto"
+    },
+    {
+      "menu": "Lamb & Veal",
+      "section": "Lamb Cuts",
+      "menuItem": "Ground Lamb",
+      "tagValue": "Lamb",
+      "tagLevel": "L2",
+      "tagSlug": "lamb",
+      "tagId": "ie5ro37jkfgvua1fajyg6y2x",
+      "matchType": "auto"
+    },
+    {
+      "menu": "Lamb & Veal",
+      "section": "Lamb Cuts",
+      "menuItem": "Lamb Shanks",
+      "tagValue": "Lamb Shanks",
+      "tagLevel": "L3",
+      "tagSlug": "lamb-shanks",
+      "tagId": "m6sohdopbncdqqx6n7ukgju5",
+      "matchType": "auto"
+    },
+    {
+      "menu": "Lamb & Veal",
+      "section": "Veal Cuts",
+      "menuItem": "Veal Chops",
+      "tagValue": "Veal Chops",
+      "tagLevel": "L3",
+      "tagSlug": "veal-chops",
+      "tagId": "yncbyypgirpg9po1rjytwd4q",
+      "matchType": "auto"
+    },
+    {
+      "menu": "Lamb & Veal",
+      "section": "Veal Cuts",
+      "menuItem": "Veal Roasts",
+      "tagValue": "Veal Roasts",
+      "tagLevel": "L3",
+      "tagSlug": "veal-roasts",
+      "tagId": "huzgzmnwuywnvwt9w11yhrix",
+      "matchType": "auto"
+    },
+    {
+      "menu": "Lamb & Veal",
+      "section": "Veal Cuts",
+      "menuItem": "Ground Veal",
+      "tagValue": "Veal",
+      "tagLevel": "L2",
+      "tagSlug": "veal",
+      "tagId": "y2e61kwvkrujiu551r8n29qf",
+      "matchType": "auto"
+    },
+    {
+      "menu": "Lamb & Veal",
+      "section": "Veal Cuts",
+      "menuItem": "Veal Cutlets",
+      "tagValue": "Veal",
+      "tagLevel": "L2",
+      "tagSlug": "veal",
+      "tagId": "y2e61kwvkrujiu551r8n29qf",
+      "matchType": "auto"
+    },
+    {
+      "menu": "Lamb & Veal",
+      "section": "Veal Cuts",
+      "menuItem": "Veal Shanks",
+      "tagValue": "Veal",
+      "tagLevel": "L2",
+      "tagSlug": "veal",
+      "tagId": "y2e61kwvkrujiu551r8n29qf",
+      "matchType": "auto"
+    },
+    {
+      "menu": "Sausages, Burgers, Hotdogs",
+      "section": "Sausages",
+      "menuItem": "Beef Sausages",
+      "tagValue": "Beef Sausages",
+      "tagLevel": "L3",
+      "tagSlug": "beef-sausages",
+      "tagId": "hfylbrrhchh2b22th7m1i9i2",
+      "matchType": "auto"
+    },
+    {
+      "menu": "Sausages, Burgers, Hotdogs",
+      "section": "Sausages",
+      "menuItem": "Chicken Sausages",
+      "tagValue": "Chicken Sausages",
+      "tagLevel": "L3",
+      "tagSlug": "chicken-sausages",
+      "tagId": "sy2mtvfi7xhu4mv1ckqb1u56",
+      "matchType": "auto"
+    },
+    {
+      "menu": "Sausages, Burgers, Hotdogs",
+      "section": "Sausages",
+      "menuItem": "Turkey Sausages",
+      "tagValue": "Turkey Sausages",
+      "tagLevel": "L3",
+      "tagSlug": "turkey-sausages",
+      "tagId": "swe2olkrbnn73lu3vvtdbds0",
+      "matchType": "auto"
+    },
+    {
+      "menu": "Sausages, Burgers, Hotdogs",
+      "section": "Burgers",
+      "menuItem": "Beef Burgers",
+      "tagValue": "Beef Burgers",
+      "tagLevel": "L3",
+      "tagSlug": "beef-burgers",
+      "tagId": "kv092og9x7el0a1334np66co",
+      "matchType": "auto"
+    },
+    {
+      "menu": "Sausages, Burgers, Hotdogs",
+      "section": "Burgers",
+      "menuItem": "Chicken Burgers",
+      "tagValue": "Chicken",
+      "tagLevel": "L2",
+      "tagSlug": "chicken",
+      "tagId": "whw7un6abpum5vjl6tl95udu",
+      "matchType": "auto"
+    },
+    {
+      "menu": "Sausages, Burgers, Hotdogs",
+      "section": "Burgers",
+      "menuItem": "Turkey Burgers",
+      "tagValue": "Turkey",
+      "tagLevel": "L2",
+      "tagSlug": "turkey",
+      "tagId": "j1os6sbt65ri3zvzwu2q9t7f",
+      "matchType": "auto"
+    },
+    {
+      "menu": "Sausages, Burgers, Hotdogs",
+      "section": "Hotdogs",
+      "menuItem": "Beef Hotdogs",
+      "tagValue": "Beef",
+      "tagLevel": "L2",
+      "tagSlug": "beef",
+      "tagId": "ulbe4mv2aphcmy0x0bbba53h",
+      "matchType": "auto"
+    },
+    {
+      "menu": "Sausages, Burgers, Hotdogs",
+      "section": "Hotdogs",
+      "menuItem": "Chicken Hotdogs",
+      "tagValue": "Chicken",
+      "tagLevel": "L2",
+      "tagSlug": "chicken",
+      "tagId": "whw7un6abpum5vjl6tl95udu",
+      "matchType": "auto"
+    },
+    {
+      "menu": "Sausages, Burgers, Hotdogs",
+      "section": "Hotdogs",
+      "menuItem": "Turkey Dogs",
+      "tagValue": "Turkey",
+      "tagLevel": "L2",
+      "tagSlug": "turkey",
+      "tagId": "j1os6sbt65ri3zvzwu2q9t7f",
+      "matchType": "auto"
+    },
+    {
+      "menu": "Sausages, Burgers, Hotdogs",
+      "section": "Hotdogs",
+      "menuItem": "Beef Franks",
+      "tagValue": "Beef Franks",
+      "tagLevel": "L3",
+      "tagSlug": "beef-franks",
+      "tagId": "vcng948ckgrqhmp9tmktg2w3",
+      "matchType": "auto"
+    },
+    {
+      "menu": "Deli",
+      "section": "Sliced Meats",
+      "menuItem": "Pastrami",
+      "tagValue": "Pastrami",
+      "tagLevel": "L3",
+      "tagSlug": "pastrami",
+      "tagId": "mat7hxdnkzu30l4lqm02jkmw",
+      "matchType": "auto"
+    },
+    {
+      "menu": "Deli",
+      "section": "Sliced Meats",
+      "menuItem": "Corned Beef",
+      "tagValue": "Corned Beef",
+      "tagLevel": "L3",
+      "tagSlug": "corned-beef",
+      "tagId": "nm8t9ljfwlv8q1udhqj3fdi3",
+      "matchType": "auto"
+    },
+    {
+      "menu": "Deli",
+      "section": "Specialty Items",
+      "menuItem": "Salami Sticks",
+      "tagValue": "Salami",
+      "tagLevel": "L3",
+      "tagSlug": "salami",
+      "tagId": "mh0c67e2l896opl2z934l4t4",
+      "matchType": "auto"
+    },
+    {
+      "menu": "Deli",
+      "section": "Specialty Items",
+      "menuItem": "Biltong",
+      "tagValue": "Biltong",
+      "tagLevel": "L3",
+      "tagSlug": "biltong",
+      "tagId": "h7aa6nhtms6nlmbcp4y2r6jb",
+      "matchType": "auto"
+    },
+    {
+      "menu": "Provisions",
+      "section": "Essentials",
+      "menuItem": "Seasonings",
+      "tagValue": "Soup Mixes & Seasonings",
+      "tagLevel": "L2",
+      "tagSlug": "soup-mixes-seasonings",
+      "tagId": "nmqxhmomhvjk3q566gwbts2w",
+      "matchType": "auto"
+    }
+  ],
+  "unmappedItems": [
+    {
+      "menu": "Prepared Foods",
+      "section": "Ready to Eat",
+      "item": "Entree Dishes"
+    },
+    {
+      "menu": "Prepared Foods",
+      "section": "Ready to Eat",
+      "item": "Side Dishes"
+    },
+    {
+      "menu": "Prepared Foods",
+      "section": "Ready to Cook",
+      "item": "Marinated Meats"
+    },
+    {
+      "menu": "Prepared Foods",
+      "section": "Ready to Cook",
+      "item": "Stuffed Items"
+    },
+    {
+      "menu": "Prepared Foods",
+      "section": "Smoked & Cured",
+      "item": "Smoked Trout"
+    },
+    {
+      "menu": "Beef",
+      "section": "By Type",
+      "item": "Butcher's Choice"
+    },
+    {
+      "menu": "Beef",
+      "section": "By Type",
+      "item": "Grass Fed & Natural"
+    },
+    {
+      "menu": "Beef",
+      "section": "By Type",
+      "item": "Certified Organic"
+    },
+    {
+      "menu": "Beef",
+      "section": "By Type",
+      "item": "Budget Friendly"
+    },
+    {
+      "menu": "Beef",
+      "section": "Specialty",
+      "item": "Stew Meat"
+    },
+    {
+      "menu": "Beef",
+      "section": "Specialty",
+      "item": "Soup Bones"
+    },
+    {
+      "menu": "Poultry",
+      "section": "By Source",
+      "item": "David Elliot"
+    },
+    {
+      "menu": "Poultry",
+      "section": "By Source",
+      "item": "AgriStar"
+    },
+    {
+      "menu": "Poultry",
+      "section": "By Source",
+      "item": "Organic"
+    },
+    {
+      "menu": "Poultry",
+      "section": "By Source",
+      "item": "Antibiotic-Free"
+    },
+    {
+      "menu": "Sausages, Burgers, Hotdogs",
+      "section": "Sausages",
+      "item": "Gourmet Sausages"
+    },
+    {
+      "menu": "Sausages, Burgers, Hotdogs",
+      "section": "Burgers",
+      "item": "Gourmet Burgers"
+    },
+    {
+      "menu": "Deli",
+      "section": "Sliced Meats",
+      "item": "Sliced Deli"
+    },
+    {
+      "menu": "Deli",
+      "section": "Sliced Meats",
+      "item": "Deli Chubs"
+    },
+    {
+      "menu": "Deli",
+      "section": "Specialty Items",
+      "item": "Drywors"
+    },
+    {
+      "menu": "Deli",
+      "section": "Specialty Items",
+      "item": "Smoked Meats"
+    },
+    {
+      "menu": "Provisions",
+      "section": "Essentials",
+      "item": "Cooking Supplies"
+    },
+    {
+      "menu": "Provisions",
+      "section": "Essentials",
+      "item": "Kosher Accessories"
+    }
+  ],
+  "orphanedTags": [
+    {
+      "id": "if6fn6h806y1ib5r4lq6h6fy",
+      "fullName": "Tag 1",
+      "value": "Tag 1",
+      "slug": "tag-1",
+      "level": "Other"
+    },
+    {
+      "id": "p6gfh5tllxkotuxh1lcc6g51",
+      "fullName": "Tag 2",
+      "value": "Tag 2",
+      "slug": "tag-2",
+      "level": "Other"
+    },
+    {
+      "id": "t1v5ji7az2bzvksv2u77pxcv",
+      "fullName": "Tag 3",
+      "value": "Tag 3",
+      "slug": "tag-3",
+      "level": "Other"
+    },
+    {
+      "id": "qp1t2jk8xi5ryhbf0qsbki40",
+      "fullName": "L1: Butcher Counter",
+      "value": "Butcher Counter",
+      "slug": "butcher-counter",
+      "level": "L1"
+    },
+    {
+      "id": "augi2s6qao4mdjdr12jstasn",
+      "fullName": "L1: Deli Counter",
+      "value": "Deli Counter",
+      "slug": "deli-counter",
+      "level": "L1"
+    },
+    {
+      "id": "dpnwldjki9q9gys4prvx0qce",
+      "fullName": "L1: Kitchen Counter",
+      "value": "Kitchen Counter",
+      "slug": "kitchen-counter",
+      "level": "L1"
+    },
+    {
+      "id": "dggw5jlqe3oendm6vqq1yfcz",
+      "fullName": "L1: Provisions",
+      "value": "Provisions",
+      "slug": "provisions",
+      "level": "L1"
+    },
+    {
+      "id": "h8272t1bb6cyz0i72migf1ew",
+      "fullName": "L2: Bakery",
+      "value": "Bakery",
+      "slug": "bakery",
+      "level": "L2"
+    },
+    {
+      "id": "mravzyluv2i99oc9ezxt9ddk",
+      "fullName": "L2: Bakery",
+      "value": "Bakery",
+      "slug": "bakery",
+      "level": "L2"
+    },
+    {
+      "id": "n3gjjbyzdh5b2z4emlt4iopn",
+      "fullName": "L2: Baking Supplies",
+      "value": "Baking Supplies",
+      "slug": "baking-supplies",
+      "level": "L2"
+    },
+    {
+      "id": "zpqn8zamwnt7zbpvmvv4p5cr",
+      "fullName": "L2: Beef Entrees",
+      "value": "Beef Entrees",
+      "slug": "beef-entrees",
+      "level": "L2"
+    },
+    {
+      "id": "ipnrq2l4a0eir72yu1yh9eii",
+      "fullName": "L2: Beverages",
+      "value": "Beverages",
+      "slug": "beverages",
+      "level": "L2"
+    },
+    {
+      "id": "ckx434kor62y3nn2sk0p81fu",
+      "fullName": "L2: Canned & Jarred",
+      "value": "Canned & Jarred",
+      "slug": "canned-jarred",
+      "level": "L2"
+    },
+    {
+      "id": "tcmok8o822mvsc8eomqghe11",
+      "fullName": "L2: Charcuterie",
+      "value": "Charcuterie",
+      "slug": "charcuterie",
+      "level": "L2"
+    },
+    {
+      "id": "cy4n5imspvc15mrs7ugrryry",
+      "fullName": "L2: Chicken Entrees",
+      "value": "Chicken Entrees",
+      "slug": "chicken-entrees",
+      "level": "L2"
+    },
+    {
+      "id": "gkxz8uakub9tfzx44ab00zr6",
+      "fullName": "L2: Cured Meats",
+      "value": "Cured Meats",
+      "slug": "cured-meats",
+      "level": "L2"
+    },
+    {
+      "id": "o5le6fn93wmgo4gvuz86z637",
+      "fullName": "L2: Dairy",
+      "value": "Dairy",
+      "slug": "dairy",
+      "level": "L2"
+    },
+    {
+      "id": "tc0ntimqk9p2w8cltysm0e3i",
+      "fullName": "L2: Fish",
+      "value": "Fish",
+      "slug": "fish",
+      "level": "L2"
+    },
+    {
+      "id": "ywv7jpwkv1dclupa28h631e8",
+      "fullName": "L2: Franks & Dogs",
+      "value": "Franks & Dogs",
+      "slug": "franks-dogs",
+      "level": "L2"
+    },
+    {
+      "id": "e4mxpx408qkzxjv4yp8jiv07",
+      "fullName": "L2: Frozen & Refrigerated",
+      "value": "Frozen & Refrigerated",
+      "slug": "frozen-refrigerated",
+      "level": "L2"
+    },
+    {
+      "id": "t8o4kmch5cajzdyq8gai0vly",
+      "fullName": "L2: Hand Pies & Rolls",
+      "value": "Hand Pies & Rolls",
+      "slug": "hand-pies-rolls",
+      "level": "L2"
+    },
+    {
+      "id": "xfi1p4b7k7dx1a9m5svf9eff",
+      "fullName": "L2: Pantry",
+      "value": "Pantry",
+      "slug": "pantry",
+      "level": "L2"
+    },
+    {
+      "id": "myfx655ihzpaohyrv1uxy3rd",
+      "fullName": "L2: Prepared Specialties",
+      "value": "Prepared Specialties",
+      "slug": "prepared-specialties",
+      "level": "L2"
+    },
+    {
+      "id": "mglnghh733armvkvd0usgyb2",
+      "fullName": "L2: Sides",
+      "value": "Sides",
+      "slug": "sides",
+      "level": "L2"
+    },
+    {
+      "id": "yu26cklfltm33bd9wssh0hpy",
+      "fullName": "L2: Sliced Meats",
+      "value": "Sliced Meats",
+      "slug": "sliced-meats",
+      "level": "L2"
+    },
+    {
+      "id": "gopufs9562h1q4aaptrrdgxl",
+      "fullName": "L2: Sweets & Baked Goods",
+      "value": "Sweets & Baked Goods",
+      "slug": "sweets-baked-goods",
+      "level": "L2"
+    },
+    {
+      "id": "cqkqz490l76qb51h9bc74206",
+      "fullName": "L2: Turkey Entrees",
+      "value": "Turkey Entrees",
+      "slug": "turkey-entrees",
+      "level": "L2"
+    },
+    {
+      "id": "jj96ks7bitfvxpixkbw1xaj4",
+      "fullName": "L2: Veal Entrees",
+      "value": "Veal Entrees",
+      "slug": "veal-entrees",
+      "level": "L2"
+    },
+    {
+      "id": "fz2k8yeybf3oyf7pxkrhfvg6",
+      "fullName": "L3: BBQ Chicken",
+      "value": "BBQ Chicken",
+      "slug": "bbq-chicken",
+      "level": "L3"
+    },
+    {
+      "id": "vgydh4lrka38lhi2bx0iof2e",
+      "fullName": "L3: BBQ Seasonings",
+      "value": "BBQ Seasonings",
+      "slug": "bbq-seasonings",
+      "level": "L3"
+    },
+    {
+      "id": "ogwi24xptyg9jglu0npzgg4i",
+      "fullName": "L3: Baking Essentials",
+      "value": "Baking Essentials",
+      "slug": "baking-essentials",
+      "level": "L3"
+    },
+    {
+      "id": "whpaioq8qayufgoged2ef2o2",
+      "fullName": "L3: Beef Chili",
+      "value": "Beef Chili",
+      "slug": "beef-chili",
+      "level": "L3"
+    },
+    {
+      "id": "dqrycj9otlxwo3wp2cfg8144",
+      "fullName": "L3: Beef Fat",
+      "value": "Beef Fat",
+      "slug": "beef-fat",
+      "level": "L3"
+    },
+    {
+      "id": "j4p2ey1sh0wy0ok4dy28el0f",
+      "fullName": "L3: Beef Fry",
+      "value": "Beef Fry",
+      "slug": "beef-fry",
+      "level": "L3"
+    },
+    {
+      "id": "vx2lw3dj9aeuwkmiaknkue98",
+      "fullName": "L3: Beef Pepperoni",
+      "value": "Beef Pepperoni",
+      "slug": "beef-pepperoni",
+      "level": "L3"
+    },
+    {
+      "id": "kbtit3nqmcvmuhobv4mry7br",
+      "fullName": "L3: Beef Stew",
+      "value": "Beef Stew",
+      "slug": "beef-stew",
+      "level": "L3"
+    },
+    {
+      "id": "jyn50d9lnffgjsng16w18djx",
+      "fullName": "L3: Blintzes",
+      "value": "Blintzes",
+      "slug": "blintzes",
+      "level": "L3"
+    },
+    {
+      "id": "q38tvqdawr2b9pgfwf2bluvr",
+      "fullName": "L3: Babka",
+      "value": "Babka",
+      "slug": "babka",
+      "level": "L3"
+    },
+    {
+      "id": "ww7kwsfzl407yagz42jddrc6",
+      "fullName": "L3: Beef Facon",
+      "value": "Beef Facon",
+      "slug": "beef-facon",
+      "level": "L3"
+    },
+    {
+      "id": "vsmvm89s5oxxnfemy6dj31pb",
+      "fullName": "L3: Beef Offal",
+      "value": "Beef Offal",
+      "slug": "beef-offal",
+      "level": "L3"
+    },
+    {
+      "id": "knm2qpfw440stfy2f57agdbv",
+      "fullName": "L3: Beef Ribs",
+      "value": "Beef Ribs",
+      "slug": "beef-ribs",
+      "level": "L3"
+    },
+    {
+      "id": "v1gxa0q3i2k10xelg7h4t2nh",
+      "fullName": "L3: Bologna",
+      "value": "Bologna",
+      "slug": "bologna",
+      "level": "L3"
+    },
+    {
+      "id": "qw7kuzq50dbdjejtuz1g9okz",
+      "fullName": "L3: Boneless Breasts",
+      "value": "Boneless Breasts",
+      "slug": "boneless-breasts",
+      "level": "L3"
+    },
+    {
+      "id": "l77y2etbsq13jjyujx9gnvro",
+      "fullName": "L3: Breaded Cutlets",
+      "value": "Breaded Cutlets",
+      "slug": "breaded-cutlets",
+      "level": "L3"
+    },
+    {
+      "id": "k5c8fjcwt3g067jygbt2i7ct",
+      "fullName": "L3: Breaded Fish",
+      "value": "Breaded Fish",
+      "slug": "breaded-fish",
+      "level": "L3"
+    },
+    {
+      "id": "mhakgs5xeavcki8hu3hdzfxv",
+      "fullName": "L3: Breads",
+      "value": "Breads",
+      "slug": "breads",
+      "level": "L3"
+    },
+    {
+      "id": "vxgv3x6m6z0g0yds05ebjjek",
+      "fullName": "L3: Brisket Deckel",
+      "value": "Brisket Deckel",
+      "slug": "brisket-deckel",
+      "level": "L3"
+    },
+    {
+      "id": "gr3cjirxtm5pgmhx7j4peb5m",
+      "fullName": "L3: Brisket First Cut",
+      "value": "Brisket First Cut",
+      "slug": "brisket-first-cut",
+      "level": "L3"
+    },
+    {
+      "id": "jximeksya5zc4q5ideb73y2i",
+      "fullName": "L3: Broiled Liver",
+      "value": "Broiled Liver",
+      "slug": "broiled-liver",
+      "level": "L3"
+    },
+    {
+      "id": "v0khwwwdhr0rjsjxjx4xcvuy",
+      "fullName": "L3: Butter",
+      "value": "Butter",
+      "slug": "butter",
+      "level": "L3"
+    }
+  ]
+}

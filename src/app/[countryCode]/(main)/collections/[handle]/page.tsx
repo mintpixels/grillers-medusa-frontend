@@ -6,6 +6,10 @@ import {
   AllProductCollectionsQuery,
   GetProductCollectionQuery,
   type ProductCollectionData,
+  getProductTagBySlug,
+  extractTagValue,
+  getProductsByTag,
+  type StrapiCollectionProduct,
 } from "@lib/data/strapi/collections"
 import { listRegions } from "@lib/data/regions"
 import { StoreRegion } from "@medusajs/types"
@@ -79,12 +83,27 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
     GetProductCollectionQuery,
     { handle }
   )
-  const collection = res?.productCollections?.[0]
+  let collection = res?.productCollections?.[0]
+  let isTagBased = false
+  let tag: any = null
 
+  // If not found as collection, check if it's a product tag
   if (!collection) {
-    return {
-      title: "Collection Not Found | Grillers Pride",
-      description: "The requested collection could not be found.",
+    tag = await getProductTagBySlug(handle, strapiClient)
+    
+    if (tag) {
+      isTagBased = true
+      const tagValue = extractTagValue(tag.Name)
+      collection = {
+        Name: `Kosher ${tagValue}`,
+        Slug: handle,
+        Description: tag.Description || `Browse our Kosher ${tagValue} products`,
+      } as ProductCollectionData
+    } else {
+      return {
+        title: "Collection Not Found | Grillers Pride",
+        description: "The requested collection could not be found.",
+      }
     }
   }
 
@@ -94,10 +113,15 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
   // Use Strapi SEO data if available, otherwise generate from collection name
   const seo = collection.SEO
   const socialMeta = collection.SocialMeta
+  
+  // For tag-based collections, use tag's SEODescription
+  const tagSEODescription = isTagBased && tag ? tag.SEODescription || "" : ""
 
   const title = seo?.metaTitle || `${collection.Name} | Grillers Pride`
   const description =
     seo?.metaDescription ||
+    tagSEODescription ||
+    collection.Description ||
     `Shop our ${collection.Name} collection of premium kosher meats. Fresh, high-quality cuts delivered to your door. 100% kosher certified.`
 
   const metadata: Metadata = {
@@ -195,14 +219,38 @@ export default async function CollectionPage(props: Props) {
     return notFound()
   }
 
+  // First, try to get as a ProductCollection
   const res = await strapiClient.request<GetProductCollectionResponse>(
     GetProductCollectionQuery,
     { handle }
   )
-  const collection = res?.productCollections?.[0]
+  let collection = res?.productCollections?.[0]
 
+  // If not found as collection, check if it's a product tag
+  let isTagBased = false
+  let tagName = ""
+  let tagProducts: StrapiCollectionProduct[] = []
+  
   if (!collection) {
-    return notFound()
+    const tag = await getProductTagBySlug(handle, strapiClient)
+    
+    if (tag) {
+      // Found a tag - create a virtual collection for it
+      isTagBased = true
+      tagName = tag.Name
+      const tagValue = extractTagValue(tag.Name)
+      
+      // Fetch products with this tag from Strapi
+      tagProducts = await getProductsByTag(tag.Name, strapiClient, { limit: 100 })
+      
+      collection = {
+        Name: `Kosher ${tagValue}`,
+        Slug: handle,
+        Description: tag.Description || `Browse our Kosher ${tagValue} products`,
+      } as ProductCollectionData
+    } else {
+      return notFound()
+    }
   }
 
   const jsonLd = generateCollectionJsonLd(collection, countryCode)
@@ -218,6 +266,9 @@ export default async function CollectionPage(props: Props) {
         slug={handle}
         countryCode={countryCode}
         collection={collection}
+        isTagBased={isTagBased}
+        tagName={tagName}
+        strapiProducts={tagProducts}
       />
     </>
   )

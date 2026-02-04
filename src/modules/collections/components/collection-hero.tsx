@@ -10,12 +10,11 @@ type CollectionHeroProps = {
 export default function CollectionHero({ collection, countryCode }: CollectionHeroProps) {
   const hasHeroImage = Boolean(collection.HeroImage?.url)
   const hasDescription = Boolean(collection.Description)
-  const hasCTA = Boolean(collection.HeroCTA?.Label && collection.HeroCTA?.Url)
 
   // If no hero image and no description, return minimal header
   if (!hasHeroImage && !hasDescription) {
     return (
-      <div className="bg-Cream py-12 mb-8">
+      <div className="bg-Cream pt-12">
         <div className="content-container">
           <h1 className="text-h2-mobile md:text-h2 font-gyst text-Charcoal text-center">
             {collection.Name}
@@ -32,7 +31,7 @@ export default function CollectionHero({ collection, countryCode }: CollectionHe
         {/* Background Image */}
         <Image
           src={collection.HeroImage!.url}
-          alt={collection.HeroImage?.alternativeText || collection.Name}
+          alt={collection.HeroImageAlt || collection.Name}
           fill
           className="object-cover"
           priority
@@ -49,18 +48,9 @@ export default function CollectionHero({ collection, countryCode }: CollectionHe
             </h1>
             
             {hasDescription && (
-              <p className="text-p-lg text-white/90 max-w-2xl mx-auto mb-6">
+              <p className="text-p-lg text-white/90 max-w-5xl mx-auto text-balance">
                 {collection.Description}
               </p>
-            )}
-            
-            {hasCTA && (
-              <Link
-                href={collection.HeroCTA!.Url}
-                className="inline-block bg-Gold hover:bg-Gold/90 text-Charcoal font-medium px-8 py-3 rounded transition-colors"
-              >
-                {collection.HeroCTA!.Label}
-              </Link>
             )}
           </div>
         </div>
@@ -70,25 +60,16 @@ export default function CollectionHero({ collection, countryCode }: CollectionHe
 
   // Description without hero image
   return (
-    <div className="bg-Cream py-12 mb-8">
+    <div className="bg-Cream pt-12">
       <div className="content-container text-center">
         <h1 className="text-h2-mobile md:text-h2 font-gyst text-Charcoal mb-4">
           {collection.Name}
         </h1>
         
         {hasDescription && (
-          <p className="text-p-lg text-Charcoal/80 max-w-2xl mx-auto">
+          <p className="text-p-lg text-Charcoal/80 max-w-5xl mx-auto text-balance">
             {collection.Description}
           </p>
-        )}
-        
-        {hasCTA && (
-          <Link
-            href={collection.HeroCTA!.Url}
-            className="inline-block mt-6 bg-Gold hover:bg-Gold/90 text-Charcoal font-medium px-8 py-3 rounded transition-colors"
-          >
-            {collection.HeroCTA!.Label}
-          </Link>
         )}
       </div>
     </div>

@@ -1,0 +1,32 @@
+{
+  "timestamp": "2026-01-25T23:54:14.256Z",
+  "expectedAssignments": 457,
+  "expectedTotalTags": 685,
+  "actualTotalTags": 241,
+  "successRate": 35,
+  "tagCounts": {
+    "Entree Dishes": 5,
+    "Side Dishes": 13,
+    "Marinated Meats": 14,
+    "Stuffed Items": 1,
+    "Smoked Trout": 1,
+    "Butcher's Choice": 0,
+    "Grass Fed & Natural": 18,
+    "Certified Organic": 12,
+    "Budget Friendly": 46,
+    "Stew Meat": 8,
+    "Soup Bones": 2,
+    "David Elliot": 13,
+    "AgriStar": 30,
+    "Organic": 12,
+    "Antibiotic-Free": 28,
+    "Gourmet Sausages": 2,
+    "Gourmet Burgers": 1,
+    "Sliced Deli": 7,
+    "Deli Chubs": 4,
+    "Drywors": 0,
+    "Smoked Meats": 8,
+    "Cooking Supplies": 16,
+    "Kosher Accessories": 0
+  }
+}

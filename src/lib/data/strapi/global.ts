@@ -8,7 +8,7 @@ export type OrganizationData = {
   Country?: string
   Phone?: string
   Email?: string
-  SocialProfiles?: { Platform: string; Url: string }[]
+  SocialProfiles?: any // JSON scalar field from Strapi
 }
 
 export type GlobalData = {
@@ -36,10 +36,7 @@ export const GetGlobalQuery = gql`
         Country
         Phone
         Email
-        SocialProfiles {
-          Platform
-          Url
-        }
+        SocialProfiles
       }
     }
   }
@@ -66,7 +63,22 @@ export function generateOrganizationJsonLd(
       }
     : undefined
 
-  const sameAs = org.SocialProfiles?.map((profile) => profile.Url).filter(Boolean)
+  // Safely parse SocialProfiles JSON data
+  let sameAs: string[] | undefined
+  if (org.SocialProfiles) {
+    try {
+      // SocialProfiles is a JSON field that should contain an array of {Platform, Url} objects
+      const profiles = Array.isArray(org.SocialProfiles) 
+        ? org.SocialProfiles 
+        : []
+      sameAs = profiles
+        .map((profile: any) => profile?.Url)
+        .filter((url: any): url is string => typeof url === 'string' && url.length > 0)
+    } catch (error) {
+      console.warn('Failed to parse SocialProfiles from Strapi Global data:', error)
+      sameAs = undefined
+    }
+  }
 
   return {
     "@context": "https://schema.org",
