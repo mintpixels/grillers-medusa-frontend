@@ -1,8 +1,8 @@
 import { retrieveCart } from "@lib/data/cart"
-import CartDropdown from "../cart-dropdown"
+import CartWrapper from "../side-cart/cart-wrapper"
 
 export default async function CartButton() {
   const cart = await retrieveCart().catch(() => null)
 
-  return <CartDropdown cart={cart} />
+  return <CartWrapper cart={cart} />
 }

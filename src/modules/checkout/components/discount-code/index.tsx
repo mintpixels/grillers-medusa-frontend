@@ -1,11 +1,10 @@
 "use client"
 
-import { Badge, Heading, Input, Label, Text, Tooltip } from "@medusajs/ui"
+import { Badge, Heading, Input, Label, Text, clx } from "@medusajs/ui"
 import React, { useActionState } from "react"
 
 import { applyPromotions, submitPromotionForm } from "@lib/data/cart"
 import { convertToLocale } from "@lib/util/money"
-import { InformationCircleSolid } from "@medusajs/icons"
 import { HttpTypes } from "@medusajs/types"
 import Trash from "@modules/common/icons/trash"
 import ErrorMessage from "../error-message"
@@ -15,12 +14,14 @@ type DiscountCodeProps = {
   cart: HttpTypes.StoreCart & {
     promotions: HttpTypes.StorePromotion[]
   }
+  variant?: "light" | "dark"
 }
 
-const DiscountCode: React.FC<DiscountCodeProps> = ({ cart }) => {
+const DiscountCode: React.FC<DiscountCodeProps> = ({ cart, variant = "light" }) => {
   const [isOpen, setIsOpen] = React.useState(false)
+  const isDark = variant === "dark"
 
-  const { items = [], promotions = [] } = cart
+  const { promotions = [] } = cart
   const removePromotionCode = async (code: string) => {
     const validPromotions = promotions.filter(
       (promotion) => promotion.code !== code
@@ -49,40 +50,52 @@ const DiscountCode: React.FC<DiscountCodeProps> = ({ cart }) => {
     }
   }
 
-  const [message, formAction] = useActionState(submitPromotionForm, null)
+  const [message] = useActionState(submitPromotionForm, null)
 
   return (
-    <div className="w-full bg-white flex flex-col">
+    <div className={clx("w-full flex flex-col", {
+      "bg-white": !isDark,
+      "bg-transparent": isDark,
+    })}>
       <div className="txt-medium">
-        <form action={(a) => addPromotionCode(a)} className="w-full mb-5">
-          <Label className="flex gap-x-1 my-2 items-center">
+        <form action={(a) => addPromotionCode(a)} className="w-full">
+          <Label className="flex gap-x-1 items-center">
             <button
               onClick={() => setIsOpen(!isOpen)}
               type="button"
-              className="txt-medium text-ui-fg-interactive hover:text-ui-fg-interactive-hover underline"
+              className={clx("txt-medium underline", {
+                "text-ui-fg-interactive hover:text-ui-fg-interactive-hover": !isDark,
+                "text-Gold hover:text-Gold/80": isDark,
+              })}
               data-testid="add-discount-button"
             >
               Add Promotion Code
             </button>
-
-            {/* <Tooltip content="You can add multiple promotion codes">
-              <InformationCircleSolid color="var(--fg-muted)" />
-            </Tooltip> */}
           </Label>
 
           {isOpen && (
-            <>
+            <div className="mt-3">
               <div className="flex w-full gap-x-2">
-                <Input
-                  className="size-full"
+                <input
+                  className={clx(
+                    "flex-1 px-3 py-2 text-sm rounded-md border focus:outline-none focus:ring-2 focus:ring-Gold",
+                    {
+                      "bg-white border-gray-300 text-gray-900": !isDark,
+                      "bg-gray-700 border-gray-600 text-white placeholder-gray-400": isDark,
+                    }
+                  )}
                   id="promotion-input"
                   name="code"
                   type="text"
+                  placeholder="Enter code"
                   autoFocus={false}
                   data-testid="discount-input"
                 />
                 <SubmitButton
                   variant="secondary"
+                  className={clx({
+                    "bg-gray-600 text-white hover:bg-gray-500 border-gray-600": isDark,
+                  })}
                   data-testid="discount-apply-button"
                 >
                   Apply
@@ -93,14 +106,16 @@ const DiscountCode: React.FC<DiscountCodeProps> = ({ cart }) => {
                 error={message}
                 data-testid="discount-error-message"
               />
-            </>
+            </div>
           )}
         </form>
 
         {promotions.length > 0 && (
-          <div className="w-full flex items-center">
+          <div className="w-full flex items-center mt-4">
             <div className="flex flex-col w-full">
-              <Heading className="txt-medium mb-2">
+              <Heading className={clx("txt-medium mb-2", {
+                "text-white": isDark,
+              })}>
                 Promotion(s) applied:
               </Heading>
 
@@ -111,7 +126,9 @@ const DiscountCode: React.FC<DiscountCodeProps> = ({ cart }) => {
                     className="flex items-center justify-between w-full max-w-full mb-2"
                     data-testid="discount-row"
                   >
-                    <Text className="flex gap-x-1 items-baseline txt-small-plus w-4/5 pr-1">
+                    <Text className={clx("flex gap-x-1 items-baseline txt-small-plus w-4/5 pr-1", {
+                      "text-gray-300": isDark,
+                    })}>
                       <span className="truncate" data-testid="discount-code">
                         <Badge
                           color={promotion.is_automatic ? "green" : "grey"}
@@ -136,16 +153,13 @@ const DiscountCode: React.FC<DiscountCodeProps> = ({ cart }) => {
                             </>
                           )}
                         )
-                        {/* {promotion.is_automatic && (
-                          <Tooltip content="This promotion is automatically applied">
-                            <InformationCircleSolid className="inline text-zinc-400" />
-                          </Tooltip>
-                        )} */}
                       </span>
                     </Text>
                     {!promotion.is_automatic && (
                       <button
-                        className="flex items-center"
+                        className={clx("flex items-center", {
+                          "text-gray-400 hover:text-white": isDark,
+                        })}
                         onClick={() => {
                           if (!promotion.code) {
                             return

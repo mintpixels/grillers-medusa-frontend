@@ -1,15 +1,15 @@
 "use client"
 
-import { Heading, Text, clx } from "@medusajs/ui"
+import { clx } from "@medusajs/ui"
 
 import PaymentButton from "../payment-button"
 import { useSearchParams } from "next/navigation"
 
 // Net-weight authorization disclaimer
 const NetWeightDisclaimer = () => (
-  <div className="bg-Gold/10 border border-Gold/30 rounded-md p-4 mb-6">
+  <div className="bg-Gold/10 border border-Gold/20 rounded-lg p-4 mb-5">
     <div className="flex gap-3">
-      <div className="shrink-0 mt-0.5">
+      <div className="shrink-0">
         <svg
           className="w-5 h-5 text-Gold"
           viewBox="0 0 20 20"
@@ -23,13 +23,13 @@ const NetWeightDisclaimer = () => (
         </svg>
       </div>
       <div>
-        <p className="text-sm font-medium text-Charcoal mb-1">
+        <p className="text-sm font-medium text-gray-900 mb-1">
           About Your Order Total
         </p>
-        <p className="text-sm text-Charcoal/70 leading-relaxed">
+        <p className="text-sm text-gray-600 leading-relaxed">
           Your card will be authorized for the estimated amount shown. The final
           charge will be based on actual product weights when your order is
-          weighed and packed, and may vary slightly.{" "}
+          weighed and packed.{" "}
           <a
             href="/faq/net-weight-pricing"
             className="text-Gold hover:text-Gold/80 underline"
@@ -56,38 +56,38 @@ const Review = ({ cart }: { cart: any }) => {
     (cart.payment_collection || paidByGiftcard)
 
   // For now, assume all carts may contain net-weight items
-  // In production, this should check cart items for net-weight products
   const hasNetWeightItems = true
 
   return (
-    <div className="bg-white">
-      <div className="flex flex-row items-center justify-between mb-6">
-        <Heading
-          level="h2"
-          className={clx(
-            "flex flex-row text-3xl-regular gap-x-2 items-baseline",
-            {
-              "opacity-50 pointer-events-none select-none": !isOpen,
-            }
-          )}
-        >
-          Review
-        </Heading>
+    <div>
+      {/* Step header */}
+      <div className="flex items-center gap-3 mb-4">
+        <span className={clx(
+          "flex items-center justify-center w-7 h-7 rounded-full text-sm font-semibold",
+          {
+            "bg-Gold text-white": isOpen,
+            "bg-gray-200 text-gray-400": !isOpen,
+          }
+        )}>
+          4
+        </span>
+        <h2 className={clx("text-lg font-semibold", {
+          "text-gray-900": isOpen,
+          "text-gray-400": !isOpen,
+        })}>Review & Place Order</h2>
       </div>
+
       {isOpen && previousStepsCompleted && (
         <>
           {hasNetWeightItems && <NetWeightDisclaimer />}
 
-          <div className="flex items-start gap-x-1 w-full mb-6">
-            <div className="w-full">
-              <Text className="txt-medium-plus text-ui-fg-base mb-1">
-                By clicking the Place Order button, you confirm that you have
-                read, understand and accept our Terms of Use, Terms of Sale and
-                Returns Policy and acknowledge that you have read Grillers
-                Pride&apos;s Privacy Policy.
-              </Text>
-            </div>
-          </div>
+          <p className="text-sm text-gray-500 mb-5 leading-relaxed">
+            By clicking Place Order, you agree to our{" "}
+            <a href="/terms" className="text-Gold hover:underline">Terms of Use</a>,{" "}
+            <a href="/terms-of-sale" className="text-Gold hover:underline">Terms of Sale</a>, and{" "}
+            <a href="/privacy" className="text-Gold hover:underline">Privacy Policy</a>.
+          </p>
+          
           <PaymentButton cart={cart} data-testid="submit-order-button" />
         </>
       )}

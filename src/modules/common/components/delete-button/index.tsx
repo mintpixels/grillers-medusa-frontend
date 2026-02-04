@@ -2,6 +2,7 @@ import { deleteLineItem } from "@lib/data/cart"
 import { Spinner, Trash } from "@medusajs/icons"
 import { clx } from "@medusajs/ui"
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { trackRemoveFromCart } from "@lib/gtm"
 
 type ProductInfo = {
@@ -23,6 +24,7 @@ const DeleteButton = ({
   className?: string
   productInfo?: ProductInfo
 }) => {
+  const router = useRouter()
   const [isDeleting, setIsDeleting] = useState(false)
 
   const handleDelete = async (id: string) => {
@@ -39,9 +41,14 @@ const DeleteButton = ({
       })
     }
     
-    await deleteLineItem(id).catch((err) => {
-      setIsDeleting(false)
-    })
+    await deleteLineItem(id)
+      .then(() => {
+        // Refresh to get updated cart data from server
+        router.refresh()
+      })
+      .catch((err) => {
+        setIsDeleting(false)
+      })
   }
 
   return (

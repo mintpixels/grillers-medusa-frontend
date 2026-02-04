@@ -282,6 +282,7 @@ const DesktopNavMenu = ({ navLinks }: { navLinks: HeaderNavLink[] }) => {
                                   <LocalizedClientLink
                                     href={navItem.Url}
                                     className="text-sm text-gray-600 hover:text-orange-600 transition-colors block py-1 hover:translate-x-1 transform duration-200"
+                                    onClick={() => setActiveMenu(null)}
                                   >
                                     {navItem.Text}
                                   </LocalizedClientLink>
@@ -350,6 +351,7 @@ const DesktopNavMenu = ({ navLinks }: { navLinks: HeaderNavLink[] }) => {
                     <LocalizedClientLink
                       href={item.bottomBar.viewAllUrl}
                       className="text-Gold hover:text-Gold/80 font-medium text-xs flex items-center"
+                      onClick={() => setActiveMenu(null)}
                     >
                       {item.bottomBar.viewAllText} →
                     </LocalizedClientLink>

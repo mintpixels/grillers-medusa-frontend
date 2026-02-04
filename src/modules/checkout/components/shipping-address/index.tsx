@@ -1,5 +1,4 @@
 import { HttpTypes } from "@medusajs/types"
-import { Container } from "@medusajs/ui"
 import Checkbox from "@modules/common/components/checkbox"
 import Input from "@modules/common/components/input"
 import { mapKeys } from "lodash"
@@ -12,11 +11,13 @@ const ShippingAddress = ({
   cart,
   checked,
   onChange,
+  isPickupOrder = false,
 }: {
   customer: HttpTypes.StoreCustomer | null
   cart: HttpTypes.StoreCart | null
   checked: boolean
   onChange: () => void
+  isPickupOrder?: boolean
 }) => {
   const [formData, setFormData] = useState<Record<string, any>>({
     "shipping_address.first_name": cart?.shipping_address?.first_name || "",
@@ -95,9 +96,9 @@ const ShippingAddress = ({
   return (
     <>
       {customer && (addressesInRegion?.length || 0) > 0 && (
-        <Container className="mb-6 flex flex-col gap-y-4 p-5">
-          <p className="text-small-regular">
-            {`Hi ${customer.first_name}, do you want to use one of your saved addresses?`}
+        <div className="mb-5 p-4 border border-gray-200 rounded-lg bg-gray-50/50">
+          <p className="text-sm text-gray-600 mb-3">
+            Hi {customer.first_name}, use a saved address?
           </p>
           <AddressSelect
             addresses={customer.addresses}
@@ -108,9 +109,9 @@ const ShippingAddress = ({
             }
             onSelect={setFormAddress}
           />
-        </Container>
+        </div>
       )}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-3">
         <Input
           label="First name"
           name="shipping_address.first_name"
@@ -139,21 +140,12 @@ const ShippingAddress = ({
           data-testid="shipping-address-input"
         />
         <Input
-          label="Company"
+          label="Company (optional)"
           name="shipping_address.company"
           value={formData["shipping_address.company"]}
           onChange={handleChange}
           autoComplete="organization"
           data-testid="shipping-company-input"
-        />
-        <Input
-          label="Postal code"
-          name="shipping_address.postal_code"
-          autoComplete="postal-code"
-          value={formData["shipping_address.postal_code"]}
-          onChange={handleChange}
-          required
-          data-testid="shipping-postal-code-input"
         />
         <Input
           label="City"
@@ -164,6 +156,23 @@ const ShippingAddress = ({
           required
           data-testid="shipping-city-input"
         />
+        <Input
+          label="State / Province"
+          name="shipping_address.province"
+          autoComplete="address-level1"
+          value={formData["shipping_address.province"]}
+          onChange={handleChange}
+          data-testid="shipping-province-input"
+        />
+        <Input
+          label="Postal code"
+          name="shipping_address.postal_code"
+          autoComplete="postal-code"
+          value={formData["shipping_address.postal_code"]}
+          onChange={handleChange}
+          required
+          data-testid="shipping-postal-code-input"
+        />
         <CountrySelect
           name="shipping_address.country_code"
           autoComplete="country"
@@ -173,25 +182,9 @@ const ShippingAddress = ({
           required
           data-testid="shipping-country-select"
         />
-        <Input
-          label="State / Province"
-          name="shipping_address.province"
-          autoComplete="address-level1"
-          value={formData["shipping_address.province"]}
-          onChange={handleChange}
-          data-testid="shipping-province-input"
-        />
       </div>
-      <div className="my-8">
-        <Checkbox
-          label="Billing address same as shipping address"
-          name="same_as_billing"
-          checked={checked}
-          onChange={onChange}
-          data-testid="billing-address-checkbox"
-        />
-      </div>
-      <div className="grid grid-cols-2 gap-4 mb-4">
+      
+      <div className="grid grid-cols-2 gap-3 mt-4">
         <Input
           label="Email"
           name="email"
@@ -212,6 +205,18 @@ const ShippingAddress = ({
           data-testid="shipping-phone-input"
         />
       </div>
+
+      {!isPickupOrder && (
+        <div className="mt-5">
+          <Checkbox
+            label="Billing address same as shipping address"
+            name="same_as_billing"
+            checked={checked}
+            onChange={onChange}
+            data-testid="billing-address-checkbox"
+          />
+        </div>
+      )}
     </>
   )
 }

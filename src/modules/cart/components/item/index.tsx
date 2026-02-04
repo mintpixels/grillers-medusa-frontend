@@ -3,6 +3,7 @@
 import { Table, Text, clx } from "@medusajs/ui"
 import { updateLineItem } from "@lib/data/cart"
 import { HttpTypes } from "@medusajs/types"
+import { useRouter } from "next/navigation"
 import CartItemSelect from "@modules/cart/components/cart-item-select"
 import ErrorMessage from "@modules/checkout/components/error-message"
 import DeleteButton from "@modules/common/components/delete-button"
@@ -16,6 +17,7 @@ import Thumbnail from "@modules/products/components/thumbnail"
 import { useState } from "react"
 import { useProductFeaturedImageSrc } from "@lib/hooks/use-product-featured-image"
 import { useProductMetadata } from "@lib/hooks/use-product-metadata"
+import { useProductTitle } from "@lib/hooks/use-product-title"
 
 type ItemProps = {
   item: HttpTypes.StoreCartLineItem
@@ -24,6 +26,7 @@ type ItemProps = {
 }
 
 const Item = ({ item, type = "full", currencyCode }: ItemProps) => {
+  const router = useRouter()
   const [updating, setUpdating] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -35,6 +38,10 @@ const Item = ({ item, type = "full", currencyCode }: ItemProps) => {
       lineId: item.id,
       quantity,
     })
+      .then(() => {
+        // Refresh to get updated cart data from server
+        router.refresh()
+      })
       .catch((err) => {
         setError(err.message)
       })
@@ -51,6 +58,9 @@ const Item = ({ item, type = "full", currencyCode }: ItemProps) => {
     item?.product?.id,
     "https://placehold.co/96x96"
   )
+
+  // Fetch Strapi product title
+  const productTitle = useProductTitle(item?.product?.id, item.product_title)
 
   // Fetch product metadata for net-weight pricing
   const metadata = useProductMetadata(item?.product?.id)
@@ -79,7 +89,7 @@ const Item = ({ item, type = "full", currencyCode }: ItemProps) => {
           className="txt-medium-plus text-ui-fg-base"
           data-testid="product-title"
         >
-          {item.product_title}
+          {productTitle}
         </Text>
         <LineItemOptions variant={item.variant} data-testid="product-variant" />
         {isNetWeight && (

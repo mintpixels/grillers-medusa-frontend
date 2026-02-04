@@ -72,7 +72,14 @@ const Shipping: React.FC<ShippingProps> = ({
   const router = useRouter()
   const pathname = usePathname()
 
-  const isOpen = searchParams.get("step") === "delivery"
+  // Check if address step is complete
+  const addressComplete = !!(cart?.shipping_address?.first_name && cart?.shipping_address?.address_1)
+  
+  // Check if shipping method has been selected
+  const shippingMethodSelected = (cart.shipping_methods?.length ?? 0) > 0
+
+  // Auto-open if: address is done AND no shipping method yet, OR explicitly via URL
+  const isOpen = searchParams.get("step") === "delivery" || (addressComplete && !shippingMethodSelected)
 
   const _shippingMethods = availableShippingMethods?.filter(
     (sm) => sm.service_zone?.fulfillment_set?.type !== "pickup"

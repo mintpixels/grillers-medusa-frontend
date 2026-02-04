@@ -18,6 +18,7 @@ import { usePathname } from "next/navigation"
 import { Fragment, useEffect, useRef, useState } from "react"
 import Image from "next/image"
 import { useProductFeaturedImageSrc } from "@lib/hooks/use-product-featured-image"
+import { useProductTitle } from "@lib/hooks/use-product-title"
 
 const CartItemImage = ({ item }: { item: HttpTypes.StoreCartLineItem }) => {
   const imgSrc = useProductFeaturedImageSrc(
@@ -32,6 +33,11 @@ const CartItemImage = ({ item }: { item: HttpTypes.StoreCartLineItem }) => {
       size="square"
     />
   )
+}
+
+const CartItemTitle = ({ item }: { item: HttpTypes.StoreCartLineItem }) => {
+  const title = useProductTitle(item?.product?.id, item.title)
+  return <>{title}</>
 }
 
 const CartDropdown = ({
@@ -187,7 +193,7 @@ const CartDropdown = ({
                                     href={`/products/${item.product_handle}`}
                                     data-testid="product-link"
                                   >
-                                    {item.title}
+                                    <CartItemTitle item={item} />
                                   </LocalizedClientLink>
                                 </h3>
                                 <LineItemOptions

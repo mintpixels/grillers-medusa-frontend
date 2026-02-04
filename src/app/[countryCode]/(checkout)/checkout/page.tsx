@@ -1,12 +1,53 @@
 import { retrieveCart } from "@lib/data/cart"
 import { retrieveCustomer } from "@lib/data/customer"
 import strapiClient from "@lib/strapi"
-import { GetCheckoutSEOQuery, type CheckoutPageData } from "@lib/data/strapi/checkout"
+import {
+  GetCheckoutSEOQuery,
+  FulfillmentConfigQuery,
+  type CheckoutPageData,
+  type FulfillmentConfigData,
+} from "@lib/data/strapi/checkout"
 import PaymentWrapper from "@modules/checkout/components/payment-wrapper"
 import CheckoutForm from "@modules/checkout/templates/checkout-form"
 import CheckoutSummary from "@modules/checkout/templates/checkout-summary"
 import { Metadata } from "next"
-import { notFound } from "next/navigation"
+import { notFound, redirect } from "next/navigation"
+
+// Default fulfillment config for when Strapi isn't set up yet
+const defaultFulfillmentConfig: FulfillmentConfigData["checkout"] = {
+  AtlantaDeliveryZipCodes: [],
+  SoutheastZipPrefixes: ["30", "31", "32", "33", "34", "35", "36", "37", "38", "39"],
+  SoutheastPickupLocations: [],
+  AtlantaDeliveryTimeWindows: [
+    { id: "1", Label: "Morning (9am - 12pm)", StartTime: "09:00", EndTime: "12:00" },
+    { id: "2", Label: "Afternoon (12pm - 4pm)", StartTime: "12:00", EndTime: "16:00" },
+    { id: "3", Label: "Evening (4pm - 8pm)", StartTime: "16:00", EndTime: "20:00" },
+  ],
+  MinimumOrderThresholds: {
+    PlantPickup: 0,
+    AtlantaDelivery: 100,
+    AtlantaDeliveryFree: 200,
+    UPSShipping: 40,
+    SoutheastPickup: 0,
+  },
+  PlantPickupAddress: "123 Grillers Way",
+  PlantPickupCity: "Atlanta",
+  PlantPickupState: "GA",
+  PlantPickupZip: "30303",
+  PlantPickupHours: "Mon-Fri 9am-5pm",
+  AtlantaDeliveryFee: 15,
+}
+
+async function getFulfillmentConfig(): Promise<FulfillmentConfigData["checkout"]> {
+  try {
+    const data = await strapiClient.request<FulfillmentConfigData>(
+      FulfillmentConfigQuery
+    )
+    return data?.checkout || defaultFulfillmentConfig
+  } catch {
+    return defaultFulfillmentConfig
+  }
+}
 
 export async function generateMetadata(): Promise<Metadata> {
   try {
@@ -36,21 +77,49 @@ export async function generateMetadata(): Promise<Metadata> {
   }
 }
 
-export default async function Checkout() {
+type PageProps = {
+  params: Promise<{ countryCode: string }>
+}
+
+export default async function Checkout({ params }: PageProps) {
+  const { countryCode } = await params
   const cart = await retrieveCart()
 
   if (!cart) {
     return notFound()
   }
 
+  // If cart is empty, redirect to cart page
+  if (!cart.items || cart.items.length === 0) {
+    redirect(`/${countryCode}/cart`)
+  }
+
+  // No longer redirect to fulfillment page - show fulfillment selection inline
   const customer = await retrieveCustomer()
+  const fulfillmentConfig = await getFulfillmentConfig()
 
   return (
-    <div className="grid grid-cols-1 small:grid-cols-[1fr_416px] content-container gap-x-40 py-12">
-      <PaymentWrapper cart={cart}>
-        <CheckoutForm cart={cart} customer={customer} />
-      </PaymentWrapper>
-      <CheckoutSummary cart={cart} />
+    <div className="relative min-h-[calc(100vh-8rem)]">
+      {/* Two-tone background - only for checkout page */}
+      <div className="fixed inset-0 hidden small:flex pointer-events-none -z-10" aria-hidden="true">
+        <div className="w-[58%] bg-gray-50" />
+        <div className="w-[42%] bg-Charcoal" />
+      </div>
+
+      <div className="small:grid small:grid-cols-[58%_42%]">
+        {/* Left column - Form */}
+        <div className="px-4 small:px-8 lg:px-16 xl:pl-[max(2rem,calc((100vw-1280px)/2+2rem))] xl:pr-12 py-8 small:py-12">
+          <div className="max-w-xl">
+            <PaymentWrapper cart={cart}>
+              <CheckoutForm cart={cart} customer={customer} fulfillmentConfig={fulfillmentConfig} />
+            </PaymentWrapper>
+          </div>
+        </div>
+        {/* Right column - Summary (dark background) */}
+        <div className="px-4 small:px-8 lg:px-12 xl:pr-[max(2rem,calc((100vw-1280px)/2+2rem))] py-8 small:py-12 bg-Charcoal">
+          <CheckoutSummary cart={cart} />
+        </div>
+      </div>
     </div>
   )
 }

@@ -234,6 +234,91 @@ export async function setRequestedDeliveryDate({
     .catch(medusaError)
 }
 
+/**
+ * Fulfillment type options for checkout
+ */
+export type FulfillmentType =
+  | "plant_pickup"
+  | "atlanta_delivery"
+  | "ups_shipping"
+  | "southeast_pickup"
+
+/**
+ * Sets fulfillment details on the cart metadata.
+ * This data flows to the order when cart.complete() is called.
+ */
+export async function setFulfillmentDetails({
+  cartId,
+  fulfillmentType,
+  fulfillmentZip,
+  scheduledDate,
+  scheduledTimeWindow,
+  pickupLocationId,
+}: {
+  cartId: string
+  fulfillmentType: FulfillmentType
+  fulfillmentZip: string
+  scheduledDate: string
+  scheduledTimeWindow?: string
+  pickupLocationId?: string
+}) {
+  const headers = {
+    ...(await getAuthHeaders()),
+  }
+
+  const metadata: Record<string, string | undefined> = {
+    fulfillmentType,
+    fulfillmentZip,
+    scheduledDate,
+  }
+
+  // Only include optional fields if provided
+  if (scheduledTimeWindow) {
+    metadata.scheduledTimeWindow = scheduledTimeWindow
+  }
+  if (pickupLocationId) {
+    metadata.pickupLocationId = pickupLocationId
+  }
+
+  return sdk.store.cart
+    .update(cartId, { metadata }, {}, headers)
+    .then(async () => {
+      const cartCacheTag = await getCacheTag("carts")
+      revalidateTag(cartCacheTag)
+    })
+    .catch(medusaError)
+}
+
+/**
+ * Clears fulfillment details from cart metadata (for when user wants to change selection)
+ */
+export async function clearFulfillmentDetails(cartId: string) {
+  const headers = {
+    ...(await getAuthHeaders()),
+  }
+
+  return sdk.store.cart
+    .update(
+      cartId,
+      {
+        metadata: {
+          fulfillmentType: null,
+          fulfillmentZip: null,
+          scheduledDate: null,
+          scheduledTimeWindow: null,
+          pickupLocationId: null,
+        },
+      },
+      {},
+      headers
+    )
+    .then(async () => {
+      const cartCacheTag = await getCacheTag("carts")
+      revalidateTag(cartCacheTag)
+    })
+    .catch(medusaError)
+}
+
 export async function setShippingMethod({
   cartId,
   shippingMethodId,
@@ -245,13 +330,24 @@ export async function setShippingMethod({
     ...(await getAuthHeaders()),
   }
 
+  console.log("=== SETTING SHIPPING METHOD ===")
+  console.log("Cart ID:", cartId)
+  console.log("Shipping Option ID:", shippingMethodId)
+  
   return sdk.store.cart
     .addShippingMethod(cartId, { option_id: shippingMethodId }, {}, headers)
-    .then(async () => {
+    .then(async (result) => {
+      console.log("Shipping method set successfully!")
       const cartCacheTag = await getCacheTag("carts")
       revalidateTag(cartCacheTag)
+      return result
     })
-    .catch(medusaError)
+    .catch((err) => {
+      console.error("=== SHIPPING METHOD ERROR ===")
+      console.error("Error:", err.message || err)
+      console.error("Full error:", JSON.stringify(err, null, 2))
+      throw medusaError(err)
+    })
 }
 
 export async function initiatePaymentSession(
@@ -419,14 +515,22 @@ export async function placeOrder(cartId?: string) {
     ...(await getAuthHeaders()),
   }
 
+  console.log("=== PLACING ORDER ===")
+  console.log("Cart ID:", id)
+
   const cartRes = await sdk.store.cart
     .complete(id, {}, headers)
     .then(async (cartRes) => {
+      console.log("Order completed successfully!")
       const cartCacheTag = await getCacheTag("carts")
       revalidateTag(cartCacheTag)
       return cartRes
     })
-    .catch(medusaError)
+    .catch((err) => {
+      console.error("=== ORDER COMPLETION ERROR ===")
+      console.error("Error:", err.message || err)
+      throw medusaError(err)
+    })
 
   if (cartRes?.type === "order") {
     const countryCode =
