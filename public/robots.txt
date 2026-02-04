@@ -1,0 +1,16 @@
+# *
+User-agent: *
+Allow: /
+Disallow: /checkout
+Disallow: /checkout/*
+Disallow: /account
+Disallow: /account/*
+Disallow: /cart
+Disallow: /order/*
+Disallow: /api/*
+
+# Host
+Host: https://grillers-medusa-frontend.vercel.app
+
+# Sitemaps
+Sitemap: https://grillers-medusa-frontend.vercel.app/sitemap.xml
