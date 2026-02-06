@@ -8,7 +8,7 @@ import { HttpTypes } from "@medusajs/types"
 import { useToggleState } from "@medusajs/ui"
 import Spinner from "@modules/common/icons/spinner"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
-import { useActionState, useEffect, useRef } from "react"
+import { useActionState, useCallback, useEffect, useRef, useState } from "react"
 import BillingAddress from "../billing_address"
 import ErrorMessage from "../error-message"
 import ShippingAddress from "../shipping-address"
@@ -62,6 +62,19 @@ const Addresses = ({
     }
   }, [cart])
 
+  // Track postal code for real-time validation against fulfillment type
+  const [postalCode, setPostalCode] = useState(cart?.shipping_address?.postal_code || "")
+
+  const handlePostalCodeChange = useCallback((value: string) => {
+    setPostalCode(value)
+  }, [])
+
+  // Determine if the address is invalid for the selected fulfillment type
+  const addressMismatch = fulfillmentType === "atlanta_delivery" && postalCode.length >= 2 && !postalCode.startsWith("30")
+  const addressMismatchMessage = addressMismatch
+    ? "Atlanta Metro Delivery requires an address in the Atlanta metro area (ZIP starting with 30). Please update your ZIP code or change your delivery method."
+    : null
+
   const handleEdit = () => {
     router.push(pathname + "?step=address")
   }
@@ -103,6 +116,10 @@ const Addresses = ({
             <p className="text-sm text-gray-500 mb-5">
               We just need your contact details and billing information for payment.
             </p>
+            
+            {/* For pickup orders, always use shipping address as billing */}
+            <input type="hidden" name="same_as_billing" value="on" />
+            <input type="hidden" name="fulfillmentType" value={fulfillmentType || ""} />
             
             <ShippingAddress
               customer={customer}
@@ -187,11 +204,25 @@ const Addresses = ({
 
       {isOpen ? (
         <form action={formAction}>
+          <input type="hidden" name="fulfillmentType" value={fulfillmentType || ""} />
+
+          {fulfillmentType === "atlanta_delivery" && (
+            <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex gap-2">
+              <svg className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+              <p className="text-sm text-amber-800">
+                Atlanta Metro Delivery requires an address within the Atlanta metro area (ZIP codes starting with 30).
+              </p>
+            </div>
+          )}
+
           <ShippingAddress
             customer={customer}
             checked={sameAsBilling}
             onChange={toggleSameAsBilling}
             cart={cart}
+            onPostalCodeChange={handlePostalCodeChange}
           />
 
           {!sameAsBilling && (
@@ -202,8 +233,19 @@ const Addresses = ({
               <BillingAddress cart={cart} />
             </div>
           )}
+
+          {addressMismatch && (
+            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg flex gap-2">
+              <svg className="w-5 h-5 text-red-500 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+              <p className="text-sm text-red-700">
+                {addressMismatchMessage}
+              </p>
+            </div>
+          )}
           
-          <SubmitButton className="mt-5" data-testid="submit-address-button">
+          <SubmitButton className="mt-5" disabled={addressMismatch} data-testid="submit-address-button">
             Continue to payment
           </SubmitButton>
           <ErrorMessage error={message} data-testid="address-error-message" />

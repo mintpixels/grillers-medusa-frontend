@@ -3,8 +3,7 @@
 import { useState, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { HttpTypes } from "@medusajs/types"
-import { setFulfillmentDetails, setShippingMethod, clearFulfillmentDetails, type FulfillmentType } from "@lib/data/cart"
-import { findPickupOption } from "@lib/data/fulfillment"
+import { setFulfillmentDetails, type FulfillmentType } from "@lib/data/cart"
 import { convertToLocale } from "@lib/util/money"
 import type { FulfillmentConfigData } from "@lib/data/strapi/checkout"
 
@@ -12,6 +11,7 @@ type FulfillmentStepProps = {
   cart: HttpTypes.StoreCart
   customer: HttpTypes.StoreCustomer | null
   config: FulfillmentConfigData["checkout"]
+  availableFulfillmentTypes: FulfillmentType[]
 }
 
 // Icons
@@ -59,21 +59,22 @@ const fulfillmentLabels: Record<FulfillmentType, { label: string; description: s
   },
 }
 
-export default function FulfillmentStep({ cart, customer, config }: FulfillmentStepProps) {
+export default function FulfillmentStep({ cart, customer, config, availableFulfillmentTypes }: FulfillmentStepProps) {
   const router = useRouter()
   const [isEditing, setIsEditing] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const fulfillmentType = cart.metadata?.fulfillmentType as FulfillmentType | undefined
+  const rawFulfillmentType = cart.metadata?.fulfillmentType as string | undefined
+  const fulfillmentType = rawFulfillmentType && rawFulfillmentType.length > 0 ? rawFulfillmentType as FulfillmentType : undefined
   const scheduledDate = cart.metadata?.scheduledDate as string | undefined
   const hasFulfillment = Boolean(fulfillmentType)
 
   // Show selection mode if no fulfillment or editing
   const showSelection = !hasFulfillment || isEditing
 
-  // Cart total in dollars
-  const cartTotal = (cart.total || 0) / 100
+  // Cart total - cart.total is already in the display currency unit (dollars)
+  const cartTotal = cart.total || 0
 
   // Get minimum thresholds from config (in dollars)
   // If values seem too high (>500), assume they're in cents and convert
@@ -102,7 +103,8 @@ export default function FulfillmentStep({ cart, customer, config }: FulfillmentS
     southeastAmountAway: Math.max(0, minimums.southeastPickup - cartTotal),
   }), [cartTotal, minimums])
 
-  const options = [
+  // All possible fulfillment options
+  const allOptions = [
     {
       id: "ups_shipping" as FulfillmentType,
       title: "Ship to Me",
@@ -137,6 +139,12 @@ export default function FulfillmentStep({ cart, customer, config }: FulfillmentS
     },
   ]
 
+  // Filter options to only show those available from Medusa
+  // If no types returned from Medusa (empty array), show all options as fallback
+  const options = availableFulfillmentTypes.length > 0
+    ? allOptions.filter(opt => availableFulfillmentTypes.includes(opt.id))
+    : allOptions
+
   const handleSelectOption = async (option: FulfillmentType) => {
     if (isSubmitting) return
     
@@ -144,9 +152,12 @@ export default function FulfillmentStep({ cart, customer, config }: FulfillmentS
     setError(null)
 
     try {
-      // For now, set a default scheduled date (today)
+      // Set a default scheduled date (today)
       const today = new Date().toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' })
       
+      // Save fulfillment metadata on the cart
+      // The actual shipping method is attached later in setAddresses (step 2)
+      // because Medusa requires an address before it can validate a shipping method
       await setFulfillmentDetails({
         cartId: cart.id,
         fulfillmentType: option,
@@ -154,40 +165,22 @@ export default function FulfillmentStep({ cart, customer, config }: FulfillmentS
         scheduledDate: today,
       })
 
-      // For pickup orders, set the shipping method
-      if (option === "plant_pickup" || option === "southeast_pickup") {
-        const pickupOption = await findPickupOption(cart.id, option)
-        if (pickupOption) {
-          await setShippingMethod({
-            cartId: cart.id,
-            shippingMethodId: pickupOption.id,
-          })
-        }
-      }
-
       setIsEditing(false)
       router.refresh()
     } catch (err: any) {
       setError(err.message || "Failed to set fulfillment")
+    } finally {
       setIsSubmitting(false)
     }
   }
 
-  const handleChange = async () => {
+  // Toggle editing mode - no API call needed, selecting a new option overwrites the old one
+  const handleChange = () => {
     if (isEditing) {
-      // Cancel editing
       setIsEditing(false)
     } else {
-      // Start editing - clear existing fulfillment
-      setIsSubmitting(true)
-      try {
-        await clearFulfillmentDetails(cart.id)
-        setIsEditing(true)
-        router.refresh()
-      } catch (err) {
-        console.error("Failed to clear fulfillment:", err)
-      }
-      setIsSubmitting(false)
+      setError(null)
+      setIsEditing(true)
     }
   }
 
@@ -262,7 +255,7 @@ export default function FulfillmentStep({ cart, customer, config }: FulfillmentS
                   {/* Minimum order message */}
                   {!option.available && option.amountAway > 0 && (
                     <p className="text-xs text-amber-600 mt-2 font-medium">
-                      Add {convertToLocale({ amount: option.amountAway * 100, currency_code: cart.currency_code })} more
+                      Add {convertToLocale({ amount: option.amountAway, currency_code: cart.currency_code })} more to qualify
                     </p>
                   )}
                 </div>

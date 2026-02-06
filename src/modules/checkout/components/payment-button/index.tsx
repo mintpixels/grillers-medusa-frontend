@@ -49,16 +49,13 @@ const PaymentButton: React.FC<PaymentButtonProps> = ({
   cart,
   "data-testid": dataTestId,
 }) => {
-  // Check if this is a pickup order (no shipping methods needed)
-  const fulfillmentType = cart?.metadata?.fulfillmentType as string | undefined
-  const isPickup = fulfillmentType === "plant_pickup" || fulfillmentType === "southeast_pickup"
-
+  // All fulfillment types (including pickup) now set a shipping method on the cart
   const notReady =
     !cart ||
     !cart.shipping_address ||
     !cart.billing_address ||
     !cart.email ||
-    (!isPickup && (cart.shipping_methods?.length ?? 0) < 1)
+    (cart.shipping_methods?.length ?? 0) < 1
 
   const paymentSession = cart.payment_collection?.payment_sessions?.[0]
 

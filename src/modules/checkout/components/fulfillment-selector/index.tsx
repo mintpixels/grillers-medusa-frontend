@@ -75,8 +75,8 @@ export default function FulfillmentSelector({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Cart total in dollars
-  const cartTotal = (cart.total || 0) / 100
+  // Cart total - cart.total is already in the display currency unit (dollars)
+  const cartTotal = cart.total || 0
 
   // Get minimum thresholds from config
   const minimums = useMemo(() => ({
@@ -308,7 +308,7 @@ export default function FulfillmentSelector({
                     {/* Minimum order message */}
                     {!option.available && option.minimum > 0 && (
                       <p className="text-xs text-amber-600 mt-2 font-medium">
-                        Add {convertToLocale({ amount: option.amountAway * 100, currency_code: cart.currency_code })} more
+                        Add {convertToLocale({ amount: option.amountAway, currency_code: cart.currency_code })} more to qualify
                       </p>
                     )}
                   </div>

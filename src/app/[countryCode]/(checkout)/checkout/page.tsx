@@ -1,5 +1,6 @@
 import { retrieveCart } from "@lib/data/cart"
 import { retrieveCustomer } from "@lib/data/customer"
+import { getAvailableFulfillmentTypes } from "@lib/data/fulfillment"
 import strapiClient from "@lib/strapi"
 import {
   GetCheckoutSEOQuery,
@@ -15,9 +16,18 @@ import { notFound, redirect } from "next/navigation"
 
 // Default fulfillment config for when Strapi isn't set up yet
 const defaultFulfillmentConfig: FulfillmentConfigData["checkout"] = {
-  AtlantaDeliveryZipCodes: [],
+  // Atlanta delivery ZIP codes (from Strapi shipping-zones)
+  AtlantaDeliveryZipCodes: ["30005", "30009", "30022", "30024", "30033", "30062", "30067"],
   SoutheastZipPrefixes: ["30", "31", "32", "33", "34", "35", "36", "37", "38", "39"],
-  SoutheastPickupLocations: [],
+  // Southeast pickup locations - cities from Strapi shipping-zones with SCHEDULED_DELIVERY
+  SoutheastPickupLocations: [
+    { id: "nashville", Name: "Nashville, TN", Address: "TBD", City: "Nashville", State: "TN", ZipCode: "", AvailableDates: [], CutoffDays: 3 },
+    { id: "raleigh", Name: "Raleigh, NC", Address: "TBD", City: "Raleigh", State: "NC", ZipCode: "", AvailableDates: [], CutoffDays: 3 },
+    { id: "charlotte", Name: "Charlotte, NC", Address: "TBD", City: "Charlotte", State: "NC", ZipCode: "", AvailableDates: [], CutoffDays: 3 },
+    { id: "birmingham", Name: "Birmingham, AL", Address: "TBD", City: "Birmingham", State: "AL", ZipCode: "", AvailableDates: [], CutoffDays: 3 },
+    { id: "savannah", Name: "Savannah, GA", Address: "TBD", City: "Savannah", State: "GA", ZipCode: "", AvailableDates: [], CutoffDays: 3 },
+    { id: "charleston", Name: "Charleston, SC", Address: "TBD", City: "Charleston", State: "SC", ZipCode: "", AvailableDates: [], CutoffDays: 3 },
+  ],
   AtlantaDeliveryTimeWindows: [
     { id: "1", Label: "Morning (9am - 12pm)", StartTime: "09:00", EndTime: "12:00" },
     { id: "2", Label: "Afternoon (12pm - 4pm)", StartTime: "12:00", EndTime: "16:00" },
@@ -25,17 +35,17 @@ const defaultFulfillmentConfig: FulfillmentConfigData["checkout"] = {
   ],
   MinimumOrderThresholds: {
     PlantPickup: 0,
-    AtlantaDelivery: 100,
-    AtlantaDeliveryFree: 200,
+    AtlantaDelivery: 0,
+    AtlantaDeliveryFree: 150,
     UPSShipping: 40,
     SoutheastPickup: 0,
   },
-  PlantPickupAddress: "123 Grillers Way",
+  PlantPickupAddress: "1945 Cliff Valley Way NE",
   PlantPickupCity: "Atlanta",
   PlantPickupState: "GA",
-  PlantPickupZip: "30303",
-  PlantPickupHours: "Mon-Fri 9am-5pm",
-  AtlantaDeliveryFee: 15,
+  PlantPickupZip: "30329",
+  PlantPickupHours: "Mon-Thu 9am-4pm, Fri 9am-2pm",
+  AtlantaDeliveryFee: 22.50,
 }
 
 async function getFulfillmentConfig(): Promise<FulfillmentConfigData["checkout"]> {
@@ -43,7 +53,21 @@ async function getFulfillmentConfig(): Promise<FulfillmentConfigData["checkout"]
     const data = await strapiClient.request<FulfillmentConfigData>(
       FulfillmentConfigQuery
     )
-    return data?.checkout || defaultFulfillmentConfig
+    
+    // Merge Strapi data with defaults - Strapi fields override defaults only if they exist
+    if (data?.checkout) {
+      return {
+        ...defaultFulfillmentConfig,
+        ...data.checkout,
+        // Deep merge MinimumOrderThresholds to handle partial data
+        MinimumOrderThresholds: {
+          ...defaultFulfillmentConfig.MinimumOrderThresholds,
+          ...(data.checkout.MinimumOrderThresholds || {}),
+        },
+      }
+    }
+    
+    return defaultFulfillmentConfig
   } catch {
     return defaultFulfillmentConfig
   }
@@ -97,6 +121,9 @@ export default async function Checkout({ params }: PageProps) {
   // No longer redirect to fulfillment page - show fulfillment selection inline
   const customer = await retrieveCustomer()
   const fulfillmentConfig = await getFulfillmentConfig()
+  
+  // Fetch available fulfillment types from Medusa shipping options
+  const availableFulfillmentTypes = await getAvailableFulfillmentTypes(cart.id)
 
   return (
     <div className="relative min-h-[calc(100vh-8rem)]">
@@ -111,7 +138,12 @@ export default async function Checkout({ params }: PageProps) {
         <div className="px-4 small:px-8 lg:px-16 xl:pl-[max(2rem,calc((100vw-1280px)/2+2rem))] xl:pr-12 py-8 small:py-12">
           <div className="max-w-xl">
             <PaymentWrapper cart={cart}>
-              <CheckoutForm cart={cart} customer={customer} fulfillmentConfig={fulfillmentConfig} />
+              <CheckoutForm 
+                cart={cart} 
+                customer={customer} 
+                fulfillmentConfig={fulfillmentConfig}
+                availableFulfillmentTypes={availableFulfillmentTypes}
+              />
             </PaymentWrapper>
           </div>
         </div>

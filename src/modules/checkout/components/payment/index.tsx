@@ -92,13 +92,10 @@ const Payment = ({
   const paidByGiftcard =
     cart?.gift_cards && cart?.gift_cards?.length > 0 && cart?.total === 0
 
-  // Check if this is a pickup order (no shipping methods needed)
-  const fulfillmentType = cart?.metadata?.fulfillmentType as string | undefined
-  const isPickup = fulfillmentType === "plant_pickup" || fulfillmentType === "southeast_pickup"
-
-  // For pickup: just need activeSession. For delivery: also need shipping methods
+  // All fulfillment types (including pickup) now set a shipping method on the cart,
+  // so we always require shipping_methods to be present.
   const paymentReady =
-    activeSession && (isPickup || (cart?.shipping_methods?.length ?? 0) > 0) || paidByGiftcard
+    (activeSession && (cart?.shipping_methods?.length ?? 0) > 0) || paidByGiftcard
 
   // Check if address step is complete (required before payment)
   const addressComplete = !!(cart?.shipping_address?.first_name && cart?.shipping_address?.address_1)

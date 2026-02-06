@@ -12,12 +12,14 @@ const ShippingAddress = ({
   checked,
   onChange,
   isPickupOrder = false,
+  onPostalCodeChange,
 }: {
   customer: HttpTypes.StoreCustomer | null
   cart: HttpTypes.StoreCart | null
   checked: boolean
   onChange: () => void
   isPickupOrder?: boolean
+  onPostalCodeChange?: (postalCode: string) => void
 }) => {
   const [formData, setFormData] = useState<Record<string, any>>({
     "shipping_address.first_name": cart?.shipping_address?.first_name || "",
@@ -50,7 +52,7 @@ const ShippingAddress = ({
     address?: HttpTypes.StoreCartAddress,
     email?: string
   ) => {
-    address &&
+    if (address) {
       setFormData((prevState: Record<string, any>) => ({
         ...prevState,
         "shipping_address.first_name": address?.first_name || "",
@@ -63,6 +65,11 @@ const ShippingAddress = ({
         "shipping_address.province": address?.province || "",
         "shipping_address.phone": address?.phone || "",
       }))
+
+      if (onPostalCodeChange) {
+        onPostalCodeChange(address?.postal_code || "")
+      }
+    }
 
     email &&
       setFormData((prevState: Record<string, any>) => ({
@@ -91,6 +98,10 @@ const ShippingAddress = ({
       ...formData,
       [e.target.name]: e.target.value,
     })
+
+    if (e.target.name === "shipping_address.postal_code" && onPostalCodeChange) {
+      onPostalCodeChange(e.target.value)
+    }
   }
 
   return (

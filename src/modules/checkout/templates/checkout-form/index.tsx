@@ -23,10 +23,12 @@ export default async function CheckoutForm({
   cart,
   customer,
   fulfillmentConfig,
+  availableFulfillmentTypes,
 }: {
   cart: HttpTypes.StoreCart | null
   customer: HttpTypes.StoreCustomer | null
   fulfillmentConfig: FulfillmentConfigData["checkout"]
+  availableFulfillmentTypes: FulfillmentType[]
 }) {
   if (!cart) {
     return null
@@ -44,7 +46,12 @@ export default async function CheckoutForm({
   return (
     <div className="w-full grid grid-cols-1 gap-y-6">
       {/* Step 1: Fulfillment selection/summary - always in yellow box */}
-      <FulfillmentStep cart={cart} customer={customer} config={fulfillmentConfig} />
+      <FulfillmentStep 
+        cart={cart} 
+        customer={customer} 
+        config={fulfillmentConfig}
+        availableFulfillmentTypes={availableFulfillmentTypes}
+      />
 
       {/* Step 2: Address section - always shown for contact info */}
       <Addresses cart={cart} customer={customer} />

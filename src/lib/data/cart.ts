@@ -13,6 +13,7 @@ import {
   removeCartId,
   setCartId,
 } from "./cookies"
+import { findShippingOptionByType } from "./fulfillment"
 import { getRegion } from "./regions"
 
 /**
@@ -302,11 +303,11 @@ export async function clearFulfillmentDetails(cartId: string) {
       cartId,
       {
         metadata: {
-          fulfillmentType: null,
-          fulfillmentZip: null,
-          scheduledDate: null,
-          scheduledTimeWindow: null,
-          pickupLocationId: null,
+          fulfillmentType: "",
+          fulfillmentZip: "",
+          scheduledDate: "",
+          scheduledTimeWindow: "",
+          pickupLocationId: "",
         },
       },
       {},
@@ -330,22 +331,14 @@ export async function setShippingMethod({
     ...(await getAuthHeaders()),
   }
 
-  console.log("=== SETTING SHIPPING METHOD ===")
-  console.log("Cart ID:", cartId)
-  console.log("Shipping Option ID:", shippingMethodId)
-  
   return sdk.store.cart
     .addShippingMethod(cartId, { option_id: shippingMethodId }, {}, headers)
     .then(async (result) => {
-      console.log("Shipping method set successfully!")
       const cartCacheTag = await getCacheTag("carts")
       revalidateTag(cartCacheTag)
       return result
     })
     .catch((err) => {
-      console.error("=== SHIPPING METHOD ERROR ===")
-      console.error("Error:", err.message || err)
-      console.error("Full error:", JSON.stringify(err, null, 2))
       throw medusaError(err)
     })
 }
@@ -452,7 +445,7 @@ export async function setAddresses(currentState: unknown, formData: FormData) {
     if (!formData) {
       throw new Error("No form data found when setting addresses")
     }
-    const cartId = getCartId()
+    const cartId = await getCartId()
     if (!cartId) {
       throw new Error("No existing cart found when setting addresses")
     }
@@ -489,8 +482,33 @@ export async function setAddresses(currentState: unknown, formData: FormData) {
         province: formData.get("billing_address.province"),
         phone: formData.get("billing_address.phone"),
       }
+
+    // Validate address matches the selected fulfillment type
+    const selectedFulfillment = formData.get("fulfillmentType") as string
+    const postalCode = data.shipping_address.postal_code as string
+
+    if (selectedFulfillment === "atlanta_delivery" && postalCode) {
+      if (!postalCode.startsWith("30")) {
+        throw new Error(
+          "Atlanta Metro Delivery is only available for addresses in the Atlanta metro area (ZIP codes starting with 30). Please update your address or select a different delivery method."
+        )
+      }
+    }
+
     await updateCart(data)
+
+    // Now that the address is saved, attach the shipping method
+    // Medusa requires an address on the cart before a shipping method can be validated
+    if (selectedFulfillment) {
+      const shippingOption = await findShippingOptionByType(cartId, selectedFulfillment as FulfillmentType)
+      if (shippingOption) {
+        await setShippingMethod({ cartId, shippingMethodId: shippingOption.id })
+      }
+    }
   } catch (e: any) {
+    if (e.message?.includes("unknown error")) {
+      return "Unable to save your address. Please verify all fields are filled correctly and try again."
+    }
     return e.message
   }
 
@@ -515,20 +533,14 @@ export async function placeOrder(cartId?: string) {
     ...(await getAuthHeaders()),
   }
 
-  console.log("=== PLACING ORDER ===")
-  console.log("Cart ID:", id)
-
   const cartRes = await sdk.store.cart
     .complete(id, {}, headers)
     .then(async (cartRes) => {
-      console.log("Order completed successfully!")
       const cartCacheTag = await getCacheTag("carts")
       revalidateTag(cartCacheTag)
       return cartRes
     })
     .catch((err) => {
-      console.error("=== ORDER COMPLETION ERROR ===")
-      console.error("Error:", err.message || err)
       throw medusaError(err)
     })
 
