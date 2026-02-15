@@ -129,6 +129,9 @@ export type StrapiCollectionProduct = {
   FeaturedImage?: {
     url: string
   }
+  GalleryImages?: Array<{
+    url: string
+  }>
   Metadata?: {
     GlutenFree?: boolean
     MSG?: boolean
@@ -378,6 +381,146 @@ export async function getProductsByMedusaIds(
     return result.products || []
   } catch (error) {
     console.error("Error fetching products by Medusa IDs:", error)
+    return []
+  }
+}
+
+// Query to fetch all products (image filtering done client-side since Strapi can't filter on media fields)
+export const GetProductsWithImagesQuery = gql`
+  query GetProductsWithImages($limit: Int, $start: Int) {
+    products(
+      pagination: { limit: $limit, start: $start }
+    ) {
+      documentId
+      Title
+      FeaturedImage {
+        url
+      }
+      GalleryImages {
+        url
+      }
+      Metadata {
+        GlutenFree
+        MSG
+        Cooked
+        Uncooked
+        AvgPackSize
+        AvgPackWeight
+        Serves
+        PiecesPerPack
+      }
+      Categorization {
+        ProductTags {
+          Name
+        }
+      }
+      MedusaProduct {
+        ProductId
+        Handle
+        Description
+        Variants {
+          VariantId
+          Sku
+          Price {
+            CalculatedPriceNumber
+          }
+        }
+      }
+    }
+  }
+`
+
+// ── Cached pool of eligible products for "related products" ──
+// Fetches the full catalog once, caches in server memory, refreshes every 5 min.
+// Each PDP just picks randomly from the cache — no per-request catalog scan.
+
+let _cachedEligibleProducts: StrapiCollectionProduct[] | null = null
+let _cacheTimestamp = 0
+const CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutes
+let _cachePromise: Promise<StrapiCollectionProduct[]> | null = null
+
+async function getEligibleProductPool(
+  client: any
+): Promise<StrapiCollectionProduct[]> {
+  const now = Date.now()
+
+  // Return cached data if still fresh
+  if (_cachedEligibleProducts && now - _cacheTimestamp < CACHE_TTL_MS) {
+    return _cachedEligibleProducts
+  }
+
+  // If another request is already refreshing the cache, wait for it
+  if (_cachePromise) {
+    return _cachePromise
+  }
+
+  _cachePromise = (async () => {
+    try {
+      const PAGE_SIZE = 100
+      let allProducts: StrapiCollectionProduct[] = []
+      let start = 0
+
+      while (true) {
+        const result = await client.request(GetProductsWithImagesQuery, {
+          limit: PAGE_SIZE,
+          start,
+        })
+
+        const products = result.products || []
+        allProducts = allProducts.concat(products)
+
+        if (products.length < PAGE_SIZE) break
+        start += PAGE_SIZE
+      }
+
+      // Filter to only those with both a FeaturedImage and at least one GalleryImage
+      const eligible = allProducts.filter(
+        (p) =>
+          p.FeaturedImage?.url &&
+          p.GalleryImages &&
+          p.GalleryImages.length > 0
+      )
+
+      _cachedEligibleProducts = eligible
+      _cacheTimestamp = Date.now()
+      return eligible
+    } catch (error) {
+      console.error("Error building related products cache:", error)
+      // Return stale cache if available, otherwise empty
+      return _cachedEligibleProducts || []
+    } finally {
+      _cachePromise = null
+    }
+  })()
+
+  return _cachePromise
+}
+
+// Fetch random products that have both a FeaturedImage and at least one GalleryImage
+export async function getRandomProductsWithImages(
+  count: number,
+  excludeProductId?: string,
+  client?: any
+): Promise<StrapiCollectionProduct[]> {
+  if (!client) return []
+
+  try {
+    const pool = await getEligibleProductPool(client)
+
+    // Exclude the current product
+    let eligible = excludeProductId
+      ? pool.filter((p) => p.MedusaProduct?.ProductId !== excludeProductId)
+      : [...pool]
+
+    // Shuffle and pick `count` random products
+    for (let i = eligible.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[eligible[i], eligible[j]] = [eligible[j], eligible[i]]
+    }
+
+    return eligible.slice(0, count)
+  } catch (error) {
+    console.error("Error fetching random products with images:", error)
     return []
   }
 }
