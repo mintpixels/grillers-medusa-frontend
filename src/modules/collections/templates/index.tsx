@@ -36,6 +36,14 @@ function ProductCount() {
   )
 }
 
+function StrapiProductCount({ count }: { count: number }) {
+  return (
+    <p className="text-sm text-gray-600">
+      Showing {count} {count === 1 ? 'product' : 'products'}
+    </p>
+  )
+}
+
 function ClearFiltersButton() {
   const { refine, canRefine } = useClearRefinements()
   const { items } = useCurrentRefinements()
@@ -119,11 +127,10 @@ export default function CollectionTemplate({
         {isTagBased ? (
           <div className="gap-8 grid grid-cols-1">
             <main className="flex-1">
-              <div className="flex items-center justify-end mb-4">
+              <div className="flex items-center justify-between mb-6">
+                <StrapiProductCount count={strapiProducts.length} />
                 <ViewToggle viewMode={viewMode} onViewModeChange={setViewMode} />
               </div>
-              
-              <div className="mb-4" />
               
               <StrapiProductGrid 
                 products={strapiProducts}
@@ -187,21 +194,20 @@ export default function CollectionTemplate({
 
               {/* Product grid and pagination */}
               <main className="flex-1">
-                <div className="flex items-center justify-between mb-4">
-                  {/* Only show title if no hero (hero already shows title) */}
-                  {!collection?.HeroImage && !collection?.Description && (
-                    <h1 className="text-h3 font-gyst text-Charcoal capitalize">
-                      {title}
-                    </h1>
-                  )}
-                  <ViewToggle viewMode={viewMode} onViewModeChange={setViewMode} />
-                </div>
+                {/* Only show title if no hero (hero already shows title) */}
+                {!collection?.HeroImage && !collection?.Description && (
+                  <h1 className="text-h3 font-gyst text-Charcoal capitalize mb-4">
+                    {title}
+                  </h1>
+                )}
                 
                 {/* Active filters display */}
                 <ActiveFilters />
                 
-                <ProductCount />
-                <div className="mb-8" />
+                <div className="flex items-center justify-between mb-6">
+                  <ProductCount />
+                  <ViewToggle viewMode={viewMode} onViewModeChange={setViewMode} />
+                </div>
                 <Configure filters={filters} hitsPerPage={12} />
                 <ProductCardHits 
                   viewMode={viewMode} 

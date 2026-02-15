@@ -111,13 +111,7 @@ const ProductCard = ({ hit }: { hit: StrapiProductData }) => {
         </div>
 
         {/* Pack Information Grid */}
-        <div className="grid grid-cols-2 gap-3">
-          {hit?.Metadata?.AvgPackSize && (
-            <div className="border border-gray-200 rounded-lg p-3 bg-white">
-              <p className="text-xs font-maison-neue-mono uppercase text-gray-500 mb-1">Pack Size</p>
-              <p className="text-sm font-bold font-maison-neue text-Charcoal">{hit.Metadata.AvgPackSize}</p>
-            </div>
-          )}
+        <div className="grid grid-cols-3 gap-2">
           {hit?.Metadata?.AvgPackWeight && (
             <div className="border border-gray-200 rounded-lg p-3 bg-white">
               <p className="text-xs font-maison-neue-mono uppercase text-gray-500 mb-1">Weight</p>

@@ -16,7 +16,7 @@ function ProductCard({ product, countryCode }: { product: StrapiCollectionProduc
   const [isAdding, setIsAdding] = useState(false)
 
   const handleAddToCart = async () => {
-    const variantId = product?.MedusaProduct?.ProductId
+    const variantId = product?.MedusaProduct?.Variants?.[0]?.VariantId
     if (!variantId) return
 
     setIsAdding(true)
@@ -56,28 +56,27 @@ function ProductCard({ product, countryCode }: { product: StrapiCollectionProduc
           href={`/products/${product?.MedusaProduct?.Handle}`}
           className="block"
         >
-          <h4
-            className="text-h4 font-gyst font-bold text-Charcoal pb-3 border-b border-Charcoal hover:text-VibrantRed transition-colors"
+          <h2
+            className="text-h4 font-gyst font-bold text-Charcoal pb-3 border-b border-Charcoal hover:text-VibrantRed transition-colors text-balance min-h-[68px]"
           >
             {product.Title}
-          </h4>
+          </h2>
         </LocalizedClientLink>
         
-        {price && (
-          <p className="text-Charcoal py-7 border-b border-Charcoal">
-            <span className="text-h3 font-gyst">
-              ${price}
-            </span>{" "}
-            <span className="text-p-sm-mono font-maison-neue-mono uppercase ml-2">
-              per lb
-            </span>
-          </p>
-        )}
+        <div className="flex items-center justify-between py-4 border-b border-Charcoal">
+          {price && (
+            <p className="text-Charcoal">
+              <span className="text-h4 font-gyst">
+                ${price}
+              </span>{" "}
+              <span className="text-p-sm-mono font-maison-neue-mono uppercase ml-2">
+                per lb
+              </span>
+            </p>
+          )}
 
-        {/* Enhanced Product Metadata */}
-        <div className="py-6 space-y-4">
           {/* Dietary & Preparation Badges */}
-          <div className="flex flex-wrap gap-3 text-xs font-maison-neue-mono uppercase text-Charcoal">
+          <div className="flex flex-wrap gap-3 text-xs font-maison-neue-mono uppercase text-Charcoal justify-end">
             {product?.Metadata?.GlutenFree && (
               <span className="inline-flex items-center">
                 <Image
@@ -115,15 +114,13 @@ function ProductCard({ product, countryCode }: { product: StrapiCollectionProduc
               </span>
             )}
           </div>
+        </div>
+
+        {/* Pack Information */}
+        <div className="py-6">
 
           {/* Pack Information Grid */}
-          <div className="grid grid-cols-2 gap-3">
-            {product?.Metadata?.AvgPackSize && (
-              <div className="border border-gray-200 rounded-lg p-3 bg-white">
-                <p className="text-xs font-maison-neue-mono uppercase text-gray-500 mb-1">Pack Size</p>
-                <p className="text-sm font-bold font-maison-neue text-Charcoal">{product.Metadata.AvgPackSize}</p>
-              </div>
-            )}
+          <div className="grid grid-cols-3 gap-2">
             {product?.Metadata?.AvgPackWeight && (
               <div className="border border-gray-200 rounded-lg p-3 bg-white">
                 <p className="text-xs font-maison-neue-mono uppercase text-gray-500 mb-1">Weight</p>
@@ -164,7 +161,7 @@ function ProductCard({ product, countryCode }: { product: StrapiCollectionProduc
 
           <button
             onClick={handleAddToCart}
-            disabled={isAdding || !product?.MedusaProduct?.ProductId}
+            disabled={isAdding || !product?.MedusaProduct?.Variants?.[0]?.VariantId}
             className="px-6 py-2 rounded-[5px] border border-Charcoal bg-Gold text-Charcoal font-rexton text-xs font-bold uppercase transition-opacity hover:opacity-95 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isAdding ? "Adding..." : "Add to Cart"}
@@ -189,16 +186,10 @@ export default function StrapiProductGrid({ products, countryCode, viewMode = "g
 
   return (
     <>
-      <div className="mb-4">
-        <p className="text-sm text-gray-600">
-          Showing {products.length} {products.length === 1 ? 'product' : 'products'}
-        </p>
-      </div>
-      
       <div 
         className={
           viewMode === "grid" 
-            ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8"
+            ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-12 gap-y-8"
             : "flex flex-col space-y-8"
         }
       >

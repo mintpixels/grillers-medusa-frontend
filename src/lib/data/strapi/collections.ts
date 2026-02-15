@@ -142,6 +142,7 @@ export type StrapiCollectionProduct = {
     ProductId: string
     Handle: string
     Variants?: Array<{
+      VariantId: string
       Price?: {
         CalculatedPriceNumber: number
       }
@@ -179,6 +180,7 @@ export const GetProductsByTagQuery = gql`
         ProductId
         Handle
         Variants {
+          VariantId
           Price {
             CalculatedPriceNumber
           }
