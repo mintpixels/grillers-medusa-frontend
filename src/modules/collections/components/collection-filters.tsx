@@ -34,7 +34,11 @@ export function hasActiveFilters(filters: ActiveFilters): boolean {
 }
 
 export function getActiveFilterCount(filters: ActiveFilters): number {
-  return filters.preparation.length + filters.dietary.length + filters.tags.length
+  return (
+    filters.preparation.length +
+    filters.dietary.length +
+    filters.tags.length
+  )
 }
 
 // Check if products have any filterable data
@@ -353,6 +357,7 @@ export default function CollectionFilters({
         activeValues={activeFilters.preparation}
         onToggle={(value) => toggleFilter("preparation", value)}
       />
+
     </aside>
   )
 }

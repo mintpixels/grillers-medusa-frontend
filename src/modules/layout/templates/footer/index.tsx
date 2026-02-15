@@ -175,29 +175,38 @@ export default async function Footer() {
     <footer className="bg-Charcoal text-white w-full">
       {/* Newsletter Section - Only shows if enabled in Strapi */}
       {showNewsletter && (
-        <div className="bg-Gold">
-          <div className="content-container py-12 md:py-16">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-8">
-              <div className="max-w-md">
-                {footer.NewsletterTitle && (
-                  <h3 className="font-rexton text-h4 md:text-h3 text-Charcoal uppercase mb-2">
-                    {footer.NewsletterTitle}
-                  </h3>
-                )}
-                {footer.NewsletterDescription && (
-                  <p className="text-p-md text-Charcoal/80">
-                    {footer.NewsletterDescription}
-                  </p>
-                )}
+        <div className="bg-Gold relative overflow-hidden">
+          {/* Subtle decorative pattern */}
+          <div className="absolute inset-0 opacity-[0.04]" aria-hidden="true">
+            <div className="absolute -right-20 -top-20 w-80 h-80 rounded-full border-[40px] border-Charcoal" />
+            <div className="absolute -left-10 -bottom-10 w-60 h-60 rounded-full border-[30px] border-Charcoal" />
+          </div>
+
+          <div className="content-container py-14 md:py-20 relative">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center">
+              {/* Left: Text content */}
+              <div>
+                <p className="text-p-sm font-maison-neue font-semibold text-Charcoal/60 uppercase tracking-widest mb-3">
+                  Stay in the loop
+                </p>
+                <h3 className="font-rexton text-h4 md:text-h3 text-Charcoal uppercase mb-3 leading-tight">
+                  {footer.NewsletterTitle || "Get exclusive deals & recipes"}
+                </h3>
+                <p className="text-p-md font-maison-neue text-Charcoal/70 max-w-lg">
+                  {footer.NewsletterDescription || "Be the first to know about new products, special promotions, and grilling tips delivered straight to your inbox."}
+                </p>
               </div>
-              <div className="w-full md:w-auto">
+
+              {/* Right: Form */}
+              <div className="lg:flex lg:justify-end">
                 <NewsletterForm
                   title=""
                   description=""
-                  placeholderText="Enter your email"
+                  placeholderText="Enter your email address"
                   buttonText="Subscribe"
-                  successMessage="Thank you for subscribing!"
+                  successMessage="You're in! Check your inbox for a welcome surprise."
                   errorMessage="Please enter a valid email address."
+                  variant="footer"
                 />
               </div>
             </div>
@@ -356,34 +365,28 @@ export default async function Footer() {
         {/* Bottom Bar - Copyright, Legal & Payment Methods */}
         <div className="py-6 border-t border-white/10">
           <div className="flex flex-col gap-4">
-            {/* Top row: Copyright & Legal */}
+            {/* Legal Links */}
+            {hasLegalLinks && (
+              <nav aria-label="Legal links">
+                <ul className="flex flex-wrap justify-center sm:justify-start gap-x-6 gap-y-2">
+                  {footer.LegalLinks.map((link) => (
+                    <li key={link.id}>
+                      <Link
+                        href={link.Url}
+                        className="text-p-ex-sm-mono text-Pewter/60 hover:text-Gold transition-colors"
+                      >
+                        {link.Text}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </nav>
+            )}
+
+            {/* Copyright & Payment Methods - single row */}
             <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
               <Text className="text-p-ex-sm-mono text-Pewter/60 text-center sm:text-left">
                 {copyrightText}
-              </Text>
-
-              {hasLegalLinks && (
-                <nav aria-label="Legal links">
-                  <ul className="flex flex-wrap justify-center gap-x-6 gap-y-2">
-                    {footer.LegalLinks.map((link) => (
-                      <li key={link.id}>
-                        <Link
-                          href={link.Url}
-                          className="text-p-ex-sm-mono text-Pewter/60 hover:text-Gold transition-colors"
-                        >
-                          {link.Text}
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                </nav>
-              )}
-            </div>
-
-            {/* Payment Methods */}
-            <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-4 border-t border-white/5">
-              <Text className="text-p-ex-sm-mono text-Pewter/60">
-                Accepted Payment Methods
               </Text>
               <div className="flex items-center gap-3" aria-label="Accepted payment methods">
                 {PAYMENT_METHODS.map((method) => (

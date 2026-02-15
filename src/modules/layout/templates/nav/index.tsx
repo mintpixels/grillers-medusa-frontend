@@ -9,6 +9,7 @@ import Menu from "./menu"
 export default async function Nav() {
   const navLinksData: any = await strapiClient.request(HeaderNavQuery)
   const navLinks: HeaderNavLink[] = navLinksData?.header?.HeaderNav || []
+  const phoneNumber: string | null = navLinksData?.header?.PhoneNumber || null
 
   // Fetch regions for country selector
   const regions = await listRegions()
@@ -16,7 +17,7 @@ export default async function Nav() {
   return (
     <>
       <AnnouncementBarProvider />
-      <Header navLinks={navLinks} regions={regions || []} />
+      <Header navLinks={navLinks} regions={regions || []} phoneNumber={phoneNumber} />
       <Menu navLinks={navLinks} />
     </>
   )

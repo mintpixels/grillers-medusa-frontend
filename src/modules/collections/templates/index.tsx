@@ -17,6 +17,13 @@ import CollectionPagination from "@modules/collections/components/collection-pag
 
 const PRODUCTS_PER_PAGE = 48
 
+// Parse the first number from a string like "1-2", "24-28 oz.", "~17oz."
+function parseLeadingNumber(val?: string): number {
+  if (!val) return 0
+  const match = val.match(/[\d.]+/)
+  return match ? parseFloat(match[0]) : 0
+}
+
 interface CollectionTemplateProps {
   title: string
   slug: string
@@ -63,6 +70,14 @@ export default function CollectionTemplate({
         return sorted.sort((a, b) => a.Title.localeCompare(b.Title))
       case "name-desc":
         return sorted.sort((a, b) => b.Title.localeCompare(a.Title))
+      case "servings-asc":
+        return sorted.sort((a, b) => parseLeadingNumber(a.Metadata?.Serves) - parseLeadingNumber(b.Metadata?.Serves))
+      case "servings-desc":
+        return sorted.sort((a, b) => parseLeadingNumber(b.Metadata?.Serves) - parseLeadingNumber(a.Metadata?.Serves))
+      case "weight-asc":
+        return sorted.sort((a, b) => parseLeadingNumber(a.Metadata?.AvgPackWeight) - parseLeadingNumber(b.Metadata?.AvgPackWeight))
+      case "weight-desc":
+        return sorted.sort((a, b) => parseLeadingNumber(b.Metadata?.AvgPackWeight) - parseLeadingNumber(a.Metadata?.AvgPackWeight))
       default:
         return sorted
     }
@@ -116,55 +131,52 @@ export default function CollectionTemplate({
               </h1>
             )}
 
-            {/* Active filter pills */}
-            {hasActiveFilters(activeFilters) && (
-              <div className="flex flex-wrap gap-2 mb-4" role="list" aria-label="Active filters">
-                {[...activeFilters.preparation, ...activeFilters.dietary, ...activeFilters.tags].map(
-                  (value) => {
-                    const label = value
-                      .replace(/^L[23]:\s*/, "")
-                      .replace("GlutenFree", "Gluten Free")
-                      .replace("NoMSG", "No MSG")
+            {/* Product count, active filters, sort, and view toggle */}
+            <div className="flex items-center justify-between mb-6 gap-4">
+              <div className="flex items-center flex-wrap gap-2">
+                <p className="text-sm text-gray-600 whitespace-nowrap mr-2">
+                  Showing {filteredProducts.length}{" "}
+                  {filteredProducts.length === 1 ? "product" : "products"}
+                  {hasActiveFilters(activeFilters) && ` of ${products.length}`}
+                </p>
+                {hasActiveFilters(activeFilters) &&
+                  [...activeFilters.preparation, ...activeFilters.dietary, ...activeFilters.tags].map(
+                    (value) => {
+                      const label = value
+                        .replace(/^L[23]:\s*/, "")
+                        .replace("GlutenFree", "Gluten Free")
+                        .replace("NoMSG", "No MSG")
 
-                    return (
-                      <button
-                        key={value}
-                        onClick={() => {
-                          // Remove from whichever group it belongs to
-                          handleFilterChange({
-                            preparation: activeFilters.preparation.filter((v) => v !== value),
-                            dietary: activeFilters.dietary.filter((v) => v !== value),
-                            tags: activeFilters.tags.filter((v) => v !== value),
-                          })
-                        }}
-                        className="inline-flex items-center gap-1 px-3 py-1 bg-Charcoal/10 text-Charcoal text-p-sm font-maison-neue rounded-full hover:bg-Charcoal/20 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold"
-                        aria-label={`Remove filter: ${label}`}
-                      >
-                        <span>{label}</span>
-                        <svg
-                          className="w-3 h-3"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          aria-hidden="true"
+                      return (
+                        <button
+                          key={value}
+                          onClick={() => {
+                            handleFilterChange({
+                              preparation: activeFilters.preparation.filter((v) => v !== value),
+                              dietary: activeFilters.dietary.filter((v) => v !== value),
+                              tags: activeFilters.tags.filter((v) => v !== value),
+                            })
+                          }}
+                          className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-Charcoal/10 text-Charcoal text-xs font-maison-neue rounded-full hover:bg-Charcoal/20 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold"
+                          aria-label={`Remove filter: ${label}`}
                         >
-                          <path d="M18 6L6 18M6 6l12 12" />
-                        </svg>
-                      </button>
-                    )
-                  }
-                )}
+                          <span>{label}</span>
+                          <svg
+                            className="w-3 h-3"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            aria-hidden="true"
+                          >
+                            <path d="M18 6L6 18M6 6l12 12" />
+                          </svg>
+                        </button>
+                      )
+                    }
+                  )
+                }
               </div>
-            )}
-
-            {/* Product count, sort, and view toggle */}
-            <div className="flex items-center justify-between mb-6">
-              <p className="text-sm text-gray-600">
-                Showing {filteredProducts.length}{" "}
-                {filteredProducts.length === 1 ? "product" : "products"}
-                {hasActiveFilters(activeFilters) && ` of ${products.length}`}
-              </p>
               <div className="flex items-center gap-3">
                 <select
                   value={sortBy}
@@ -180,6 +192,10 @@ export default function CollectionTemplate({
                   <option value="price-desc">Price: High to Low</option>
                   <option value="name-asc">Name: A to Z</option>
                   <option value="name-desc">Name: Z to A</option>
+                  <option value="servings-asc">Servings: Low to High</option>
+                  <option value="servings-desc">Servings: High to Low</option>
+                  <option value="weight-asc">Weight: Low to High</option>
+                  <option value="weight-desc">Weight: High to Low</option>
                 </select>
                 <ViewToggle viewMode={viewMode} onViewModeChange={setViewMode} />
               </div>

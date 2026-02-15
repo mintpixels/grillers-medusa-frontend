@@ -42,6 +42,8 @@ export type HeaderNavLink = {
 export const HeaderNavQuery = gql`
   query HeaderNav {
     header {
+      PhoneNumber
+      PhoneLabel
       HeaderNav {
         id
         slug

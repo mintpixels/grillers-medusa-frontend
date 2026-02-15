@@ -13,9 +13,10 @@ import MobileSearch from "./mobile-search"
 type HeaderProps = {
   navLinks: HeaderNavLink[]
   regions: HttpTypes.StoreRegion[]
+  phoneNumber?: string | null
 }
 
-const Header = ({ navLinks, regions }: HeaderProps) => {
+const Header = ({ navLinks, regions, phoneNumber }: HeaderProps) => {
   return (
     <header className="relative inset-x-0 z-20 bg-white border-b border-[#000/25]">
       <a
@@ -66,9 +67,11 @@ const Header = ({ navLinks, regions }: HeaderProps) => {
             <HeaderCountrySelect regions={regions} />
           </div>
 
-          <a href="tel:+18886273284" className="hidden md:inline-block text-p-md font-maison-neue text-Charcoal hover:underline">
-            (888) 627-3284
-          </a>
+          {phoneNumber && (
+            <a href={`tel:${phoneNumber.replace(/\D/g, "")}`} className="hidden md:inline-block text-p-md font-maison-neue text-Charcoal hover:underline">
+              {phoneNumber}
+            </a>
+          )}
 
           <div className="flex items-center gap-4">
             {/* Mobile Search */}

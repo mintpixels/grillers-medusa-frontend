@@ -145,8 +145,10 @@ export type StrapiCollectionProduct = {
   MedusaProduct?: {
     ProductId: string
     Handle: string
+    Description?: string
     Variants?: Array<{
       VariantId: string
+      Sku?: string
       Price?: {
         CalculatedPriceNumber: number
       }
@@ -189,8 +191,10 @@ export const GetProductsByTagQuery = gql`
       MedusaProduct {
         ProductId
         Handle
+        Description
         Variants {
           VariantId
+          Sku
           Price {
             CalculatedPriceNumber
           }
@@ -235,8 +239,10 @@ export const GetProductsByCollectionSlugQuery = gql`
       MedusaProduct {
         ProductId
         Handle
+        Description
         Variants {
           VariantId
+          Sku
           Price {
             CalculatedPriceNumber
           }
