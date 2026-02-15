@@ -238,7 +238,7 @@ export default function CollectionFilters({
           }
         })
 
-        children.sort((a, b) => a.label.localeCompare(b.label))
+        children.sort((a, b) => b.count - a.count)
 
         groups.push({
           l2: { label: l2Label, value: l2Name, count: l2Count },
@@ -276,8 +276,8 @@ export default function CollectionFilters({
   if (!hasFilters) return null
 
   return (
-    <aside className="w-full space-y-6 lg:sticky lg:top-[72px] lg:self-start" aria-label="Product filters">
-      <div className="flex items-center justify-between">
+    <aside className="w-full lg:sticky lg:top-[72px] lg:self-start lg:max-h-[calc(100vh-88px)] lg:flex lg:flex-col" aria-label="Product filters">
+      <div className="flex items-center justify-between pb-4">
         <h2 className="text-h4 font-gyst font-bold text-Charcoal">Filters</h2>
         {totalFilterCount > 0 && (
           <button
@@ -290,6 +290,7 @@ export default function CollectionFilters({
         )}
       </div>
 
+      <div className="lg:overflow-y-auto lg:pb-6 space-y-6 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' } as React.CSSProperties}>
       {/* Hierarchical Category filters: L2 parents with L3 children */}
       {tagGroups.length > 0 && (
         <div className="border-t border-Charcoal/10 pt-4">
@@ -358,6 +359,7 @@ export default function CollectionFilters({
         onToggle={(value) => toggleFilter("preparation", value)}
       />
 
+      </div>
     </aside>
   )
 }

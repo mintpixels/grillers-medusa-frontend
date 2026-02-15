@@ -188,6 +188,50 @@ export const MobileNavMenu = ({ navLinks }: { navLinks: HeaderNavLink[] }) => {
   )
 }
 
+// Pack sections into columns smartly:
+// - Section with 8+ items gets its own column
+// - Sections with <8 items stack together (max 3 per column, max 11 combined L3s)
+type NavSection = HeaderNavLink["sections"][number]
+type PackedColumn = NavSection[]
+
+function packSectionsIntoColumns(sections: NavSection[]): PackedColumn[] {
+  const columns: PackedColumn[] = []
+  let currentColumn: NavSection[] = []
+  let currentItemCount = 0
+
+  for (let i = 0; i < sections.length; i++) {
+    const section = sections[i]
+    const itemCount = section.items.length
+
+    if (itemCount >= 8) {
+      // Flush current column if it has anything
+      if (currentColumn.length > 0) {
+        columns.push(currentColumn)
+        currentColumn = []
+        currentItemCount = 0
+      }
+      // This section gets its own column
+      columns.push([section])
+    } else {
+      // Check if adding this section would exceed 11 combined items or 3 sections
+      if (currentColumn.length >= 3 || (currentItemCount + itemCount >= 10 && currentColumn.length > 0)) {
+        columns.push(currentColumn)
+        currentColumn = []
+        currentItemCount = 0
+      }
+      currentColumn.push(section)
+      currentItemCount += itemCount
+    }
+  }
+
+  // Flush remaining
+  if (currentColumn.length > 0) {
+    columns.push(currentColumn)
+  }
+
+  return columns
+}
+
 // Desktop mega menu
 const DesktopNavMenu = ({ navLinks }: { navLinks: HeaderNavLink[] }) => {
   const [activeMenu, setActiveMenu] = useState<string | null>(null)
@@ -216,7 +260,7 @@ const DesktopNavMenu = ({ navLinks }: { navLinks: HeaderNavLink[] }) => {
     <div className="hidden md:block sticky top-0 inset-x-0 z-30">
       {/* Navigation Bar */}
       <nav className="bg-Charcoal border-b border-white/10" aria-label="Main navigation">
-        <div className="flex items-center justify-center space-x-8 py-2 h-12" role="menubar">
+        <div className="flex items-center justify-center space-x-16 py-2 h-12" role="menubar">
           {navLinks.map((item) => (
             <div
               key={item.id}
@@ -268,75 +312,95 @@ const DesktopNavMenu = ({ navLinks }: { navLinks: HeaderNavLink[] }) => {
               .map((item) => (
                 <div key={item.id} className="container mx-auto px-6 py-6">
                   <div className="grid grid-cols-12 gap-6">
-                    {/* Menu Sections */}
-                    <div className="col-span-8">
-                      <div className="grid grid-cols-3 gap-6">
-                        {item.sections.map((section, index) => (
-                          <div key={index} className="space-y-3">
-                            <h3 className="text-sm font-semibold text-gray-900 border-b border-orange-200 pb-2">
-                              {section.title}
-                            </h3>
-                            <ul className="space-y-1.5">
-                              {section.items.map((navItem, subIndex) => (
-                                <li key={subIndex}>
+                    {/* Menu Sections - smart column packing */}
+                    <div className={item.featured ? "col-span-8" : "col-span-12"}>
+                      <div className="flex gap-6">
+                        {packSectionsIntoColumns(item.sections).map((column, colIdx) => (
+                          <div key={colIdx} className="flex-1 min-w-0 space-y-6">
+                            {column.map((section, secIdx) => (
+                              <div key={secIdx} className="space-y-3">
+                                <h3 className="text-sm font-semibold text-gray-900 border-b border-orange-200 pb-2">
                                   <LocalizedClientLink
-                                    href={navItem.Url}
-                                    className="text-sm text-gray-600 hover:text-orange-600 transition-colors block py-1 hover:translate-x-1 transform duration-200"
+                                    href={`/collections/kosher-${section.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`}
+                                    className="hover:text-orange-600 transition-colors"
                                     onClick={() => setActiveMenu(null)}
                                   >
-                                    {navItem.Text}
+                                    {section.title}
                                   </LocalizedClientLink>
-                                </li>
-                              ))}
-                            </ul>
+                                </h3>
+                                <ul className="space-y-1 pl-2">
+                                  {section.items.map((navItem, subIndex) => (
+                                    <li key={subIndex} className="flex items-center gap-2">
+                                      <span className="w-1 h-1 rounded-full bg-Gold shrink-0" aria-hidden="true" />
+                                      <LocalizedClientLink
+                                        href={navItem.Url}
+                                        className="text-sm text-gray-600 hover:text-orange-600 transition-colors block py-1 hover:translate-x-1 transform duration-200"
+                                        onClick={() => setActiveMenu(null)}
+                                      >
+                                        {navItem.Text}
+                                      </LocalizedClientLink>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            ))}
                           </div>
                         ))}
                       </div>
                     </div>
 
                     {/* Featured Section */}
-                    <div className="col-span-4">
-                      <div className="bg-Charcoal rounded-lg p-5 h-full cursor-pointer hover:shadow-lg transition-shadow">
-                        <div className="flex items-start justify-between mb-4">
-                          <span className="bg-Gold text-Charcoal px-2 py-1 rounded text-xs font-medium">
-                            {item.featured.badge}
-                          </span>
-                        </div>
-
-                        {/* Featured Product Image */}
-                        {item.featured.image?.url ? (
-                          <div className="bg-white rounded-lg mb-4 h-40 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-                            <Image
-                              src={item.featured.image.url}
-                              alt={item.featured.title}
-                              width={400}
-                              height={160}
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
-                        ) : (
-                          <div className="bg-white rounded-lg mb-4 h-40 flex items-center justify-center shadow-sm hover:shadow-md transition-shadow">
-                            <div className="text-center text-gray-400">
-                              <div className="w-16 h-16 bg-gray-200 rounded-lg mx-auto mb-2"></div>
-                              <span className="text-sm">Product Image</span>
+                    {item.featured && (
+                      <div className="col-span-4">
+                        <div className="bg-Charcoal rounded-lg p-5 h-full cursor-pointer hover:shadow-lg transition-shadow">
+                          {item.featured.badge && (
+                            <div className="flex items-start justify-between mb-4">
+                              <span className="bg-Gold text-Charcoal px-2 py-1 rounded text-xs font-medium">
+                                {item.featured.badge}
+                              </span>
                             </div>
-                          </div>
-                        )}
+                          )}
 
-                        <h4 className="text-xl font-bold text-white mb-3">
-                          {item.featured.title}
-                        </h4>
-                        <p className="text-sm text-gray-300 mb-4">
-                          {item.featured.description}
-                        </p>
+                          {/* Featured Product Image */}
+                          {item.featured.image?.url ? (
+                            <div className="bg-white rounded-lg mb-4 h-40 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                              <Image
+                                src={item.featured.image.url}
+                                alt={item.featured.title || "Featured"}
+                                width={400}
+                                height={160}
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                          ) : (
+                            <div className="bg-white rounded-lg mb-4 h-40 flex items-center justify-center shadow-sm hover:shadow-md transition-shadow">
+                              <div className="text-center text-gray-400">
+                                <div className="w-16 h-16 bg-gray-200 rounded-lg mx-auto mb-2"></div>
+                                <span className="text-sm">Product Image</span>
+                              </div>
+                            </div>
+                          )}
+
+                          {item.featured.title && (
+                            <h4 className="text-xl font-bold text-white mb-3">
+                              {item.featured.title}
+                            </h4>
+                          )}
+                          {item.featured.description && (
+                            <p className="text-sm text-gray-300 mb-4">
+                              {item.featured.description}
+                            </p>
+                          )}
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
 
                   {/* Bottom Action Bar */}
+                  {item.bottomBar && (
                   <div className="mt-5 pt-4 border-t border-gray-200 flex items-center justify-between">
                     <div className="flex items-center space-x-6 text-xs text-gray-600">
-                      {item.bottomBar.certifications.map((cert, idx) => {
+                      {item.bottomBar.certifications?.map((cert, idx) => {
                         const IconComponent = iconMap[cert.icon as keyof typeof iconMap]
                         return (
                           <div key={idx} className="flex items-center">
@@ -356,6 +420,7 @@ const DesktopNavMenu = ({ navLinks }: { navLinks: HeaderNavLink[] }) => {
                       {item.bottomBar.viewAllText} →
                     </LocalizedClientLink>
                   </div>
+                  )}
                 </div>
               ))}
           </div>

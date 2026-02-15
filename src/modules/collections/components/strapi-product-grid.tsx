@@ -56,12 +56,19 @@ function ProductCard({ product, countryCode, viewMode = "grid" }: { product: Str
 
         {/* Col 2: Details */}
         <div className="min-w-0 py-1 pr-12">
-          {/* Preparation badge */}
-          {(product?.Metadata?.Cooked || product?.Metadata?.Uncooked) && (
-            <p className="text-xs font-maison-neue-mono uppercase text-gray-500 mb-1">
-              {product?.Metadata?.Cooked ? "Ready to Eat" : "Uncooked"}
-            </p>
-          )}
+          {/* Preparation badge + SKU */}
+          <div className="flex items-center justify-between mb-1">
+            {(product?.Metadata?.Cooked || product?.Metadata?.Uncooked) ? (
+              <p className="text-xs font-maison-neue-mono uppercase text-gray-500">
+                {product?.Metadata?.Cooked ? "Ready to Eat" : "Uncooked"}
+              </p>
+            ) : <span />}
+            {product?.MedusaProduct?.Variants?.[0]?.Sku && (
+              <p className="text-xs font-maison-neue-mono text-gray-400">
+                {product.MedusaProduct.Variants[0].Sku}
+              </p>
+            )}
+          </div>
 
           <LocalizedClientLink
             href={`/products/${product?.MedusaProduct?.Handle}`}
@@ -190,11 +197,16 @@ function ProductCard({ product, countryCode, viewMode = "grid" }: { product: Str
       </LocalizedClientLink>
 
       <div className="py-8">
-        {/* Preparation badge above title */}
-        <div className="min-h-[16px] mb-1">
-          {(product?.Metadata?.Cooked || product?.Metadata?.Uncooked) && (
+        {/* Preparation badge + SKU above title */}
+        <div className="min-h-[16px] mb-1 flex items-center justify-between">
+          {(product?.Metadata?.Cooked || product?.Metadata?.Uncooked) ? (
             <p className="text-xs font-maison-neue-mono uppercase text-gray-500">
               {product?.Metadata?.Cooked ? "Ready to Eat" : "Uncooked"}
+            </p>
+          ) : <span />}
+          {product?.MedusaProduct?.Variants?.[0]?.Sku && (
+            <p className="text-xs font-maison-neue-mono text-gray-400">
+              {product.MedusaProduct.Variants[0].Sku}
             </p>
           )}
         </div>

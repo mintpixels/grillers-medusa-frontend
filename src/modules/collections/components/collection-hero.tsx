@@ -48,7 +48,7 @@ export default function CollectionHero({ collection, countryCode }: CollectionHe
             </h1>
             
             {hasDescription && (
-              <p className="text-p-lg text-white/90 max-w-5xl mx-auto text-balance">
+              <p className="text-p-md text-white/90 max-w-5xl mx-auto text-balance">
                 {collection.Description}
               </p>
             )}
@@ -62,12 +62,12 @@ export default function CollectionHero({ collection, countryCode }: CollectionHe
   return (
     <div className="bg-Cream pt-12">
       <div className="content-container text-center">
-        <h1 className="text-h2-mobile md:text-h2 font-gyst text-Charcoal mb-4">
+        <h1 className="text-h2-mobile md:text-h2 font-gyst text-Charcoal mb-1">
           {collection.Name}
         </h1>
         
         {hasDescription && (
-          <p className="text-p-lg text-Charcoal/80 max-w-5xl mx-auto text-balance">
+          <p className="text-p-md text-Charcoal/80 max-w-5xl mx-auto text-balance">
             {collection.Description}
           </p>
         )}

@@ -111,7 +111,7 @@ export default function CollectionTemplate({
         <CollectionHero collection={collection} countryCode={countryCode} />
       )}
 
-      <div className="py-6 content-container" data-testid="category-container">
+      <div className="pt-6 pb-16 content-container" data-testid="category-container">
         <div className={`gap-8 grid grid-cols-1 ${showFilters ? "lg:grid-cols-[0.25fr_1fr]" : ""}`}>
           {/* Filter sidebar */}
           {showFilters && (
