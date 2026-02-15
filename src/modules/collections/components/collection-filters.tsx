@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo } from "react"
+import { useMemo, useState, useRef, useEffect, useCallback } from "react"
 import type { StrapiCollectionProduct } from "@lib/data/strapi/collections"
 
 export type ActiveFilters = {
@@ -41,24 +41,53 @@ export function getActiveFilterCount(filters: ActiveFilters): number {
   )
 }
 
-// Check if products have any filterable data
+// Check if products have any filterable data (need 2+ options per section to be useful)
 export function productsHaveFilters(products: StrapiCollectionProduct[]): boolean {
-  const hasPreparation = products.some(
-    (p) => p.Metadata?.Uncooked === true || p.Metadata?.Cooked === true
-  )
-  const hasDietary = products.some(
-    (p) => p.Metadata?.GlutenFree === true || p.Metadata?.MSG === true
-  )
+  // Preparation: need both Uncooked AND Cooked to have a meaningful filter
+  const uncookedCount = products.filter((p) => p.Metadata?.Uncooked === true).length
+  const cookedCount = products.filter((p) => p.Metadata?.Cooked === true).length
+  const hasPreparation = (uncookedCount > 0 ? 1 : 0) + (cookedCount > 0 ? 1 : 0) >= 2
 
-  const tagSet = new Set<string>()
+  // Dietary: need 2+ distinct dietary options
+  const gfCount = products.filter((p) => p.Metadata?.GlutenFree === true).length
+  const msgCount = products.filter((p) => p.Metadata?.MSG === true).length
+  const hasDietary = (gfCount > 0 ? 1 : 0) + (msgCount > 0 ? 1 : 0) >= 2
+
+  // Tags: need at least one L2 group with 2+ L3 children
+  const l3ToL2 = new Map<string, Set<string>>()
+  const l2Set = new Set<string>()
   products.forEach((p) => {
-    p.Categorization?.ProductTags?.forEach((t) => {
-      if (t.Name.startsWith("L2:") || t.Name.startsWith("L3:")) {
-        tagSet.add(t.Name)
-      }
+    const tags = p.Categorization?.ProductTags || []
+    const productL2s = tags.filter((t) => t.Name.startsWith("L2:")).map((t) => t.Name)
+    const productL3s = tags.filter((t) => t.Name.startsWith("L3:")).map((t) => t.Name)
+    productL2s.forEach((l2) => l2Set.add(l2))
+    productL3s.forEach((l3) => {
+      if (!l3ToL2.has(l3)) l3ToL2.set(l3, new Set())
+      productL2s.forEach((l2) => l3ToL2.get(l3)!.add(l2))
     })
   })
-  const hasTags = tagSet.size > 1
+  // Check if any L2 has 2+ L3 children
+  let hasTags = false
+  for (const l2 of l2Set) {
+    let childCount = 0
+    l3ToL2.forEach((parents) => {
+      if (parents.has(l2)) childCount++
+    })
+    if (childCount >= 2) { hasTags = true; break }
+  }
+  // Also consider meaningful if there are 2+ L2 groups (even with few children each)
+  if (!hasTags && l2Set.size >= 2) {
+    // Check if at least 2 groups have 2+ children
+    let groupsWithChildren = 0
+    for (const l2 of l2Set) {
+      let childCount = 0
+      l3ToL2.forEach((parents) => {
+        if (parents.has(l2)) childCount++
+      })
+      if (childCount >= 2) groupsWithChildren++
+    }
+    hasTags = groupsWithChildren >= 1
+  }
 
   return hasPreparation || hasDietary || hasTags
 }
@@ -113,7 +142,8 @@ function FilterSection({
   activeValues: string[]
   onToggle: (value: string) => void
 }) {
-  if (options.length === 0) return null
+  // Need at least 2 options to make filtering meaningful
+  if (options.length < 2) return null
 
   return (
     <div className="border-t border-Charcoal/10 pt-4">
@@ -246,11 +276,17 @@ export default function CollectionFilters({
         })
       })
 
-    // Only show if there's more than one total option
-    const totalOptions = groups.reduce((sum, g) => sum + 1 + g.l3Children.length, 0)
-    if (totalOptions <= 1) return []
+    // Filter out L2 groups that have only 1 child (nothing to filter between)
+    // Keep the L2 parent only if it has 2+ L3 children
+    const meaningfulGroups = groups.filter(
+      (g) => g.l3Children.length >= 2
+    )
 
-    return groups
+    // Need at least 2 groups, or 1 group with 2+ children, to be useful
+    if (meaningfulGroups.length === 0) return []
+    if (meaningfulGroups.length === 1 && meaningfulGroups[0].l3Children.length < 2) return []
+
+    return meaningfulGroups
   }, [products])
 
   const totalFilterCount = getActiveFilterCount(activeFilters)
@@ -271,7 +307,54 @@ export default function CollectionFilters({
     onFilterChange(getEmptyFilters())
   }
 
-  const hasFilters = preparationOptions.length > 0 || dietaryOptions.length > 0 || tagGroups.length > 0
+  const L3_VISIBLE_LIMIT = 7
+
+  // Track which L2 groups have their L3 children expanded
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
+
+  const toggleGroupExpanded = (l2Value: string) => {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev)
+      if (next.has(l2Value)) {
+        next.delete(l2Value)
+      } else {
+        next.add(l2Value)
+      }
+      return next
+    })
+  }
+
+  // Animated collapsible wrapper for L3 overflow children
+  function AnimatedOverflow({
+    isExpanded,
+    children,
+  }: {
+    isExpanded: boolean
+    children: React.ReactNode
+  }) {
+    const contentRef = useRef<HTMLDivElement>(null)
+    const [height, setHeight] = useState<number>(0)
+
+    useEffect(() => {
+      if (contentRef.current) {
+        setHeight(contentRef.current.scrollHeight)
+      }
+    }, [children, isExpanded])
+
+    return (
+      <div
+        className="overflow-hidden transition-[max-height,opacity] duration-300 ease-in-out"
+        style={{
+          maxHeight: isExpanded ? `${height}px` : "0px",
+          opacity: isExpanded ? 1 : 0,
+        }}
+      >
+        <div ref={contentRef}>{children}</div>
+      </div>
+    )
+  }
+
+  const hasFilters = preparationOptions.length >= 2 || dietaryOptions.length >= 2 || tagGroups.length > 0
 
   if (!hasFilters) return null
 
@@ -298,49 +381,93 @@ export default function CollectionFilters({
             Category
           </h3>
           <div className="flex flex-col gap-3">
-            {tagGroups.map((group) => (
-              <div key={group.l2.value}>
-                {/* L2 parent */}
-                <label className="flex items-center gap-2 cursor-pointer group pr-3">
-                  <input
-                    type="checkbox"
-                    checked={activeFilters.tags.includes(group.l2.value)}
-                    onChange={() => toggleFilter("tags", group.l2.value)}
-                    className="w-4 h-4 rounded border-gray-300 text-Charcoal focus:ring-Gold accent-Charcoal"
-                  />
-                  <span className="text-p-sm font-maison-neue font-semibold text-Charcoal group-hover:text-VibrantRed transition-colors">
-                    {group.l2.label}
-                  </span>
-                  <span className="text-xs text-gray-400 ml-auto">
-                    ({group.l2.count})
-                  </span>
-                </label>
-                {/* L3 children */}
-                {group.l3Children.length > 0 && (
-                  <div className="flex flex-col gap-2 mt-2 ml-6">
-                    {group.l3Children.map((child) => (
-                      <label
-                        key={child.value}
-                        className="flex items-center gap-2 cursor-pointer group pr-3"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={activeFilters.tags.includes(child.value)}
-                          onChange={() => toggleFilter("tags", child.value)}
-                          className="w-4 h-4 rounded border-gray-300 text-Charcoal focus:ring-Gold accent-Charcoal"
-                        />
-                        <span className="text-p-sm font-maison-neue text-Charcoal group-hover:text-VibrantRed transition-colors">
-                          {child.label}
-                        </span>
-                        <span className="text-xs text-gray-400 ml-auto">
-                          ({child.count})
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
+            {tagGroups.map((group) => {
+              const isExpanded = expandedGroups.has(group.l2.value)
+              const hasMore = group.l3Children.length > L3_VISIBLE_LIMIT
+              const visibleChildren = isExpanded
+                ? group.l3Children
+                : group.l3Children.slice(0, L3_VISIBLE_LIMIT)
+              const hiddenCount = group.l3Children.length - L3_VISIBLE_LIMIT
+
+              return (
+                <div key={group.l2.value}>
+                  {/* L2 parent */}
+                  <label className="flex items-center gap-2 cursor-pointer group pr-3">
+                    <input
+                      type="checkbox"
+                      checked={activeFilters.tags.includes(group.l2.value)}
+                      onChange={() => toggleFilter("tags", group.l2.value)}
+                      className="w-4 h-4 rounded border-gray-300 text-Charcoal focus:ring-Gold accent-Charcoal"
+                    />
+                    <span className="text-p-sm font-maison-neue font-semibold text-Charcoal group-hover:text-VibrantRed transition-colors">
+                      {group.l2.label}
+                    </span>
+                    <span className="text-xs text-gray-400 ml-auto">
+                      ({group.l2.count})
+                    </span>
+                  </label>
+                  {/* L3 children */}
+                  {group.l3Children.length > 0 && (
+                    <div className="flex flex-col gap-2 mt-2 ml-6 pb-3">
+                      {/* Always-visible first 7 */}
+                      {group.l3Children.slice(0, L3_VISIBLE_LIMIT).map((child) => (
+                        <label
+                          key={child.value}
+                          className="flex items-center gap-2 cursor-pointer group pr-3"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={activeFilters.tags.includes(child.value)}
+                            onChange={() => toggleFilter("tags", child.value)}
+                            className="w-4 h-4 rounded border-gray-300 text-Charcoal focus:ring-Gold accent-Charcoal"
+                          />
+                          <span className="text-p-sm font-maison-neue text-Charcoal group-hover:text-VibrantRed transition-colors">
+                            {child.label}
+                          </span>
+                          <span className="text-xs text-gray-400 ml-auto">
+                            ({child.count})
+                          </span>
+                        </label>
+                      ))}
+                      {/* Animated overflow children */}
+                      {hasMore && (
+                        <>
+                          <AnimatedOverflow isExpanded={isExpanded}>
+                            <div className="flex flex-col gap-2">
+                              {group.l3Children.slice(L3_VISIBLE_LIMIT).map((child) => (
+                                <label
+                                  key={child.value}
+                                  className="flex items-center gap-2 cursor-pointer group pr-3"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={activeFilters.tags.includes(child.value)}
+                                    onChange={() => toggleFilter("tags", child.value)}
+                                    className="w-4 h-4 rounded border-gray-300 text-Charcoal focus:ring-Gold accent-Charcoal"
+                                  />
+                                  <span className="text-p-sm font-maison-neue text-Charcoal group-hover:text-VibrantRed transition-colors">
+                                    {child.label}
+                                  </span>
+                                  <span className="text-xs text-gray-400 ml-auto">
+                                    ({child.count})
+                                  </span>
+                                </label>
+                              ))}
+                            </div>
+                          </AnimatedOverflow>
+                          <button
+                            onClick={() => toggleGroupExpanded(group.l2.value)}
+                            className="text-p-sm font-maison-neue text-Charcoal/50 hover:text-Charcoal/80 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold rounded text-left transition-colors"
+                          >
+                            {isExpanded ? "View less" : `View more (${hiddenCount})`}
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </div>
         </div>
       )}

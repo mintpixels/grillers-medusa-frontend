@@ -25,8 +25,15 @@ import { trackSearch } from "@lib/gtm"
 type Product = {
   objectID: string
   Title: string
+  FeaturedImage?: { url: string }
   MedusaProduct?: {
     Handle: string
+    Variants?: Array<{
+      Price?: { CalculatedPriceNumber: number }
+    }>
+  }
+  Metadata?: {
+    AvgPackWeight?: string
   }
   [key: string]: any
 }
@@ -94,6 +101,11 @@ function MobileSearchInput({
   )
 }
 
+function formatPrice(price: number | undefined): string | null {
+  if (price == null) return null
+  return `$${price.toFixed(2)}`
+}
+
 function MobileSearchResults({ onSelect }: { onSelect: (product: Product) => void }) {
   const { items } = useHits<Product>()
   const { query } = useSearchBox()
@@ -130,20 +142,61 @@ function MobileSearchResults({ onSelect }: { onSelect: (product: Product) => voi
             No products found for &quot;{query}&quot;
           </div>
         ) : (
-          items.map((item) => (
-            <ComboboxOption key={item.objectID} value={item} as={Fragment}>
-              {({ focus }) => (
-                <button
-                  onClick={() => onSelect(item)}
-                  className={`w-full px-4 py-3 text-left text-p-md font-maison-neue ${
-                    focus ? "bg-gray-100 text-Charcoal" : "text-Pewter"
-                  }`}
-                >
-                  {item.Title}
-                </button>
-              )}
-            </ComboboxOption>
-          ))
+          items.map((item) => {
+            const price = item.MedusaProduct?.Variants?.[0]?.Price?.CalculatedPriceNumber
+            const formattedPrice = formatPrice(price)
+            const weight = item.Metadata?.AvgPackWeight
+            const imageUrl = item.FeaturedImage?.url
+
+            return (
+              <ComboboxOption key={item.objectID} value={item} as={Fragment}>
+                {({ focus }) => (
+                  <button
+                    onClick={() => onSelect(item)}
+                    className={`w-full flex items-center gap-3 px-4 py-3 text-left border-b border-gray-50 last:border-b-0 ${
+                      focus ? "bg-gray-50" : ""
+                    }`}
+                  >
+                    {/* Product image */}
+                    <div className="w-14 h-14 rounded bg-gray-100 shrink-0 overflow-hidden">
+                      {imageUrl ? (
+                        <Image
+                          src={imageUrl}
+                          alt={item.Title || "Product"}
+                          width={56}
+                          height={56}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-gray-300">
+                          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                            <rect x="3" y="3" width="18" height="18" rx="2" />
+                            <circle cx="8.5" cy="8.5" r="1.5" />
+                            <path d="m21 15-5-5L5 21" />
+                          </svg>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Title and price */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-Charcoal truncate">
+                        {item.Title}
+                      </p>
+                      {formattedPrice && (
+                        <p className="text-sm text-Charcoal/70 mt-0.5">
+                          <span className="font-semibold text-Charcoal">{formattedPrice}</span>
+                          {weight && (
+                            <span className="text-xs text-Charcoal/50 ml-1">per lb</span>
+                          )}
+                        </p>
+                      )}
+                    </div>
+                  </button>
+                )}
+              </ComboboxOption>
+            )
+          })
         )}
       </ComboboxOptions>
     </>

@@ -12,7 +12,7 @@ type StrapiProductGridProps = {
   viewMode?: "grid" | "list"
 }
 
-function ProductCard({ product, countryCode, viewMode = "grid" }: { product: StrapiCollectionProduct; countryCode: string; viewMode?: "grid" | "list" }) {
+export function ProductCard({ product, countryCode, viewMode = "grid" }: { product: StrapiCollectionProduct; countryCode: string; viewMode?: "grid" | "list" }) {
   const [isAdding, setIsAdding] = useState(false)
   const [descExpanded, setDescExpanded] = useState(false)
 
@@ -44,7 +44,7 @@ function ProductCard({ product, countryCode, viewMode = "grid" }: { product: Str
           href={`/products/${product?.MedusaProduct?.Handle}`}
           className="block shrink-0"
         >
-          <figure className="relative w-[180px] aspect-square bg-gray-50 rounded-lg overflow-hidden">
+          <figure className="relative w-[180px] aspect-square bg-gray-50 overflow-hidden">
             <Image
               src={product?.FeaturedImage?.url ?? "https://placehold.co/400x400"}
               alt={product.Title}

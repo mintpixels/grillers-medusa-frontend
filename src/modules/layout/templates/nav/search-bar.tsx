@@ -23,6 +23,16 @@ import { trackSearch } from "@lib/gtm"
 type Product = {
   objectID: string
   Title: string
+  FeaturedImage?: { url: string }
+  MedusaProduct?: {
+    Handle: string
+    Variants?: Array<{
+      Price?: { CalculatedPriceNumber: number }
+    }>
+  }
+  Metadata?: {
+    AvgPackWeight?: string
+  }
   [key: string]: any
 }
 
@@ -82,6 +92,11 @@ function InstantComboboxInput() {
   )
 }
 
+function formatPrice(price: number | undefined): string | null {
+  if (price == null) return null
+  return `$${price.toFixed(2)}`
+}
+
 function InstantComboboxOptions() {
   const { items } = useHits<Product>()
   const { query } = useSearchBox()
@@ -103,27 +118,68 @@ function InstantComboboxOptions() {
       </div>
 
       <ComboboxOptions
-        className="absolute z-10 mt-1 w-full bg-white border rounded shadow-lg max-h-60 overflow-auto"
+        className="absolute z-50 mt-1 w-full bg-white border rounded-lg shadow-lg max-h-96 overflow-auto"
         aria-label="Search results"
       >
         {items.length === 0 ? (
-          <div className="px-4 py-2 text-p-md text-Pewter" role="option" aria-selected="false">
+          <div className="px-4 py-3 text-p-md text-Pewter" role="option" aria-selected="false">
             No results found.
           </div>
         ) : (
-          items.map((item) => (
-            <ComboboxOption key={item.objectID} value={item} as={Fragment}>
-              {({ focus }) => (
-                <div
-                  className={`px-4 py-2 cursor-pointer ${
-                    focus ? "bg-gray-100 text-Charcoal" : "text-Pewter"
-                  }`}
-                >
-                  {item.Title}
-                </div>
-              )}
-            </ComboboxOption>
-          ))
+          items.map((item) => {
+            const price = item.MedusaProduct?.Variants?.[0]?.Price?.CalculatedPriceNumber
+            const formattedPrice = formatPrice(price)
+            const weight = item.Metadata?.AvgPackWeight
+            const imageUrl = item.FeaturedImage?.url
+
+            return (
+              <ComboboxOption key={item.objectID} value={item} as={Fragment}>
+                {({ focus }) => (
+                  <div
+                    className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer border-b border-gray-50 last:border-b-0 ${
+                      focus ? "bg-gray-50" : ""
+                    }`}
+                  >
+                    {/* Product image */}
+                    <div className="w-12 h-12 rounded bg-gray-100 shrink-0 overflow-hidden">
+                      {imageUrl ? (
+                        <Image
+                          src={imageUrl}
+                          alt={item.Title || "Product"}
+                          width={48}
+                          height={48}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-gray-300">
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                            <rect x="3" y="3" width="18" height="18" rx="2" />
+                            <circle cx="8.5" cy="8.5" r="1.5" />
+                            <path d="m21 15-5-5L5 21" />
+                          </svg>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Title and price */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-Charcoal truncate">
+                        {item.Title}
+                      </p>
+                      {formattedPrice && (
+                        <p className="text-sm text-Charcoal/70 mt-0.5">
+                          <span className="font-semibold text-Charcoal">{formattedPrice}</span>
+                          {weight && (
+                            <span className="text-xs text-Charcoal/50 ml-1">per lb</span>
+                          )}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </ComboboxOption>
+            )
+          })
         )}
       </ComboboxOptions>
     </>

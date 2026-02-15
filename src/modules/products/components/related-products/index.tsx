@@ -1,7 +1,9 @@
 import { listProducts } from "@lib/data/products"
 import { getRegion } from "@lib/data/regions"
 import { HttpTypes } from "@medusajs/types"
-import Product from "../product-preview"
+import { getProductsByMedusaIds } from "@lib/data/strapi/collections"
+import strapiClient from "@lib/strapi"
+import StrapiProductGrid from "@modules/collections/components/strapi-product-grid"
 
 type RelatedProductsProps = {
   product: HttpTypes.StoreProduct
@@ -18,7 +20,7 @@ export default async function RelatedProducts({
     return null
   }
 
-  // edit this function to define your related products logic
+  // Fetch related products from Medusa to get IDs
   const queryParams: HttpTypes.StoreProductParams = {}
   if (region?.id) {
     queryParams.region_id = region.id
@@ -33,16 +35,27 @@ export default async function RelatedProducts({
   }
   queryParams.is_giftcard = false
 
-  const products = await listProducts({
+  const medusaProducts = await listProducts({
     queryParams,
     countryCode,
   }).then(({ response }) => {
     return response.products
       .filter((responseProduct) => responseProduct.id !== product.id)
-      .slice(0, 6) // Limit to max 6 products
+      .slice(0, 6)
   })
 
-  if (!products.length) {
+  if (!medusaProducts.length) {
+    return null
+  }
+
+  // Fetch Strapi data for these products using their Medusa IDs
+  const medusaIds = medusaProducts
+    .map((p) => p.id)
+    .filter(Boolean) as string[]
+
+  const strapiProducts = await getProductsByMedusaIds(medusaIds, strapiClient)
+
+  if (!strapiProducts.length) {
     return null
   }
 
@@ -57,13 +70,11 @@ export default async function RelatedProducts({
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-        {products.map((product) => (
-          <div key={product.id}>
-            <Product region={region} product={product} />
-          </div>
-        ))}
-      </div>
+      <StrapiProductGrid
+        products={strapiProducts}
+        countryCode={countryCode}
+        viewMode="grid"
+      />
     </div>
   )
 }

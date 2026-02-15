@@ -313,3 +313,71 @@ export async function getProductsByCollectionSlug(
     return []
   }
 }
+
+// Query to fetch products by multiple Medusa product IDs
+export const GetProductsByMedusaIdsQuery = gql`
+  query GetProductsByMedusaIds($productIds: [String]!, $limit: Int, $start: Int) {
+    products(
+      filters: {
+        MedusaProduct: {
+          ProductId: { in: $productIds }
+        }
+      }
+      pagination: { limit: $limit, start: $start }
+    ) {
+      documentId
+      Title
+      FeaturedImage {
+        url
+      }
+      Metadata {
+        GlutenFree
+        MSG
+        Cooked
+        Uncooked
+        AvgPackSize
+        AvgPackWeight
+        Serves
+        PiecesPerPack
+      }
+      Categorization {
+        ProductTags {
+          Name
+        }
+      }
+      MedusaProduct {
+        ProductId
+        Handle
+        Description
+        Variants {
+          VariantId
+          Sku
+          Price {
+            CalculatedPriceNumber
+          }
+        }
+      }
+    }
+  }
+`
+
+// Fetch Strapi products by their Medusa product IDs
+export async function getProductsByMedusaIds(
+  productIds: string[],
+  client: any
+): Promise<StrapiCollectionProduct[]> {
+  if (productIds.length === 0) return []
+
+  try {
+    const result = await client.request(GetProductsByMedusaIdsQuery, {
+      productIds,
+      limit: productIds.length,
+      start: 0,
+    })
+
+    return result.products || []
+  } catch (error) {
+    console.error("Error fetching products by Medusa IDs:", error)
+    return []
+  }
+}
