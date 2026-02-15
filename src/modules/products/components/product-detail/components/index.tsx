@@ -239,6 +239,11 @@ export default function ProductDetail({
               {mockedProduct.tag}
             </span>
           </div>
+          {(selectedVariant?.sku || strapiProductData?.MedusaProduct?.Variants?.[0]?.Sku) && (
+            <p className="text-xs font-maison-neue-mono uppercase tracking-wider text-Charcoal/40 mb-2">
+              SKU: {selectedVariant?.sku || strapiProductData?.MedusaProduct?.Variants?.[0]?.Sku}
+            </p>
+          )}
           <h1 className="text-h3 font-gyst text-Charcoal mb-7 text-balance">
             {strapiProductData?.Title || product.title}
           </h1>

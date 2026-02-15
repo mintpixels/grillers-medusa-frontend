@@ -2,11 +2,10 @@ import { Metadata } from "next"
 import Link from "next/link"
 import { listProducts } from "@lib/data/products"
 import { listCollections } from "@lib/data/collections"
-import { listCategories } from "@lib/data/categories"
 
 export const metadata: Metadata = {
   title: "Site Navigation | Grillers Pride",
-  description: "Browse all products, collections, and categories on Grillers Pride",
+  description: "Browse all products and collections on Grillers Pride",
 }
 
 type Props = {
@@ -18,24 +17,20 @@ export default async function NavigationPage({ params, searchParams }: Props) {
   const { countryCode } = await params
   const { tab = "products" } = await searchParams
 
-  // Fetch all data in parallel
-  const [productsData, collectionsData, categoriesData] = await Promise.all([
-    listProducts({ 
-      countryCode, 
-      queryParams: { limit: 500 } 
+  const [productsData, collectionsData] = await Promise.all([
+    listProducts({
+      countryCode,
+      queryParams: { limit: 500 },
     }),
     listCollections({ limit: "500" }),
-    listCategories({ limit: 500 }),
   ])
 
   const products = productsData.response.products
   const collections = collectionsData.collections
-  const categories = categoriesData
 
   const tabs = [
     { id: "products", label: "Products", count: products.length },
     { id: "collections", label: "Collections", count: collections.length },
-    { id: "categories", label: "Categories", count: categories.length },
   ]
 
   return (
@@ -45,7 +40,7 @@ export default async function NavigationPage({ params, searchParams }: Props) {
           Site Navigation
         </h1>
         <p className="text-p-md text-Smoke">
-          Quick reference for all products, collections, and categories
+          Quick reference for all products and collections
         </p>
       </div>
 
@@ -112,8 +107,8 @@ export default async function NavigationPage({ params, searchParams }: Props) {
                   </td>
                   <td className="px-6 py-4">
                     <span className={`inline-flex px-2 py-1 text-p-ex-sm-mono rounded ${
-                      product.status === "published" 
-                        ? "bg-Teal/20 text-Teal" 
+                      product.status === "published"
+                        ? "bg-Teal/20 text-Teal"
                         : "bg-Pewter/20 text-Smoke"
                     }`}>
                       {product.status || "published"}
@@ -145,39 +140,9 @@ export default async function NavigationPage({ params, searchParams }: Props) {
               )
             })}
 
-            {tab === "categories" && categories.map((category) => {
-              const url = `/${countryCode}/categories/${category.handle}`
-              return (
-                <tr key={category.id} className="hover:bg-Scroll/50 transition-colors">
-                  <td className="px-6 py-4">
-                    <div className="flex flex-col">
-                      <span className="text-p-md text-Charcoal font-medium">
-                        {category.name}
-                      </span>
-                      {category.parent_category && (
-                        <span className="text-p-sm text-Smoke">
-                          Parent: {category.parent_category.name}
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <Link
-                      href={url}
-                      className="text-p-sm text-IsraelBlue hover:text-Gold underline transition-colors"
-                      target="_blank"
-                    >
-                      {url}
-                    </Link>
-                  </td>
-                </tr>
-              )
-            })}
-
             {/* Empty State */}
             {((tab === "products" && products.length === 0) ||
-              (tab === "collections" && collections.length === 0) ||
-              (tab === "categories" && categories.length === 0)) && (
+              (tab === "collections" && collections.length === 0)) && (
               <tr>
                 <td colSpan={3} className="px-6 py-12 text-center text-Smoke">
                   No {tab} found
@@ -191,9 +156,9 @@ export default async function NavigationPage({ params, searchParams }: Props) {
       {/* Summary */}
       <div className="mt-6 flex flex-wrap gap-4 text-p-sm text-Smoke">
         <span>
-          Total: {tab === "products" ? products.length : tab === "collections" ? collections.length : categories.length} items
+          Total: {tab === "products" ? products.length : collections.length} items
         </span>
-        <span>•</span>
+        <span>-</span>
         <span>
           Base URL: /{countryCode}
         </span>
@@ -201,8 +166,3 @@ export default async function NavigationPage({ params, searchParams }: Props) {
     </div>
   )
 }
-
-
-
-
-
