@@ -131,12 +131,16 @@ export type StrapiCollectionProduct = {
   }
   Metadata?: {
     GlutenFree?: boolean
+    MSG?: boolean
     Cooked?: boolean
     Uncooked?: boolean
     AvgPackSize?: string
     AvgPackWeight?: string
     Serves?: string
     PiecesPerPack?: number
+  }
+  Categorization?: {
+    ProductTags?: Array<{ Name: string }>
   }
   MedusaProduct?: {
     ProductId: string
@@ -169,12 +173,18 @@ export const GetProductsByTagQuery = gql`
       }
       Metadata {
         GlutenFree
+        MSG
         Cooked
         Uncooked
         AvgPackSize
         AvgPackWeight
         Serves
         PiecesPerPack
+      }
+      Categorization {
+        ProductTags {
+          Name
+        }
       }
       MedusaProduct {
         ProductId
@@ -190,21 +200,110 @@ export const GetProductsByTagQuery = gql`
   }
 `
 
+export const GetProductsByCollectionSlugQuery = gql`
+  query GetProductsByCollectionSlug($slug: String!, $limit: Int, $start: Int) {
+    products(
+      filters: {
+        Categorization: {
+          ProductCollections: {
+            Slug: { eq: $slug }
+          }
+        }
+      }
+      pagination: { limit: $limit, start: $start }
+    ) {
+      documentId
+      Title
+      FeaturedImage {
+        url
+      }
+      Metadata {
+        GlutenFree
+        MSG
+        Cooked
+        Uncooked
+        AvgPackSize
+        AvgPackWeight
+        Serves
+        PiecesPerPack
+      }
+      Categorization {
+        ProductTags {
+          Name
+        }
+      }
+      MedusaProduct {
+        ProductId
+        Handle
+        Variants {
+          VariantId
+          Price {
+            CalculatedPriceNumber
+          }
+        }
+      }
+    }
+  }
+`
+
+// Fetch all products by tag, paginating through all results
 export async function getProductsByTag(
   tagName: string,
-  client: any,
-  options: { limit?: number; start?: number } = {}
+  client: any
 ): Promise<StrapiCollectionProduct[]> {
+  const PAGE_SIZE = 100
+  let allProducts: StrapiCollectionProduct[] = []
+  let start = 0
+
   try {
-    const result = await client.request(GetProductsByTagQuery, {
-      tagName,
-      limit: options.limit || 100,
-      start: options.start || 0,
-    })
-    
-    return result.products || []
+    while (true) {
+      const result = await client.request(GetProductsByTagQuery, {
+        tagName,
+        limit: PAGE_SIZE,
+        start,
+      })
+
+      const products = result.products || []
+      allProducts = allProducts.concat(products)
+
+      if (products.length < PAGE_SIZE) break
+      start += PAGE_SIZE
+    }
+
+    return allProducts
   } catch (error) {
     console.error("Error fetching products by tag:", error)
+    return []
+  }
+}
+
+// Fetch all products by collection slug, paginating through all results
+export async function getProductsByCollectionSlug(
+  slug: string,
+  client: any
+): Promise<StrapiCollectionProduct[]> {
+  const PAGE_SIZE = 100
+  let allProducts: StrapiCollectionProduct[] = []
+  let start = 0
+
+  try {
+    while (true) {
+      const result = await client.request(GetProductsByCollectionSlugQuery, {
+        slug,
+        limit: PAGE_SIZE,
+        start,
+      })
+
+      const products = result.products || []
+      allProducts = allProducts.concat(products)
+
+      if (products.length < PAGE_SIZE) break
+      start += PAGE_SIZE
+    }
+
+    return allProducts
+  } catch (error) {
+    console.error("Error fetching products by collection slug:", error)
     return []
   }
 }

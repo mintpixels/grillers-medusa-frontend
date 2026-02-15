@@ -67,9 +67,9 @@ function ProductCard({ product, countryCode }: { product: StrapiCollectionProduc
           {price && (
             <p className="text-Charcoal">
               <span className="text-h4 font-gyst">
-                ${price}
+                ${Number(price).toFixed(2)}
               </span>{" "}
-              <span className="text-p-sm-mono font-maison-neue-mono uppercase ml-2">
+              <span className="text-p-sm-mono font-maison-neue-mono uppercase ml-1">
                 per lb
               </span>
             </p>
@@ -143,18 +143,18 @@ function ProductCard({ product, countryCode }: { product: StrapiCollectionProduc
         </div>
 
         {/* Actions */}
-        <div className="flex items-center justify-between pt-4">
+        <div className="flex items-center justify-between gap-2 pt-4">
           <LocalizedClientLink
             href={`/products/${product?.MedusaProduct?.Handle}`}
-            className="inline-flex gap-3 items-center hover:opacity-70 transition-opacity"
+            className="inline-flex gap-2 items-center hover:opacity-70 transition-opacity shrink-0"
           >
-            <span className="text-Charcoal font-rexton text-h6 font-bold uppercase">
+            <span className="text-Charcoal font-rexton text-xs font-bold uppercase whitespace-nowrap">
               View Details
             </span>
             <Image
               src={"/images/icons/arrow-right.svg"}
-              width={20}
-              height={12}
+              width={16}
+              height={10}
               alt="view details"
             />
           </LocalizedClientLink>
@@ -162,7 +162,7 @@ function ProductCard({ product, countryCode }: { product: StrapiCollectionProduc
           <button
             onClick={handleAddToCart}
             disabled={isAdding || !product?.MedusaProduct?.Variants?.[0]?.VariantId}
-            className="px-6 py-2 rounded-[5px] border border-Charcoal bg-Gold text-Charcoal font-rexton text-xs font-bold uppercase transition-opacity hover:opacity-95 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 rounded-[5px] border border-Charcoal bg-Gold text-Charcoal font-rexton text-xs font-bold uppercase transition-opacity hover:opacity-95 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
           >
             {isAdding ? "Adding..." : "Add to Cart"}
           </button>
@@ -189,7 +189,7 @@ export default function StrapiProductGrid({ products, countryCode, viewMode = "g
       <div 
         className={
           viewMode === "grid" 
-            ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-12 gap-y-8"
+            ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-8"
             : "flex flex-col space-y-8"
         }
       >

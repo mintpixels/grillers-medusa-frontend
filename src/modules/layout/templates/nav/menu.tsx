@@ -213,7 +213,7 @@ const DesktopNavMenu = ({ navLinks }: { navLinks: HeaderNavLink[] }) => {
   }
 
   return (
-    <div className="hidden md:block sticky top-[107px] inset-x-0 z-30">
+    <div className="hidden md:block sticky top-0 inset-x-0 z-30">
       {/* Navigation Bar */}
       <nav className="bg-Charcoal border-b border-white/10" aria-label="Main navigation">
         <div className="flex items-center justify-center space-x-8 py-2 h-12" role="menubar">

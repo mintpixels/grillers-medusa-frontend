@@ -8,9 +8,9 @@ import {
   getProductTagBySlug,
   extractTagValue,
   getProductsByTag,
+  getProductsByCollectionSlug,
   type StrapiCollectionProduct,
 } from "@lib/data/strapi/collections"
-import { SortOptions } from "@modules/store/components/refinement-list/sort-products"
 import CollectionTemplate from "@modules/collections/templates"
 
 interface GetProductCollectionResponse {
@@ -19,10 +19,6 @@ interface GetProductCollectionResponse {
 
 type Props = {
   params: Promise<{ handle: string; countryCode: string }>
-  searchParams: Promise<{
-    page?: string
-    sortBy?: SortOptions
-  }>
 }
 
 export async function generateMetadata(props: Props): Promise<Metadata> {
@@ -38,7 +34,6 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
     { handle }
   )
   let collection = res?.productCollections?.[0]
-  let isTagBased = false
   let tag: any = null
 
   // If not found as collection, check if it's a product tag
@@ -46,7 +41,6 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
     tag = await getProductTagBySlug(handle, strapiClient)
     
     if (tag) {
-      isTagBased = true
       const tagValue = extractTagValue(tag.Name)
       collection = {
         Name: `Kosher ${tagValue}`,
@@ -64,12 +58,9 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://grillerspride.com"
   const canonicalUrl = `${baseUrl}/${countryCode}/collections/${handle}`
 
-  // Use Strapi SEO data if available, otherwise generate from collection name
   const seo = collection.SEO
   const socialMeta = collection.SocialMeta
-  
-  // For tag-based collections, use tag's SEODescription
-  const tagSEODescription = isTagBased && tag ? tag.SEODescription || "" : ""
+  const tagSEODescription = tag ? tag.SEODescription || "" : ""
 
   const title = seo?.metaTitle || `${collection.Name} | Grillers Pride`
   const description =
@@ -78,7 +69,7 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
     collection.Description ||
     `Shop our ${collection.Name} collection of premium kosher meats. Fresh, high-quality cuts delivered to your door. 100% kosher certified.`
 
-  const metadata: Metadata = {
+  return {
     title,
     description,
     alternates: {
@@ -114,8 +105,6 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
       follow: true,
     },
   }
-
-  return metadata
 }
 
 function generateCollectionJsonLd(
@@ -179,24 +168,20 @@ export default async function CollectionPage(props: Props) {
     { handle }
   )
   let collection = res?.productCollections?.[0]
+  let products: StrapiCollectionProduct[] = []
 
-  // If not found as collection, check if it's a product tag
-  let isTagBased = false
-  let tagName = ""
-  let tagProducts: StrapiCollectionProduct[] = []
-  
-  if (!collection) {
+  if (collection) {
+    // Fetch products assigned to this collection
+    products = await getProductsByCollectionSlug(handle, strapiClient)
+  } else {
+    // Check if it's a product tag
     const tag = await getProductTagBySlug(handle, strapiClient)
-    
+
     if (tag) {
-      // Found a tag - create a virtual collection for it
-      isTagBased = true
-      tagName = tag.Name
       const tagValue = extractTagValue(tag.Name)
-      
-      // Fetch products with this tag from Strapi
-      tagProducts = await getProductsByTag(tag.Name, strapiClient, { limit: 100 })
-      
+
+      products = await getProductsByTag(tag.Name, strapiClient)
+
       collection = {
         Name: `Kosher ${tagValue}`,
         Slug: handle,
@@ -220,9 +205,7 @@ export default async function CollectionPage(props: Props) {
         slug={handle}
         countryCode={countryCode}
         collection={collection}
-        isTagBased={isTagBased}
-        tagName={tagName}
-        strapiProducts={tagProducts}
+        products={products}
       />
     </>
   )
