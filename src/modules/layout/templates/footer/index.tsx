@@ -279,17 +279,7 @@ export default async function Footer() {
                       className="text-Pewter hover:text-Gold transition-colors p-2 -m-2"
                       aria-label={`Follow us on ${social.Platform}`}
                     >
-                      {social.Icon?.url ? (
-                        <Image
-                          src={social.Icon.url}
-                          alt={social.Platform}
-                          width={20}
-                          height={20}
-                          className="brightness-0 invert opacity-70 hover:opacity-100"
-                        />
-                      ) : (
-                        <SocialIcon platform={social.Platform} />
-                      )}
+                      <SocialIcon platform={social.Platform} />
                     </a>
                   ))}
                 </div>
