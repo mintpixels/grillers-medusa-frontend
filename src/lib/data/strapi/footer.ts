@@ -16,9 +16,6 @@ export type FooterSocialLink = {
   id: string
   Platform: string
   Url: string
-  Icon?: {
-    url: string
-  }
 }
 
 export type FooterCertificationBadge = {
@@ -62,9 +59,6 @@ export const GetFooterQuery = gql`
         id
         Platform
         Url
-        Icon {
-          url
-        }
       }
       ContactEmail
       ContactPhone
