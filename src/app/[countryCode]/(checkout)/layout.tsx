@@ -1,5 +1,4 @@
 import Image from "next/image"
-import Link from "next/link"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import ChevronDown from "@modules/common/icons/chevron-down"
 
@@ -29,32 +28,37 @@ export default function CheckoutLayout({
           </LocalizedClientLink>
 
           {/* Center logo */}
-          <Link
+          <LocalizedClientLink
             href="/"
             className="flex items-center absolute left-1/2 -translate-x-1/2"
             data-testid="store-link"
           >
-            {/* Desktop logo */}
-            <Image
-              src="/images/logos/logo-horizontal.svg"
-              alt="Grillers Pride"
-              width={160}
-              height={40}
-              className="hidden small:block"
-              priority
-            />
-            {/* Mobile logo */}
+            {/* Desktop: text logo + icon */}
+            <span className="hidden small:flex items-center gap-1.5">
+              <Image
+                src="/images/logos/logo-mobile.svg"
+                alt=""
+                width={28}
+                height={28}
+                priority
+                aria-hidden="true"
+              />
+              <span className="text-lg font-rexton font-bold text-[#2D479D] uppercase tracking-wider">
+                Griller&apos;s <span className="text-Gold">&#9733;</span> Pride
+              </span>
+            </span>
+            {/* Mobile: icon only */}
             <Image
               src="/images/logos/logo-mobile.svg"
               alt="Grillers Pride"
-              width={40}
-              height={40}
+              width={36}
+              height={36}
               className="block small:hidden"
               priority
             />
-          </Link>
-          
-          <div className="w-8" /> {/* Spacer */}
+          </LocalizedClientLink>
+
+          <div className="w-8" />
         </nav>
       </div>
 

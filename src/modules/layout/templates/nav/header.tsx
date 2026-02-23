@@ -29,25 +29,20 @@ const Header = ({ navLinks, regions, phoneNumber }: HeaderProps) => {
         <MobileNavMenu navLinks={navLinks} />
 
         <div className="flex items-center gap-4">
-          <LocalizedClientLink href="/" data-testid="nav-store-link">
+          <LocalizedClientLink href="/" data-testid="nav-store-link" className="flex items-center gap-2">
             <Image
-              className="hidden md:block"
-              src={"/images/logos/logo-horizontal.svg"}
-              alt="logo"
-              width={256}
-              height={24}
-              quality={100}
-              priority
-            />
-            <Image
-              className="md:hidden"
               src={"/images/logos/logo-mobile.svg"}
-              alt="logo"
+              alt=""
               width={82}
               height={36}
               quality={100}
               priority
+              aria-hidden="true"
+              className="md:w-[40px] md:h-[36px]"
             />
+            <span className="hidden md:inline text-xl font-rexton font-bold text-[#2D479D] uppercase tracking-wider">
+              Griller&apos;s <span className="text-Gold">&#9733;</span> Pride
+            </span>
           </LocalizedClientLink>
         </div>
 
