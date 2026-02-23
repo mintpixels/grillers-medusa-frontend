@@ -2,6 +2,9 @@ import { HttpTypes } from "@medusajs/types"
 import Input from "@modules/common/components/input"
 import React, { useState } from "react"
 import CountrySelect from "../country-select"
+import { formatPhone, stripPhone } from "@lib/util/format-phone"
+import { useFormPersistence } from "@lib/hooks/use-form-persistence"
+import AddressAutocomplete from "../address-autocomplete"
 
 const BillingAddress = ({ cart }: { cart: HttpTypes.StoreCart | null }) => {
   const [formData, setFormData] = useState<any>({
@@ -16,15 +19,48 @@ const BillingAddress = ({ cart }: { cart: HttpTypes.StoreCart | null }) => {
     "billing_address.phone": cart?.billing_address?.phone || "",
   })
 
+  const cartHasBilling = !!(cart?.billing_address?.first_name)
+  useFormPersistence(
+    "checkout_billing_draft",
+    formData,
+    setFormData,
+    cartHasBilling
+  )
+
   const handleChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLInputElement | HTMLSelectElement
     >
   ) => {
+    const { name, value } = e.target
+
+    if (name === "billing_address.phone") {
+      const digits = stripPhone(value)
+      setFormData({ ...formData, [name]: digits })
+      return
+    }
+
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value,
+      [name]: value,
     })
+  }
+
+  const handleAddressSelect = (fields: {
+    address_1: string
+    city: string
+    province: string
+    postal_code: string
+    country_code: string
+  }) => {
+    setFormData((prev: any) => ({
+      ...prev,
+      "billing_address.address_1": fields.address_1,
+      "billing_address.city": fields.city,
+      "billing_address.province": fields.province,
+      "billing_address.postal_code": fields.postal_code,
+      ...(fields.country_code ? { "billing_address.country_code": fields.country_code } : {}),
+    }))
   }
 
   return (
@@ -48,12 +84,13 @@ const BillingAddress = ({ cart }: { cart: HttpTypes.StoreCart | null }) => {
           required
           data-testid="billing-last-name-input"
         />
-        <Input
+        <AddressAutocomplete
           label="Address"
           name="billing_address.address_1"
           autoComplete="address-line1"
           value={formData["billing_address.address_1"]}
           onChange={handleChange}
+          onAddressSelect={handleAddressSelect}
           required
           data-testid="billing-address-input"
         />
@@ -103,8 +140,9 @@ const BillingAddress = ({ cart }: { cart: HttpTypes.StoreCart | null }) => {
           label="Phone"
           name="billing_address.phone"
           autoComplete="tel"
-          value={formData["billing_address.phone"]}
+          value={formatPhone(formData["billing_address.phone"])}
           onChange={handleChange}
+          placeholder="(555) 555-5555"
           data-testid="billing-phone-input"
         />
       </div>

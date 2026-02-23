@@ -15,6 +15,38 @@ import {
   setAuthToken,
 } from "./cookies"
 
+export async function loginWithCredentials(email: string, password: string) {
+  try {
+    const token = await sdk.auth.login("customer", "emailpass", {
+      email,
+      password,
+    })
+    await setAuthToken(token as string)
+    const customerCacheTag = await getCacheTag("customers")
+    revalidateTag(customerCacheTag)
+    await transferCart()
+    return { success: true, error: null }
+  } catch (error: any) {
+    return { success: false, error: "Invalid email or password" }
+  }
+}
+
+export async function checkEmailExists(email: string): Promise<boolean> {
+  try {
+    await sdk.auth.login("customer", "emailpass", {
+      email,
+      password: "__check_only__" + Math.random(),
+    })
+    return true
+  } catch (error: any) {
+    const msg = error?.message || error?.toString() || ""
+    if (msg.includes("Invalid email or password") || msg.includes("Unauthorized")) {
+      return true
+    }
+    return false
+  }
+}
+
 export const retrieveCustomer =
   async (): Promise<HttpTypes.StoreCustomer | null> => {
     const authHeaders = await getAuthHeaders()

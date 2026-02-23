@@ -100,8 +100,10 @@ const Payment = ({
   // Check if address step is complete (required before payment)
   const addressComplete = !!(cart?.shipping_address?.first_name && cart?.shipping_address?.address_1)
 
-  // Payment section is always open once address is complete
-  const isOpen = addressComplete
+  // For UPS shipping, also require a shipping method before showing payment
+  const fulfillmentType = cart?.metadata?.fulfillmentType as string | undefined
+  const hasShippingMethod = (cart?.shipping_methods?.length ?? 0) > 0
+  const isOpen = addressComplete && (fulfillmentType !== "ups_shipping" || hasShippingMethod)
 
   const createQueryString = useCallback(
     (name: string, value: string) => {

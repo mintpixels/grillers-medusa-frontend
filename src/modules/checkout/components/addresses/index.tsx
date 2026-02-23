@@ -10,6 +10,7 @@ import Spinner from "@modules/common/icons/spinner"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useActionState, useCallback, useEffect, useRef, useState } from "react"
 import BillingAddress from "../billing_address"
+import CheckoutAuth from "../checkout-auth"
 import ErrorMessage from "../error-message"
 import ShippingAddress from "../shipping-address"
 import { SubmitButton } from "../submit-button"
@@ -81,6 +82,11 @@ const Addresses = ({
 
   const [message, formAction] = useActionState(setAddresses, null)
 
+  const [checkoutEmail, setCheckoutEmail] = useState(cart?.email || "")
+  const handleEmailBlur = useCallback((email: string) => {
+    setCheckoutEmail(email)
+  }, [])
+
   // For pickup orders, we show a simplified form
   if (isPickup) {
     const hasAddress = cart?.billing_address || cart?.shipping_address
@@ -116,6 +122,13 @@ const Addresses = ({
             <p className="text-sm text-gray-500 mb-5">
               We just need your contact details and billing information for payment.
             </p>
+
+            <CheckoutAuth
+              customer={customer}
+              email={checkoutEmail}
+              onEmailChange={setCheckoutEmail}
+              onLoginSuccess={() => router.refresh()}
+            />
             
             {/* For pickup orders, always use shipping address as billing */}
             <input type="hidden" name="same_as_billing" value="on" />
@@ -127,6 +140,7 @@ const Addresses = ({
               onChange={() => {}}
               cart={cart}
               isPickupOrder={true}
+              onEmailBlur={handleEmailBlur}
             />
             
             <SubmitButton className="mt-5" data-testid="submit-address-button">
@@ -204,6 +218,13 @@ const Addresses = ({
 
       {isOpen ? (
         <form action={formAction}>
+          <CheckoutAuth
+            customer={customer}
+            email={checkoutEmail}
+            onEmailChange={setCheckoutEmail}
+            onLoginSuccess={() => router.refresh()}
+          />
+
           <input type="hidden" name="fulfillmentType" value={fulfillmentType || ""} />
 
           {fulfillmentType === "atlanta_delivery" && (
@@ -223,6 +244,7 @@ const Addresses = ({
             onChange={toggleSameAsBilling}
             cart={cart}
             onPostalCodeChange={handlePostalCodeChange}
+            onEmailBlur={handleEmailBlur}
           />
 
           {!sameAsBilling && (

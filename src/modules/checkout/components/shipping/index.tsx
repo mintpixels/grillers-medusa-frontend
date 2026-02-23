@@ -8,7 +8,7 @@ import { trackAddShippingInfo } from "@lib/gtm"
 
 import { CheckCircleSolid, Loader } from "@medusajs/icons"
 import { HttpTypes } from "@medusajs/types"
-import { Button, Heading, Text, clx } from "@medusajs/ui"
+import { Heading, Text, clx } from "@medusajs/ui"
 import ErrorMessage from "@modules/checkout/components/error-message"
 import Divider from "@modules/common/components/divider"
 import MedusaRadio from "@modules/common/components/radio"
@@ -89,7 +89,9 @@ const Shipping: React.FC<ShippingProps> = ({
     (sm) => sm.service_zone?.fulfillment_set?.type === "pickup"
   )
 
-  const hasPickupOptions = !!_pickupMethods?.length
+  const fulfillmentType = cart.metadata?.fulfillmentType as string | undefined
+  const showPickupSection = fulfillmentType !== "ups_shipping"
+  const hasPickupOptions = !!_pickupMethods?.length && showPickupSection
 
   useEffect(() => {
     setIsLoadingPrices(true)
@@ -121,23 +123,6 @@ const Shipping: React.FC<ShippingProps> = ({
     router.push(pathname + "?step=delivery", { scroll: false })
   }
 
-  const handleSubmit = () => {
-    // Track add_shipping_info event
-    const selectedMethod = availableShippingMethods?.find(m => m.id === shippingMethodId)
-    trackAddShippingInfo({
-      total: (cart.total || 0) / 100,
-      currency: cart.currency_code?.toUpperCase(),
-      shippingTier: selectedMethod?.name,
-      items: cart.items?.map(item => ({
-        id: item.product_id || item.id,
-        title: item.product_title || '',
-        price: (item.unit_price || 0) / 100,
-        quantity: item.quantity,
-      })) || [],
-    })
-    
-    router.push(pathname + "?step=payment", { scroll: false })
-  }
 
   const handleSetShippingMethod = async (
     id: string,
@@ -159,6 +144,20 @@ const Shipping: React.FC<ShippingProps> = ({
     })
 
     await setShippingMethod({ cartId: cart.id, shippingMethodId: id })
+      .then(() => {
+        const selectedMethod = availableShippingMethods?.find(m => m.id === id)
+        trackAddShippingInfo({
+          total: (cart.total || 0) / 100,
+          currency: cart.currency_code?.toUpperCase(),
+          shippingTier: selectedMethod?.name,
+          items: cart.items?.map(item => ({
+            id: item.product_id || item.id,
+            title: item.product_title || '',
+            price: (item.unit_price || 0) / 100,
+            quantity: item.quantity,
+          })) || [],
+        })
+      })
       .catch((err) => {
         setShippingMethodId(currentId)
 
@@ -411,22 +410,10 @@ const Shipping: React.FC<ShippingProps> = ({
             </div>
           )}
 
-          <div>
-            <ErrorMessage
-              error={error}
-              data-testid="delivery-option-error-message"
-            />
-            <Button
-              size="large"
-              className="mt"
-              onClick={handleSubmit}
-              isLoading={isLoading}
-              disabled={!cart.shipping_methods?.[0]}
-              data-testid="submit-delivery-option-button"
-            >
-              Continue to payment
-            </Button>
-          </div>
+          <ErrorMessage
+            error={error}
+            data-testid="delivery-option-error-message"
+          />
         </>
       ) : (
         <div>

@@ -1,6 +1,6 @@
 "use client"
 
-import { Fragment, useEffect, useRef, useState } from "react"
+import { Fragment, useCallback, useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import {
@@ -64,8 +64,10 @@ const CartItemTitle = ({
 // Quantity selector
 const QuantitySelector = ({
   item,
+  onOptimisticDelta,
 }: {
   item: HttpTypes.StoreCartLineItem
+  onOptimisticDelta: (delta: number) => void
 }) => {
   const router = useRouter()
   const [isUpdating, setIsUpdating] = useState(false)
@@ -78,14 +80,19 @@ const QuantitySelector = ({
   const handleQuantityChange = async (newQuantity: number) => {
     if (newQuantity < 1 || isUpdating) return
 
+    const qtyDelta = newQuantity - optimisticQuantity
+    const priceDelta = qtyDelta * (item.unit_price ?? 0)
+
     setIsUpdating(true)
     setOptimisticQuantity(newQuantity)
+    onOptimisticDelta(priceDelta)
 
     try {
       await updateLineItem({ lineId: item.id, quantity: newQuantity })
       router.refresh()
     } catch (error) {
       setOptimisticQuantity(item.quantity)
+      onOptimisticDelta(-priceDelta)
     } finally {
       setIsUpdating(false)
     }
@@ -127,10 +134,24 @@ export default function SideCart({ cart }: SideCartProps) {
   const [announcement, setAnnouncement] = useState("")
   const previousItemCount = useRef<number | null>(null)
   const isInitialMount = useRef(true)
+  const [optimisticDelta, setOptimisticDelta] = useState(0)
+  const prevCartRef = useRef(cart?.subtotal)
+
+  // Reset optimistic delta when server data arrives
+  useEffect(() => {
+    if (cart?.subtotal !== prevCartRef.current) {
+      setOptimisticDelta(0)
+      prevCartRef.current = cart?.subtotal
+    }
+  }, [cart?.subtotal])
+
+  const handleOptimisticDelta = useCallback((delta: number) => {
+    setOptimisticDelta((prev) => prev + delta)
+  }, [])
 
   const totalItems =
     cart?.items?.reduce((acc, item) => acc + item.quantity, 0) || 0
-  const subtotal = cart?.subtotal ?? 0
+  const subtotal = (cart?.subtotal ?? 0) + optimisticDelta
 
   const checkoutUrl = "/checkout"
 
@@ -250,7 +271,7 @@ export default function SideCart({ cart }: SideCartProps) {
 
                                         {/* Quantity + Remove */}
                                         <div className="flex items-center justify-between mt-3">
-                                          <QuantitySelector item={item} />
+                                          <QuantitySelector item={item} onOptimisticDelta={handleOptimisticDelta} />
                                           <DeleteButton id={item.id}>
                                             <span className="text-xs font-maison-neue underline">Remove</span>
                                           </DeleteButton>

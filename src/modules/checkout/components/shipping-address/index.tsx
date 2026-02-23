@@ -5,6 +5,9 @@ import { mapKeys } from "lodash"
 import React, { useEffect, useMemo, useState } from "react"
 import AddressSelect from "../address-select"
 import CountrySelect from "../country-select"
+import { formatPhone, stripPhone } from "@lib/util/format-phone"
+import { useFormPersistence } from "@lib/hooks/use-form-persistence"
+import AddressAutocomplete from "../address-autocomplete"
 
 const ShippingAddress = ({
   customer,
@@ -13,6 +16,7 @@ const ShippingAddress = ({
   onChange,
   isPickupOrder = false,
   onPostalCodeChange,
+  onEmailBlur,
 }: {
   customer: HttpTypes.StoreCustomer | null
   cart: HttpTypes.StoreCart | null
@@ -20,6 +24,7 @@ const ShippingAddress = ({
   onChange: () => void
   isPickupOrder?: boolean
   onPostalCodeChange?: (postalCode: string) => void
+  onEmailBlur?: (email: string) => void
 }) => {
   const [formData, setFormData] = useState<Record<string, any>>({
     "shipping_address.first_name": cart?.shipping_address?.first_name || "",
@@ -33,6 +38,14 @@ const ShippingAddress = ({
     "shipping_address.phone": cart?.shipping_address?.phone || "",
     email: cart?.email || "",
   })
+
+  const cartHasAddress = !!(cart?.shipping_address?.first_name)
+  useFormPersistence(
+    "checkout_shipping_draft",
+    formData,
+    setFormData,
+    cartHasAddress
+  )
 
   const countriesInRegion = useMemo(
     () => cart?.region?.countries?.map((c) => c.iso_2),
@@ -94,13 +107,42 @@ const ShippingAddress = ({
       HTMLInputElement | HTMLInputElement | HTMLSelectElement
     >
   ) => {
+    const { name, value } = e.target
+
+    if (name === "shipping_address.phone") {
+      const digits = stripPhone(value)
+      setFormData({ ...formData, [name]: digits })
+      return
+    }
+
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value,
+      [name]: value,
     })
 
-    if (e.target.name === "shipping_address.postal_code" && onPostalCodeChange) {
-      onPostalCodeChange(e.target.value)
+    if (name === "shipping_address.postal_code" && onPostalCodeChange) {
+      onPostalCodeChange(value)
+    }
+  }
+
+  const handleAddressSelect = (fields: {
+    address_1: string
+    city: string
+    province: string
+    postal_code: string
+    country_code: string
+  }) => {
+    setFormData((prev: Record<string, any>) => ({
+      ...prev,
+      "shipping_address.address_1": fields.address_1,
+      "shipping_address.city": fields.city,
+      "shipping_address.province": fields.province,
+      "shipping_address.postal_code": fields.postal_code,
+      ...(fields.country_code ? { "shipping_address.country_code": fields.country_code } : {}),
+    }))
+
+    if (onPostalCodeChange && fields.postal_code) {
+      onPostalCodeChange(fields.postal_code)
     }
   }
 
@@ -141,12 +183,13 @@ const ShippingAddress = ({
           required
           data-testid="shipping-last-name-input"
         />
-        <Input
+        <AddressAutocomplete
           label="Address"
           name="shipping_address.address_1"
           autoComplete="address-line1"
           value={formData["shipping_address.address_1"]}
           onChange={handleChange}
+          onAddressSelect={handleAddressSelect}
           required
           data-testid="shipping-address-input"
         />
@@ -204,6 +247,7 @@ const ShippingAddress = ({
           autoComplete="email"
           value={formData.email}
           onChange={handleChange}
+          onBlur={() => onEmailBlur?.(formData.email)}
           required
           data-testid="shipping-email-input"
         />
@@ -211,8 +255,9 @@ const ShippingAddress = ({
           label="Phone"
           name="shipping_address.phone"
           autoComplete="tel"
-          value={formData["shipping_address.phone"]}
+          value={formatPhone(formData["shipping_address.phone"])}
           onChange={handleChange}
+          placeholder="(555) 555-5555"
           data-testid="shipping-phone-input"
         />
       </div>

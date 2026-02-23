@@ -1,15 +1,10 @@
-import { Heading } from "@medusajs/ui"
 import { cookies as nextCookies } from "next/headers"
-
-import CartTotals from "@modules/common/components/cart-totals"
-import Help from "@modules/order/components/help"
-import Items from "@modules/order/components/items"
-import OnboardingCta from "@modules/order/components/onboarding-cta"
-import OrderDetails from "@modules/order/components/order-details"
-import ShippingDetails from "@modules/order/components/shipping-details"
-import PaymentDetails from "@modules/order/components/payment-details"
-import FulfillmentDetails from "@modules/order/components/fulfillment-details"
 import { HttpTypes } from "@medusajs/types"
+import { convertToLocale } from "@lib/util/money"
+
+import OnboardingCta from "@modules/order/components/onboarding-cta"
+import OrderItems from "@modules/order/components/items"
+import FulfillmentDetails from "@modules/order/components/fulfillment-details"
 
 type OrderCompletedTemplateProps = {
   order: HttpTypes.StoreOrder
@@ -19,35 +14,200 @@ export default async function OrderCompletedTemplate({
   order,
 }: OrderCompletedTemplateProps) {
   const cookies = await nextCookies()
-
   const isOnboarding = cookies.get("_medusa_onboarding")?.value === "true"
 
+  const payment = order.payment_collections?.[0]?.payments?.[0]
+  const shippingMethod = order.shipping_methods?.[0]
+
+  const firstName = order.shipping_address?.first_name || "there"
+
   return (
-    <div className="py-6 min-h-[calc(100vh-64px)]">
-      <div className="content-container flex flex-col justify-center items-center gap-y-10 max-w-4xl h-full w-full">
+    <div className="min-h-[calc(100vh-64px)] bg-[#FAFAF8]">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-10 sm:py-16">
         {isOnboarding && <OnboardingCta orderId={order.id} />}
-        <div
-          className="flex flex-col gap-4 max-w-4xl h-full bg-white w-full py-10"
-          data-testid="order-complete-container"
-        >
-          <Heading
-            level="h1"
-            className="flex flex-col gap-y-3 text-ui-fg-base text-3xl mb-4"
+
+        {/* Hero */}
+        <div className="text-center mb-10">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-100 mb-5">
+            <svg className="w-8 h-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <h1 className="text-3xl sm:text-4xl font-rexton font-bold text-Charcoal uppercase tracking-wide mb-2">
+            Order Confirmed
+          </h1>
+          <p className="text-lg font-maison-neue text-Charcoal/70">
+            Thank you, {firstName}!
+          </p>
+          <p className="text-sm font-maison-neue text-Charcoal/50 mt-1">
+            Order #{order.display_id} &middot;{" "}
+            {new Date(order.created_at).toLocaleDateString("en-US", {
+              month: "long",
+              day: "numeric",
+              year: "numeric",
+            })}
+          </p>
+          <p className="text-sm font-maison-neue text-Charcoal/50 mt-2">
+            A confirmation has been sent to{" "}
+            <span className="font-semibold text-Charcoal/70">{order.email}</span>
+          </p>
+        </div>
+
+        {/* Fulfillment details */}
+        <FulfillmentDetails order={order} />
+
+        {/* Items card */}
+        <div className="bg-white rounded-xl border border-Charcoal/10 shadow-sm mb-6 overflow-hidden">
+          <div className="px-6 py-4 border-b border-Charcoal/10">
+            <h2 className="text-sm font-maison-neue-mono uppercase tracking-wider text-Charcoal/60">
+              Items Ordered
+            </h2>
+          </div>
+          <OrderItems order={order} />
+        </div>
+
+        {/* Two-column: Delivery + Payment */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
+          {/* Delivery card */}
+          <div className="bg-white rounded-xl border border-Charcoal/10 shadow-sm p-6">
+            <h3 className="text-sm font-maison-neue-mono uppercase tracking-wider text-Charcoal/60 mb-4">
+              Shipping Address
+            </h3>
+            <div className="space-y-1 text-sm font-maison-neue text-Charcoal">
+              <p className="font-semibold">
+                {order.shipping_address?.first_name}{" "}
+                {order.shipping_address?.last_name}
+              </p>
+              <p>{order.shipping_address?.address_1}</p>
+              {order.shipping_address?.address_2 && (
+                <p>{order.shipping_address.address_2}</p>
+              )}
+              <p>
+                {order.shipping_address?.city},{" "}
+                {order.shipping_address?.province}{" "}
+                {order.shipping_address?.postal_code}
+              </p>
+            </div>
+
+            {(order.shipping_address?.phone || order.email) && (
+              <div className="mt-4 pt-4 border-t border-Charcoal/10 space-y-1 text-sm font-maison-neue text-Charcoal/70">
+                {order.shipping_address?.phone && (
+                  <p>{order.shipping_address.phone}</p>
+                )}
+                <p>{order.email}</p>
+              </div>
+            )}
+
+            {shippingMethod && (
+              <div className="mt-4 pt-4 border-t border-Charcoal/10">
+                <p className="text-xs font-maison-neue-mono uppercase tracking-wider text-Charcoal/50 mb-1">
+                  Method
+                </p>
+                <p className="text-sm font-maison-neue font-semibold text-Charcoal">
+                  {shippingMethod.name}
+                </p>
+                <p className="text-sm font-maison-neue text-Charcoal/60">
+                  {convertToLocale({
+                    amount: shippingMethod.total ?? 0,
+                    currency_code: order.currency_code,
+                  })}
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Payment card */}
+          <div className="bg-white rounded-xl border border-Charcoal/10 shadow-sm p-6">
+            <h3 className="text-sm font-maison-neue-mono uppercase tracking-wider text-Charcoal/60 mb-4">
+              Payment
+            </h3>
+            {payment && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center justify-center w-10 h-7 bg-Charcoal/5 rounded">
+                    <svg className="w-6 h-4 text-Charcoal/60" viewBox="0 0 24 16" fill="currentColor">
+                      <rect width="24" height="16" rx="2" fill="currentColor" opacity="0.1" />
+                      <rect x="2" y="4" width="8" height="2" rx="1" fill="currentColor" opacity="0.3" />
+                      <rect x="2" y="8" width="5" height="1.5" rx="0.75" fill="currentColor" opacity="0.2" />
+                      <rect x="14" y="10" width="8" height="2" rx="1" fill="currentColor" opacity="0.3" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-sm font-maison-neue font-semibold text-Charcoal">
+                      {(payment as any).data?.card_last4
+                        ? `Card ending in ${(payment as any).data.card_last4}`
+                        : "Credit Card"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Order totals */}
+            <div className="mt-5 pt-4 border-t border-Charcoal/10 space-y-2 text-sm font-maison-neue">
+              <div className="flex justify-between text-Charcoal/70">
+                <span>Subtotal</span>
+                <span>
+                  {convertToLocale({
+                    amount: order.subtotal ?? 0,
+                    currency_code: order.currency_code,
+                  })}
+                </span>
+              </div>
+              {(order.discount_total ?? 0) > 0 && (
+                <div className="flex justify-between text-green-600">
+                  <span>Discount</span>
+                  <span>
+                    -
+                    {convertToLocale({
+                      amount: order.discount_total ?? 0,
+                      currency_code: order.currency_code,
+                    })}
+                  </span>
+                </div>
+              )}
+              <div className="flex justify-between text-Charcoal/70">
+                <span>Shipping</span>
+                <span>
+                  {convertToLocale({
+                    amount: order.shipping_total ?? 0,
+                    currency_code: order.currency_code,
+                  })}
+                </span>
+              </div>
+              <div className="flex justify-between text-Charcoal/70">
+                <span>Tax</span>
+                <span>
+                  {convertToLocale({
+                    amount: order.tax_total ?? 0,
+                    currency_code: order.currency_code,
+                  })}
+                </span>
+              </div>
+              <div className="flex justify-between font-bold text-Charcoal pt-2 border-t border-Charcoal/10 text-base">
+                <span>Total</span>
+                <span>
+                  {convertToLocale({
+                    amount: order.total ?? 0,
+                    currency_code: order.currency_code,
+                  })}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Help / CTA */}
+        <div className="text-center mt-10">
+          <p className="text-sm font-maison-neue text-Charcoal/50 mb-4">
+            Questions about your order? <a href="/contact" className="text-Gold hover:underline font-semibold">Contact us</a>
+          </p>
+          <a
+            href="/store"
+            className="inline-block px-8 py-3 rounded-[5px] border border-Charcoal bg-Gold text-Charcoal font-rexton text-sm font-bold uppercase tracking-wide text-center transition-opacity hover:opacity-90"
           >
-            <span>Thank you!</span>
-            <span>Your order was placed successfully.</span>
-          </Heading>
-          <OrderDetails order={order} />
-          {/* Fulfillment details - shows pickup/delivery info based on order metadata */}
-          <FulfillmentDetails order={order} />
-          <Heading level="h2" className="flex flex-row text-3xl-regular">
-            Summary
-          </Heading>
-          <Items order={order} />
-          <CartTotals totals={order} />
-          <ShippingDetails order={order} />
-          <PaymentDetails order={order} />
-          <Help />
+            Continue Shopping
+          </a>
         </div>
       </div>
     </div>
