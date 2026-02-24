@@ -41,7 +41,7 @@ export async function retrieveCart(cartId?: string) {
       method: "GET",
       query: {
         fields:
-          "*items, *region, *items.product, *items.variant, *items.thumbnail, *items.metadata, +items.total, *promotions, +shipping_methods.name",
+          "*items, *region, *items.product, *items.variant, *items.thumbnail, *items.metadata, +items.total, *promotions, +shipping_methods.name, +shipping_total, +total, +subtotal, +tax_total, +discount_total, +shipping_subtotal",
       },
       headers,
       next,
@@ -497,6 +497,42 @@ export async function setAddresses(currentState: unknown, formData: FormData) {
 
     await updateCart(data)
 
+    // Save address to customer account for future orders
+    try {
+      const headers = { ...(await getAuthHeaders()) }
+      if (headers.authorization) {
+        const { customer } = await sdk.store.customer.retrieve(headers)
+        const existingAddresses = customer?.addresses || []
+        const normalizedNew = `${data.shipping_address.address_1}|${data.shipping_address.postal_code}`.toLowerCase().trim()
+        const isDuplicate = existingAddresses.some(
+          (a: any) => `${a.address_1}|${a.postal_code}`.toLowerCase().trim() === normalizedNew
+        )
+        if (!isDuplicate && data.shipping_address.address_1) {
+          await sdk.store.customer.createAddress(
+            {
+              first_name: data.shipping_address.first_name as string,
+              last_name: data.shipping_address.last_name as string,
+              address_1: data.shipping_address.address_1 as string,
+              address_2: "",
+              company: (data.shipping_address.company as string) || "",
+              city: data.shipping_address.city as string,
+              postal_code: data.shipping_address.postal_code as string,
+              province: (data.shipping_address.province as string) || "",
+              country_code: data.shipping_address.country_code as string,
+              phone: (data.shipping_address.phone as string) || "",
+              is_default_shipping: existingAddresses.length === 0,
+            },
+            {},
+            headers
+          )
+          const customerCacheTag = await getCacheTag("customers")
+          revalidateTag(customerCacheTag)
+        }
+      }
+    } catch {
+      // Non-critical — don't block checkout if saving to account fails
+    }
+
     // Now that the address is saved, attach the shipping method
     // Medusa requires an address on the cart before a shipping method can be validated
     if (selectedFulfillment) {
@@ -512,9 +548,11 @@ export async function setAddresses(currentState: unknown, formData: FormData) {
     return e.message
   }
 
-  redirect(
-    `/${formData.get("shipping_address.country_code")}/checkout?step=delivery`
-  )
+  const cartCacheTag = await getCacheTag("carts")
+  revalidateTag(cartCacheTag)
+
+  const countryCode = formData.get("shipping_address.country_code") || "us"
+  return `__SUCCESS__:${countryCode}`
 }
 
 /**

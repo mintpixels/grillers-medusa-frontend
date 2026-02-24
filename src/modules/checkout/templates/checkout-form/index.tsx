@@ -5,17 +5,12 @@ import Addresses from "@modules/checkout/components/addresses"
 import Payment from "@modules/checkout/components/payment"
 import Shipping from "@modules/checkout/components/shipping"
 import FulfillmentStep from "@modules/checkout/components/fulfillment-step"
+import CheckoutLoginBanner from "@modules/checkout/components/checkout-login-banner"
 import type { FulfillmentType } from "@lib/data/cart"
 import type { FulfillmentConfigData } from "@lib/data/strapi/checkout"
 
-/**
- * Determines if shipping method selection is needed.
- * For pre-selected fulfillment (plant_pickup, atlanta_delivery, southeast_pickup),
- * we skip the shipping method step as it's determined by the fulfillment selection.
- */
 function needsShippingMethodSelection(cart: HttpTypes.StoreCart): boolean {
   const fulfillmentType = cart.metadata?.fulfillmentType as FulfillmentType | undefined
-  // Only UPS shipping needs the traditional shipping method selection
   return fulfillmentType === "ups_shipping"
 }
 
@@ -24,11 +19,13 @@ export default async function CheckoutForm({
   customer,
   fulfillmentConfig,
   availableFulfillmentTypes,
+  currentStep,
 }: {
   cart: HttpTypes.StoreCart | null
   customer: HttpTypes.StoreCustomer | null
   fulfillmentConfig: FulfillmentConfigData["checkout"]
   availableFulfillmentTypes: FulfillmentType[]
+  currentStep?: string
 }) {
   if (!cart) {
     return null
@@ -41,28 +38,49 @@ export default async function CheckoutForm({
     return null
   }
 
+  const fulfillmentType = cart.metadata?.fulfillmentType as FulfillmentType | undefined
+  const hasFulfillment = Boolean(fulfillmentType && String(fulfillmentType).length > 0)
   const showShippingMethodSelection = needsShippingMethodSelection(cart)
+
+  const isLoggedIn = Boolean(customer)
+
+  const addressComplete = !!(
+    cart.shipping_address?.first_name && cart.shipping_address?.address_1
+  )
+  const hasShippingMethod = (cart.shipping_methods?.length ?? 0) > 0
 
   return (
     <div className="w-full grid grid-cols-1 gap-y-6">
-      {/* Step 1: Fulfillment selection/summary - always in yellow box */}
-      <FulfillmentStep 
-        cart={cart} 
-        customer={customer} 
-        config={fulfillmentConfig}
-        availableFulfillmentTypes={availableFulfillmentTypes}
-      />
+      {/* Login/signup banner — always at the top */}
+      <CheckoutLoginBanner customer={customer} />
 
-      {/* Step 2: Address section - always shown for contact info */}
-      <Addresses cart={cart} customer={customer} />
+      {/* Everything below requires authentication */}
+      {isLoggedIn && (
+        <>
+          {/* Step 1: Fulfillment selection */}
+          <FulfillmentStep 
+            cart={cart} 
+            customer={customer} 
+            config={fulfillmentConfig}
+            availableFulfillmentTypes={availableFulfillmentTypes}
+          />
 
-      {/* Shipping method selection - only for UPS shipping */}
-      {showShippingMethodSelection && (
-        <Shipping cart={cart} availableShippingMethods={shippingMethods} />
+          {/* Step 2: Address — only after fulfillment chosen */}
+          {hasFulfillment && (
+            <Addresses cart={cart} customer={customer} />
+          )}
+
+          {/* Step 3: Delivery options — only for UPS shipping, only after address */}
+          {hasFulfillment && addressComplete && showShippingMethodSelection && (
+            <Shipping cart={cart} availableShippingMethods={shippingMethods} />
+          )}
+
+          {/* Step 4: Payment — only after all previous steps complete and delivery step is closed */}
+          {hasFulfillment && addressComplete && (!showShippingMethodSelection || hasShippingMethod) && currentStep !== "delivery" && (
+            <Payment cart={cart} availablePaymentMethods={paymentMethods} />
+          )}
+        </>
       )}
-
-      {/* Step 3: Payment section with Place Order */}
-      <Payment cart={cart} availablePaymentMethods={paymentMethods} />
     </div>
   )
 }

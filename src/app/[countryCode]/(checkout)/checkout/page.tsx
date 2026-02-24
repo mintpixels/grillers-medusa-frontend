@@ -103,10 +103,12 @@ export async function generateMetadata(): Promise<Metadata> {
 
 type PageProps = {
   params: Promise<{ countryCode: string }>
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }
 
-export default async function Checkout({ params }: PageProps) {
+export default async function Checkout({ params, searchParams }: PageProps) {
   const { countryCode } = await params
+  const resolvedSearchParams = await searchParams
   const cart = await retrieveCart()
 
   if (!cart) {
@@ -143,6 +145,7 @@ export default async function Checkout({ params }: PageProps) {
                 customer={customer} 
                 fulfillmentConfig={fulfillmentConfig}
                 availableFulfillmentTypes={availableFulfillmentTypes}
+                currentStep={resolvedSearchParams?.step as string | undefined}
               />
             </PaymentWrapper>
           </div>

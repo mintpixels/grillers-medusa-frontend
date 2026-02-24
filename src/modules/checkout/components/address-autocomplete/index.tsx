@@ -1,7 +1,6 @@
 "use client"
 
-import React, { useEffect, useRef, useCallback } from "react"
-import { Loader } from "@googlemaps/js-api-loader"
+import React, { useEffect, useRef, useCallback, useState } from "react"
 
 type AddressFields = {
   address_1: string
@@ -22,56 +21,98 @@ type AddressAutocompleteProps = {
   "data-testid"?: string
 }
 
-const GOOGLE_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY || ""
+const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY || ""
 
-let loaderPromise: Promise<typeof google.maps> | null = null
-
-function getLoader() {
-  if (!loaderPromise && GOOGLE_API_KEY) {
-    const loader = new Loader({
-      apiKey: GOOGLE_API_KEY,
-      version: "weekly",
-      libraries: ["places"],
-    })
-    loaderPromise = loader.load().then(() => google.maps)
-  }
-  return loaderPromise
+type Suggestion = {
+  placeId: string
+  text: string
 }
 
-function parsePlace(place: google.maps.places.PlaceResult): AddressFields {
-  const components = place.address_components || []
-  let streetNumber = ""
-  let route = ""
-  let city = ""
-  let state = ""
-  let postalCode = ""
-  let country = ""
+async function fetchSuggestionsFromAPI(input: string): Promise<Suggestion[]> {
+  if (!API_KEY || input.length < 3) return []
 
-  for (const component of components) {
-    const types = component.types
-    if (types.includes("street_number")) {
-      streetNumber = component.long_name
-    } else if (types.includes("route")) {
-      route = component.long_name
-    } else if (types.includes("locality")) {
-      city = component.long_name
-    } else if (types.includes("sublocality_level_1") && !city) {
-      city = component.long_name
-    } else if (types.includes("administrative_area_level_1")) {
-      state = component.short_name
-    } else if (types.includes("postal_code")) {
-      postalCode = component.long_name
-    } else if (types.includes("country")) {
-      country = component.short_name.toLowerCase()
-    }
+  try {
+    const res = await fetch("https://places.googleapis.com/v1/places:autocomplete", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Goog-Api-Key": API_KEY,
+      },
+      body: JSON.stringify({
+        input,
+        includedPrimaryTypes: ["street_address", "subpremise", "premise"],
+        includedRegionCodes: ["us"],
+      }),
+    })
+
+    if (!res.ok) return []
+    const data = await res.json()
+
+    return (data.suggestions || [])
+      .filter((s: any) => s.placePrediction)
+      .slice(0, 5)
+      .map((s: any) => ({
+        placeId: s.placePrediction.placeId,
+        text: s.placePrediction.text.text,
+      }))
+  } catch {
+    return []
   }
+}
 
-  return {
-    address_1: streetNumber ? `${streetNumber} ${route}` : route,
-    city,
-    province: state,
-    postal_code: postalCode,
-    country_code: country,
+async function fetchPlaceDetails(placeId: string): Promise<AddressFields | null> {
+  if (!API_KEY) return null
+
+  try {
+    const res = await fetch(
+      `https://places.googleapis.com/v1/places/${placeId}?languageCode=en`,
+      {
+        headers: {
+          "X-Goog-Api-Key": API_KEY,
+          "X-Goog-FieldMask": "addressComponents",
+        },
+      }
+    )
+
+    if (!res.ok) return null
+    const data = await res.json()
+    const components: any[] = data.addressComponents || []
+
+    let streetNumber = ""
+    let route = ""
+    let city = ""
+    let state = ""
+    let postalCode = ""
+    let country = ""
+
+    for (const c of components) {
+      const types: string[] = c.types || []
+      if (types.includes("street_number")) {
+        streetNumber = c.longText || ""
+      } else if (types.includes("route")) {
+        route = c.longText || ""
+      } else if (types.includes("locality")) {
+        city = c.longText || ""
+      } else if (types.includes("sublocality_level_1") && !city) {
+        city = c.longText || ""
+      } else if (types.includes("administrative_area_level_1")) {
+        state = c.shortText || ""
+      } else if (types.includes("postal_code")) {
+        postalCode = c.longText || ""
+      } else if (types.includes("country")) {
+        country = (c.shortText || "").toLowerCase()
+      }
+    }
+
+    return {
+      address_1: streetNumber ? `${streetNumber} ${route}` : route,
+      city,
+      province: state,
+      postal_code: postalCode,
+      country_code: country,
+    }
+  } catch {
+    return null
   }
 }
 
@@ -82,49 +123,82 @@ const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
   name,
   label,
   required,
-  autoComplete,
   "data-testid": dataTestId,
 }) => {
   const inputRef = useRef<HTMLInputElement>(null)
-  const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null)
+  const wrapperRef = useRef<HTMLDivElement>(null)
   const onAddressSelectRef = useRef(onAddressSelect)
   onAddressSelectRef.current = onAddressSelect
 
-  const initAutocomplete = useCallback(async () => {
-    if (!inputRef.current || !GOOGLE_API_KEY || autocompleteRef.current) return
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([])
+  const [showDropdown, setShowDropdown] = useState(false)
+  const [activeIndex, setActiveIndex] = useState(-1)
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>()
 
-    try {
-      await getLoader()
+  const handleInputChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      onChange(e)
+      const val = e.target.value
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+      debounceRef.current = setTimeout(async () => {
+        const results = await fetchSuggestionsFromAPI(val)
+        setSuggestions(results)
+        setShowDropdown(results.length > 0)
+        setActiveIndex(-1)
+      }, 300)
+    },
+    [onChange]
+  )
 
-      const autocomplete = new google.maps.places.Autocomplete(
-        inputRef.current,
-        {
-          types: ["address"],
-          componentRestrictions: { country: "us" },
-          fields: ["address_components"],
-        }
-      )
+  const selectSuggestion = useCallback(async (placeId: string, displayText: string) => {
+    setShowDropdown(false)
+    setSuggestions([])
 
-      autocomplete.addListener("place_changed", () => {
-        const place = autocomplete.getPlace()
-        if (place.address_components) {
-          const fields = parsePlace(place)
-          onAddressSelectRef.current(fields)
-        }
-      })
+    // Immediately set the address line to the display text
+    const syntheticEvent = {
+      target: { name, value: displayText.split(",")[0] },
+    } as React.ChangeEvent<HTMLInputElement>
+    onChange(syntheticEvent)
 
-      autocompleteRef.current = autocomplete
-    } catch (err) {
-      console.error("Failed to load Google Places:", err)
+    const fields = await fetchPlaceDetails(placeId)
+    if (fields) {
+      onAddressSelectRef.current(fields)
     }
-  }, [])
+  }, [name, onChange])
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (!showDropdown || suggestions.length === 0) return
+
+      if (e.key === "ArrowDown") {
+        e.preventDefault()
+        setActiveIndex((prev) => Math.min(prev + 1, suggestions.length - 1))
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault()
+        setActiveIndex((prev) => Math.max(prev - 1, 0))
+      } else if (e.key === "Enter" && activeIndex >= 0) {
+        e.preventDefault()
+        const s = suggestions[activeIndex]
+        selectSuggestion(s.placeId, s.text)
+      } else if (e.key === "Escape") {
+        setShowDropdown(false)
+      }
+    },
+    [showDropdown, suggestions, activeIndex, selectSuggestion]
+  )
 
   useEffect(() => {
-    initAutocomplete()
-  }, [initAutocomplete])
+    const handleClickOutside = (e: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setShowDropdown(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [])
 
   return (
-    <div className="flex flex-col w-full">
+    <div ref={wrapperRef} className="flex flex-col w-full relative">
       <div className="flex relative z-0 w-full txt-compact-medium">
         <input
           ref={inputRef}
@@ -132,11 +206,17 @@ const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
           name={name}
           placeholder=" "
           required={required}
-          autoComplete={autoComplete || "off"}
+          autoComplete="off"
           value={value}
-          onChange={onChange}
+          onChange={handleInputChange}
+          onKeyDown={handleKeyDown}
+          onFocus={() => suggestions.length > 0 && setShowDropdown(true)}
           className="pt-4 pb-1 block w-full h-11 px-4 mt-0 bg-ui-bg-field border rounded-md appearance-none focus:outline-none focus:ring-0 focus:shadow-borders-interactive-with-active border-ui-border-base hover:bg-ui-bg-field-hover"
           data-testid={dataTestId}
+          role="combobox"
+          aria-expanded={showDropdown}
+          aria-autocomplete="list"
+          aria-activedescendant={activeIndex >= 0 ? `addr-suggestion-${activeIndex}` : undefined}
         />
         <label
           htmlFor={name}
@@ -147,6 +227,34 @@ const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
           {required && <span className="text-rose-500">*</span>}
         </label>
       </div>
+
+      {showDropdown && suggestions.length > 0 && (
+        <ul
+          className="absolute top-full left-0 right-0 z-50 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden"
+          role="listbox"
+        >
+          {suggestions.map((s, i) => (
+            <li
+              key={s.placeId}
+              id={`addr-suggestion-${i}`}
+              role="option"
+              aria-selected={i === activeIndex}
+              className={`px-4 py-3 text-sm cursor-pointer transition-colors ${
+                i === activeIndex
+                  ? "bg-Gold/10 text-Charcoal"
+                  : "text-gray-700 hover:bg-gray-50"
+              }`}
+              onMouseDown={(e) => {
+                e.preventDefault()
+                selectSuggestion(s.placeId, s.text)
+              }}
+              onMouseEnter={() => setActiveIndex(i)}
+            >
+              {s.text}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   )
 }

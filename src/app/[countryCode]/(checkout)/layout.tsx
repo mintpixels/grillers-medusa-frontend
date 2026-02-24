@@ -10,55 +10,36 @@ export default function CheckoutLayout({
   return (
     <div className="w-full relative min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="relative z-10 h-16 bg-white border-b border-gray-200">
-        <nav className="relative flex h-full items-center justify-between px-4 small:px-8 lg:px-16 max-w-7xl mx-auto">
-          {/* Back to cart link */}
-          <LocalizedClientLink
-            href="/cart"
-            className="text-small-semi text-ui-fg-base flex items-center gap-x-2 uppercase min-w-[120px]"
-            data-testid="back-link"
-          >
-            <ChevronDown className="rotate-90" size={16} />
-            <span className="mt-px hidden small:block txt-compact-plus text-ui-fg-subtle hover:text-ui-fg-base">
-              Back to cart
-            </span>
-            <span className="mt-px block small:hidden txt-compact-plus text-ui-fg-subtle hover:text-ui-fg-base">
-              Back
-            </span>
-          </LocalizedClientLink>
-
-          {/* Center logo */}
+      <div className="relative z-20 h-16 bg-white border-b border-gray-200">
+        <nav className="flex h-full items-center justify-between px-4 md:px-8 lg:px-16 max-w-7xl mx-auto">
+          {/* Logo — far left */}
           <LocalizedClientLink
             href="/"
-            className="flex items-center absolute left-1/2 -translate-x-1/2"
+            className="flex items-center gap-1.5"
             data-testid="store-link"
           >
-            {/* Desktop: text logo + icon */}
-            <span className="hidden small:flex items-center gap-1.5">
-              <Image
-                src="/images/logos/logo-mobile.svg"
-                alt=""
-                width={28}
-                height={28}
-                priority
-                aria-hidden="true"
-              />
-              <span className="text-lg font-rexton font-bold text-[#2D479D] uppercase tracking-wider">
-                Griller&apos;s <span className="text-Gold">&#9733;</span> Pride
-              </span>
-            </span>
-            {/* Mobile: icon only */}
             <Image
               src="/images/logos/logo-mobile.svg"
               alt="Grillers Pride"
-              width={36}
-              height={36}
-              className="block small:hidden"
+              width={32}
+              height={32}
               priority
             />
+            <span className="hidden small:inline text-lg font-rexton font-bold text-[#2D479D] uppercase tracking-wider">
+              Griller&apos;s <span className="text-Gold">&#9733;</span> Pride
+            </span>
           </LocalizedClientLink>
 
-          <div className="w-8" />
+          {/* Back to cart — right side */}
+          <LocalizedClientLink
+            href="/cart"
+            className="flex items-center gap-x-2 text-sm text-ui-fg-subtle hover:text-ui-fg-base transition-colors"
+            data-testid="back-link"
+          >
+            <span className="hidden small:block">Back to cart</span>
+            <span className="block small:hidden">Back</span>
+            <ChevronDown className="-rotate-90" size={16} />
+          </LocalizedClientLink>
         </nav>
       </div>
 

@@ -31,6 +31,46 @@ export async function loginWithCredentials(email: string, password: string) {
   }
 }
 
+export async function signupWithCredentials(data: {
+  email: string
+  password: string
+  first_name: string
+  last_name: string
+}) {
+  try {
+    const token = await sdk.auth.register("customer", "emailpass", {
+      email: data.email,
+      password: data.password,
+    })
+    await setAuthToken(token as string)
+
+    const headers = { ...(await getAuthHeaders()) }
+    await sdk.store.customer.create(
+      { email: data.email, first_name: data.first_name, last_name: data.last_name },
+      {},
+      headers
+    )
+
+    const loginToken = await sdk.auth.login("customer", "emailpass", {
+      email: data.email,
+      password: data.password,
+    })
+    await setAuthToken(loginToken as string)
+
+    const customerCacheTag = await getCacheTag("customers")
+    revalidateTag(customerCacheTag)
+    await transferCart()
+
+    return { success: true, error: null }
+  } catch (error: any) {
+    const msg = error?.message || error?.toString() || ""
+    if (msg.includes("exists") || msg.includes("already")) {
+      return { success: false, error: "An account with this email already exists. Try signing in instead." }
+    }
+    return { success: false, error: "Could not create account. Please try again." }
+  }
+}
+
 export async function checkEmailExists(email: string): Promise<boolean> {
   try {
     await sdk.auth.login("customer", "emailpass", {
@@ -159,7 +199,7 @@ export async function login(_currentState: unknown, formData: FormData) {
   }
 }
 
-export async function signout(countryCode: string) {
+export async function signout(countryCode: string, redirectTo?: string) {
   await sdk.auth.logout()
 
   await removeAuthToken()
@@ -172,7 +212,7 @@ export async function signout(countryCode: string) {
   const cartCacheTag = await getCacheTag("carts")
   revalidateTag(cartCacheTag)
 
-  redirect(`/${countryCode}/account`)
+  redirect(redirectTo || `/${countryCode}/account`)
 }
 
 export async function transferCart() {

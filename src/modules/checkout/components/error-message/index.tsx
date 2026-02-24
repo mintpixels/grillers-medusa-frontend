@@ -1,5 +1,5 @@
 const ErrorMessage = ({ error, 'data-testid': dataTestid }: { error?: string | null, 'data-testid'?: string }) => {
-  if (!error) {
+  if (!error || error.startsWith("__SUCCESS__")) {
     return null
   }
 

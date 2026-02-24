@@ -96,7 +96,7 @@ const CheckoutSummary = ({ cart }: CheckoutSummaryProps) => {
           <div className="flex justify-between text-sm">
             <span className="text-gray-400">Shipping</span>
             <span className="text-gray-300">
-              {cart.shipping_total
+              {cart.shipping_total != null
                 ? convertToLocale({
                     amount: cart.shipping_total,
                     currency_code: cart.currency_code,

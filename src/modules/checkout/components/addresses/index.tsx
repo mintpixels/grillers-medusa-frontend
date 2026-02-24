@@ -10,7 +10,6 @@ import Spinner from "@modules/common/icons/spinner"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useActionState, useCallback, useEffect, useRef, useState } from "react"
 import BillingAddress from "../billing_address"
-import CheckoutAuth from "../checkout-auth"
 import ErrorMessage from "../error-message"
 import ShippingAddress from "../shipping-address"
 import { SubmitButton } from "../submit-button"
@@ -82,6 +81,17 @@ const Addresses = ({
 
   const [message, formAction] = useActionState(setAddresses, null)
 
+  // When server action succeeds, navigate to next step without a full page reload
+  useEffect(() => {
+    if (typeof message === "string" && message.startsWith("__SUCCESS__")) {
+      const countryCode = message.split(":")[1] || "us"
+      const needsDeliveryStep = fulfillmentType === "ups_shipping"
+      const nextStep = needsDeliveryStep ? "delivery" : "payment"
+      router.replace(`/${countryCode}/checkout?step=${nextStep}`, { scroll: false })
+      router.refresh()
+    }
+  }, [message, router, fulfillmentType])
+
   const [checkoutEmail, setCheckoutEmail] = useState(cart?.email || "")
   const handleEmailBlur = useCallback((email: string) => {
     setCheckoutEmail(email)
@@ -123,13 +133,6 @@ const Addresses = ({
               We just need your contact details and billing information for payment.
             </p>
 
-            <CheckoutAuth
-              customer={customer}
-              email={checkoutEmail}
-              onEmailChange={setCheckoutEmail}
-              onLoginSuccess={() => router.refresh()}
-            />
-            
             {/* For pickup orders, always use shipping address as billing */}
             <input type="hidden" name="same_as_billing" value="on" />
             <input type="hidden" name="fulfillmentType" value={fulfillmentType || ""} />
@@ -143,9 +146,11 @@ const Addresses = ({
               onEmailBlur={handleEmailBlur}
             />
             
-            <SubmitButton className="mt-5" data-testid="submit-address-button">
-              Continue to payment
-            </SubmitButton>
+            <div className="flex justify-end mt-6">
+              <SubmitButton className="!w-auto px-8" data-testid="submit-address-button">
+                Continue to payment
+              </SubmitButton>
+            </div>
             <ErrorMessage error={message} data-testid="address-error-message" />
           </form>
         ) : (
@@ -218,13 +223,6 @@ const Addresses = ({
 
       {isOpen ? (
         <form action={formAction}>
-          <CheckoutAuth
-            customer={customer}
-            email={checkoutEmail}
-            onEmailChange={setCheckoutEmail}
-            onLoginSuccess={() => router.refresh()}
-          />
-
           <input type="hidden" name="fulfillmentType" value={fulfillmentType || ""} />
 
           {fulfillmentType === "atlanta_delivery" && (
@@ -252,7 +250,7 @@ const Addresses = ({
               <h3 className="text-base font-medium text-gray-900 mb-4">
                 Billing Address
               </h3>
-              <BillingAddress cart={cart} />
+              <BillingAddress cart={cart} customer={customer} />
             </div>
           )}
 
@@ -267,9 +265,11 @@ const Addresses = ({
             </div>
           )}
           
-          <SubmitButton className="mt-5" disabled={addressMismatch} data-testid="submit-address-button">
-            Continue to payment
-          </SubmitButton>
+          <div className="flex justify-end mt-6">
+            <SubmitButton className="!w-auto px-8" disabled={addressMismatch} data-testid="submit-address-button">
+              {fulfillmentType === "ups_shipping" ? "Continue to delivery" : "Continue to payment"}
+            </SubmitButton>
+          </div>
           <ErrorMessage error={message} data-testid="address-error-message" />
         </form>
       ) : (

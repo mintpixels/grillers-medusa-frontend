@@ -8,6 +8,7 @@ import CountrySelect from "../country-select"
 import { formatPhone, stripPhone } from "@lib/util/format-phone"
 import { useFormPersistence } from "@lib/hooks/use-form-persistence"
 import AddressAutocomplete from "../address-autocomplete"
+import StateSelect from "../state-select"
 
 const ShippingAddress = ({
   customer,
@@ -27,24 +28,22 @@ const ShippingAddress = ({
   onEmailBlur?: (email: string) => void
 }) => {
   const [formData, setFormData] = useState<Record<string, any>>({
-    "shipping_address.first_name": cart?.shipping_address?.first_name || "",
-    "shipping_address.last_name": cart?.shipping_address?.last_name || "",
+    "shipping_address.first_name": cart?.shipping_address?.first_name || customer?.first_name || "",
+    "shipping_address.last_name": cart?.shipping_address?.last_name || customer?.last_name || "",
     "shipping_address.address_1": cart?.shipping_address?.address_1 || "",
     "shipping_address.company": cart?.shipping_address?.company || "",
     "shipping_address.postal_code": cart?.shipping_address?.postal_code || "",
     "shipping_address.city": cart?.shipping_address?.city || "",
     "shipping_address.country_code": cart?.shipping_address?.country_code || "",
     "shipping_address.province": cart?.shipping_address?.province || "",
-    "shipping_address.phone": cart?.shipping_address?.phone || "",
-    email: cart?.email || "",
+    "shipping_address.phone": cart?.shipping_address?.phone || customer?.phone || "",
+    email: cart?.email || customer?.email || "",
   })
 
-  const cartHasAddress = !!(cart?.shipping_address?.first_name)
   useFormPersistence(
     "checkout_shipping_draft",
     formData,
-    setFormData,
-    cartHasAddress
+    setFormData
   )
 
   const countriesInRegion = useMemo(
@@ -92,15 +91,46 @@ const ShippingAddress = ({
   }
 
   useEffect(() => {
-    // Ensure cart is not null and has a shipping_address before setting form data
     if (cart && cart.shipping_address) {
-      setFormAddress(cart?.shipping_address, cart?.email)
+      const addr = cart.shipping_address
+      setFormData((prev: Record<string, any>) => {
+        const merged = { ...prev }
+        if (addr.first_name) merged["shipping_address.first_name"] = addr.first_name
+        if (addr.last_name) merged["shipping_address.last_name"] = addr.last_name
+        if (addr.address_1) merged["shipping_address.address_1"] = addr.address_1
+        if (addr.company) merged["shipping_address.company"] = addr.company
+        if (addr.postal_code) merged["shipping_address.postal_code"] = addr.postal_code
+        if (addr.city) merged["shipping_address.city"] = addr.city
+        if (addr.country_code) merged["shipping_address.country_code"] = addr.country_code
+        if (addr.province) merged["shipping_address.province"] = addr.province
+        if (addr.phone) merged["shipping_address.phone"] = addr.phone
+        if (cart.email) merged.email = cart.email
+        return merged
+      })
+
+      if (onPostalCodeChange && cart.shipping_address.postal_code) {
+        onPostalCodeChange(cart.shipping_address.postal_code)
+      }
     }
 
     if (cart && !cart.email && customer?.email) {
-      setFormAddress(undefined, customer.email)
+      setFormData((prev: Record<string, any>) => ({ ...prev, email: customer!.email }))
     }
-  }, [cart]) // Add cart as a dependency
+  }, [cart])
+
+  // Always apply customer profile data for empty fields (runs after session restore)
+  useEffect(() => {
+    if (!customer) return
+    setFormData((prev: Record<string, any>) => {
+      const next = { ...prev }
+      if (!next["shipping_address.first_name"] && customer.first_name) next["shipping_address.first_name"] = customer.first_name
+      if (!next["shipping_address.last_name"] && customer.last_name) next["shipping_address.last_name"] = customer.last_name
+      if (!next["shipping_address.phone"] && customer.phone) next["shipping_address.phone"] = customer.phone
+      // Always keep email in sync with account
+      if (customer.email) next.email = customer.email
+      return next
+    })
+  }, [customer])
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -183,24 +213,28 @@ const ShippingAddress = ({
           required
           data-testid="shipping-last-name-input"
         />
-        <AddressAutocomplete
-          label="Address"
-          name="shipping_address.address_1"
-          autoComplete="address-line1"
-          value={formData["shipping_address.address_1"]}
-          onChange={handleChange}
-          onAddressSelect={handleAddressSelect}
-          required
-          data-testid="shipping-address-input"
-        />
-        <Input
-          label="Company (optional)"
-          name="shipping_address.company"
-          value={formData["shipping_address.company"]}
-          onChange={handleChange}
-          autoComplete="organization"
-          data-testid="shipping-company-input"
-        />
+        <div className="col-span-2">
+          <AddressAutocomplete
+            label="Address"
+            name="shipping_address.address_1"
+            autoComplete="address-line1"
+            value={formData["shipping_address.address_1"]}
+            onChange={handleChange}
+            onAddressSelect={handleAddressSelect}
+            required
+            data-testid="shipping-address-input"
+          />
+        </div>
+        <div className="col-span-2">
+          <Input
+            label="Company (optional)"
+            name="shipping_address.company"
+            value={formData["shipping_address.company"]}
+            onChange={handleChange}
+            autoComplete="organization"
+            data-testid="shipping-company-input"
+          />
+        </div>
         <Input
           label="City"
           name="shipping_address.city"
@@ -210,8 +244,7 @@ const ShippingAddress = ({
           required
           data-testid="shipping-city-input"
         />
-        <Input
-          label="State / Province"
+        <StateSelect
           name="shipping_address.province"
           autoComplete="address-level1"
           value={formData["shipping_address.province"]}
@@ -238,19 +271,10 @@ const ShippingAddress = ({
         />
       </div>
       
-      <div className="grid grid-cols-2 gap-3 mt-4">
-        <Input
-          label="Email"
-          name="email"
-          type="email"
-          title="Enter a valid email address."
-          autoComplete="email"
-          value={formData.email}
-          onChange={handleChange}
-          onBlur={() => onEmailBlur?.(formData.email)}
-          required
-          data-testid="shipping-email-input"
-        />
+      {/* Email is pulled from the customer account — no need to show it */}
+      <input type="hidden" name="email" value={formData.email} />
+
+      <div className="mt-4">
         <Input
           label="Phone"
           name="shipping_address.phone"
