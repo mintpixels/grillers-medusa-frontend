@@ -57,6 +57,16 @@ function formatDateShort(dateStr: string): string {
   return date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
 }
 
+function parseDateParts(dateStr: string): { iso: string; month: string; day: string } {
+  const [y, m, d] = dateStr.split("-").map(Number)
+  const date = new Date(y, m - 1, d)
+  return {
+    iso: dateStr,
+    month: date.toLocaleDateString("en-US", { month: "short" }).toUpperCase(),
+    day: String(d),
+  }
+}
+
 function getValidDates(location: SoutheastPickupCity): string[] {
   if (!location.AvailableDates?.length) return []
   const now = new Date()
@@ -158,7 +168,7 @@ export default function SoutheastPickupScheduling({
                 const isSelected = selectedLocationId === loc.id
                 const info = locationDateInfo[loc.id] ?? { count: 0, dates: [] }
                 const hasNoDates = info.count === 0
-                const previewDates = info.dates.slice(0, 3)
+                const previewDates = info.dates.slice(0, 2).map(parseDateParts)
                 return (
                   <button
                     key={loc.id}
@@ -170,7 +180,7 @@ export default function SoutheastPickupScheduling({
                     }}
                     disabled={hasNoDates}
                     className={`
-                      w-full text-left px-3.5 py-3 rounded-xl border-2 transition-all duration-200
+                      w-full text-left rounded-xl border-2 transition-all duration-200 overflow-hidden
                       ${hasNoDates
                         ? "border-gray-100 bg-gray-50/50 cursor-not-allowed"
                         : isSelected
@@ -179,39 +189,53 @@ export default function SoutheastPickupScheduling({
                       }
                     `}
                   >
-                    <span className={`text-sm font-semibold block ${
-                      hasNoDates ? "text-Charcoal/30" : isSelected ? "text-Charcoal" : "text-Charcoal/80"
-                    }`}>
-                      {loc.City}
-                    </span>
-
-                    {hasNoDates ? (
-                      <span className="block text-xs text-Charcoal/25 mt-1">
-                        No dates scheduled
-                      </span>
-                    ) : (
-                      <div className="mt-1.5 flex flex-wrap gap-1">
-                        {previewDates.map((d) => (
-                          <span
-                            key={d}
-                            className={`inline-block text-[10px] font-medium px-1.5 py-0.5 rounded-md ${
-                              isSelected
-                                ? "bg-Gold/15 text-Gold"
-                                : "bg-gray-100 text-Charcoal/50"
-                            }`}
-                          >
-                            {formatDateShort(d)}
+                    <div className="flex items-stretch">
+                      <div className="flex-1 px-3.5 py-3 flex flex-col justify-center min-w-0">
+                        <span className={`text-sm font-semibold block truncate ${
+                          hasNoDates ? "text-Charcoal/30" : isSelected ? "text-Charcoal" : "text-Charcoal/80"
+                        }`}>
+                          {loc.City}
+                        </span>
+                        {hasNoDates ? (
+                          <span className="block text-[10px] text-Charcoal/25 mt-0.5">
+                            No dates yet
                           </span>
-                        ))}
-                        {info.count > 3 && (
-                          <span className={`inline-block text-[10px] font-medium px-1.5 py-0.5 rounded-md ${
-                            isSelected ? "text-Gold/60" : "text-Charcoal/30"
-                          }`}>
-                            +{info.count - 3}
+                        ) : info.count > 2 ? (
+                          <span className={`block text-[10px] mt-0.5 ${isSelected ? "text-Gold/60" : "text-Charcoal/30"}`}>
+                            +{info.count - 2} more
                           </span>
-                        )}
+                        ) : null}
                       </div>
-                    )}
+
+                      {previewDates.length > 0 && (
+                        <div className="flex shrink-0">
+                          {previewDates.map((d, i) => (
+                            <div
+                              key={d.iso}
+                              className={`
+                                w-11 flex flex-col items-center justify-center py-2
+                                ${i === 0
+                                  ? isSelected ? "bg-Gold/10" : "bg-gray-50"
+                                  : isSelected ? "bg-Gold/[0.06]" : "bg-gray-50/60"
+                                }
+                                ${i > 0 ? (isSelected ? "border-l border-Gold/10" : "border-l border-gray-100") : ""}
+                              `}
+                            >
+                              <span className={`text-[9px] font-bold uppercase leading-none tracking-wider ${
+                                isSelected ? "text-Gold/70" : "text-Charcoal/30"
+                              }`}>
+                                {d.month}
+                              </span>
+                              <span className={`text-lg font-bold leading-tight -mt-0.5 ${
+                                isSelected ? "text-Gold" : "text-Charcoal/60"
+                              }`}>
+                                {d.day}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </button>
                 )
               })}
