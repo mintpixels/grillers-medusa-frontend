@@ -179,7 +179,7 @@ export default async function Checkout({ params, searchParams }: PageProps) {
       <div className="small:grid small:grid-cols-[58%_42%]">
         {/* Left column - Form */}
         <div className="px-4 small:px-8 lg:px-16 xl:pl-[max(2rem,calc((100vw-1280px)/2+2rem))] xl:pr-12 py-8 small:py-12">
-          <div className="max-w-xl">
+          <div className="small:max-w-xl">
             <PaymentWrapper cart={cart}>
               <CheckoutForm 
                 cart={cart} 
