@@ -106,7 +106,7 @@ const CheckoutSummary = ({ cart }: CheckoutSummaryProps) => {
           </div>
         )}
         <div className="flex justify-between text-sm">
-          <span className="text-gray-400">Taxes</span>
+          <span className="text-gray-400">Taxes (estimated)</span>
           <span className="text-white">
             {convertToLocale({
               amount: cart.tax_total ?? 0,

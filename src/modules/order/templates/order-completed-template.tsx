@@ -176,7 +176,7 @@ export default async function OrderCompletedTemplate({
                 </span>
               </div>
               <div className="flex justify-between text-Charcoal/70">
-                <span>Tax</span>
+                <span>Taxes (estimated)</span>
                 <span>
                   {convertToLocale({
                     amount: order.tax_total ?? 0,
