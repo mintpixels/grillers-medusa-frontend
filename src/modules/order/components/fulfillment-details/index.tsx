@@ -5,6 +5,7 @@ import type { FulfillmentType } from "@lib/data/cart"
 
 type FulfillmentDetailsProps = {
   order: HttpTypes.StoreOrder
+  plantPickupNote?: string
 }
 
 const fulfillmentLabels: Record<FulfillmentType, string> = {
@@ -56,11 +57,12 @@ function formatTimeWindow(windowId: string): string {
  * Displays fulfillment details on the order confirmation page.
  * Shows different content based on the fulfillment type.
  */
-export default function FulfillmentDetails({ order }: FulfillmentDetailsProps) {
+export default function FulfillmentDetails({ order, plantPickupNote }: FulfillmentDetailsProps) {
   const fulfillmentType = order.metadata?.fulfillmentType as FulfillmentType | undefined
   const scheduledDate = order.metadata?.scheduledDate as string | undefined
   const timeWindow = order.metadata?.scheduledTimeWindow as string | undefined
   const pickupLocationId = order.metadata?.pickupLocationId as string | undefined
+  const orderNotes = order.metadata?.orderNotes as string | undefined
 
   if (!fulfillmentType) {
     return null
@@ -81,17 +83,20 @@ export default function FulfillmentDetails({ order }: FulfillmentDetailsProps) {
           <div>
             <p className="text-sm text-gray-600">Location</p>
             <p className="font-medium">Grillers Pride Plant</p>
-            <p className="text-sm text-gray-600">
-              {/* Address would come from Strapi config */}
-              Atlanta, GA
-            </p>
+            <p className="text-sm text-gray-600">Atlanta, GA</p>
           </div>
-          <div className="bg-white/50 rounded p-3 mt-4">
-            <p className="text-sm text-Charcoal">
-              <strong>Important:</strong> Please bring your order confirmation
-              email and a valid photo ID when picking up your order.
-            </p>
-          </div>
+          {plantPickupNote ? (
+            <div className="bg-white/50 rounded p-3 mt-4">
+              <p className="text-sm text-Charcoal">{plantPickupNote}</p>
+            </div>
+          ) : (
+            <div className="bg-white/50 rounded p-3 mt-4">
+              <p className="text-sm text-Charcoal">
+                <strong>Important:</strong> Please bring your order confirmation
+                email and a valid photo ID when picking up your order.
+              </p>
+            </div>
+          )}
         </div>
       )}
 
@@ -146,7 +151,6 @@ export default function FulfillmentDetails({ order }: FulfillmentDetailsProps) {
             <div>
               <p className="text-sm text-gray-600">Pickup Location</p>
               <p className="font-medium">
-                {/* Location name would be fetched based on ID */}
                 Southeast Pickup Point #{pickupLocationId}
               </p>
             </div>
@@ -157,6 +161,13 @@ export default function FulfillmentDetails({ order }: FulfillmentDetailsProps) {
               You will receive a reminder email with complete pickup details.
             </p>
           </div>
+        </div>
+      )}
+
+      {orderNotes && (
+        <div className="mt-4 pt-4 border-t border-Gold/20">
+          <p className="text-sm text-gray-600 mb-1">Order Notes</p>
+          <p className="text-sm text-Charcoal">{orderNotes}</p>
         </div>
       )}
     </div>

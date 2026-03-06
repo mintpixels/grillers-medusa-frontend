@@ -1,162 +1,224 @@
 "use client"
 
 import { useMemo } from "react"
-import { clx } from "@medusajs/ui"
-import type { FulfillmentConfigData, SoutheastPickupLocation } from "@lib/data/strapi/checkout"
+
+export type SoutheastPickupCity = {
+  id: string
+  City: string
+  State: string
+  Address?: string
+  ZipCode?: string
+  IsActive?: boolean
+  AvailableDates: { Date: string }[]
+  CutoffDays?: number
+  Description?: string
+}
 
 type SoutheastPickupSchedulingProps = {
-  config: FulfillmentConfigData["checkout"] | null
-  selectedDate: string
+  locations: SoutheastPickupCity[]
   selectedLocationId: string
-  onDateChange: (date: string) => void
+  selectedDate: string
   onLocationChange: (locationId: string) => void
+  onDateChange: (date: string) => void
+  onConfirm: () => void
+  onBack: () => void
+}
+
+function formatDateDisplay(dateStr: string): string {
+  const [y, m, d] = dateStr.split("-").map(Number)
+  const date = new Date(y, m - 1, d)
+  return date.toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  })
+}
+
+function formatDateForCart(dateStr: string): string {
+  const [y, m, d] = dateStr.split("-").map(Number)
+  return `${m}/${d}/${y}`
 }
 
 export default function SoutheastPickupScheduling({
-  config,
-  selectedDate,
+  locations,
   selectedLocationId,
-  onDateChange,
+  selectedDate,
   onLocationChange,
+  onDateChange,
+  onConfirm,
+  onBack,
 }: SoutheastPickupSchedulingProps) {
-  const locations = config?.SoutheastPickupLocations || []
+  const activeLocations = useMemo(
+    () => locations.filter((l) => l.IsActive !== false),
+    [locations]
+  )
 
-  // Get available dates for selected location
+  const groupedByState = useMemo(() => {
+    const groups: Record<string, SoutheastPickupCity[]> = {}
+    for (const loc of activeLocations) {
+      if (!groups[loc.State]) groups[loc.State] = []
+      groups[loc.State].push(loc)
+    }
+    for (const state of Object.keys(groups)) {
+      groups[state].sort((a, b) => a.City.localeCompare(b.City))
+    }
+    return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b))
+  }, [activeLocations])
+
+  const selectedLocation = activeLocations.find((l) => l.id === selectedLocationId)
+
   const availableDates = useMemo(() => {
-    if (!selectedLocationId) return []
-    const location = locations.find((l) => l.id === selectedLocationId)
-    if (!location?.AvailableDates) return []
-
-    // Filter to future dates only
+    if (!selectedLocation?.AvailableDates?.length) return []
     const now = new Date()
-    return location.AvailableDates.filter((d) => {
-      const date = new Date(d.Date)
-      return date >= now
-    }).map((d) => d.Date)
-  }, [selectedLocationId, locations])
+    const cutoffDays = selectedLocation.CutoffDays ?? 3
+    const cutoffMs = cutoffDays * 24 * 60 * 60 * 1000
 
-  const selectedLocation = locations.find((l) => l.id === selectedLocationId)
-
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr)
-    return date.toLocaleDateString("en-US", {
-      weekday: "long",
-      month: "long",
-      day: "numeric",
+    return selectedLocation.AvailableDates.filter((d) => {
+      const [y, m, day] = d.Date.split("-").map(Number)
+      const date = new Date(y, m - 1, day)
+      return date.getTime() - now.getTime() >= cutoffMs
     })
-  }
+      .map((d) => d.Date)
+      .sort()
+  }, [selectedLocation])
 
   return (
     <div>
-      <h2 className="text-2xl font-bold mb-2">Choose Pickup Location</h2>
-      <p className="text-gray-600 mb-6">
-        Select a pickup location and available date near you.
-      </p>
-
-      {/* Location Selection */}
-      <div className="mb-6">
-        <h3 className="font-medium mb-3">Pickup Location</h3>
-        {locations.length === 0 ? (
-          <p className="text-gray-600">No pickup locations available.</p>
-        ) : (
-          <div className="space-y-2">
-            {locations.map((location) => (
-              <button
-                key={location.id}
-                type="button"
-                onClick={() => {
-                  onLocationChange(location.id)
-                  onDateChange("") // Reset date when location changes
-                }}
-                className={clx(
-                  "w-full p-4 rounded-lg border-2 transition-all text-left",
-                  {
-                    "border-Gold bg-Gold/5": selectedLocationId === location.id,
-                    "border-gray-200 hover:border-gray-300":
-                      selectedLocationId !== location.id,
-                  }
-                )}
-              >
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h4 className="font-semibold">{location.Name}</h4>
-                    <p className="text-sm text-gray-600">
-                      {location.Address}
-                      <br />
-                      {location.City}, {location.State} {location.ZipCode}
-                    </p>
-                    {location.AvailableDates?.length > 0 && (
-                      <p className="text-sm text-Gold mt-1">
-                        {location.AvailableDates.length} dates available
-                      </p>
-                    )}
-                  </div>
-                  <div
-                    className={clx(
-                      "w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center",
-                      {
-                        "border-Gold": selectedLocationId === location.id,
-                        "border-gray-300": selectedLocationId !== location.id,
-                      }
-                    )}
-                  >
-                    {selectedLocationId === location.id && (
-                      <div className="w-2.5 h-2.5 rounded-full bg-Gold" />
-                    )}
-                  </div>
-                </div>
-              </button>
-            ))}
-          </div>
-        )}
+      <div className="flex items-center gap-2 mb-4">
+        <button
+          type="button"
+          onClick={onBack}
+          className="text-sm text-Gold hover:text-Gold/80 font-medium flex items-center gap-1"
+        >
+          <svg className="w-4 h-4 rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+          Back
+        </button>
       </div>
 
-      {/* Date Selection - shows after location is selected */}
-      {selectedLocationId && (
-        <div>
-          <h3 className="font-medium mb-3">Available Pickup Dates</h3>
-          {availableDates.length === 0 ? (
-            <p className="text-gray-600">
-              No dates currently available for this location.
+      {/* Step 1: Select City */}
+      <h2 className="text-lg font-semibold text-Charcoal mb-1">
+        {selectedLocationId ? "Change Pickup City" : "Select a Pickup City"}
+      </h2>
+      <p className="text-sm text-Charcoal/70 mb-4">
+        Choose a city near you. All locations are $20 flat rate.
+      </p>
+
+      <div className="space-y-3 max-h-[320px] overflow-y-auto pr-1">
+        {groupedByState.map(([state, cities]) => (
+          <div key={state}>
+            <p className="text-xs font-semibold text-Charcoal/50 uppercase tracking-wider mb-1.5">
+              {state}
             </p>
+            <div className="grid grid-cols-2 gap-2">
+              {cities.map((loc) => {
+                const isSelected = selectedLocationId === loc.id
+                const dateCount = loc.AvailableDates?.length ?? 0
+                return (
+                  <button
+                    key={loc.id}
+                    type="button"
+                    onClick={() => {
+                      onLocationChange(loc.id)
+                      onDateChange("")
+                    }}
+                    className={`
+                      text-left px-3 py-2.5 rounded-lg border-2 transition-all
+                      ${isSelected
+                        ? "border-Gold bg-Gold/10 shadow-sm"
+                        : "border-gray-200 bg-white hover:border-Gold/50"
+                      }
+                    `}
+                  >
+                    <span className={`text-sm font-medium ${isSelected ? "text-Charcoal" : "text-Charcoal/80"}`}>
+                      {loc.City}
+                    </span>
+                    {dateCount > 0 && (
+                      <span className="block text-xs text-Charcoal/50 mt-0.5">
+                        {dateCount} date{dateCount !== 1 ? "s" : ""} available
+                      </span>
+                    )}
+                    {dateCount === 0 && (
+                      <span className="block text-xs text-amber-600 mt-0.5">
+                        No dates yet
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Step 2: Select Date (after city chosen) */}
+      {selectedLocation && (
+        <div className="mt-5">
+          <h3 className="text-sm font-semibold text-Charcoal mb-2">
+            Pickup Dates in {selectedLocation.City}, {selectedLocation.State}
+          </h3>
+
+          {selectedLocation.Address && (
+            <div className="bg-white rounded-lg p-3 mb-3 border border-gray-200">
+              <p className="text-xs font-medium text-Charcoal/50 uppercase tracking-wider mb-1">
+                Pickup Location
+              </p>
+              <p className="text-sm text-Charcoal font-medium">{selectedLocation.Address}</p>
+              <p className="text-sm text-Charcoal/70">
+                {selectedLocation.City}, {selectedLocation.State} {selectedLocation.ZipCode}
+              </p>
+            </div>
+          )}
+
+          {availableDates.length === 0 ? (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800">
+              No pickup dates are currently scheduled for {selectedLocation.City}. Please check back later or choose a different city.
+            </div>
           ) : (
-            <div className="space-y-2">
-              {availableDates.map((dateStr) => (
-                <button
-                  key={dateStr}
-                  type="button"
-                  onClick={() => {
-                    // Convert to MM/DD/YYYY format
-                    const date = new Date(dateStr)
-                    onDateChange(date.toLocaleDateString("en-US"))
-                  }}
-                  className={clx(
-                    "w-full p-3 rounded-lg border-2 transition-all text-left",
-                    {
-                      "border-Gold bg-Gold/5":
-                        selectedDate === new Date(dateStr).toLocaleDateString("en-US"),
-                      "border-gray-200 hover:border-gray-300":
-                        selectedDate !== new Date(dateStr).toLocaleDateString("en-US"),
-                    }
-                  )}
-                >
-                  <span className="font-medium">{formatDate(dateStr)}</span>
-                </button>
-              ))}
+            <div className="grid grid-cols-1 gap-2 max-h-[200px] overflow-y-auto pr-1">
+              {availableDates.map((dateStr) => {
+                const cartDate = formatDateForCart(dateStr)
+                const isSelected = cartDate === selectedDate
+                return (
+                  <button
+                    key={dateStr}
+                    type="button"
+                    onClick={() => onDateChange(cartDate)}
+                    className={`
+                      w-full text-left px-4 py-3 rounded-lg border-2 transition-all
+                      ${isSelected
+                        ? "border-Gold bg-Gold/10 shadow-sm"
+                        : "border-gray-200 bg-white hover:border-Gold/50"
+                      }
+                    `}
+                  >
+                    <span className={`text-sm font-medium ${isSelected ? "text-Charcoal" : "text-Charcoal/80"}`}>
+                      {formatDateDisplay(dateStr)}
+                    </span>
+                  </button>
+                )
+              })}
             </div>
           )}
         </div>
       )}
 
-      {selectedLocation && selectedDate && (
-        <div className="mt-4 p-3 bg-Gold/10 border border-Gold/30 rounded-md">
-          <p className="text-sm">
-            <span className="font-medium">Pickup at:</span> {selectedLocation.Name}
-            <br />
-            <span className="font-medium">Date:</span> {selectedDate}
-          </p>
-        </div>
-      )}
+      <button
+        type="button"
+        onClick={onConfirm}
+        disabled={!selectedLocationId || !selectedDate}
+        className={`
+          mt-4 w-full py-3 rounded-lg font-medium text-sm transition-all
+          ${selectedLocationId && selectedDate
+            ? "bg-Gold text-white hover:bg-Gold/90 shadow-sm"
+            : "bg-gray-100 text-gray-400 cursor-not-allowed"
+          }
+        `}
+      >
+        Confirm Pickup
+      </button>
     </div>
   )
 }

@@ -3,18 +3,21 @@
 import { useState, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { HttpTypes } from "@medusajs/types"
-import { setFulfillmentDetails, type FulfillmentType } from "@lib/data/cart"
+import { setFulfillmentDetails, setShippingMethod, type FulfillmentType } from "@lib/data/cart"
+import { findShippingOptionByType } from "@lib/data/fulfillment"
 import { convertToLocale } from "@lib/util/money"
-import type { FulfillmentConfigData } from "@lib/data/strapi/checkout"
+import type { FulfillmentConfigData, PickupCreditConfig } from "@lib/data/strapi/checkout"
+import PlantPickupScheduling from "@modules/checkout/components/fulfillment-selector/scheduling/plant-pickup"
+import SoutheastPickupScheduling from "@modules/checkout/components/fulfillment-selector/scheduling/southeast-pickup"
 
 type FulfillmentStepProps = {
   cart: HttpTypes.StoreCart
   customer: HttpTypes.StoreCustomer | null
   config: FulfillmentConfigData["checkout"]
   availableFulfillmentTypes: FulfillmentType[]
+  pickupCreditConfig: PickupCreditConfig
 }
 
-// Icons
 const TruckIcon = () => (
   <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
@@ -59,28 +62,38 @@ const fulfillmentLabels: Record<FulfillmentType, { label: string; description: s
   },
 }
 
-export default function FulfillmentStep({ cart, customer, config, availableFulfillmentTypes }: FulfillmentStepProps) {
+type SubStep = "select" | "plant_date" | "southeast_pickup"
+
+export default function FulfillmentStep({ cart, customer, config, availableFulfillmentTypes, pickupCreditConfig }: FulfillmentStepProps) {
   const router = useRouter()
   const [isEditing, setIsEditing] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [subStep, setSubStep] = useState<SubStep>("select")
+  const [pendingPickupDate, setPendingPickupDate] = useState("")
+  const [pendingSELocationId, setPendingSELocationId] = useState("")
+  const [pendingSEDate, setPendingSEDate] = useState("")
+
+  const attachShippingMethod = async (type: FulfillmentType) => {
+    if (type === "ups_shipping") return
+    const option = await findShippingOptionByType(cart.id, type)
+    if (option) {
+      await setShippingMethod({ cartId: cart.id, shippingMethodId: option.id })
+    }
+  }
 
   const rawFulfillmentType = cart.metadata?.fulfillmentType as string | undefined
   const fulfillmentType = rawFulfillmentType && rawFulfillmentType.length > 0 ? rawFulfillmentType as FulfillmentType : undefined
   const scheduledDate = cart.metadata?.scheduledDate as string | undefined
   const hasFulfillment = Boolean(fulfillmentType)
 
-  // Show selection mode if no fulfillment or editing
   const showSelection = !hasFulfillment || isEditing
 
-  // Cart total - cart.total is already in the display currency unit (dollars)
   const cartTotal = cart.total || 0
+  const cartSubtotal = cart.subtotal || 0
 
-  // Get minimum thresholds from config (in dollars)
-  // If values seem too high (>500), assume they're in cents and convert
   const normalizeMinimum = (value: number | undefined, defaultValue: number): number => {
     if (value === undefined || value === null) return defaultValue
-    // If value is over 500, assume it's in cents and convert to dollars
     return value > 500 ? value / 100 : value
   }
 
@@ -91,7 +104,6 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
     southeastPickup: normalizeMinimum(config?.MinimumOrderThresholds?.SoutheastPickup, 0),
   }), [config])
 
-  // Check availability based on minimums
   const availability = useMemo(() => ({
     upsShipping: cartTotal >= minimums.upsShipping,
     upsAmountAway: Math.max(0, minimums.upsShipping - cartTotal),
@@ -103,7 +115,9 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
     southeastAmountAway: Math.max(0, minimums.southeastPickup - cartTotal),
   }), [cartTotal, minimums])
 
-  // All possible fulfillment options
+  const pickupCreditQualifies = cartSubtotal >= pickupCreditConfig.threshold
+  const pickupCreditAmountAway = Math.max(0, pickupCreditConfig.threshold - cartSubtotal)
+
   const allOptions = [
     {
       id: "ups_shipping" as FulfillmentType,
@@ -139,25 +153,32 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
     },
   ]
 
-  // Filter options to only show those available from Medusa
-  // If no types returned from Medusa (empty array), show all options as fallback
   const options = availableFulfillmentTypes.length > 0
     ? allOptions.filter(opt => availableFulfillmentTypes.includes(opt.id))
     : allOptions
 
   const handleSelectOption = async (option: FulfillmentType) => {
     if (isSubmitting) return
-    
+
+    if (option === "plant_pickup") {
+      setPendingPickupDate("")
+      setSubStep("plant_date")
+      return
+    }
+
+    if (option === "southeast_pickup") {
+      setPendingSELocationId("")
+      setPendingSEDate("")
+      setSubStep("southeast_pickup")
+      return
+    }
+
     setIsSubmitting(true)
     setError(null)
 
     try {
-      // Set a default scheduled date (today)
       const today = new Date().toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' })
-      
-      // Save fulfillment metadata on the cart
-      // The actual shipping method is attached later in setAddresses (step 2)
-      // because Medusa requires an address before it can validate a shipping method
+
       await setFulfillmentDetails({
         cartId: cart.id,
         fulfillmentType: option,
@@ -165,7 +186,10 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
         scheduledDate: today,
       })
 
+      await attachShippingMethod(option)
+
       setIsEditing(false)
+      setSubStep("select")
       router.refresh()
     } catch (err: any) {
       setError(err.message || "Failed to set fulfillment")
@@ -174,13 +198,67 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
     }
   }
 
-  // Toggle editing mode - no API call needed, selecting a new option overwrites the old one
+  const handleConfirmPickupDate = async () => {
+    if (isSubmitting || !pendingPickupDate) return
+
+    setIsSubmitting(true)
+    setError(null)
+
+    try {
+      await setFulfillmentDetails({
+        cartId: cart.id,
+        fulfillmentType: "plant_pickup",
+        fulfillmentZip: "00000",
+        scheduledDate: pendingPickupDate,
+      })
+
+      await attachShippingMethod("plant_pickup")
+
+      setIsEditing(false)
+      setSubStep("select")
+      router.refresh()
+    } catch (err: any) {
+      setError(err.message || "Failed to set fulfillment")
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleConfirmSoutheastPickup = async () => {
+    if (isSubmitting || !pendingSELocationId || !pendingSEDate) return
+
+    setIsSubmitting(true)
+    setError(null)
+
+    try {
+      await setFulfillmentDetails({
+        cartId: cart.id,
+        fulfillmentType: "southeast_pickup",
+        fulfillmentZip: "00000",
+        scheduledDate: pendingSEDate,
+        pickupLocationId: pendingSELocationId,
+      })
+
+      await attachShippingMethod("southeast_pickup")
+
+      setIsEditing(false)
+      setSubStep("select")
+      router.refresh()
+    } catch (err: any) {
+      setError(err.message || "Failed to set fulfillment")
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
   const handleChange = () => {
     if (isEditing) {
       setIsEditing(false)
+      setSubStep("select")
     } else {
       setError(null)
       setIsEditing(true)
+      setSubStep("select")
     }
   }
 
@@ -217,7 +295,7 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
       </div>
 
       {/* Selection Mode */}
-      {showSelection && (
+      {showSelection && subStep === "select" && (
         <div>
           <h2 className="text-lg font-semibold text-Charcoal mb-1">
             How would you like to receive your order?
@@ -251,8 +329,17 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
                   <p className={`text-xs mt-0.5 ${option.available ? "text-Charcoal/60" : "text-gray-400"}`}>
                     {option.subtitle}
                   </p>
+
+                  {/* Plant pickup credit teaser */}
+                  {option.id === "plant_pickup" && option.available && (
+                    <p className="text-xs text-green-600 mt-2 font-medium">
+                      {pickupCreditQualifies
+                        ? `${convertToLocale({ amount: pickupCreditConfig.creditAmount, currency_code: cart.currency_code })} pickup credit!`
+                        : `Add ${convertToLocale({ amount: pickupCreditAmountAway, currency_code: cart.currency_code })} more for a ${convertToLocale({ amount: pickupCreditConfig.creditAmount, currency_code: cart.currency_code })} credit`
+                      }
+                    </p>
+                  )}
                   
-                  {/* Minimum order message */}
                   {!option.available && option.amountAway > 0 && (
                     <p className="text-xs text-amber-600 mt-2 font-medium">
                       Add {convertToLocale({ amount: option.amountAway, currency_code: cart.currency_code })} more to qualify
@@ -271,21 +358,45 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
         </div>
       )}
 
+      {/* Plant Pickup Date Selection Sub-step */}
+      {showSelection && subStep === "plant_date" && (
+        <PlantPickupScheduling
+          config={config}
+          selectedDate={pendingPickupDate}
+          onDateChange={setPendingPickupDate}
+          onConfirm={handleConfirmPickupDate}
+          onBack={() => setSubStep("select")}
+        />
+      )}
+
+      {/* Southeast Pickup Location/Date Sub-step */}
+      {showSelection && subStep === "southeast_pickup" && (
+        <SoutheastPickupScheduling
+          locations={config.SoutheastPickupLocations?.map((loc) => ({
+            ...loc,
+            IsActive: true,
+          })) || []}
+          selectedLocationId={pendingSELocationId}
+          selectedDate={pendingSEDate}
+          onLocationChange={setPendingSELocationId}
+          onDateChange={setPendingSEDate}
+          onConfirm={handleConfirmSoutheastPickup}
+          onBack={() => setSubStep("select")}
+        />
+      )}
+
       {/* Summary Mode */}
       {!showSelection && fulfillmentType && (
         <div className="flex items-start gap-4">
-          {/* Icon */}
           <div className="p-3 bg-Gold rounded-xl text-white shadow-sm">
             {options.find(o => o.id === fulfillmentType)?.icon}
           </div>
           
-          {/* Details */}
           <div className="flex-1">
             <h3 className="text-lg font-semibold text-Charcoal mb-1">
               {fulfillmentLabels[fulfillmentType].label}
             </h3>
             
-            {/* Schedule info */}
             {scheduledDate && (
               <div className="flex items-center gap-2 text-sm text-Charcoal/80 mb-2">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -295,10 +406,35 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
               </div>
             )}
             
-            {/* Description */}
             <p className="text-sm text-Charcoal/70 leading-relaxed">
               {fulfillmentLabels[fulfillmentType].description}
             </p>
+
+            {/* Southeast pickup location summary */}
+            {fulfillmentType === "southeast_pickup" && cart.metadata?.pickupLocationId && (
+              <div className="mt-2 text-sm text-Charcoal/80">
+                <span className="font-medium">Location: </span>
+                {config.SoutheastPickupLocations?.find(
+                  (l) => l.id === cart.metadata?.pickupLocationId
+                )?.Name || cart.metadata.pickupLocationId}
+              </div>
+            )}
+
+            {/* Pickup credit confirmation */}
+            {fulfillmentType === "plant_pickup" && pickupCreditQualifies && (
+              <p className="text-sm text-green-600 font-medium mt-2">
+                {convertToLocale({ amount: pickupCreditConfig.creditAmount, currency_code: cart.currency_code })} pickup credit applied!
+              </p>
+            )}
+
+            {/* Post-order note preview for plant pickup */}
+            {fulfillmentType === "plant_pickup" && config.PlantPickupPostOrderNote && (
+              <div className="mt-3 bg-Gold/5 border border-Gold/20 rounded-lg p-3">
+                <p className="text-xs text-Charcoal/70">
+                  {config.PlantPickupPostOrderNote}
+                </p>
+              </div>
+            )}
           </div>
         </div>
       )}

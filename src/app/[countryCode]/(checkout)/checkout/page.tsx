@@ -5,8 +5,11 @@ import strapiClient from "@lib/strapi"
 import {
   GetCheckoutSEOQuery,
   FulfillmentConfigQuery,
+  ShippingSettingQuery,
   type CheckoutPageData,
   type FulfillmentConfigData,
+  type ShippingSettingData,
+  type PickupCreditConfig,
 } from "@lib/data/strapi/checkout"
 import PaymentWrapper from "@modules/checkout/components/payment-wrapper"
 import CheckoutForm from "@modules/checkout/templates/checkout-form"
@@ -46,6 +49,17 @@ const defaultFulfillmentConfig: FulfillmentConfigData["checkout"] = {
   PlantPickupZip: "30329",
   PlantPickupHours: "Mon-Thu 9am-4pm, Fri 9am-2pm",
   AtlantaDeliveryFee: 22.50,
+  PlantPickupAvailableDays: ["Tuesday", "Wednesday"],
+  PlantPickupAdditionalDates: [],
+  PlantPickupBlackoutDates: [],
+  PlantPickupPostOrderNote: "We will call you when your order is ready on the day of pickup.",
+  PlantPickupCutoffHours: 0,
+}
+
+const defaultPickupCreditConfig: PickupCreditConfig = {
+  threshold: 50,
+  creditAmount: 7.50,
+  promoCode: "PLANTPICKUP750",
 }
 
 async function getFulfillmentConfig(): Promise<FulfillmentConfigData["checkout"]> {
@@ -70,6 +84,22 @@ async function getFulfillmentConfig(): Promise<FulfillmentConfigData["checkout"]
     return defaultFulfillmentConfig
   } catch {
     return defaultFulfillmentConfig
+  }
+}
+
+async function getPickupCreditConfig(): Promise<PickupCreditConfig> {
+  try {
+    const data = await strapiClient.request<ShippingSettingData>(ShippingSettingQuery)
+    if (data?.shippingSetting) {
+      return {
+        threshold: data.shippingSetting.PlantPickupDiscountThreshold ?? defaultPickupCreditConfig.threshold,
+        creditAmount: data.shippingSetting.PlantPickUpDiscount ?? defaultPickupCreditConfig.creditAmount,
+        promoCode: defaultPickupCreditConfig.promoCode,
+      }
+    }
+    return defaultPickupCreditConfig
+  } catch {
+    return defaultPickupCreditConfig
   }
 }
 
@@ -120,12 +150,12 @@ export default async function Checkout({ params, searchParams }: PageProps) {
     redirect(`/${countryCode}/cart`)
   }
 
-  // No longer redirect to fulfillment page - show fulfillment selection inline
   const customer = await retrieveCustomer()
-  const fulfillmentConfig = await getFulfillmentConfig()
-  
-  // Fetch available fulfillment types from Medusa shipping options
-  const availableFulfillmentTypes = await getAvailableFulfillmentTypes(cart.id)
+  const [fulfillmentConfig, pickupCreditConfig, availableFulfillmentTypes] = await Promise.all([
+    getFulfillmentConfig(),
+    getPickupCreditConfig(),
+    getAvailableFulfillmentTypes(cart.id),
+  ])
 
   return (
     <div className="relative min-h-[calc(100vh-8rem)]">
@@ -145,6 +175,7 @@ export default async function Checkout({ params, searchParams }: PageProps) {
                 customer={customer} 
                 fulfillmentConfig={fulfillmentConfig}
                 availableFulfillmentTypes={availableFulfillmentTypes}
+                pickupCreditConfig={pickupCreditConfig}
                 currentStep={resolvedSearchParams?.step as string | undefined}
               />
             </PaymentWrapper>

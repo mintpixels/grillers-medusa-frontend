@@ -7,7 +7,8 @@ import Shipping from "@modules/checkout/components/shipping"
 import FulfillmentStep from "@modules/checkout/components/fulfillment-step"
 import CheckoutLoginBanner from "@modules/checkout/components/checkout-login-banner"
 import type { FulfillmentType } from "@lib/data/cart"
-import type { FulfillmentConfigData } from "@lib/data/strapi/checkout"
+import type { FulfillmentConfigData, PickupCreditConfig } from "@lib/data/strapi/checkout"
+import PickupCreditManager from "@modules/checkout/components/pickup-credit-manager"
 
 function needsShippingMethodSelection(cart: HttpTypes.StoreCart): boolean {
   const fulfillmentType = cart.metadata?.fulfillmentType as FulfillmentType | undefined
@@ -19,12 +20,14 @@ export default async function CheckoutForm({
   customer,
   fulfillmentConfig,
   availableFulfillmentTypes,
+  pickupCreditConfig,
   currentStep,
 }: {
   cart: HttpTypes.StoreCart | null
   customer: HttpTypes.StoreCustomer | null
   fulfillmentConfig: FulfillmentConfigData["checkout"]
   availableFulfillmentTypes: FulfillmentType[]
+  pickupCreditConfig: PickupCreditConfig
   currentStep?: string
 }) {
   if (!cart) {
@@ -51,7 +54,7 @@ export default async function CheckoutForm({
 
   return (
     <div className="w-full grid grid-cols-1 gap-y-6">
-      {/* Login/signup banner — always at the top */}
+      <PickupCreditManager cart={cart} pickupCreditConfig={pickupCreditConfig} />
       <CheckoutLoginBanner customer={customer} />
 
       {/* Everything below requires authentication */}
@@ -63,6 +66,7 @@ export default async function CheckoutForm({
             customer={customer} 
             config={fulfillmentConfig}
             availableFulfillmentTypes={availableFulfillmentTypes}
+            pickupCreditConfig={pickupCreditConfig}
           />
 
           {/* Step 2: Address — only after fulfillment chosen */}

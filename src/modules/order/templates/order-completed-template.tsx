@@ -8,10 +8,12 @@ import FulfillmentDetails from "@modules/order/components/fulfillment-details"
 
 type OrderCompletedTemplateProps = {
   order: HttpTypes.StoreOrder
+  plantPickupNote?: string
 }
 
 export default async function OrderCompletedTemplate({
   order,
+  plantPickupNote,
 }: OrderCompletedTemplateProps) {
   const cookies = await nextCookies()
   const isOnboarding = cookies.get("_medusa_onboarding")?.value === "true"
@@ -54,7 +56,7 @@ export default async function OrderCompletedTemplate({
         </div>
 
         {/* Fulfillment details */}
-        <FulfillmentDetails order={order} />
+        <FulfillmentDetails order={order} plantPickupNote={plantPickupNote} />
 
         {/* Items card */}
         <div className="bg-white rounded-xl border border-Charcoal/10 shadow-sm mb-6 overflow-hidden">

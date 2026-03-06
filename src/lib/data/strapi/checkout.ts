@@ -51,7 +51,26 @@ export type FulfillmentConfigData = {
     PlantPickupHours: string
     // Atlanta delivery fee
     AtlantaDeliveryFee: number
+    // Plant pickup scheduling (Strapi-driven)
+    PlantPickupAvailableDays: string[]
+    PlantPickupAdditionalDates: { Date: string }[]
+    PlantPickupBlackoutDates: { Date: string }[]
+    PlantPickupPostOrderNote: string
+    PlantPickupCutoffHours: number
   }
+}
+
+export type ShippingSettingData = {
+  shippingSetting: {
+    PlantPickupDiscountThreshold: number | null
+    PlantPickUpDiscount: number | null
+  } | null
+}
+
+export type PickupCreditConfig = {
+  threshold: number
+  creditAmount: number
+  promoCode: string
 }
 
 export const FulfillmentConfigQuery = gql`
@@ -90,6 +109,24 @@ export const FulfillmentConfigQuery = gql`
       PlantPickupZip
       PlantPickupHours
       AtlantaDeliveryFee
+      PlantPickupAvailableDays
+      PlantPickupAdditionalDates {
+        Date
+      }
+      PlantPickupBlackoutDates {
+        Date
+      }
+      PlantPickupPostOrderNote
+      PlantPickupCutoffHours
+    }
+  }
+`
+
+export const ShippingSettingQuery = gql`
+  query ShippingSetting {
+    shippingSetting {
+      PlantPickupDiscountThreshold
+      PlantPickUpDiscount
     }
   }
 `

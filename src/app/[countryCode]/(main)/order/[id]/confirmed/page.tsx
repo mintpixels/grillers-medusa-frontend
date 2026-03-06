@@ -1,4 +1,9 @@
 import { retrieveOrder } from "@lib/data/orders"
+import strapiClient from "@lib/strapi"
+import {
+  FulfillmentConfigQuery,
+  type FulfillmentConfigData,
+} from "@lib/data/strapi/checkout"
 import OrderCompletedTemplate from "@modules/order/templates/order-completed-template"
 import { Metadata } from "next"
 import { notFound } from "next/navigation"
@@ -11,13 +16,25 @@ export const metadata: Metadata = {
   description: "You purchase was successful",
 }
 
+async function getPlantPickupNote(): Promise<string> {
+  try {
+    const data = await strapiClient.request<FulfillmentConfigData>(FulfillmentConfigQuery)
+    return data?.checkout?.PlantPickupPostOrderNote || ""
+  } catch {
+    return ""
+  }
+}
+
 export default async function OrderConfirmedPage(props: Props) {
   const params = await props.params
-  const order = await retrieveOrder(params.id).catch(() => null)
+  const [order, plantPickupNote] = await Promise.all([
+    retrieveOrder(params.id).catch(() => null),
+    getPlantPickupNote(),
+  ])
 
   if (!order) {
     return notFound()
   }
 
-  return <OrderCompletedTemplate order={order} />
+  return <OrderCompletedTemplate order={order} plantPickupNote={plantPickupNote} />
 }

@@ -116,7 +116,9 @@ const CheckoutSummary = ({ cart }: CheckoutSummaryProps) => {
         </div>
         {(cart.discount_total ?? 0) > 0 && (
           <div className="flex justify-between text-sm">
-            <span className="text-gray-400">Discount</span>
+            <span className="text-gray-400">
+              {fulfillmentType === "plant_pickup" ? "Pickup Credit" : "Discount"}
+            </span>
             <span className="text-green-400">
               -
               {convertToLocale({

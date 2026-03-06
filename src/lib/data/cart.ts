@@ -291,6 +291,29 @@ export async function setFulfillmentDetails({
 }
 
 /**
+ * Saves customer order notes to cart metadata.
+ */
+export async function setOrderNotes({
+  cartId,
+  notes,
+}: {
+  cartId: string
+  notes: string
+}) {
+  const headers = {
+    ...(await getAuthHeaders()),
+  }
+
+  return sdk.store.cart
+    .update(cartId, { metadata: { orderNotes: notes } }, {}, headers)
+    .then(async () => {
+      const cartCacheTag = await getCacheTag("carts")
+      revalidateTag(cartCacheTag)
+    })
+    .catch(medusaError)
+}
+
+/**
  * Clears fulfillment details from cart metadata (for when user wants to change selection)
  */
 export async function clearFulfillmentDetails(cartId: string) {

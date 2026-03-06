@@ -1,6 +1,6 @@
 "use client"
 
-import { setAddresses } from "@lib/data/cart"
+import { setAddresses, setOrderNotes } from "@lib/data/cart"
 import type { FulfillmentType } from "@lib/data/cart"
 import compareAddresses from "@lib/util/compare-addresses"
 import { trackBeginCheckout } from "@lib/gtm"
@@ -97,6 +97,23 @@ const Addresses = ({
     setCheckoutEmail(email)
   }, [])
 
+  const [orderNotes, setOrderNotesState] = useState(
+    (cart?.metadata?.orderNotes as string) || ""
+  )
+  const notesTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const handleNotesChange = useCallback(
+    (value: string) => {
+      setOrderNotesState(value)
+      if (notesTimerRef.current) clearTimeout(notesTimerRef.current)
+      notesTimerRef.current = setTimeout(() => {
+        if (cart?.id) {
+          setOrderNotes({ cartId: cart.id, notes: value })
+        }
+      }, 800)
+    },
+    [cart?.id]
+  )
+
   // For pickup orders, we show a simplified form
   if (isPickup) {
     const hasAddress = cart?.billing_address || cart?.shipping_address
@@ -145,6 +162,21 @@ const Addresses = ({
               isPickupOrder={true}
               onEmailBlur={handleEmailBlur}
             />
+
+            <div className="mt-6">
+              <label htmlFor="order-notes" className="block text-sm font-medium text-gray-700 mb-1">
+                Order Notes <span className="text-gray-400 font-normal">(optional)</span>
+              </label>
+              <textarea
+                id="order-notes"
+                name="orderNotes"
+                rows={3}
+                value={orderNotes}
+                onChange={(e) => handleNotesChange(e.target.value)}
+                placeholder="Any special requests or instructions for your order..."
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-Gold focus:ring-1 focus:ring-Gold resize-none"
+              />
+            </div>
             
             <div className="flex justify-end mt-6">
               <SubmitButton className="!w-auto px-8" data-testid="submit-address-button">
@@ -264,6 +296,21 @@ const Addresses = ({
               </p>
             </div>
           )}
+
+          <div className="mt-6">
+            <label htmlFor="order-notes-shipping" className="block text-sm font-medium text-gray-700 mb-1">
+              Order Notes <span className="text-gray-400 font-normal">(optional)</span>
+            </label>
+            <textarea
+              id="order-notes-shipping"
+              name="orderNotes"
+              rows={3}
+              value={orderNotes}
+              onChange={(e) => handleNotesChange(e.target.value)}
+              placeholder="Any special requests or instructions for your order..."
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-Gold focus:ring-1 focus:ring-Gold resize-none"
+            />
+          </div>
           
           <div className="flex justify-end mt-6">
             <SubmitButton className="!w-auto px-8" disabled={addressMismatch} data-testid="submit-address-button">
