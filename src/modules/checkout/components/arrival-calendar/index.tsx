@@ -11,7 +11,8 @@ import { CheckoutShippingBlackoutQuery } from "@lib/data/strapi/checkout"
 import type { CheckoutShippingBlackoutData } from "@lib/data/strapi/checkout"
 
 const timeZone = getLocalTimeZone()
-const MIN_DATE = today(timeZone).toDate(timeZone)
+const tomorrow = today(timeZone).add({ days: 1 })
+const MIN_DATE = tomorrow.toDate(timeZone)
 
 const WEEKDAY_NAMES = [
   "Sunday",
