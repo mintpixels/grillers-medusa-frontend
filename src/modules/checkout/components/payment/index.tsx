@@ -76,7 +76,7 @@ const Payment = ({
 
   useEffect(() => {
     if (!selectedPaymentMethod && filteredPaymentMethods.length === 1) {
-      setPaymentMethod(filteredPaymentMethods[0].id)
+      setSelectedPaymentMethod(filteredPaymentMethods[0].id)
     }
   }, [filteredPaymentMethods.length])
 
