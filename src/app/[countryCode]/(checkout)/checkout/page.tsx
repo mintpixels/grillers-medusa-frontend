@@ -5,10 +5,12 @@ import strapiClient from "@lib/strapi"
 import {
   GetCheckoutSEOQuery,
   FulfillmentConfigQuery,
+  SoutheastPickupLocationsQuery,
   ShippingSettingQuery,
   type CheckoutPageData,
   type FulfillmentConfigData,
   type ShippingSettingData,
+  type SoutheastPickupLocationsData,
   type PickupCreditConfig,
 } from "@lib/data/strapi/checkout"
 import PaymentWrapper from "@modules/checkout/components/payment-wrapper"
@@ -64,24 +66,33 @@ const defaultPickupCreditConfig: PickupCreditConfig = {
 
 async function getFulfillmentConfig(): Promise<FulfillmentConfigData["checkout"]> {
   try {
-    const data = await strapiClient.request<FulfillmentConfigData>(
-      FulfillmentConfigQuery
-    )
+    const [checkoutData, seLocationsData] = await Promise.all([
+      strapiClient.request<FulfillmentConfigData>(FulfillmentConfigQuery).catch(() => null),
+      strapiClient.request<SoutheastPickupLocationsData>(SoutheastPickupLocationsQuery).catch(() => null),
+    ])
     
-    // Merge Strapi data with defaults - Strapi fields override defaults only if they exist
-    if (data?.checkout) {
-      return {
-        ...defaultFulfillmentConfig,
-        ...data.checkout,
-        // Deep merge MinimumOrderThresholds to handle partial data
-        MinimumOrderThresholds: {
-          ...defaultFulfillmentConfig.MinimumOrderThresholds,
-          ...(data.checkout.MinimumOrderThresholds || {}),
-        },
-      }
+    const seLocations = (seLocationsData?.southeastPickupLocations ?? []).map((loc) => ({
+      id: loc.documentId,
+      Name: `${loc.City}, ${loc.State}`,
+      Address: loc.Address ?? "",
+      City: loc.City,
+      State: loc.State,
+      ZipCode: loc.ZipCode ?? "",
+      AvailableDates: loc.AvailableDates ?? [],
+      CutoffDays: loc.CutoffDays ?? 3,
+    }))
+
+    return {
+      ...defaultFulfillmentConfig,
+      ...(checkoutData?.checkout ?? {}),
+      MinimumOrderThresholds: {
+        ...defaultFulfillmentConfig.MinimumOrderThresholds,
+        ...(checkoutData?.checkout?.MinimumOrderThresholds || {}),
+      },
+      SoutheastPickupLocations: seLocations.length > 0
+        ? seLocations
+        : defaultFulfillmentConfig.SoutheastPickupLocations,
     }
-    
-    return defaultFulfillmentConfig
   } catch {
     return defaultFulfillmentConfig
   }

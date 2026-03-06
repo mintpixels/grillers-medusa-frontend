@@ -73,42 +73,14 @@ export type PickupCreditConfig = {
   promoCode: string
 }
 
+/**
+ * Fetches checkout-level config from the Checkout singleton.
+ * Only includes fields that actually exist on the Checkout content type.
+ * Southeast Pickup Locations are fetched separately via SoutheastPickupLocationsQuery.
+ */
 export const FulfillmentConfigQuery = gql`
   query FulfillmentConfig {
     checkout {
-      AtlantaDeliveryZipCodes
-      SoutheastZipPrefixes
-      SoutheastPickupLocations {
-        id
-        Name
-        Address
-        City
-        State
-        ZipCode
-        AvailableDates {
-          Date
-        }
-        CutoffDays
-      }
-      AtlantaDeliveryTimeWindows {
-        id
-        Label
-        StartTime
-        EndTime
-      }
-      MinimumOrderThresholds {
-        PlantPickup
-        AtlantaDelivery
-        AtlantaDeliveryFree
-        UPSShipping
-        SoutheastPickup
-      }
-      PlantPickupAddress
-      PlantPickupCity
-      PlantPickupState
-      PlantPickupZip
-      PlantPickupHours
-      AtlantaDeliveryFee
       PlantPickupAvailableDays
       PlantPickupAdditionalDates {
         Date
@@ -118,6 +90,41 @@ export const FulfillmentConfigQuery = gql`
       }
       PlantPickupPostOrderNote
       PlantPickupCutoffHours
+    }
+  }
+`
+
+export type SoutheastPickupLocationsData = {
+  southeastPickupLocations: {
+    documentId: string
+    City: string
+    State: string
+    Address: string | null
+    ZipCode: string | null
+    IsActive: boolean
+    AvailableDates: { Date: string }[]
+    CutoffDays: number
+    Description: string | null
+  }[]
+}
+
+export const SoutheastPickupLocationsQuery = gql`
+  query SoutheastPickupLocations {
+    southeastPickupLocations(
+      filters: { IsActive: { eq: true } }
+      pagination: { pageSize: 100 }
+    ) {
+      documentId
+      City
+      State
+      Address
+      ZipCode
+      IsActive
+      AvailableDates {
+        Date
+      }
+      CutoffDays
+      Description
     }
   }
 `
