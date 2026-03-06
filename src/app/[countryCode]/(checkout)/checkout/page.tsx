@@ -59,7 +59,7 @@ const defaultFulfillmentConfig: FulfillmentConfigData["checkout"] = {
 }
 
 const defaultPickupCreditConfig: PickupCreditConfig = {
-  threshold: 50,
+  threshold: 150,
   creditAmount: 7.50,
   promoCode: "PLANTPICKUP750",
 }
