@@ -1,10 +1,9 @@
 "use client"
 
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 import {
   getAvailablePickupDates,
   formatPickupDate,
-  formatPickupDateDisplay,
 } from "@lib/util/pickup-dates"
 import type { FulfillmentConfigData } from "@lib/data/strapi/checkout"
 
@@ -17,6 +16,46 @@ type PlantPickupSchedulingProps = {
   isSubmitting?: boolean
 }
 
+type WeekGroup = {
+  label: string
+  weekKey: string
+  dates: Date[]
+}
+
+const INITIAL_WEEKS_SHOWN = 3
+
+function getMonday(date: Date): Date {
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+  const day = d.getDay()
+  const diff = day === 0 ? -6 : 1 - day
+  d.setDate(d.getDate() + diff)
+  return d
+}
+
+function weekKey(date: Date): string {
+  const mon = getMonday(date)
+  return `${mon.getFullYear()}-${String(mon.getMonth() + 1).padStart(2, "0")}-${String(mon.getDate()).padStart(2, "0")}`
+}
+
+function getWeekLabel(mondayOfWeek: Date, today: Date): string {
+  const todayMonday = getMonday(today)
+
+  const diffMs = mondayOfWeek.getTime() - todayMonday.getTime()
+  const diffWeeks = Math.round(diffMs / (7 * 24 * 60 * 60 * 1000))
+
+  if (diffWeeks === 0) return "This Week"
+  if (diffWeeks === 1) return "Next Week"
+
+  return `Week of ${mondayOfWeek.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
+}
+
+function formatDayButton(date: Date): { dayName: string; monthDay: string } {
+  return {
+    dayName: date.toLocaleDateString("en-US", { weekday: "short" }),
+    monthDay: date.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+  }
+}
+
 export default function PlantPickupScheduling({
   config,
   selectedDate,
@@ -25,6 +64,8 @@ export default function PlantPickupScheduling({
   onBack,
   isSubmitting = false,
 }: PlantPickupSchedulingProps) {
+  const [showAll, setShowAll] = useState(false)
+
   const availableDates = useMemo(
     () =>
       getAvailablePickupDates({
@@ -35,6 +76,33 @@ export default function PlantPickupScheduling({
       }),
     [config]
   )
+
+  const weekGroups = useMemo((): WeekGroup[] => {
+    if (availableDates.length === 0) return []
+
+    const today = new Date()
+    const groups = new Map<string, { monday: Date; dates: Date[] }>()
+
+    for (const date of availableDates) {
+      const key = weekKey(date)
+      if (!groups.has(key)) {
+        groups.set(key, { monday: getMonday(date), dates: [] })
+      }
+      groups.get(key)!.dates.push(date)
+    }
+
+    return Array.from(groups.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, { monday, dates }]) => ({
+        label: getWeekLabel(monday, today),
+        weekKey: key,
+        dates: dates.sort((a, b) => a.getTime() - b.getTime()),
+      }))
+  }, [availableDates])
+
+  const visibleGroups = showAll ? weekGroups : weekGroups.slice(0, INITIAL_WEEKS_SHOWN)
+  const hiddenCount = weekGroups.length - INITIAL_WEEKS_SHOWN
+  const hiddenDateCount = weekGroups.slice(INITIAL_WEEKS_SHOWN).reduce((sum, g) => sum + g.dates.length, 0)
 
   const handleSelect = (date: Date) => {
     onDateChange(formatPickupDate(date))
@@ -59,8 +127,8 @@ export default function PlantPickupScheduling({
         <h2 className="text-lg font-semibold text-Charcoal mb-0.5">
           Select a Pickup Date
         </h2>
-        <p className="text-sm text-Charcoal/60 mb-4">
-          Choose an available date for plant pickup.
+        <p className="text-sm text-Charcoal/60">
+          Available for pickup on {(config.PlantPickupAvailableDays ?? ["Tuesday", "Wednesday"]).join(" & ")}s.
         </p>
       </div>
 
@@ -83,34 +151,87 @@ export default function PlantPickupScheduling({
         </div>
       )}
 
-      {availableDates.length === 0 ? (
+      {weekGroups.length === 0 ? (
         <div className="bg-amber-50 border border-amber-200/80 rounded-xl p-4 text-sm text-amber-800">
           No pickup dates are currently available. Please check back later or choose a different fulfillment method.
         </div>
       ) : (
-        <div className="space-y-2 max-h-[280px] overflow-y-auto pr-1 scrollbar-thin">
-          {availableDates.map((date) => {
-            const formatted = formatPickupDate(date)
-            const isSelected = formatted === selectedDate
-            return (
-              <button
-                key={formatted}
-                type="button"
-                onClick={() => handleSelect(date)}
-                className={`
-                  w-full text-left px-4 py-3 rounded-xl border-2 transition-all duration-200
-                  ${isSelected
-                    ? "border-Gold bg-Gold/5 shadow-sm ring-1 ring-Gold/20"
-                    : "border-gray-200 bg-white hover:border-Gold/40 hover:shadow-sm"
-                  }
-                `}
-              >
-                <span className={`text-sm font-semibold ${isSelected ? "text-Charcoal" : "text-Charcoal/75"}`}>
-                  {formatPickupDateDisplay(date)}
-                </span>
-              </button>
-            )
-          })}
+        <div className="space-y-3">
+          {visibleGroups.map((group, groupIdx) => (
+            <div key={group.weekKey}>
+              <div className="flex items-center gap-2 mb-2">
+                <p className="text-[11px] font-bold text-Charcoal/40 uppercase tracking-[0.12em]">
+                  {group.label}
+                </p>
+                <div className="flex-1 h-px bg-Charcoal/[0.06]" />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                {group.dates.map((date) => {
+                  const formatted = formatPickupDate(date)
+                  const isSelected = formatted === selectedDate
+                  const { dayName, monthDay } = formatDayButton(date)
+                  const isThisWeek = groupIdx === 0 && group.label === "This Week"
+
+                  return (
+                    <button
+                      key={formatted}
+                      type="button"
+                      onClick={() => handleSelect(date)}
+                      className={`
+                        relative text-left px-4 py-3 rounded-xl border-2 transition-all duration-200
+                        ${isSelected
+                          ? "border-Gold bg-Gold/5 shadow-sm ring-1 ring-Gold/20"
+                          : "border-gray-200 bg-white hover:border-Gold/40 hover:shadow-sm"
+                        }
+                      `}
+                    >
+                      {isThisWeek && !isSelected && (
+                        <span className="absolute top-1.5 right-2 text-[9px] font-bold text-Gold/70 uppercase tracking-wider">
+                          Soon
+                        </span>
+                      )}
+                      <span className={`block text-[13px] font-bold tracking-tight ${isSelected ? "text-Charcoal" : "text-Charcoal/80"}`}>
+                        {dayName}
+                      </span>
+                      <span className={`block text-sm mt-0.5 ${isSelected ? "text-Gold font-semibold" : "text-Charcoal/55"}`}>
+                        {monthDay}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
+
+          {!showAll && hiddenCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowAll(true)}
+              className="w-full py-2.5 text-sm font-semibold text-Gold hover:text-Gold/80 transition-colors flex items-center justify-center gap-1.5"
+            >
+              Show {hiddenCount} more week{hiddenCount !== 1 ? "s" : ""}
+              <span className="text-Charcoal/30 font-normal">
+                ({hiddenDateCount} date{hiddenDateCount !== 1 ? "s" : ""})
+              </span>
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+          )}
+
+          {showAll && weekGroups.length > INITIAL_WEEKS_SHOWN && (
+            <button
+              type="button"
+              onClick={() => setShowAll(false)}
+              className="w-full py-2.5 text-sm font-semibold text-Charcoal/40 hover:text-Charcoal/60 transition-colors flex items-center justify-center gap-1.5"
+            >
+              Show fewer weeks
+              <svg className="w-4 h-4 rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+          )}
         </div>
       )}
 
