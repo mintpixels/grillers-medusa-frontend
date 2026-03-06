@@ -50,6 +50,12 @@ function formatDateForCart(dateStr: string): string {
   return `${m}/${d}/${y}`
 }
 
+function formatDateShort(dateStr: string): string {
+  const [y, m, d] = dateStr.split("-").map(Number)
+  const date = new Date(y, m - 1, d)
+  return date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
+}
+
 function getValidDates(location: SoutheastPickupCity): string[] {
   if (!location.AvailableDates?.length) return []
   const now = new Date()
@@ -82,12 +88,13 @@ export default function SoutheastPickupScheduling({
     [locations]
   )
 
-  const locationDateCounts = useMemo(() => {
-    const counts: Record<string, number> = {}
+  const locationDateInfo = useMemo(() => {
+    const info: Record<string, { count: number; dates: string[] }> = {}
     for (const loc of activeLocations) {
-      counts[loc.id] = getValidDates(loc).length
+      const valid = getValidDates(loc)
+      info[loc.id] = { count: valid.length, dates: valid }
     }
-    return counts
+    return info
   }, [activeLocations])
 
   const groupedByState = useMemo(() => {
@@ -148,43 +155,69 @@ export default function SoutheastPickupScheduling({
             <div className="grid grid-cols-2 gap-2">
               {cities.map((loc) => {
                 const isSelected = selectedLocationId === loc.id
-                const validDateCount = locationDateCounts[loc.id] ?? 0
-                const hasNoDates = validDateCount === 0
+                const info = locationDateInfo[loc.id] ?? { count: 0, dates: [] }
+                const hasNoDates = info.count === 0
                 return (
-                  <button
-                    key={loc.id}
-                    type="button"
-                    onClick={() => {
-                      if (hasNoDates) return
-                      onLocationChange(loc.id)
-                      onDateChange("")
-                    }}
-                    disabled={hasNoDates}
-                    className={`
-                      text-left px-3.5 py-3 rounded-xl border-2 transition-all duration-200
-                      ${hasNoDates
-                        ? "border-gray-100 bg-gray-50/50 cursor-not-allowed"
-                        : isSelected
-                          ? "border-Gold bg-Gold/5 shadow-sm ring-1 ring-Gold/20"
-                          : "border-gray-200 bg-white hover:border-Gold/40 hover:shadow-sm"
-                      }
-                    `}
-                  >
-                    <span className={`text-sm font-semibold block ${
-                      hasNoDates ? "text-Charcoal/30" : isSelected ? "text-Charcoal" : "text-Charcoal/80"
-                    }`}>
-                      {loc.City}
-                    </span>
-                    {validDateCount > 0 ? (
-                      <span className={`block text-xs mt-0.5 ${isSelected ? "text-Gold font-medium" : "text-Charcoal/45"}`}>
-                        {validDateCount} date{validDateCount !== 1 ? "s" : ""} available
+                  <div key={loc.id} className="relative group">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (hasNoDates) return
+                        onLocationChange(loc.id)
+                        onDateChange("")
+                      }}
+                      disabled={hasNoDates}
+                      className={`
+                        w-full text-left px-3.5 py-3 rounded-xl border-2 transition-all duration-200
+                        ${hasNoDates
+                          ? "border-gray-100 bg-gray-50/50 cursor-not-allowed"
+                          : isSelected
+                            ? "border-Gold bg-Gold/5 shadow-sm ring-1 ring-Gold/20"
+                            : "border-gray-200 bg-white hover:border-Gold/40 hover:shadow-sm"
+                        }
+                      `}
+                    >
+                      <span className={`text-sm font-semibold block ${
+                        hasNoDates ? "text-Charcoal/30" : isSelected ? "text-Charcoal" : "text-Charcoal/80"
+                      }`}>
+                        {loc.City}
                       </span>
-                    ) : (
-                      <span className="block text-xs text-Charcoal/25 mt-0.5">
-                        No dates scheduled
-                      </span>
+                      {info.count > 0 ? (
+                        <span className={`block text-xs mt-0.5 ${isSelected ? "text-Gold font-medium" : "text-Charcoal/45"}`}>
+                          {info.count} date{info.count !== 1 ? "s" : ""} available
+                        </span>
+                      ) : (
+                        <span className="block text-xs text-Charcoal/25 mt-0.5">
+                          No dates scheduled
+                        </span>
+                      )}
+                    </button>
+
+                    {info.count > 0 && !isSelected && (
+                      <div className="
+                        pointer-events-none absolute z-20 bottom-full left-1/2 -translate-x-1/2 mb-2
+                        opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100
+                        transition-all duration-150 ease-out
+                      ">
+                        <div className="bg-Charcoal text-white rounded-lg px-3 py-2.5 shadow-lg min-w-[140px]">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-white/50 mb-1.5">
+                            Upcoming Dates
+                          </p>
+                          {info.dates.slice(0, 4).map((d) => (
+                            <p key={d} className="text-xs font-medium leading-relaxed text-white/90">
+                              {formatDateShort(d)}
+                            </p>
+                          ))}
+                          {info.dates.length > 4 && (
+                            <p className="text-[10px] text-white/40 mt-1">
+                              +{info.dates.length - 4} more
+                            </p>
+                          )}
+                        </div>
+                        <div className="absolute left-1/2 -translate-x-1/2 -bottom-1 w-2 h-2 bg-Charcoal rotate-45" />
+                      </div>
                     )}
-                  </button>
+                  </div>
                 )
               })}
             </div>
