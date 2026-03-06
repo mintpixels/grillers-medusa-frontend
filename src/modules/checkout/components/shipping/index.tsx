@@ -87,6 +87,7 @@ const Shipping: React.FC<ShippingProps> = ({
   // Auto-open if: address is done AND no shipping method yet, OR explicitly via URL
   const isOpen = searchParams.get("step") === "delivery" || (addressComplete && !shippingMethodSelected)
 
+  const fulfillmentType = cart.metadata?.fulfillmentType as string | undefined
   const UPS_SERVICE_CODES = ["GROUND", "OVERNIGHT"]
 
   const _shippingMethods = availableShippingMethods?.filter((sm) => {
@@ -103,8 +104,6 @@ const Shipping: React.FC<ShippingProps> = ({
   const _pickupMethods = availableShippingMethods?.filter(
     (sm) => sm.service_zone?.fulfillment_set?.type === "pickup"
   )
-
-  const fulfillmentType = cart.metadata?.fulfillmentType as string | undefined
   const showPickupSection = fulfillmentType !== "ups_shipping"
   const hasPickupOptions = !!_pickupMethods?.length && showPickupSection
 
