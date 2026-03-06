@@ -6,6 +6,8 @@ import Payment from "@modules/checkout/components/payment"
 import Shipping from "@modules/checkout/components/shipping"
 import FulfillmentStep from "@modules/checkout/components/fulfillment-step"
 import CheckoutLoginBanner from "@modules/checkout/components/checkout-login-banner"
+import CheckoutStepsGate from "@modules/checkout/components/checkout-steps-gate"
+import { FulfillmentEditProvider } from "@modules/checkout/context/fulfillment-edit-context"
 import type { FulfillmentType } from "@lib/data/cart"
 import type { FulfillmentConfigData, PickupCreditConfig } from "@lib/data/strapi/checkout"
 import PickupCreditManager from "@modules/checkout/components/pickup-credit-manager"
@@ -59,7 +61,7 @@ export default async function CheckoutForm({
 
       {/* Everything below requires authentication */}
       {isLoggedIn && (
-        <>
+        <FulfillmentEditProvider>
           {/* Step 1: Fulfillment selection */}
           <FulfillmentStep 
             cart={cart} 
@@ -69,21 +71,24 @@ export default async function CheckoutForm({
             pickupCreditConfig={pickupCreditConfig}
           />
 
-          {/* Step 2: Address — only after fulfillment chosen */}
-          {hasFulfillment && (
-            <Addresses cart={cart} customer={customer} />
-          )}
+          {/* Steps 2-4: Hidden when fulfillment is being edited */}
+          <CheckoutStepsGate>
+            {/* Step 2: Address — only after fulfillment chosen */}
+            {hasFulfillment && (
+              <Addresses cart={cart} customer={customer} />
+            )}
 
-          {/* Step 3: Delivery options — only for UPS shipping, only after address */}
-          {hasFulfillment && addressComplete && showShippingMethodSelection && (
-            <Shipping cart={cart} availableShippingMethods={shippingMethods} />
-          )}
+            {/* Step 3: Delivery options — only for UPS shipping, only after address */}
+            {hasFulfillment && addressComplete && showShippingMethodSelection && (
+              <Shipping cart={cart} availableShippingMethods={shippingMethods} />
+            )}
 
-          {/* Step 4: Payment — only after all previous steps complete and delivery step is closed */}
-          {hasFulfillment && addressComplete && (!showShippingMethodSelection || hasShippingMethod) && currentStep !== "delivery" && (
-            <Payment cart={cart} availablePaymentMethods={paymentMethods} />
-          )}
-        </>
+            {/* Step 4: Payment — only after all previous steps complete and delivery step is closed */}
+            {hasFulfillment && addressComplete && (!showShippingMethodSelection || hasShippingMethod) && currentStep !== "delivery" && (
+              <Payment cart={cart} availablePaymentMethods={paymentMethods} />
+            )}
+          </CheckoutStepsGate>
+        </FulfillmentEditProvider>
       )}
     </div>
   )

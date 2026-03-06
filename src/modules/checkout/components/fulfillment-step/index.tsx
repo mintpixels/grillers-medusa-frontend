@@ -1,12 +1,13 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { HttpTypes } from "@medusajs/types"
 import { setFulfillmentDetails, setShippingMethod, type FulfillmentType } from "@lib/data/cart"
 import { findShippingOptionByType } from "@lib/data/fulfillment"
 import { convertToLocale } from "@lib/util/money"
 import type { FulfillmentConfigData, PickupCreditConfig } from "@lib/data/strapi/checkout"
+import { useFulfillmentEdit } from "@modules/checkout/context/fulfillment-edit-context"
 import PlantPickupScheduling from "@modules/checkout/components/fulfillment-selector/scheduling/plant-pickup"
 import SoutheastPickupScheduling from "@modules/checkout/components/fulfillment-selector/scheduling/southeast-pickup"
 
@@ -78,6 +79,7 @@ type SubStep = "select" | "plant_date" | "southeast_pickup"
 
 export default function FulfillmentStep({ cart, customer, config, availableFulfillmentTypes, pickupCreditConfig }: FulfillmentStepProps) {
   const router = useRouter()
+  const { setIsEditingFulfillment } = useFulfillmentEdit()
   const [isEditing, setIsEditing] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -100,6 +102,10 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
   const hasFulfillment = Boolean(fulfillmentType)
 
   const showSelection = !hasFulfillment || isEditing
+
+  useEffect(() => {
+    setIsEditingFulfillment(showSelection)
+  }, [showSelection, setIsEditingFulfillment])
 
   const cartTotal = cart.total || 0
   const cartSubtotal = cart.subtotal || 0
