@@ -66,9 +66,19 @@ const Payment = ({
   const [error, setError] = useState<string | null>(null)
   const [cardBrand, setCardBrand] = useState<string | null>(null)
   const [cardComplete, setCardComplete] = useState(false)
+  const filteredPaymentMethods = availablePaymentMethods?.filter(
+    (pm) => pm.id !== "pp_system_default"
+  ) ?? []
+
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(
     activeSession?.provider_id ?? ""
   )
+
+  useEffect(() => {
+    if (!selectedPaymentMethod && filteredPaymentMethods.length === 1) {
+      setPaymentMethod(filteredPaymentMethods[0].id)
+    }
+  }, [filteredPaymentMethods.length])
 
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -183,12 +193,12 @@ const Payment = ({
 
       {isOpen && (
         <div>
-          {!paidByGiftcard && availablePaymentMethods?.length && (
+          {!paidByGiftcard && filteredPaymentMethods.length > 0 && (
             <RadioGroup
               value={selectedPaymentMethod}
               onChange={(value: string) => setPaymentMethod(value)}
             >
-              {availablePaymentMethods.map((paymentMethod) => (
+              {filteredPaymentMethods.map((paymentMethod) => (
                 <div key={paymentMethod.id}>
                   {isStripeFunc(paymentMethod.id) ? (
                     <StripeCardContainer
