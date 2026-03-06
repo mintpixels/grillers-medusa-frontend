@@ -1,0 +1,308 @@
+RateID,ZoneID,ZoneCode,ZoneDesc,State,UpperBreakPoint,BreakPointType,Rate,RateType
+1,5,Del - Dallas,Consolidated Dallas Shipment Shipping Charge,TX,0.00,,10.00,Percent
+3,6,Del - Greenville,"Scheduled Delivery - Greenville, SC",SC,0.00,,20.00,Amount
+4,7,Del - Spartanburg,"Scheduled Delivery - Spartanburg, SC",SC,0.00,,20.00,Amount
+5,8,Del - Charlotte,"Scheduled Delivery - Charlotte, NC",NC,0.00,,20.00,Amount
+6,9,Del - Greensboro,"Scheduled Delivery - Greensboro, NC",NC,0.00,,20.00,Amount
+7,10,Del - Durham,"Scheduled Delivery - Durham, NC",NC,0.00,,20.00,Amount
+8,11,Del - Augusta,"Scheduled Delivery - Augusta, GA",GA,0.00,,20.00,Amount
+9,12,Del - Columbia,"Scheduled Delivery - Columbia, SC",SC,0.00,,20.00,Amount
+10,13,Del - Charleston,"Scheduled Delivery - Charleston, SC",SC,0.00,,20.00,Amount
+11,14,Del - Macon,"Scheduled Delivery - Macon, GA",GA,0.00,,20.00,Amount
+12,15,Del - Savannah,"Scheduled Delivery - Savannah, GA",GA,0.00,,20.00,Amount
+13,16,Del - Jacksonville,"Scheduled Delivery - Jacksonville, FL",FL,0.00,,20.00,Amount
+14,17,Del - GainesvilleFL,"Scheduled Delivery - Gainesville, FL",FL,0.00,,20.00,Amount
+15,18,Del - Birmingham,"Scheduled Delivery - Birmingham, AL",AL,0.00,,20.00,Amount
+16,19,Del - Memphis,"Scheduled Delivery - Memphis, TN",TN,0.00,,20.00,Amount
+17,20,Del - Nashville,"Scheduled Delivery - Nashville, TN",TN,0.00,,20.00,Amount
+18,21,Del - Knoxville,"Scheduled Delivery - Knoxville, TN",TN,0.00,,20.00,Amount
+19,22,Del - Chattanooga,"Scheduled Delivery - Chattanooga, TN",TN,0.00,,20.00,Amount
+20,23,,,,50.00,,35.00,Amount
+21,23,,,,100.00,,32.50,Amount
+23,23,,,,150.00,,30.00,Amount
+24,24,,,,50.00,,25.00,Amount
+25,24,,,,75.00,,22.50,Amount
+26,24,,,,100.00,,20.00,Amount
+27,24,,,,150.00,,17.50,Amount
+28,25,Del-30009,Metro Atlanta Delivery - Zip Code 30009,GA,50.00,,27.50,Amount
+29,25,Del-30009,Metro Atlanta Delivery - Zip Code 30009,GA,100.00,,25.00,Amount
+30,25,Del-30009,Metro Atlanta Delivery - Zip Code 30009,GA,150.00,,22.50,Amount
+32,26,FedexGround,FedEx Ground Estimated Shipping Charge (Minimum $40 for up to $200 product value),GA,0.00,,40.00,Amount
+33,27,FedexOvernight,FedEx Overnight Estimated Shipping Charge (Minimum $160 for up to $200 product value),,0.00,,160.00,Amount
+34,28,Pick Up From Plant,"Pickup From Plant Premises in Atlanta, GA",,150.00,,-7.50,Amount
+35,23,,,,0.00,,32.50,Amount
+36,24,,,,0.00,,27.50,Amount
+37,25,Del-30009,Metro Atlanta Delivery - Zip Code 30009,GA,0.00,,30.00,Amount
+38,29,Del-30062,Metro Atlanta Delivery - Zip Code 30062,GA,0.00,,17.50,Amount
+39,29,Del-30062,Metro Atlanta Delivery - Zip Code 30062,GA,50.00,,15.00,Amount
+41,29,Del-30062,Metro Atlanta Delivery - Zip Code 30062,GA,100.00,,12.50,Amount
+42,29,Del-30062,Metro Atlanta Delivery - Zip Code 30062,GA,150.00,,10.00,Amount
+43,26,FedexGround,FedEx Ground Estimated Shipping Charge (Minimum $40 for up to $200 product value),GA,200.00,,20.00,Percent
+44,27,FedexOvernight,FedEx Overnight Estimated Shipping Charge (Minimum $160 for up to $200 product value),,200.00,,80.00,Percent
+45,31,,,,0.00,,25.00,Amount
+46,31,,,,50.00,,22.50,Amount
+47,31,,,,75.00,,20.00,Amount
+48,31,,,,100.00,,17.50,Amount
+49,31,,,,150.00,,15.00,Amount
+50,33,Del-30022,Metro Atlanta Delivery - Zip Code 30022,GA,0.00,,17.50,Amount
+51,33,Del-30022,Metro Atlanta Delivery - Zip Code 30022,GA,50.00,,15.00,Amount
+52,33,Del-30022,Metro Atlanta Delivery - Zip Code 30022,GA,100.00,,12.50,Amount
+54,33,Del-30022,Metro Atlanta Delivery - Zip Code 30022,GA,150.00,,10.00,Amount
+55,34,,,,0.00,,32.50,Amount
+56,34,,,,50.00,,30.00,Amount
+57,34,,,,75.00,,27.50,Amount
+58,34,,,,100.00,,25.00,Amount
+59,34,,,,150.00,,22.50,Amount
+60,35,Del-30024,Metro Atlanta Delivery - Zip Code 30024,GA,0.00,,32.50,Amount
+61,35,Del-30024,Metro Atlanta Delivery - Zip Code 30024,GA,50.00,,30.00,Amount
+63,35,Del-30024,Metro Atlanta Delivery - Zip Code 30024,GA,100.00,,27.50,Amount
+64,35,Del-30024,Metro Atlanta Delivery - Zip Code 30024,GA,150.00,,25.00,Amount
+65,36,,,,0.00,,22.50,Amount
+66,36,,,,50.00,,20.00,Amount
+67,36,,,,75.00,,17.50,Amount
+68,36,,,,100.00,,15.00,Amount
+69,36,,,,150.00,,12.50,Amount
+70,37,,,,0.00,,25.00,Amount
+71,37,,,,50.00,,22.50,Amount
+72,37,,,,75.00,,20.00,Amount
+73,37,,,,100.00,,17.50,Amount
+74,37,,,,150.00,,15.00,Amount
+75,38,,,,0.00,,35.00,Amount
+76,38,,,,50.00,,32.50,Amount
+77,38,,,,75.00,,30.00,Amount
+78,38,,,,100.00,,27.50,Amount
+79,38,,,,150.00,,25.00,Amount
+80,39,,,,0.00,,32.50,Amount
+81,39,,,,50.00,,30.00,Amount
+82,39,,,,75.00,,27.50,Amount
+83,39,,,,100.00,,25.00,Amount
+84,39,,,,150.00,,22.50,Amount
+85,40,Del-30033,Metro Atlanta Delivery - Zip Code 30033,GA,0.00,,25.00,Amount
+86,40,Del-30033,Metro Atlanta Delivery - Zip Code 30033,GA,50.00,,22.50,Amount
+88,40,Del-30033,Metro Atlanta Delivery - Zip Code 30033,GA,100.00,,20.00,Amount
+89,40,Del-30033,Metro Atlanta Delivery - Zip Code 30033,GA,150.00,,17.50,Amount
+90,41,,,,0.00,,25.00,Amount
+91,41,,,,50.00,,22.50,Amount
+92,41,,,,75.00,,20.00,Amount
+93,41,,,,100.00,,17.50,Amount
+94,41,,,,150.00,,15.00,Amount
+95,42,Del-30066,Metro Atlanta Delivery - Zip Code 30066,GA,0.00,,27.50,Amount
+96,42,Del-30066,Metro Atlanta Delivery - Zip Code 30066,GA,50.00,,25.00,Amount
+98,42,Del-30066,Metro Atlanta Delivery - Zip Code 30066,GA,100.00,,22.50,Amount
+99,42,Del-30066,Metro Atlanta Delivery - Zip Code 30066,GA,150.00,,20.00,Amount
+100,43,Del-30067,Metro Atlanta Delivery - Zip Code 30067,GA,0.00,,17.50,Amount
+101,43,Del-30067,Metro Atlanta Delivery - Zip Code 30067,GA,50.00,,15.00,Amount
+103,43,Del-30067,Metro Atlanta Delivery - Zip Code 30067,GA,100.00,,12.50,Amount
+104,43,Del-30067,Metro Atlanta Delivery - Zip Code 30067,GA,150.00,,10.00,Amount
+105,44,Del-30068,Metro Atlanta Delivery - Zip Code 30068,GA,0.00,,17.50,Amount
+106,44,Del-30068,Metro Atlanta Delivery - Zip Code 30068,GA,50.00,,15.00,Amount
+108,44,Del-30068,Metro Atlanta Delivery - Zip Code 30068,GA,100.00,,12.50,Amount
+109,44,Del-30068,Metro Atlanta Delivery - Zip Code 30068,GA,150.00,,10.00,Amount
+110,45,Del-30071,Metro Atlanta Delivery - Zip Code 30071,GA,0.00,,20.00,Amount
+111,45,Del-30071,Metro Atlanta Delivery - Zip Code 30071,GA,50.00,,17.50,Amount
+113,45,Del-30071,Metro Atlanta Delivery - Zip Code 30071,GA,100.00,,15.00,Amount
+114,45,Del-30071,Metro Atlanta Delivery - Zip Code 30071,GA,150.00,,12.50,Amount
+115,46,Del-30075,Metro Atlanta Delivery - Zip Code 30075,GA,0.00,,20.00,Amount
+116,46,Del-30075,Metro Atlanta Delivery - Zip Code 30075,GA,50.00,,17.50,Amount
+118,46,Del-30075,Metro Atlanta Delivery - Zip Code 30075,GA,100.00,,15.00,Amount
+119,46,Del-30075,Metro Atlanta Delivery - Zip Code 30075,GA,150.00,,12.50,Amount
+120,47,Del-30076,Metro Atlanta Delivery - Zip Code 30076,GA,0.00,,22.50,Amount
+121,47,Del-30076,Metro Atlanta Delivery - Zip Code 30076,GA,50.00,,20.00,Amount
+123,47,Del-30076,Metro Atlanta Delivery - Zip Code 30076,GA,100.00,,17.50,Amount
+124,47,Del-30076,Metro Atlanta Delivery - Zip Code 30076,GA,150.00,,15.00,Amount
+125,48,Del-30079,Metro Atlanta Delivery - Zip Code 30079,GA,0.00,,27.50,Amount
+126,48,Del-30079,Metro Atlanta Delivery - Zip Code 30079,GA,50.00,,25.00,Amount
+128,48,Del-30079,Metro Atlanta Delivery - Zip Code 30079,GA,100.00,,22.50,Amount
+129,48,Del-30079,Metro Atlanta Delivery - Zip Code 30079,GA,150.00,,20.00,Amount
+130,49,,,,0.00,,32.00,Amount
+131,49,,,,50.00,,30.00,Amount
+132,49,,,,75.00,,27.50,Amount
+133,49,,,,100.00,,25.00,Amount
+134,49,,,,150.00,,22.50,Amount
+135,50,,,,0.00,,32.50,Amount
+136,50,,,,50.00,,30.00,Amount
+137,50,,,,75.00,,27.50,Amount
+138,50,,,,100.00,,25.00,Amount
+139,50,,,,150.00,,22.50,Amount
+140,51,,,,0.00,,35.00,Amount
+141,51,,,,50.00,,32.50,Amount
+142,51,,,,75.00,,30.00,Amount
+143,51,,,,100.00,,27.50,Amount
+144,51,,,,150.00,,25.00,Amount
+145,52,,,,0.00,,30.00,Amount
+146,52,,,,50.00,,27.50,Amount
+147,52,,,,75.00,,25.00,Amount
+148,52,,,,100.00,,22.50,Amount
+149,52,,,,150.00,,20.00,Amount
+150,53,,,,0.00,,35.00,Amount
+151,53,,,,50.00,,22.50,Amount
+152,53,,,,75.00,,20.00,Amount
+153,53,,,,100.00,,17.50,Amount
+154,53,,,,150.00,,15.00,Amount
+155,54,,,,0.00,,25.00,Amount
+156,54,,,,50.00,,22.50,Amount
+157,54,,,,75.00,,20.00,Amount
+158,54,,,,100.00,,17.50,Amount
+159,54,,,,150.00,,15.00,Amount
+160,55,Del-30092,Metro Atlanta Delivery - Zip Code 30092,GA,0.00,,20.00,Amount
+161,55,Del-30092,Metro Atlanta Delivery - Zip Code 30092,GA,50.00,,17.50,Amount
+163,55,Del-30092,Metro Atlanta Delivery - Zip Code 30092,GA,100.00,,15.00,Amount
+164,55,Del-30092,Metro Atlanta Delivery - Zip Code 30092,GA,150.00,,12.50,Amount
+165,56,Del-30093,Metro Atlanta Delivery - Zip Code 30093,GA,0.00,,25.00,Amount
+166,56,Del-30093,Metro Atlanta Delivery - Zip Code 30093,GA,50.00,,22.50,Amount
+168,56,Del-30093,Metro Atlanta Delivery - Zip Code 30093,GA,100.00,,20.00,Amount
+169,56,Del-30093,Metro Atlanta Delivery - Zip Code 30093,GA,150.00,,17.50,Amount
+170,57,,,,0.00,,30.00,Amount
+171,57,,,,50.00,,27.50,Amount
+172,57,,,,75.00,,25.00,Amount
+173,57,,,,100.00,,22.50,Amount
+174,57,,,,150.00,,20.00,Amount
+175,58,Del-30096,Metro Atlanta Delivery - Zip Code 30096,GA,0.00,,27.50,Amount
+176,58,Del-30096,Metro Atlanta Delivery - Zip Code 30096,GA,50.00,,25.00,Amount
+178,58,Del-30096,Metro Atlanta Delivery - Zip Code 30096,GA,100.00,,22.50,Amount
+179,58,Del-30096,Metro Atlanta Delivery - Zip Code 30096,GA,150.00,,20.00,Amount
+180,59,Del-30097,Metro Atlanta Delivery - Zip Code 30097,GA,0.00,,30.00,Amount
+181,59,Del-30097,Metro Atlanta Delivery - Zip Code 30097,GA,50.00,,27.50,Amount
+183,59,Del-30097,Metro Atlanta Delivery - Zip Code 30097,GA,100.00,,25.00,Amount
+184,59,Del-30097,Metro Atlanta Delivery - Zip Code 30097,GA,150.00,,22.50,Amount
+185,60,,,,0.00,,32.50,Amount
+186,60,,,,50.00,,30.00,Amount
+187,60,,,,75.00,,27.50,Amount
+188,60,,,,100.00,,25.00,Amount
+189,60,,,,150.00,,22.50,Amount
+190,61,,,,0.00,,60.00,Amount
+191,61,,,,50.00,,30.00,Amount
+192,61,,,,75.00,,27.50,Amount
+193,61,,,,100.00,,25.00,Amount
+194,61,,,,150.00,,22.50,Amount
+195,62,Del-30305,Metro Atlanta Delivery - Zip Code 30305,GA,0.00,,42.50,Amount
+196,62,Del-30305,Metro Atlanta Delivery - Zip Code 30305,GA,50.00,,40.00,Amount
+198,62,Del-30305,Metro Atlanta Delivery - Zip Code 30305,GA,100.00,,37.50,Amount
+199,62,Del-30305,Metro Atlanta Delivery - Zip Code 30305,GA,150.00,,35.00,Amount
+200,63,,,,0.00,,22.50,Amount
+201,63,,,,50.00,,20.00,Amount
+203,63,,,,100.00,,17.50,Amount
+204,63,,,,150.00,,15.00,Amount
+205,64,,,,0.00,,25.00,Amount
+206,64,,,,50.00,,22.50,Amount
+208,64,,,,100.00,,20.00,Amount
+209,28,Pick Up From Plant,"Pickup From Plant Premises in Atlanta, GA",,0.00,,0.00,Amount
+210,64,,,,150.00,,17.50,Amount
+211,65,Del-30309,Metro Atlanta Delivery - Zip Code 30309,GA,0.00,,30.00,Amount
+212,65,Del-30309,Metro Atlanta Delivery - Zip Code 30309,GA,50.00,,27.50,Amount
+214,65,Del-30309,Metro Atlanta Delivery - Zip Code 30309,GA,100.00,,25.00,Amount
+215,65,Del-30309,Metro Atlanta Delivery - Zip Code 30309,GA,150.00,,22.50,Amount
+216,66,Del-30319,Metro Atlanta Delivery - Zip Code 30319,GA,0.00,,20.00,Amount
+217,66,Del-30319,Metro Atlanta Delivery - Zip Code 30319,GA,50.00,,17.50,Amount
+219,66,Del-30319,Metro Atlanta Delivery - Zip Code 30319,GA,100.00,,15.00,Amount
+220,66,Del-30319,Metro Atlanta Delivery - Zip Code 30319,GA,150.00,,12.50,Amount
+221,67,Del-30322,Metro Atlanta Delivery - Zip Code 30322,GA,0.00,,25.00,Amount
+222,67,Del-30322,Metro Atlanta Delivery - Zip Code 30322,GA,50.00,,22.50,Amount
+224,67,Del-30322,Metro Atlanta Delivery - Zip Code 30322,GA,100.00,,20.00,Amount
+225,67,Del-30322,Metro Atlanta Delivery - Zip Code 30322,GA,150.00,,17.50,Amount
+226,68,Del-30324,Metro Atlanta Delivery - Zip Code 30324,GA,0.00,,20.00,Amount
+227,68,Del-30324,Metro Atlanta Delivery - Zip Code 30324,GA,50.00,,17.50,Amount
+229,68,Del-30324,Metro Atlanta Delivery - Zip Code 30324,GA,100.00,,15.00,Amount
+230,68,Del-30324,Metro Atlanta Delivery - Zip Code 30324,GA,150.00,,12.50,Amount
+231,69,Del-30326,Metro Atlanta Delivery - Zip Code 30326,GA,0.00,,25.00,Amount
+232,69,Del-30326,Metro Atlanta Delivery - Zip Code 30326,GA,50.00,,22.50,Amount
+234,69,Del-30326,Metro Atlanta Delivery - Zip Code 30326,GA,100.00,,20.00,Amount
+235,69,Del-30326,Metro Atlanta Delivery - Zip Code 30326,GA,150.00,,17.50,Amount
+236,70,Del-30327,Metro Atlanta Delivery - Zip Code 30327,GA,0.00,,20.00,Amount
+237,70,Del-30327,Metro Atlanta Delivery - Zip Code 30327,GA,50.00,,17.50,Amount
+239,70,Del-30327,Metro Atlanta Delivery - Zip Code 30327,GA,100.00,,15.00,Amount
+240,70,Del-30327,Metro Atlanta Delivery - Zip Code 30327,GA,150.00,,12.50,Amount
+241,71,Del-30328,Metro Atlanta Delivery - Zip Code 30328,GA,0.00,,17.50,Amount
+242,71,Del-30328,Metro Atlanta Delivery - Zip Code 30328,GA,50.00,,15.00,Amount
+244,71,Del-30328,Metro Atlanta Delivery - Zip Code 30328,GA,100.00,,12.50,Amount
+245,71,Del-30328,Metro Atlanta Delivery - Zip Code 30328,GA,150.00,,10.00,Amount
+246,72,Del-30329,Metro Atlanta Delivery - Zip Code 30329,GA,0.00,,15.00,Amount
+247,72,Del-30329,Metro Atlanta Delivery - Zip Code 30329,GA,50.00,,12.50,Amount
+249,72,Del-30329,Metro Atlanta Delivery - Zip Code 30329,GA,100.00,,10.00,Amount
+250,72,Del-30329,Metro Atlanta Delivery - Zip Code 30329,GA,150.00,,7.50,Amount
+251,73,,,,0.00,,45.00,Amount
+252,73,,,,50.00,,22.50,Amount
+253,73,,,,75.00,,17.50,Amount
+254,73,,,,100.00,,15.00,Amount
+255,73,,,,150.00,,12.50,Amount
+256,74,Del-30338,Metro Atlanta Delivery - Zip Code 30338,GA,0.00,,20.00,Amount
+257,74,Del-30338,Metro Atlanta Delivery - Zip Code 30338,GA,50.00,,17.50,Amount
+259,74,Del-30338,Metro Atlanta Delivery - Zip Code 30338,GA,100.00,,12.50,Amount
+260,74,Del-30338,Metro Atlanta Delivery - Zip Code 30338,GA,150.00,,10.00,Amount
+261,75,Del-30339,Metro Atlanta Delivery - Zip Code 30339,GA,0.00,,22.50,Amount
+262,75,Del-30339,Metro Atlanta Delivery - Zip Code 30339,GA,50.00,,20.00,Amount
+264,75,Del-30339,Metro Atlanta Delivery - Zip Code 30339,GA,100.00,,17.50,Amount
+265,75,Del-30339,Metro Atlanta Delivery - Zip Code 30339,GA,150.00,,15.00,Amount
+266,76,Del-30340,Metro Atlanta Delivery - Zip Code 30340,GA,0.00,,17.50,Amount
+267,76,Del-30340,Metro Atlanta Delivery - Zip Code 30340,GA,50.00,,15.00,Amount
+269,76,Del-30340,Metro Atlanta Delivery - Zip Code 30340,GA,100.00,,12.50,Amount
+270,76,Del-30340,Metro Atlanta Delivery - Zip Code 30340,GA,150.00,,10.00,Amount
+271,77,Del-30341,Metro Atlanta Delivery - Zip Code 30341,GA,0.00,,17.50,Amount
+272,77,Del-30341,Metro Atlanta Delivery - Zip Code 30341,GA,50.00,,15.00,Amount
+274,77,Del-30341,Metro Atlanta Delivery - Zip Code 30341,GA,100.00,,12.50,Amount
+275,77,Del-30341,Metro Atlanta Delivery - Zip Code 30341,GA,150.00,,10.00,Amount
+276,78,Del-30342,Metro Atlanta Delivery - Zip Code 30342,GA,0.00,,17.50,Amount
+277,78,Del-30342,Metro Atlanta Delivery - Zip Code 30342,GA,50.00,,15.00,Amount
+279,78,Del-30342,Metro Atlanta Delivery - Zip Code 30342,GA,100.00,,12.50,Amount
+280,78,Del-30342,Metro Atlanta Delivery - Zip Code 30342,GA,150.00,,10.00,Amount
+281,79,Del-30345,Metro Atlanta Delivery - Zip Code 30345,GA,0.00,,17.50,Amount
+282,79,Del-30345,Metro Atlanta Delivery - Zip Code 30345,GA,50.00,,15.00,Amount
+345,93,Del-30005,Metro Atlanta Delivery - Zip Code 30005,GA,150.00,,35.00,Amount
+284,79,Del-30345,Metro Atlanta Delivery - Zip Code 30345,GA,100.00,,12.50,Amount
+285,79,Del-30345,Metro Atlanta Delivery - Zip Code 30345,GA,150.00,,10.00,Amount
+286,80,Del-30346,Metro Atlanta Delivery - Zip Code 30346,GA,0.00,,17.50,Amount
+287,80,Del-30346,Metro Atlanta Delivery - Zip Code 30346,GA,50.00,,15.00,Amount
+344,93,Del-30005,Metro Atlanta Delivery - Zip Code 30005,GA,100.00,,37.50,Amount
+289,80,Del-30346,Metro Atlanta Delivery - Zip Code 30346,GA,100.00,,12.50,Amount
+290,80,Del-30346,Metro Atlanta Delivery - Zip Code 30346,GA,150.00,,10.00,Amount
+291,81,,,,0.00,,40.00,Amount
+292,81,,,,50.00,,20.00,Amount
+293,81,,,,75.00,,15.00,Amount
+294,81,,,,100.00,,12.50,Amount
+295,81,,,,150.00,,10.00,Amount
+296,82,Del-30350,Metro Atlanta Delivery - Zip Code 30350,GA,0.00,,17.50,Amount
+297,82,Del-30350,Metro Atlanta Delivery - Zip Code 30350,GA,50.00,,15.00,Amount
+343,93,Del-30005,Metro Atlanta Delivery - Zip Code 30005,GA,50.00,,40.00,Amount
+299,82,Del-30350,Metro Atlanta Delivery - Zip Code 30350,GA,100.00,,12.50,Amount
+300,82,Del-30350,Metro Atlanta Delivery - Zip Code 30350,GA,150.00,,10.00,Amount
+301,83,,,,0.00,,45.00,Amount
+302,83,,,,50.00,,22.50,Amount
+303,83,,,,75.00,,17.50,Amount
+304,83,,,,100.00,,15.00,Amount
+305,83,,,,150.00,,12.50,Amount
+306,84,,,,0.00,,40.00,Amount
+307,84,,,,50.00,,20.00,Amount
+308,84,,,,75.00,,15.00,Amount
+309,84,,,,100.00,,12.50,Amount
+310,84,,,,150.00,,10.00,Amount
+311,85,,,,0.00,,40.00,Amount
+312,85,,,,50.00,,20.00,Amount
+313,85,,,,75.00,,15.00,Amount
+314,85,,,,100.00,,12.50,Amount
+315,85,,,,150.00,,10.00,Amount
+316,86,,,,0.00,,40.00,Amount
+317,86,,,,50.00,,20.00,Amount
+318,86,,,,75.00,,15.00,Amount
+319,86,,,,100.00,,12.50,Amount
+320,86,,,,150.00,,10.00,Amount
+321,87,Del-30360,Metro Atlanta Delivery - Zip Code 30360,GA,0.00,,17.50,Amount
+322,87,Del-30360,Metro Atlanta Delivery - Zip Code 30360,GA,50.00,,15.00,Amount
+342,93,Del-30005,Metro Atlanta Delivery - Zip Code 30005,GA,0.00,,42.50,Amount
+324,87,Del-30360,Metro Atlanta Delivery - Zip Code 30360,GA,100.00,,12.50,Amount
+325,87,Del-30360,Metro Atlanta Delivery - Zip Code 30360,GA,150.00,,10.00,Amount
+326,88,,,,0.00,,40.00,Amount
+327,88,,,,50.00,,20.00,Amount
+328,88,,,,75.00,,15.00,Amount
+329,88,,,,100.00,,12.50,Amount
+330,88,,,,150.00,,10.00,Amount
+331,89,,,,0.00,,40.00,Amount
+332,89,,,,50.00,,20.00,Amount
+333,89,,,,75.00,,15.00,Amount
+334,89,,,,100.00,,12.50,Amount
+335,89,,,,150.00,,10.00,Amount
+336,90,,,,0.00,,50.00,Amount
+337,90,,,,50.00,,25.00,Amount
+338,90,,,,75.00,,20.00,Amount
+339,90,,,,100.00,,17.50,Amount
+340,90,,,,150.00,,15.00,Amount
+341,91,Del - Raleigh,"Scheduled Delivery - Raleigh, NC",NC,0.00,,20.00,Amount

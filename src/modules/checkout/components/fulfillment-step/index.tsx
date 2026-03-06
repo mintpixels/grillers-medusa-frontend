@@ -43,10 +43,22 @@ const MapPinIcon = () => (
   </svg>
 )
 
+const CheckCircleIcon = () => (
+  <svg className="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+  </svg>
+)
+
+const CalendarIcon = () => (
+  <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+  </svg>
+)
+
 const fulfillmentLabels: Record<FulfillmentType, { label: string; description: string }> = {
   ups_shipping: {
     label: "UPS Shipping",
-    description: "Nationwide delivery via UPS. Your order will be packed in insulated containers to ensure freshness.",
+    description: "Nationwide delivery via UPS. Packed in insulated containers to ensure freshness.",
   },
   atlanta_delivery: {
     label: "Local Delivery",
@@ -54,11 +66,11 @@ const fulfillmentLabels: Record<FulfillmentType, { label: string; description: s
   },
   plant_pickup: {
     label: "Plant Pickup",
-    description: "Pick up your order at our Atlanta facility. Please bring a valid ID.",
+    description: "Pick up at our Atlanta facility. Please bring a valid ID.",
   },
   southeast_pickup: {
     label: "Regional Pickup",
-    description: "Collect your order from a partner pickup location in the Southeast.",
+    description: "Collect from a partner pickup location in the Southeast.",
   },
 }
 
@@ -122,15 +134,15 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
     {
       id: "ups_shipping" as FulfillmentType,
       title: "Ship to Me",
-      subtitle: "Continental US delivery via UPS",
+      subtitle: "Continental US via UPS",
       icon: <TruckIcon />,
       available: availability.upsShipping,
       amountAway: availability.upsAmountAway,
     },
     {
       id: "atlanta_delivery" as FulfillmentType,
-      title: "Atlanta Metro Delivery",
-      subtitle: "Local delivery to your door",
+      title: "Atlanta Delivery",
+      subtitle: "Local to your door",
       icon: <DeliveryIcon />,
       available: availability.atlantaDelivery,
       amountAway: availability.atlantaDeliveryAmountAway,
@@ -146,7 +158,7 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
     {
       id: "southeast_pickup" as FulfillmentType,
       title: "Southeast Pickup",
-      subtitle: "Pick up at a location near you",
+      subtitle: "Partner locations",
       icon: <MapPinIcon />,
       available: availability.southeastPickup,
       amountAway: availability.southeastAmountAway,
@@ -263,31 +275,27 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
   }
 
   return (
-    <div className="bg-gradient-to-r from-Gold/20 to-Gold/10 border border-Gold/30 rounded-xl p-5">
-      {/* Step indicator */}
+    <div className="bg-gradient-to-br from-Gold/[0.12] via-Gold/[0.06] to-transparent border border-Gold/20 rounded-2xl p-5 shadow-sm">
+      {/* Header */}
       <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <span className="flex items-center justify-center w-6 h-6 rounded-full bg-Gold text-white text-xs font-bold">
+        <div className="flex items-center gap-2.5">
+          <span className="flex items-center justify-center w-6 h-6 rounded-full bg-Gold text-white text-xs font-bold shadow-sm">
             1
           </span>
-          <span className="text-sm font-medium text-Charcoal">Fulfillment Method</span>
-          {hasFulfillment && !isEditing && (
-            <svg className="w-4 h-4 text-green-600 ml-1" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-            </svg>
-          )}
+          <span className="text-sm font-semibold text-Charcoal tracking-tight">Fulfillment Method</span>
+          {hasFulfillment && !isEditing && <CheckCircleIcon />}
         </div>
         {hasFulfillment && (
           <button
             type="button"
             onClick={handleChange}
             disabled={isSubmitting}
-            className="flex items-center gap-1 text-sm text-Gold hover:text-Gold/80 font-medium disabled:opacity-50"
+            className="flex items-center gap-1 text-sm text-Gold hover:text-Gold/80 font-semibold transition-colors disabled:opacity-50"
           >
             {isSubmitting ? "..." : isEditing ? "Cancel" : "Change"}
             {!isEditing && (
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
               </svg>
             )}
           </button>
@@ -295,70 +303,67 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
       </div>
 
       {/* Selection Mode */}
-      {showSelection && subStep === "select" && (
-        <div>
-          <h2 className="text-lg font-semibold text-Charcoal mb-1">
-            How would you like to receive your order?
-          </h2>
-          <p className="text-sm text-Charcoal/70 mb-4">
-            Select your preferred fulfillment method.
-          </p>
+      <div className={`transition-all duration-300 ease-out ${showSelection && subStep === "select" ? "opacity-100" : showSelection ? "hidden" : "hidden"}`}>
+        <h2 className="text-lg font-semibold text-Charcoal mb-0.5">
+          How would you like to receive your order?
+        </h2>
+        <p className="text-sm text-Charcoal/60 mb-4">
+          Select your preferred fulfillment method.
+        </p>
 
-          <div className="grid grid-cols-2 gap-3">
-            {options.map((option) => (
-              <button
-                key={option.id}
-                type="button"
-                onClick={() => option.available && handleSelectOption(option.id)}
-                disabled={!option.available || isSubmitting}
-                className={`
-                  relative p-4 rounded-lg border-2 text-left transition-all bg-white
-                  ${option.available && !isSubmitting
-                    ? "border-gray-200 hover:border-Gold hover:shadow-sm cursor-pointer" 
-                    : "border-gray-100 bg-gray-50 cursor-not-allowed opacity-60"
-                  }
-                `}
-              >
-                <div className="flex flex-col">
-                  <div className={`mb-2 ${option.available ? "text-Charcoal" : "text-gray-400"}`}>
-                    {option.icon}
-                  </div>
-                  <h3 className={`font-medium text-sm ${option.available ? "text-Charcoal" : "text-gray-500"}`}>
-                    {option.title}
-                  </h3>
-                  <p className={`text-xs mt-0.5 ${option.available ? "text-Charcoal/60" : "text-gray-400"}`}>
-                    {option.subtitle}
-                  </p>
-
-                  {/* Plant pickup credit teaser */}
-                  {option.id === "plant_pickup" && option.available && (
-                    <p className="text-xs text-green-600 mt-2 font-medium">
-                      {pickupCreditQualifies
-                        ? `${convertToLocale({ amount: pickupCreditConfig.creditAmount, currency_code: cart.currency_code })} pickup credit!`
-                        : `Add ${convertToLocale({ amount: pickupCreditAmountAway, currency_code: cart.currency_code })} more for a ${convertToLocale({ amount: pickupCreditConfig.creditAmount, currency_code: cart.currency_code })} credit`
-                      }
-                    </p>
-                  )}
-                  
-                  {!option.available && option.amountAway > 0 && (
-                    <p className="text-xs text-amber-600 mt-2 font-medium">
-                      Add {convertToLocale({ amount: option.amountAway, currency_code: cart.currency_code })} more to qualify
-                    </p>
-                  )}
+        <div className="grid grid-cols-2 gap-3">
+          {options.map((option) => (
+            <button
+              key={option.id}
+              type="button"
+              onClick={() => option.available && handleSelectOption(option.id)}
+              disabled={!option.available || isSubmitting}
+              className={`
+                relative p-4 rounded-xl border-2 text-left transition-all duration-200 bg-white
+                ${option.available && !isSubmitting
+                  ? "border-gray-200 hover:border-Gold hover:shadow-md cursor-pointer active:scale-[0.98]" 
+                  : "border-gray-100 bg-gray-50/80 cursor-not-allowed opacity-50"
+                }
+              `}
+            >
+              <div className="flex flex-col">
+                <div className={`mb-2.5 ${option.available ? "text-Charcoal/80" : "text-gray-400"}`}>
+                  {option.icon}
                 </div>
-              </button>
-            ))}
-          </div>
+                <h3 className={`font-semibold text-sm leading-tight ${option.available ? "text-Charcoal" : "text-gray-500"}`}>
+                  {option.title}
+                </h3>
+                <p className={`text-xs mt-0.5 leading-snug ${option.available ? "text-Charcoal/50" : "text-gray-400"}`}>
+                  {option.subtitle}
+                </p>
 
-          {error && (
-            <div className="mt-3 p-2 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
-              {error}
-            </div>
-          )}
+                {option.id === "plant_pickup" && option.available && (
+                  <p className="text-xs text-green-600 mt-2.5 font-semibold leading-tight">
+                    {pickupCreditQualifies
+                      ? `${convertToLocale({ amount: pickupCreditConfig.creditAmount, currency_code: cart.currency_code })} pickup credit!`
+                      : `Add ${convertToLocale({ amount: pickupCreditAmountAway, currency_code: cart.currency_code })} for a ${convertToLocale({ amount: pickupCreditConfig.creditAmount, currency_code: cart.currency_code })} credit`
+                    }
+                  </p>
+                )}
+                
+                {!option.available && option.amountAway > 0 && (
+                  <p className="text-xs text-amber-600 mt-2.5 font-semibold">
+                    Add {convertToLocale({ amount: option.amountAway, currency_code: cart.currency_code })} more
+                  </p>
+                )}
+              </div>
+            </button>
+          ))}
         </div>
-      )}
 
-      {/* Plant Pickup Date Selection Sub-step */}
+        {error && (
+          <div className="mt-3 p-3 bg-red-50 border border-red-200/80 rounded-xl text-red-700 text-sm">
+            {error}
+          </div>
+        )}
+      </div>
+
+      {/* Plant Pickup Date Selection */}
       {showSelection && subStep === "plant_date" && (
         <PlantPickupScheduling
           config={config}
@@ -366,10 +371,11 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
           onDateChange={setPendingPickupDate}
           onConfirm={handleConfirmPickupDate}
           onBack={() => setSubStep("select")}
+          isSubmitting={isSubmitting}
         />
       )}
 
-      {/* Southeast Pickup Location/Date Sub-step */}
+      {/* Southeast Pickup Location/Date Selection */}
       {showSelection && subStep === "southeast_pickup" && (
         <SoutheastPickupScheduling
           locations={config.SoutheastPickupLocations?.map((loc) => ({
@@ -382,55 +388,59 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
           onDateChange={setPendingSEDate}
           onConfirm={handleConfirmSoutheastPickup}
           onBack={() => setSubStep("select")}
+          isSubmitting={isSubmitting}
         />
       )}
 
       {/* Summary Mode */}
       {!showSelection && fulfillmentType && (
         <div className="flex items-start gap-4">
-          <div className="p-3 bg-Gold rounded-xl text-white shadow-sm">
+          <div className="p-3 bg-Gold rounded-xl text-white shadow-md shrink-0">
             {options.find(o => o.id === fulfillmentType)?.icon}
           </div>
           
-          <div className="flex-1">
-            <h3 className="text-lg font-semibold text-Charcoal mb-1">
+          <div className="flex-1 min-w-0">
+            <h3 className="text-base font-bold text-Charcoal mb-1 tracking-tight">
               {fulfillmentLabels[fulfillmentType].label}
             </h3>
             
             {scheduledDate && (
-              <div className="flex items-center gap-2 text-sm text-Charcoal/80 mb-2">
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
+              <div className="flex items-center gap-1.5 text-sm text-Charcoal/70 mb-1.5">
+                <CalendarIcon />
                 <span className="font-medium">{scheduledDate}</span>
               </div>
             )}
             
-            <p className="text-sm text-Charcoal/70 leading-relaxed">
+            <p className="text-sm text-Charcoal/55 leading-relaxed">
               {fulfillmentLabels[fulfillmentType].description}
             </p>
 
-            {/* Southeast pickup location summary */}
             {fulfillmentType === "southeast_pickup" && cart.metadata?.pickupLocationId && (
-              <div className="mt-2 text-sm text-Charcoal/80">
-                <span className="font-medium">Location: </span>
-                {config.SoutheastPickupLocations?.find(
-                  (l) => l.id === cart.metadata?.pickupLocationId
-                )?.Name || cart.metadata.pickupLocationId}
+              <div className="mt-2 flex items-center gap-1.5 text-sm text-Charcoal/70">
+                <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                <span className="font-medium">
+                  {config.SoutheastPickupLocations?.find(
+                    (l) => l.id === cart.metadata?.pickupLocationId
+                  )?.Name || cart.metadata.pickupLocationId}
+                </span>
               </div>
             )}
 
-            {/* Pickup credit confirmation */}
             {fulfillmentType === "plant_pickup" && pickupCreditQualifies && (
-              <p className="text-sm text-green-600 font-medium mt-2">
-                {convertToLocale({ amount: pickupCreditConfig.creditAmount, currency_code: cart.currency_code })} pickup credit applied!
-              </p>
+              <div className="mt-2.5 inline-flex items-center gap-1.5 bg-green-50 text-green-700 text-xs font-semibold px-2.5 py-1 rounded-full">
+                <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                {convertToLocale({ amount: pickupCreditConfig.creditAmount, currency_code: cart.currency_code })} pickup credit applied
+              </div>
             )}
 
-            {/* Post-order note preview for plant pickup */}
             {fulfillmentType === "plant_pickup" && config.PlantPickupPostOrderNote && (
-              <div className="mt-3 bg-Gold/5 border border-Gold/20 rounded-lg p-3">
-                <p className="text-xs text-Charcoal/70">
+              <div className="mt-3 bg-Gold/5 border border-Gold/15 rounded-xl p-3">
+                <p className="text-xs text-Charcoal/55 leading-relaxed">
                   {config.PlantPickupPostOrderNote}
                 </p>
               </div>
