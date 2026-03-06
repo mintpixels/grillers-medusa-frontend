@@ -32,6 +32,7 @@ const STATE_NAMES: Record<string, string> = {
   NC: "North Carolina",
   SC: "South Carolina",
   TN: "Tennessee",
+  TX: "Texas",
 }
 
 function formatDateDisplay(dateStr: string): string {
