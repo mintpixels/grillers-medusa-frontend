@@ -135,7 +135,7 @@ export default function SoutheastPickupScheduling({
           {selectedLocationId ? "Change Pickup City" : "Select a Pickup City"}
         </h2>
         <p className="text-sm text-Charcoal/60 mb-4">
-          Choose a city near you. All locations are a flat $20.
+          Choose a city near you for scheduled pickup.
         </p>
       </div>
 
