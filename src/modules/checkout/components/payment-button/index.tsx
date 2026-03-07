@@ -4,7 +4,7 @@ import { isManual, isStripe } from "@lib/constants"
 import { placeOrder } from "@lib/data/cart"
 import { HttpTypes } from "@medusajs/types"
 import { useElements, useStripe } from "@stripe/react-stripe-js"
-import React, { useState } from "react"
+import React, { useRef, useState } from "react"
 import ErrorMessage from "../error-message"
 import Spinner from "@modules/common/icons/spinner"
 
@@ -42,11 +42,13 @@ const GoldButton = ({
 
 type PaymentButtonProps = {
   cart: HttpTypes.StoreCart
+  cardComplete?: boolean
   "data-testid": string
 }
 
 const PaymentButton: React.FC<PaymentButtonProps> = ({
   cart,
+  cardComplete = false,
   "data-testid": dataTestId,
 }) => {
   // All fulfillment types (including pickup) now set a shipping method on the cart
@@ -65,6 +67,7 @@ const PaymentButton: React.FC<PaymentButtonProps> = ({
         <StripePaymentButton
           notReady={notReady}
           cart={cart}
+          cardComplete={cardComplete}
           data-testid={dataTestId}
         />
       )
@@ -84,14 +87,17 @@ const PaymentButton: React.FC<PaymentButtonProps> = ({
 const StripePaymentButton = ({
   cart,
   notReady,
+  cardComplete = false,
   "data-testid": dataTestId,
 }: {
   cart: HttpTypes.StoreCart
   notReady: boolean
+  cardComplete?: boolean
   "data-testid"?: string
 }) => {
   const [submitting, setSubmitting] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const submittingRef = useRef(false)
 
   const onPaymentCompleted = async () => {
     await placeOrder()
@@ -99,6 +105,7 @@ const StripePaymentButton = ({
         setErrorMessage(err.message)
       })
       .finally(() => {
+        submittingRef.current = false
         setSubmitting(false)
       })
   }
@@ -111,12 +118,15 @@ const StripePaymentButton = ({
     (s) => s.status === "pending"
   )
 
-  const disabled = !stripe || !elements ? true : false
+  const disabled = !stripe || !elements || !cardComplete
 
   const handlePayment = async () => {
+    if (submittingRef.current) return
+    submittingRef.current = true
     setSubmitting(true)
 
     if (!stripe || !elements || !card || !cart) {
+      submittingRef.current = false
       setSubmitting(false)
       return
     }
@@ -171,6 +181,11 @@ const StripePaymentButton = ({
 
   return (
     <>
+      {errorMessage && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200/80 rounded-lg text-sm text-red-700">
+          {errorMessage}. Please verify your payment details and try again.
+        </div>
+      )}
       <GoldButton
         disabled={disabled || notReady}
         onClick={handlePayment}
@@ -179,10 +194,6 @@ const StripePaymentButton = ({
       >
         Complete Purchase
       </GoldButton>
-      <ErrorMessage
-        error={errorMessage}
-        data-testid="stripe-payment-error-message"
-      />
     </>
   )
 }

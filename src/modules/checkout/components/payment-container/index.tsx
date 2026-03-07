@@ -1,6 +1,6 @@
 import { Radio as RadioGroupOption } from "@headlessui/react"
 import { Text, clx } from "@medusajs/ui"
-import React, { useContext, useMemo, type JSX } from "react"
+import React, { useContext, useEffect, useMemo, useState, type JSX } from "react"
 
 import Radio from "@modules/common/components/radio"
 
@@ -10,6 +10,8 @@ import { CardElement } from "@stripe/react-stripe-js"
 import { StripeCardElementOptions } from "@stripe/stripe-js"
 import PaymentTest from "../payment-test"
 import { StripeContext } from "../payment-wrapper/stripe-wrapper"
+
+const STRIPE_LOAD_TIMEOUT_MS = 15000
 
 type PaymentContainerProps = {
   paymentProviderId: string
@@ -79,6 +81,16 @@ export const StripeCardContainer = ({
   setCardComplete: (complete: boolean) => void
 }) => {
   const stripeReady = useContext(StripeContext)
+  const [stripeTimedOut, setStripeTimedOut] = useState(false)
+
+  useEffect(() => {
+    if (stripeReady || selectedPaymentOptionId !== paymentProviderId) return
+    setStripeTimedOut(false)
+    const timer = setTimeout(() => {
+      if (!stripeReady) setStripeTimedOut(true)
+    }, STRIPE_LOAD_TIMEOUT_MS)
+    return () => clearTimeout(timer)
+  }, [stripeReady, selectedPaymentOptionId, paymentProviderId])
 
   const useOptions: StripeCardElementOptions = useMemo(() => {
     return {
@@ -120,6 +132,20 @@ export const StripeCardContainer = ({
                 setCardComplete(e.complete)
               }}
             />
+          </div>
+        ) : stripeTimedOut ? (
+          <div className="my-4 p-4 bg-red-50 border border-red-200/80 rounded-lg">
+            <p className="text-sm text-red-700 font-medium mb-1">Unable to load payment form</p>
+            <p className="text-xs text-red-600 leading-relaxed">
+              Please check your internet connection or disable any ad blockers, then{" "}
+              <button
+                type="button"
+                onClick={() => window.location.reload()}
+                className="underline font-semibold hover:text-red-800"
+              >
+                reload the page
+              </button>.
+            </p>
           </div>
         ) : (
           <SkeletonCardDetails />

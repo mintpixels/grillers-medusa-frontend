@@ -48,8 +48,8 @@ export default function CheckoutLayout({
         {children}
       </div>
 
-      {/* Footer */}
-      <div className="relative z-10 py-4 flex items-center justify-center">
+      {/* Footer - extra bottom padding to clear cookie consent banner */}
+      <div className="relative z-10 py-4 pb-24 flex items-center justify-center">
         <p className="text-xs text-gray-500">
           Secure checkout powered by Stripe
         </p>

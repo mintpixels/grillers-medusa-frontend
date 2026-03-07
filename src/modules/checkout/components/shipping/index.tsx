@@ -107,24 +107,32 @@ const Shipping: React.FC<ShippingProps> = ({
   const showPickupSection = fulfillmentType !== "ups_shipping"
   const hasPickupOptions = !!_pickupMethods?.length && showPickupSection
 
+  const [priceLoadError, setPriceLoadError] = useState(false)
+
   useEffect(() => {
     setIsLoadingPrices(true)
+    setPriceLoadError(false)
 
     if (_shippingMethods?.length) {
-      const promises = _shippingMethods
-        .filter((sm) => sm.price_type === "calculated")
-        .map((sm) => calculatePriceForShippingOption(sm.id, cart.id))
+      const calculatedMethods = _shippingMethods.filter((sm) => sm.price_type === "calculated")
 
-      if (promises.length) {
+      if (calculatedMethods.length) {
+        const promises = calculatedMethods.map((sm) => calculatePriceForShippingOption(sm.id, cart.id))
+
         Promise.allSettled(promises).then((res) => {
           const pricesMap: Record<string, number> = {}
-          res
-            .filter((r) => r.status === "fulfilled")
-            .forEach((p) => (pricesMap[p.value?.id || ""] = p.value?.amount!))
+          const fulfilled = res.filter((r) => r.status === "fulfilled")
+          fulfilled.forEach((p) => (pricesMap[p.value?.id || ""] = p.value?.amount!))
 
           setCalculatedPricesMap(pricesMap)
           setIsLoadingPrices(false)
+
+          if (fulfilled.length === 0 && calculatedMethods.length > 0) {
+            setPriceLoadError(true)
+          }
         })
+      } else {
+        setIsLoadingPrices(false)
       }
     }
 
@@ -407,6 +415,23 @@ const Shipping: React.FC<ShippingProps> = ({
                   </div>
                 </div>
               </div>
+            </div>
+          )}
+
+          {priceLoadError && (
+            <div className="mb-4 p-3 bg-amber-50 border border-amber-200/80 rounded-lg">
+              <p className="text-sm text-amber-800 font-medium mb-1">Unable to calculate shipping rates</p>
+              <p className="text-xs text-amber-700">
+                Please{" "}
+                <button
+                  type="button"
+                  onClick={() => window.location.reload()}
+                  className="underline font-semibold hover:text-amber-900"
+                >
+                  reload the page
+                </button>{" "}
+                to try again.
+              </p>
             </div>
           )}
 

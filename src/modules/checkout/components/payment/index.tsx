@@ -12,7 +12,7 @@ import PaymentContainer, {
   StripeCardContainer,
 } from "@modules/checkout/components/payment-container"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 
 // Net-weight authorization disclaimer
 const NetWeightDisclaimer = () => (
@@ -58,6 +58,8 @@ const Payment = ({
   cart: any
   availablePaymentMethods: any[]
 }) => {
+  const showsDeliveryStep = cart?.metadata?.fulfillmentType === "ups_shipping"
+  const stepNumber = showsDeliveryStep ? 4 : 3
   const activeSession = cart.payment_collection?.payment_sessions?.find(
     (paymentSession: any) => paymentSession.status === "pending"
   )
@@ -73,6 +75,8 @@ const Payment = ({
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(
     activeSession?.provider_id ?? ""
   )
+
+  const hasInitiatedSession = useRef(false)
 
   useEffect(() => {
     if (!selectedPaymentMethod && filteredPaymentMethods.length === 1) {
@@ -165,7 +169,18 @@ const Payment = ({
 
   useEffect(() => {
     setError(null)
+    if (!isOpen) {
+      hasInitiatedSession.current = false
+    }
   }, [isOpen])
+
+  useEffect(() => {
+    if (isOpen && selectedPaymentMethod && !activeSession && !hasInitiatedSession.current) {
+      hasInitiatedSession.current = true
+      initiatePaymentSession(cart, { provider_id: selectedPaymentMethod })
+        .catch((err: any) => setError(err.message))
+    }
+  }, [isOpen, selectedPaymentMethod, activeSession])
 
   // Check if all steps are ready to place order
   const readyToPlaceOrder = paymentReady && addressComplete
@@ -182,7 +197,7 @@ const Payment = ({
               "bg-gray-200 text-gray-400": !isOpen,
             }
           )}>
-            3
+            {stepNumber}
           </span>
           <h2 className={clx("text-lg font-semibold", {
             "text-gray-900": isOpen,
@@ -254,7 +269,7 @@ const Payment = ({
             <div className="mt-6 pt-6 border-t border-gray-200">
               <NetWeightDisclaimer />
               
-              <PaymentButton cart={cart} data-testid="submit-order-button" />
+              <PaymentButton cart={cart} cardComplete={cardComplete} data-testid="submit-order-button" />
               
               <p className="text-xs text-gray-500 mt-4 leading-relaxed text-center">
                 By clicking Complete Purchase, you agree to our{" "}
