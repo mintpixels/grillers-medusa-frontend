@@ -5,6 +5,7 @@ import { setShippingMethod } from "@lib/data/cart"
 import { calculatePriceForShippingOption } from "@lib/data/fulfillment"
 import { convertToLocale } from "@lib/util/money"
 import { trackAddShippingInfo } from "@lib/gtm"
+import { useCartTitleMap } from "@lib/hooks/use-cart-title-map"
 
 import { HttpTypes } from "@medusajs/types"
 import ErrorMessage from "@modules/checkout/components/error-message"
@@ -61,6 +62,7 @@ const Shipping: React.FC<ShippingProps> = ({
   cart,
   availableShippingMethods,
 }) => {
+  const cartTitleMap = useCartTitleMap(cart?.items)
   const [isLoading, setIsLoading] = useState(false)
   const [isLoadingPrices, setIsLoadingPrices] = useState(true)
 
@@ -178,6 +180,7 @@ const Shipping: React.FC<ShippingProps> = ({
             price: (item.unit_price || 0) / 100,
             quantity: item.quantity,
           })) || [],
+          titleMap: cartTitleMap,
         })
         router.refresh()
       })

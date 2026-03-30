@@ -197,3 +197,68 @@ export const declineTransferRequest = async (id: string, token: string) => {
     .then(({ order }) => ({ success: true, error: null, order }))
     .catch((err) => ({ success: false, error: err.message, order: null }))
 }
+
+export type PurchaseHistoryItem = {
+  variantId: string
+  productId: string
+  title: string
+  productTitle: string
+  thumbnail: string | null
+  lastOrderedAt: string
+  timesOrdered: number
+  totalQuantity: number
+  unitPrice: number
+  currencyCode: string
+  product?: any
+  variant?: any
+}
+
+/**
+ * Fetch all past orders and deduplicate items by variant_id.
+ * Returns a list of unique products the customer has ordered, sorted by most recent.
+ */
+export async function listPurchaseHistory(): Promise<PurchaseHistoryItem[]> {
+  const orders = await listOrders(100, 0)
+
+  if (!orders?.length) return []
+
+  const variantMap = new Map<string, PurchaseHistoryItem>()
+
+  for (const order of orders) {
+    for (const item of order.items || []) {
+      const variantId = item.variant_id
+      if (!variantId) continue
+
+      const existing = variantMap.get(variantId)
+      const orderDate = order.created_at
+
+      if (existing) {
+        existing.timesOrdered += 1
+        existing.totalQuantity += item.quantity
+        if (orderDate > existing.lastOrderedAt) {
+          existing.lastOrderedAt = orderDate
+          existing.unitPrice = item.unit_price || existing.unitPrice
+        }
+      } else {
+        variantMap.set(variantId, {
+          variantId,
+          productId: item.product_id || "",
+          title: item.title || "",
+          productTitle: item.product_title || "",
+          thumbnail: item.thumbnail || null,
+          lastOrderedAt: orderDate,
+          timesOrdered: 1,
+          totalQuantity: item.quantity,
+          unitPrice: item.unit_price || 0,
+          currencyCode: order.currency_code || "usd",
+          product: item.product,
+          variant: item.variant,
+        })
+      }
+    }
+  }
+
+  return Array.from(variantMap.values()).sort(
+    (a, b) => new Date(b.lastOrderedAt).getTime() - new Date(a.lastOrderedAt).getTime()
+  )
+}

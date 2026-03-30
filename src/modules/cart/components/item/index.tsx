@@ -54,16 +54,17 @@ const Item = ({ item, type = "full", currencyCode }: ItemProps) => {
   const maxQtyFromInventory = 10
   const maxQuantity = item.variant?.manage_inventory ? 10 : maxQtyFromInventory
 
+  const productId = item.product_id || item?.product?.id
   const imgSrc = useProductFeaturedImageSrc(
-    item?.product?.id,
+    productId,
     "https://placehold.co/96x96"
   )
 
   // Fetch Strapi product title
-  const productTitle = useProductTitle(item?.product?.id, item.product_title)
+  const productTitle = useProductTitle(productId, item.product_title)
 
   // Fetch product metadata for net-weight pricing
-  const metadata = useProductMetadata(item?.product?.id)
+  const metadata = useProductMetadata(productId)
   const isNetWeight = Boolean(metadata?.AvgPackWeight)
 
   return (

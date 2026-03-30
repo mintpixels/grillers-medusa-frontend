@@ -4,6 +4,7 @@ import { setAddresses, setOrderNotes } from "@lib/data/cart"
 import type { FulfillmentType } from "@lib/data/cart"
 import compareAddresses from "@lib/util/compare-addresses"
 import { trackBeginCheckout } from "@lib/gtm"
+import { useCartTitleMap } from "@lib/hooks/use-cart-title-map"
 import { HttpTypes } from "@medusajs/types"
 import { useToggleState } from "@medusajs/ui"
 import Spinner from "@modules/common/icons/spinner"
@@ -43,7 +44,8 @@ const Addresses = ({
       : true
   )
 
-  // Track begin_checkout event once on component mount
+  const cartTitleMap = useCartTitleMap(cart?.items)
+
   const hasTrackedCheckout = useRef(false)
   useEffect(() => {
     if (cart && !hasTrackedCheckout.current) {
@@ -58,9 +60,10 @@ const Addresses = ({
           price: (item.unit_price || 0) / 100,
           quantity: item.quantity,
         })) || [],
+        titleMap: cartTitleMap,
       })
     }
-  }, [cart])
+  }, [cart, cartTitleMap])
 
   // Track postal code for real-time validation against fulfillment type
   const [postalCode, setPostalCode] = useState(cart?.shipping_address?.postal_code || "")

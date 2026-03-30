@@ -20,11 +20,12 @@ const CheckoutItem = ({
   item: HttpTypes.StoreCartLineItem
   currencyCode: string
 }) => {
+  const productId = item.product_id || item?.product?.id
   const imgSrc = useProductFeaturedImageSrc(
-    item?.product?.id,
+    productId,
     "https://placehold.co/64x64"
   )
-  const title = useProductTitle(item?.product?.id, item.title)
+  const title = useProductTitle(productId, item.product_title)
 
   return (
     <div className="flex gap-4">

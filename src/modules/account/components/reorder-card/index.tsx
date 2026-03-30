@@ -5,6 +5,7 @@ import Button from "@modules/common/components/button"
 import { getProductPrice } from "@lib/util/get-product-price"
 import { useAddToCart } from "@lib/hooks/use-add-to-cart"
 import { useProductFeaturedImageSrc } from "@lib/hooks/use-product-featured-image"
+import { useProductTitle } from "@lib/hooks/use-product-title"
 
 interface LineItemWithDate {
   id: string
@@ -31,6 +32,7 @@ export default function ReorderCard({
     item.product.id,
     "https://placehold.co/600x400"
   )
+  const displayTitle = useProductTitle(item.product?.id, item.product_title)
   const {
     quantity,
     increment,
@@ -54,7 +56,7 @@ export default function ReorderCard({
       <div className="relative h-80 w-full">
         <Image
           src={imgSrc}
-          alt={item.product_title}
+          alt={displayTitle}
           fill
           className="object-cover"
         />
@@ -75,7 +77,7 @@ export default function ReorderCard({
           )}
         </div>
         <h3 className="text-h4 font-gyst font-bold text-Charcoal pb-4">
-          {item.product_title}
+          {displayTitle}
         </h3>
         {selectedPrice && (
           <p className="text-Charcoal">

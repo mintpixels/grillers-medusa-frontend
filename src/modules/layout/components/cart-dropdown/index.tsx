@@ -22,7 +22,7 @@ import { useProductTitle } from "@lib/hooks/use-product-title"
 
 const CartItemImage = ({ item }: { item: HttpTypes.StoreCartLineItem }) => {
   const imgSrc = useProductFeaturedImageSrc(
-    item?.product?.id,
+    item.product_id || item?.product?.id,
     "https://placehold.co/96x96"
   )
 
@@ -36,7 +36,7 @@ const CartItemImage = ({ item }: { item: HttpTypes.StoreCartLineItem }) => {
 }
 
 const CartItemTitle = ({ item }: { item: HttpTypes.StoreCartLineItem }) => {
-  const title = useProductTitle(item?.product?.id, item.title)
+  const title = useProductTitle(item.product_id || item?.product?.id, item.product_title)
   return <>{title}</>
 }
 

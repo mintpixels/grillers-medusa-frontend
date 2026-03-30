@@ -171,9 +171,7 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
     },
   ]
 
-  const options = availableFulfillmentTypes.length > 0
-    ? allOptions.filter(opt => availableFulfillmentTypes.includes(opt.id))
-    : allOptions
+  const options = allOptions
 
   const handleSelectOption = async (option: FulfillmentType) => {
     if (isSubmitting) return

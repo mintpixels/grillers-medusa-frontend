@@ -1,8 +1,8 @@
 "use client"
 
 import React, { useState, Fragment } from "react"
-import { useRouter, useParams } from "next/navigation"
-import { loginWithCredentials, signupWithCredentials, signout } from "@lib/data/customer"
+import { useRouter } from "next/navigation"
+import { loginWithCredentials, signupWithCredentials, signoutKeepCart } from "@lib/data/customer"
 import { HttpTypes } from "@medusajs/types"
 import { Dialog, Transition } from "@headlessui/react"
 
@@ -140,15 +140,16 @@ const CheckoutLoginBanner: React.FC<Props> = ({ customer }) => {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showWhyModal, setShowWhyModal] = useState(false)
 
-  const params = useParams()
-  const countryCode = (params?.countryCode as string) || "us"
   const [loggingOut, setLoggingOut] = useState(false)
 
   const handleLogout = async () => {
     setLoggingOut(true)
     try {
-      await signout(countryCode, `/${countryCode}/checkout`)
+      await signoutKeepCart()
+      router.refresh()
     } catch {
+      // no-op
+    } finally {
       setLoggingOut(false)
     }
   }

@@ -1,9 +1,7 @@
 import React from "react"
-import classNames from "classnames"
-import UnderlineLink from "@modules/common/components/interactive-link"
-
 import AccountNav from "../components/account-nav"
 import { HttpTypes } from "@medusajs/types"
+import LocalizedClientLink from "@modules/common/components/localized-client-link"
 
 interface AccountLayoutProps {
   customer: HttpTypes.StoreCustomer | null
@@ -15,28 +13,40 @@ const AccountLayout: React.FC<AccountLayoutProps> = ({
   children,
 }) => {
   return (
-    <div className="flex-1 small:py-12" data-testid="account-page">
-      <div className="flex-1 content-container h-full max-w-7xl mx-auto bg-white flex flex-col">
-        <div
-          className={classNames("grid grid-cols-1 py-12", {
-            "small:grid-cols-[240px_1fr]": customer,
-          })}
-        >
-          <div>{customer && <AccountNav customer={customer} />}</div>
-          <div className="flex-1">{children}</div>
-        </div>
-        <div className="flex flex-col small:flex-row items-end justify-between small:border-t border-gray-200 py-12 gap-8">
-          <div>
-            <h3 className="text-xl-semi mb-4">Got questions?</h3>
-            <span className="txt-medium">
-              You can find frequently asked questions and answers on our
-              customer service page.
-            </span>
+    <div className="bg-gray-50 min-h-[calc(100vh-4rem)]" data-testid="account-page">
+      <div className="content-container max-w-7xl mx-auto py-8 small:py-12">
+        {customer && (
+          <div className="flex flex-col small:flex-row gap-8">
+            <aside className="small:w-[260px] shrink-0 small:sticky small:top-24 small:self-start">
+              <AccountNav customer={customer} />
+            </aside>
+            <main className="flex-1 min-w-0">{children}</main>
           </div>
-          <div>
-            <UnderlineLink href="/customer-service">
+        )}
+
+        {!customer && (
+          <div className="max-w-lg mx-auto">{children}</div>
+        )}
+
+        <div className="mt-16 pt-8 border-t border-gray-200">
+          <div className="flex flex-col small:flex-row items-start small:items-center justify-between gap-4">
+            <div>
+              <h3 className="text-lg font-gyst font-bold text-Charcoal mb-1">
+                Got questions?
+              </h3>
+              <p className="text-sm font-maison-neue text-Charcoal/60">
+                Find answers on our customer service page.
+              </p>
+            </div>
+            <LocalizedClientLink
+              href="/customer-service"
+              className="inline-flex items-center gap-2 text-sm font-maison-neue font-semibold text-Gold hover:text-Gold/80 transition-colors"
+            >
               Customer Service
-            </UnderlineLink>
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+              </svg>
+            </LocalizedClientLink>
           </div>
         </div>
       </div>

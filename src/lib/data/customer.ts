@@ -215,6 +215,22 @@ export async function signout(countryCode: string, redirectTo?: string) {
   redirect(redirectTo || `/${countryCode}/account`)
 }
 
+/**
+ * Sign out without removing the cart or redirecting.
+ * Used during checkout so the customer can re-authenticate
+ * without losing their in-progress cart.
+ */
+export async function signoutKeepCart() {
+  await sdk.auth.logout()
+  await removeAuthToken()
+
+  const customerCacheTag = await getCacheTag("customers")
+  revalidateTag(customerCacheTag)
+
+  const cartCacheTag = await getCacheTag("carts")
+  revalidateTag(cartCacheTag)
+}
+
 export async function transferCart() {
   const cartId = await getCartId()
 

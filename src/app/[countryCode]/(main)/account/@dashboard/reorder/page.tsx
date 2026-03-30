@@ -1,93 +1,45 @@
 import { Metadata } from "next"
-import { notFound } from "next/navigation"
-import { listOrdersWithPrices } from "@lib/data/orders"
-import Divider from "@modules/common/components/divider"
-import ReorderCard from "@modules/account/components/reorder-card"
+import { listPurchaseHistory } from "@lib/data/orders"
+import { getProductsByMedusaIds, type StrapiCollectionProduct } from "@lib/data/strapi/collections"
+import strapiClient from "@lib/strapi"
+import ReorderBrowser from "@modules/account/components/reorder-browser"
 
 export const metadata: Metadata = {
-  title: "Quick Reorder",
-  description:
-    "To make reordering quick and effortless, we've displayed your recent purchases below. Simply select the quantity you need and proceed directly to checkout.",
+  title: "Reorder | Grillers Pride",
+  description: "Quickly reorder your favorite products.",
 }
 
-export default async function Reorder() {
-  const orders = await listOrdersWithPrices()
-  if (!orders) {
-    notFound()
+export default async function ReorderPage({
+  params,
+}: {
+  params: Promise<{ countryCode: string }>
+}) {
+  const { countryCode } = await params
+  const history = await listPurchaseHistory()
+  const productIds = [...new Set(history.map((h) => h.productId).filter(Boolean))]
+
+  const strapiProducts = await getProductsByMedusaIds(productIds, strapiClient)
+
+  const strapiMap: Record<string, StrapiCollectionProduct> = {}
+  for (const sp of strapiProducts) {
+    if (sp.MedusaProduct?.ProductId) {
+      strapiMap[sp.MedusaProduct.ProductId] = sp
+    }
   }
 
-  const itemsWithDate = orders.flatMap((order) =>
-    order.items.map((item) => ({
-      ...item,
-      orderDate: order.created_at,
-    }))
-  )
-
-  // Compute frequency map (by variant)
-  const freqMap: Record<
-    string,
-    { count: number; item: (typeof itemsWithDate)[0] }
-  > = {}
-  itemsWithDate.forEach((itm) => {
-    const key = itm.variant_id
-    if (!freqMap[key]) {
-      freqMap[key] = { count: itm.quantity, item: itm }
-    } else {
-      freqMap[key].count += itm.quantity
-    }
-  })
-
-  // Pick top 4 most frequently purchased
-  const mostFrequent = Object.values(freqMap)
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 4)
-    .map((v) => v.item)
-
-  // Sort all items by purchase date descending, take 8 most recent
-  const recentItems = itemsWithDate
-    .sort(
-      (a, b) =>
-        new Date(b.orderDate!).getTime() - new Date(a.orderDate!).getTime()
-    )
-    .slice(0, 8)
-
   return (
-    <div className="w-full" data-testid="reorder-page-wrapper">
-      {/* Page header */}
-      <div className="mb-8 flex flex-col gap-y-4">
-        <h1 className="text-2xl-semi">Quick Reorder</h1>
-        <p className="text-base-regular">
-          To make reordering quick and effortless, we've displayed your recent
-          purchases below. Simply select the quantity you need and proceed
-          directly to checkout.
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-h3 font-gyst font-bold text-Charcoal">Quick Reorder</h1>
+        <p className="text-sm font-maison-neue text-Charcoal/50 mt-1">
+          Browse and reorder from your purchase history
         </p>
       </div>
-
-      {/* Most Frequently Purchased Section */}
-      <section className="my-12">
-        <h2 className="text-large-semi mb-4">Most Frequently Purchased</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          {mostFrequent?.map((item) => (
-            <ReorderCard key={item.id} item={item} />
-          ))}
-        </div>
-      </section>
-
-      <Divider />
-
-      {/* Recent Purchases Section */}
-      <section className="mt-12">
-        <h2 className="text-large-semi mb-4">Recent Purchases</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          {recentItems?.map((item) => (
-            <ReorderCard
-              key={`${item.id}-${item.orderDate}`}
-              item={item}
-              showDate
-            />
-          ))}
-        </div>
-      </section>
+      <ReorderBrowser
+        history={history}
+        strapiMap={strapiMap}
+        countryCode={countryCode}
+      />
     </div>
   )
 }

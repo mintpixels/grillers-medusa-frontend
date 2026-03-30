@@ -10,10 +10,12 @@ export default async function ProductPreview({
   product,
   isFeatured,
   region,
+  strapiTitle,
 }: {
   product: HttpTypes.StoreProduct
   isFeatured?: boolean
   region: HttpTypes.StoreRegion
+  strapiTitle?: string
 }) {
   // const pricedProduct = await listProducts({
   //   regionId: region.id,
@@ -42,7 +44,7 @@ export default async function ProductPreview({
             className="text-p-md font-maison-neue text-Charcoal group-hover:text-VibrantRed transition-colors line-clamp-2" 
             data-testid="product-title"
           >
-            {product.title}
+            {strapiTitle || product.title}
           </h3>
           {cheapestPrice && (
             <div className="flex items-baseline gap-2">

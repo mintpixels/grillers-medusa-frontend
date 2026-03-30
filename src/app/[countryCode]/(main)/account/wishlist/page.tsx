@@ -3,6 +3,7 @@ import { getWishlist } from "@lib/data/wishlist"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import WishlistButton from "@modules/products/components/wishlist-button"
 import Image from "next/image"
+import { buildStrapiTitleMap } from "@lib/util/strapi-title-map"
 
 export const metadata: Metadata = {
   title: "My Wishlist | Grillers Pride",
@@ -11,6 +12,8 @@ export const metadata: Metadata = {
 
 export default async function WishlistPage() {
   const wishlist = await getWishlist()
+  const productIds = wishlist.map((item) => item.productId).filter(Boolean)
+  const titleMap = await buildStrapiTitleMap(productIds)
 
   return (
     <div className="py-8 md:py-16 bg-white">
@@ -59,7 +62,7 @@ export default async function WishlistPage() {
                   {item.thumbnail ? (
                     <Image
                       src={item.thumbnail}
-                      alt={item.title}
+                      alt={titleMap[item.productId] || item.title}
                       fill
                       className="object-cover group-hover:scale-105 transition-transform duration-300"
                     />
@@ -87,7 +90,7 @@ export default async function WishlistPage() {
                       className="flex-1"
                     >
                       <h3 className="text-p-md font-maison-neue font-semibold text-Charcoal line-clamp-2 hover:underline">
-                        {item.title}
+                        {titleMap[item.productId] || item.title}
                       </h3>
                     </LocalizedClientLink>
                     <WishlistButton

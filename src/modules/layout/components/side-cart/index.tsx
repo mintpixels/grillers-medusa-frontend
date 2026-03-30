@@ -22,7 +22,7 @@ import Spinner from "@modules/common/icons/spinner"
 // Cart item image with Strapi fallback
 const CartItemImage = ({ item }: { item: HttpTypes.StoreCartLineItem }) => {
   const imgSrc = useProductFeaturedImageSrc(
-    item?.product?.id,
+    item.product_id || item?.product?.id,
     "https://placehold.co/96x96"
   )
 
@@ -46,7 +46,7 @@ const CartItemTitle = ({
   item: HttpTypes.StoreCartLineItem
   closeCart: () => void
 }) => {
-  const title = useProductTitle(item?.product?.id, item.title)
+  const title = useProductTitle(item.product_id || item?.product?.id, item.product_title)
 
   return (
     <LocalizedClientLink

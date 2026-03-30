@@ -50,14 +50,14 @@ export function trackPageView(url: string) {
   })
 }
 
-export function trackAddToCart(product: any, quantity: number) {
+export function trackAddToCart(product: any, quantity: number, titleOverride?: string) {
   pushToDataLayer({
     event: 'add_to_cart',
     ecommerce: {
       items: [
         {
           item_id: product.id,
-          item_name: product.title,
+          item_name: titleOverride || product.title,
           price: product.price,
           quantity: quantity,
         },
@@ -66,7 +66,7 @@ export function trackAddToCart(product: any, quantity: number) {
   })
 }
 
-export function trackPurchase(order: any) {
+export function trackPurchase(order: any, titleMap?: Record<string, string>) {
   pushToDataLayer({
     event: 'purchase',
     ecommerce: {
@@ -75,7 +75,7 @@ export function trackPurchase(order: any) {
       currency: order.currency_code,
       items: order.items?.map((item: any) => ({
         item_id: item.product_id,
-        item_name: item.title,
+        item_name: (titleMap && item.product_id && titleMap[item.product_id]) || item.title,
         price: item.unit_price,
         quantity: item.quantity,
       })),
@@ -91,6 +91,7 @@ export function trackViewItem(product: {
   currency?: string
   category?: string
   variant?: string
+  titleOverride?: string
 }) {
   pushToDataLayer({
     event: 'view_item',
@@ -100,7 +101,7 @@ export function trackViewItem(product: {
       items: [
         {
           item_id: product.id,
-          item_name: product.title,
+          item_name: product.titleOverride || product.title,
           price: product.price,
           item_category: product.category,
           item_variant: product.variant,
@@ -117,6 +118,7 @@ export function trackRemoveFromCart(product: {
   price?: number
   quantity: number
   currency?: string
+  titleOverride?: string
 }) {
   pushToDataLayer({
     event: 'remove_from_cart',
@@ -126,7 +128,7 @@ export function trackRemoveFromCart(product: {
       items: [
         {
           item_id: product.id,
-          item_name: product.title,
+          item_name: product.titleOverride || product.title,
           price: product.price,
           quantity: product.quantity,
         },
@@ -146,6 +148,7 @@ export function trackBeginCheckout(cart: {
     price: number
     quantity: number
   }>
+  titleMap?: Record<string, string>
 }) {
   pushToDataLayer({
     event: 'begin_checkout',
@@ -154,7 +157,7 @@ export function trackBeginCheckout(cart: {
       value: cart.total,
       items: cart.items.map((item) => ({
         item_id: item.id,
-        item_name: item.title,
+        item_name: (cart.titleMap && cart.titleMap[item.id]) || item.title,
         price: item.price,
         quantity: item.quantity,
       })),
@@ -173,6 +176,7 @@ export function trackAddShippingInfo(cart: {
     price: number
     quantity: number
   }>
+  titleMap?: Record<string, string>
 }) {
   pushToDataLayer({
     event: 'add_shipping_info',
@@ -182,7 +186,7 @@ export function trackAddShippingInfo(cart: {
       shipping_tier: cart.shippingTier,
       items: cart.items.map((item) => ({
         item_id: item.id,
-        item_name: item.title,
+        item_name: (cart.titleMap && cart.titleMap[item.id]) || item.title,
         price: item.price,
         quantity: item.quantity,
       })),
@@ -201,6 +205,7 @@ export function trackAddPaymentInfo(cart: {
     price: number
     quantity: number
   }>
+  titleMap?: Record<string, string>
 }) {
   pushToDataLayer({
     event: 'add_payment_info',
@@ -210,7 +215,7 @@ export function trackAddPaymentInfo(cart: {
       payment_type: cart.paymentType,
       items: cart.items.map((item) => ({
         item_id: item.id,
-        item_name: item.title,
+        item_name: (cart.titleMap && cart.titleMap[item.id]) || item.title,
         price: item.price,
         quantity: item.quantity,
       })),

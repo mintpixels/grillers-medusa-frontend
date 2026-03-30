@@ -4,6 +4,7 @@ import { Text } from "@medusajs/ui"
 
 import InteractiveLink from "@modules/common/components/interactive-link"
 import ProductPreview from "@modules/products/components/product-preview"
+import { buildStrapiTitleMap } from "@lib/util/strapi-title-map"
 
 export default async function ProductRail({
   collection,
@@ -26,6 +27,10 @@ export default async function ProductRail({
     return null
   }
 
+  const titleMap = await buildStrapiTitleMap(
+    pricedProducts.map((p) => p.id).filter(Boolean) as string[]
+  )
+
   return (
     <div className="content-container py-12 small:py-24">
       <div className="flex justify-between mb-8">
@@ -38,7 +43,7 @@ export default async function ProductRail({
         {pricedProducts &&
           pricedProducts.map((product) => (
             <li key={product.id}>
-              <ProductPreview product={product} region={region} isFeatured />
+              <ProductPreview product={product} region={region} isFeatured strapiTitle={product.id ? titleMap[product.id] : undefined} />
             </li>
           ))}
       </ul>

@@ -2,6 +2,7 @@ import { Metadata } from "next"
 import Link from "next/link"
 import { listProducts } from "@lib/data/products"
 import { listCollections } from "@lib/data/collections"
+import { buildStrapiTitleMap } from "@lib/util/strapi-title-map"
 
 export const metadata: Metadata = {
   title: "Site Navigation | Grillers Pride",
@@ -27,6 +28,9 @@ export default async function NavigationPage({ params, searchParams }: Props) {
 
   const products = productsData.response.products
   const collections = collectionsData.collections
+  const titleMap = await buildStrapiTitleMap(
+    products.map((p) => p.id).filter(Boolean) as string[]
+  )
 
   const tabs = [
     { id: "products", label: "Products", count: products.length },
@@ -93,7 +97,7 @@ export default async function NavigationPage({ params, searchParams }: Props) {
                 <tr key={product.id} className="hover:bg-Scroll/50 transition-colors">
                   <td className="px-6 py-4">
                     <span className="text-p-md text-Charcoal font-medium">
-                      {product.title}
+                      {(product.id && titleMap[product.id]) || product.title}
                     </span>
                   </td>
                   <td className="px-6 py-4">

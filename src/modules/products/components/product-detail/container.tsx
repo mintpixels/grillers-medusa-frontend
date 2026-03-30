@@ -54,6 +54,7 @@ export default function ProductDetailContainer({
       trackViewItem({
         id: product.id,
         title: product.title || '',
+        titleOverride: strapiProductData?.Title || undefined,
         price,
         currency: region?.currency_code?.toUpperCase() || 'USD',
         category: product.collection?.title,

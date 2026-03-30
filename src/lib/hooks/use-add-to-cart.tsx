@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react"
 import { HttpTypes } from "@medusajs/types"
 import { isEqual } from "lodash"
 import { addToCart } from "@lib/data/cart"
+import { useProductTitle } from "@lib/hooks/use-product-title"
 
 /**
  * Maps an array of variant options to a key/value object
@@ -24,6 +25,7 @@ export function useAddToCart(
   product: HttpTypes.StoreProduct,
   countryCode: string = "us"
 ) {
+  const strapiTitle = useProductTitle(product.id, product.title)
   const [quantity, setQuantity] = useState(1)
   const [options, setOptions] = useState<Record<string, string>>({})
   const [isAdding, setIsAdding] = useState(false)
@@ -108,6 +110,9 @@ export function useAddToCart(
       variantId: selectedVariant.id,
       quantity,
       countryCode,
+      metadata: strapiTitle && strapiTitle !== product.title
+        ? { strapi_title: strapiTitle }
+        : undefined,
     })
     setIsAdding(false)
   }

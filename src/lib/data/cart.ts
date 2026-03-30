@@ -116,10 +116,12 @@ export async function addToCart({
   variantId,
   quantity,
   countryCode,
+  metadata,
 }: {
   variantId: string
   quantity: number
   countryCode: string
+  metadata?: Record<string, unknown>
 }) {
   if (!variantId) {
     throw new Error("Missing variant ID when adding to cart")
@@ -141,6 +143,7 @@ export async function addToCart({
       {
         variant_id: variantId,
         quantity,
+        ...(metadata ? { metadata } : {}),
       },
       {},
       headers
@@ -664,4 +667,26 @@ export async function listCartOptions() {
     headers,
     cache: "force-cache",
   })
+}
+
+/**
+ * Add multiple items to the cart sequentially.
+ * Returns the count of successfully added items.
+ */
+export async function addMultipleToCart(
+  items: Array<{ variantId: string; quantity: number; countryCode: string }>
+): Promise<{ added: number; failed: number }> {
+  let added = 0
+  let failed = 0
+
+  for (const item of items) {
+    try {
+      await addToCart(item)
+      added++
+    } catch {
+      failed++
+    }
+  }
+
+  return { added, failed }
 }

@@ -4,6 +4,7 @@ import { RadioGroup } from "@headlessui/react"
 import { isStripe as isStripeFunc, paymentInfoMap } from "@lib/constants"
 import { initiatePaymentSession } from "@lib/data/cart"
 import { trackAddPaymentInfo } from "@lib/gtm"
+import { useCartTitleMap } from "@lib/hooks/use-cart-title-map"
 import { CreditCard } from "@medusajs/icons"
 import { Button, Container, clx } from "@medusajs/ui"
 import ErrorMessage from "@modules/checkout/components/error-message"
@@ -58,6 +59,7 @@ const Payment = ({
   cart: any
   availablePaymentMethods: any[]
 }) => {
+  const cartTitleMap = useCartTitleMap(cart?.items)
   const showsDeliveryStep = cart?.metadata?.fulfillmentType === "ups_shipping"
   const stepNumber = showsDeliveryStep ? 4 : 3
   const activeSession = cart.payment_collection?.payment_sessions?.find(
@@ -97,6 +99,7 @@ const Payment = ({
     try {
       await initiatePaymentSession(cart, {
         provider_id: method,
+        data: { setup_future_usage: "off_session" },
       })
     } catch (err: any) {
       setError(err.message)
@@ -145,6 +148,7 @@ const Payment = ({
       if (!checkActiveSession) {
         await initiatePaymentSession(cart, {
           provider_id: selectedPaymentMethod,
+          data: { setup_future_usage: "off_session" },
         })
       }
 
@@ -159,6 +163,7 @@ const Payment = ({
           price: (item.unit_price || 0) / 100,
           quantity: item.quantity,
         })) || [],
+        titleMap: cartTitleMap,
       })
     } catch (err: any) {
       setError(err.message)
@@ -177,7 +182,10 @@ const Payment = ({
   useEffect(() => {
     if (isOpen && selectedPaymentMethod && !activeSession && !hasInitiatedSession.current) {
       hasInitiatedSession.current = true
-      initiatePaymentSession(cart, { provider_id: selectedPaymentMethod })
+      initiatePaymentSession(cart, {
+        provider_id: selectedPaymentMethod,
+        data: { setup_future_usage: "off_session" },
+      })
         .catch((err: any) => setError(err.message))
     }
   }, [isOpen, selectedPaymentMethod, activeSession])
