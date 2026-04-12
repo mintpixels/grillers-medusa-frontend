@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { usePathname } from "next/navigation"
 import { hasConsent } from "@lib/utils/cookies"
-import { getJitsu, jitsuPage } from "@lib/jitsu"
+import { jitsuPage } from "@lib/jitsu"
 
 export default function JitsuScript() {
   const [hasAnalyticsConsent, setHasAnalyticsConsent] = useState(false)
@@ -14,13 +14,6 @@ export default function JitsuScript() {
     const consent = hasConsent("analytics")
     setHasAnalyticsConsent(consent)
   }, [])
-
-  // Initialize Jitsu when consent is granted
-  useEffect(() => {
-    if (hasAnalyticsConsent) {
-      getJitsu()
-    }
-  }, [hasAnalyticsConsent])
 
   // Track page views on route changes
   useEffect(() => {
