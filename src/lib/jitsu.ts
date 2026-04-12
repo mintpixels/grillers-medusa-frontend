@@ -7,6 +7,7 @@
  */
 
 const COOKIE_ANON_ID = "_gp_anon_id"
+const COOKIE_USER_ID = "_gp_user_id"
 const COOKIE_SESSION_ID = "_gp_session_id"
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000 // 30 minutes
 
@@ -16,8 +17,11 @@ let globalContext: Record<string, string> = {
   customer_type: "unknown",
 }
 
-let userId: string | undefined
 let userTraits: Record<string, any> = {}
+
+function getUserId(): string | undefined {
+  return getCookie(COOKIE_USER_ID) || undefined
+}
 
 // ── Cookie helpers ──────────────────────────────────────────────
 
@@ -90,6 +94,7 @@ function buildEvent(
 ): Record<string, any> {
   const anonymousId = getAnonymousId()
   const sessionId = getSessionId()
+  const resolvedUserId = getUserId()
 
   return {
     event_type: eventType,
@@ -98,10 +103,10 @@ function buildEvent(
       event_timestamp_ms: Date.now(),
       anonymous_id: anonymousId,
       session_id: sessionId,
-      user_id: userId,
+      user_id: resolvedUserId,
       ...globalContext,
-      user: userId
-        ? { anonymous_id: anonymousId, id: userId, ...userTraits }
+      user: resolvedUserId
+        ? { anonymous_id: anonymousId, id: resolvedUserId, ...userTraits }
         : { anonymous_id: anonymousId },
       page: {
         url: window.location.href,
@@ -147,7 +152,8 @@ export function jitsuIdentify(
   id: string,
   traits?: Record<string, any>
 ) {
-  userId = id
+  // Persist user_id in a 1-year cookie so identity survives logout
+  setCookie(COOKIE_USER_ID, id, 365 * 24 * 60 * 60)
   if (traits) userTraits = { ...userTraits, ...traits }
 
   const payload = buildEvent("identify")
