@@ -5,6 +5,7 @@ import { HttpTypes } from "@medusajs/types"
 import { useIntersection } from "@lib/hooks/use-in-view"
 import { useAddToCart } from "@lib/hooks/use-add-to-cart"
 import { trackViewItem } from "@lib/gtm"
+import { jitsuTrack } from "@lib/jitsu"
 
 import ProductDetail from "./components"
 
@@ -60,8 +61,48 @@ export default function ProductDetailContainer({
         category: product.collection?.title,
         variant: selectedVariant?.title,
       })
+
+      jitsuTrack("product_viewed", {
+        item_id: product.id,
+        item_name: strapiProductData?.Title || product.title || '',
+        variant_id: selectedVariant?.id,
+        price,
+        currency: region?.currency_code?.toUpperCase() || 'USD',
+        category: product.collection?.title,
+        kosher_type: product.metadata?.kosher_type as string | undefined,
+        cut_type: product.metadata?.cut_type as string | undefined,
+      })
     }
   }, [product?.id]) // Only track once on mount
+
+  // Track PDP scroll depth at 25/50/75/100% thresholds
+  useEffect(() => {
+    if (!actionsRef.current || !product?.id) return
+    const thresholds = [0.25, 0.5, 0.75, 1.0]
+    const fired = new Set<number>()
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          thresholds.forEach((t) => {
+            const pct = t * 100
+            if (entry.intersectionRatio >= t && !fired.has(pct)) {
+              fired.add(pct)
+              jitsuTrack("pdp_scroll_depth", {
+                item_id: product.id,
+                max_percent: pct,
+                cta_visible: entry.isIntersecting,
+              })
+            }
+          })
+        })
+      },
+      { threshold: thresholds }
+    )
+
+    observer.observe(actionsRef.current)
+    return () => observer.disconnect()
+  }, [product?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <ProductDetail

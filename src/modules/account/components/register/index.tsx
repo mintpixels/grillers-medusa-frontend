@@ -1,8 +1,9 @@
 "use client"
 
-import { useActionState } from "react"
+import { useActionState, useEffect, useRef } from "react"
 import Input from "@modules/common/components/input"
 import { LOGIN_VIEW } from "@modules/account/templates/login-template"
+import { jitsuTrack, jitsuIdentify } from "@lib/jitsu"
 import ErrorMessage from "@modules/checkout/components/error-message"
 import { SubmitButton } from "@modules/checkout/components/submit-button"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
@@ -14,6 +15,23 @@ type Props = {
 
 const Register = ({ setCurrentView }: Props) => {
   const [message, formAction] = useActionState(signup, null)
+  const hasSubmitted = useRef(false)
+
+  // Track successful registration: signup returns a customer object on success, a string on error
+  useEffect(() => {
+    if (hasSubmitted.current && message && typeof message !== "string") {
+      const customer = message as any
+      jitsuTrack("account_created", {
+        method: "email",
+        customer_id: customer.id,
+      })
+      jitsuIdentify(customer.id, {
+        email: customer.email,
+        first_name: customer.first_name,
+        last_name: customer.last_name,
+      })
+    }
+  }, [message])
 
   return (
     <div
@@ -27,7 +45,7 @@ const Register = ({ setCurrentView }: Props) => {
         Create your Medusa Store Member profile, and get access to an enhanced
         shopping experience.
       </p>
-      <form className="w-full flex flex-col" action={formAction}>
+      <form className="w-full flex flex-col" action={(formData) => { hasSubmitted.current = true; formAction(formData) }}>
         <div className="flex flex-col w-full gap-y-2">
           <Input
             label="First name"

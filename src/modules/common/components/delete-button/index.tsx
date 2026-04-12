@@ -4,6 +4,7 @@ import { clx } from "@medusajs/ui"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { trackRemoveFromCart } from "@lib/gtm"
+import { jitsuTrack } from "@lib/jitsu"
 
 type ProductInfo = {
   id: string
@@ -38,6 +39,13 @@ const DeleteButton = ({
         price: productInfo.price,
         quantity: productInfo.quantity,
         currency: productInfo.currency,
+      })
+      jitsuTrack("product_removed_from_cart", {
+        item_id: productInfo.id,
+        item_name: productInfo.title,
+        price: productInfo.price,
+        quantity: productInfo.quantity,
+        currency: productInfo.currency || "USD",
       })
     }
     

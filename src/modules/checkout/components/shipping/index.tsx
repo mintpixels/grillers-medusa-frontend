@@ -5,6 +5,7 @@ import { setShippingMethod } from "@lib/data/cart"
 import { calculatePriceForShippingOption } from "@lib/data/fulfillment"
 import { convertToLocale } from "@lib/util/money"
 import { trackAddShippingInfo } from "@lib/gtm"
+import { jitsuTrack } from "@lib/jitsu"
 import { useCartTitleMap } from "@lib/hooks/use-cart-title-map"
 
 import { HttpTypes } from "@medusajs/types"
@@ -170,17 +171,32 @@ const Shipping: React.FC<ShippingProps> = ({
     await setShippingMethod({ cartId: cart.id, shippingMethodId: id })
       .then(() => {
         const selectedMethod = availableShippingMethods?.find(m => m.id === id)
+        const shippingItems = cart.items?.map(item => ({
+          id: item.product_id || item.id,
+          title: item.product_title || '',
+          price: (item.unit_price || 0) / 100,
+          quantity: item.quantity,
+        })) || []
+
         trackAddShippingInfo({
           total: (cart.total || 0) / 100,
           currency: cart.currency_code?.toUpperCase(),
           shippingTier: selectedMethod?.name,
-          items: cart.items?.map(item => ({
-            id: item.product_id || item.id,
-            title: item.product_title || '',
-            price: (item.unit_price || 0) / 100,
-            quantity: item.quantity,
-          })) || [],
+          items: shippingItems,
           titleMap: cartTitleMap,
+        })
+
+        jitsuTrack("shipping_info_submitted", {
+          cart_id: cart.id,
+          shipping_tier: selectedMethod?.name,
+          value: (cart.total || 0) / 100,
+          currency: cart.currency_code?.toUpperCase() || "USD",
+          items: shippingItems.map(item => ({
+            item_id: item.id,
+            item_name: (cartTitleMap && cartTitleMap[item.id]) || item.title,
+            price: item.price,
+            quantity: item.quantity,
+          })),
         })
         router.refresh()
       })

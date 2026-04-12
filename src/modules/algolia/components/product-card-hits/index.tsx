@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react"
 import { Hits, useHits } from "react-instantsearch"
 import { trackViewItemList } from "@lib/gtm"
+import { jitsuTrack } from "@lib/jitsu"
 
 import ProductCard from "@modules/algolia/components/product-card"
 import ProductListItem from "@modules/algolia/components/product-list-item"
@@ -28,16 +29,25 @@ function ViewItemListTracker({ listId, listName }: { listId: string; listName: s
       if (itemsKey !== lastTrackedIds.current) {
         lastTrackedIds.current = itemsKey
         
-        trackViewItemList({
-          listId,
-          listName,
-          items: items.slice(0, 12).map((item: any, index: number) => ({
-            id: item.MedusaProduct?.Id || item.objectID,
-            title: item.Title || item.name,
-            price: item.MedusaProduct?.Variants?.[0]?.calculated_price?.calculated_amount 
-              ? item.MedusaProduct.Variants[0].calculated_price.calculated_amount / 100 
-              : undefined,
-            position: index,
+        const mappedItems = items.slice(0, 12).map((item: any, index: number) => ({
+          id: item.MedusaProduct?.Id || item.objectID,
+          title: item.Title || item.name,
+          price: item.MedusaProduct?.Variants?.[0]?.calculated_price?.calculated_amount
+            ? item.MedusaProduct.Variants[0].calculated_price.calculated_amount / 100
+            : undefined,
+          position: index,
+        }))
+
+        trackViewItemList({ listId, listName, items: mappedItems })
+
+        jitsuTrack("product_list_viewed", {
+          list_id: listId,
+          list_name: listName,
+          items: mappedItems.map((item) => ({
+            item_id: item.id,
+            item_name: item.title,
+            price: item.price,
+            index: item.position,
           })),
         })
       }

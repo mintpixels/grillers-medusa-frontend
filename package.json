@@ -24,6 +24,7 @@
   "dependencies": {
     "@googlemaps/js-api-loader": "^2.0.2",
     "@headlessui/react": "^2.2.4",
+    "@jitsu/js": "^1.10.4",
     "@medusajs/icons": "latest",
     "@medusajs/js-sdk": "latest",
     "@medusajs/ui": "latest",

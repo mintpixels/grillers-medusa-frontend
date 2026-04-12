@@ -2,6 +2,7 @@
 
 import { isManual, isStripe } from "@lib/constants"
 import { placeOrder } from "@lib/data/cart"
+import { jitsuTrack } from "@lib/jitsu"
 import { HttpTypes } from "@medusajs/types"
 import { useElements, useStripe } from "@stripe/react-stripe-js"
 import React, { useRef, useState } from "react"
@@ -162,6 +163,15 @@ const StripePaymentButton = ({
             (pi && pi.status === "succeeded")
           ) {
             onPaymentCompleted()
+          } else {
+            jitsuTrack("payment_failed", {
+              cart_id: cart.id,
+              error_message: error.message,
+              error_code: error.code,
+              payment_type: "stripe_card",
+              value: (cart.total || 0) / 100,
+              currency: cart.currency_code?.toUpperCase() || "USD",
+            })
           }
 
           setErrorMessage(error.message || null)

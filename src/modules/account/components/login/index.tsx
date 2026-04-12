@@ -1,9 +1,10 @@
 import { login } from "@lib/data/customer"
 import { LOGIN_VIEW } from "@modules/account/templates/login-template"
+import { jitsuTrack, jitsuIdentify } from "@lib/jitsu"
 import ErrorMessage from "@modules/checkout/components/error-message"
 import { SubmitButton } from "@modules/checkout/components/submit-button"
 import Input from "@modules/common/components/input"
-import { useActionState } from "react"
+import { useActionState, useEffect, useRef } from "react"
 
 type Props = {
   setCurrentView: (view: LOGIN_VIEW) => void
@@ -11,6 +12,18 @@ type Props = {
 
 const Login = ({ setCurrentView }: Props) => {
   const [message, formAction] = useActionState(login, null)
+  const hasSubmitted = useRef(false)
+  const formRef = useRef<HTMLFormElement>(null)
+
+  // Track successful login: message is null initially AND on success.
+  // We use hasSubmitted to distinguish "not yet submitted" from "success".
+  useEffect(() => {
+    if (hasSubmitted.current && !message) {
+      const email = formRef.current?.querySelector<HTMLInputElement>('input[name="email"]')?.value
+      jitsuTrack("login_completed", { method: "email" })
+      if (email) jitsuIdentify(email, { email })
+    }
+  }, [message])
 
   return (
     <div
@@ -21,7 +34,7 @@ const Login = ({ setCurrentView }: Props) => {
       <p className="text-center text-base-regular text-ui-fg-base mb-8">
         Sign in to access an enhanced shopping experience.
       </p>
-      <form className="w-full" action={formAction}>
+      <form className="w-full" ref={formRef} action={(formData) => { hasSubmitted.current = true; formAction(formData) }}>
         <div className="flex flex-col w-full gap-y-2">
           <Input
             label="Email"

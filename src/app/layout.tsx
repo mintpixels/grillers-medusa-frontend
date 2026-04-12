@@ -3,6 +3,7 @@ import { Metadata } from "next"
 import { rexton, maisonNeue, maisonNeueMono } from "styles/fonts/fonts"
 import NextTopLoader from "nextjs-toploader"
 import AnalyticsProvider from "../components/analytics-provider"
+import JitsuScript from "../components/jitsu-script"
 import CookieConsentProvider from "../components/cookie-consent-provider"
 import "styles/globals.css"
 
@@ -22,6 +23,7 @@ export default function RootLayout(props: { children: React.ReactNode }) {
       </head>
       <body>
         <AnalyticsProvider />
+        <JitsuScript />
         <CookieConsentProvider />
         <NextTopLoader
           color="#1A1A1A"

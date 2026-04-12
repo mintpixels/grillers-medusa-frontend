@@ -4,6 +4,8 @@ import { useState, useEffect, useMemo } from "react"
 import { HttpTypes } from "@medusajs/types"
 import { isEqual } from "lodash"
 import { addToCart } from "@lib/data/cart"
+import { trackAddToCart } from "@lib/gtm"
+import { jitsuTrack } from "@lib/jitsu"
 import { useProductTitle } from "@lib/hooks/use-product-title"
 
 /**
@@ -114,6 +116,26 @@ export function useAddToCart(
         ? { strapi_title: strapiTitle }
         : undefined,
     })
+
+    const price = selectedVariant?.calculated_price?.calculated_amount
+      ? selectedVariant.calculated_price.calculated_amount / 100
+      : undefined
+    const titleOverride = strapiTitle !== product.title ? strapiTitle : undefined
+
+    trackAddToCart(
+      { id: product.id, title: product.title, price },
+      quantity,
+      titleOverride
+    )
+    jitsuTrack("product_added_to_cart", {
+      item_id: product.id,
+      item_name: strapiTitle || product.title,
+      variant_id: selectedVariant.id,
+      price,
+      quantity,
+      currency: "USD",
+    })
+
     setIsAdding(false)
   }
 

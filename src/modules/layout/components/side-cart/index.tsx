@@ -17,6 +17,7 @@ import { useProductFeaturedImageSrc } from "@lib/hooks/use-product-featured-imag
 import { useProductTitle } from "@lib/hooks/use-product-title"
 import { useCart } from "./cart-context"
 import { updateLineItem } from "@lib/data/cart"
+import { jitsuTrack } from "@lib/jitsu"
 import Spinner from "@modules/common/icons/spinner"
 
 // Cart item image with Strapi fallback
@@ -89,6 +90,13 @@ const QuantitySelector = ({
 
     try {
       await updateLineItem({ lineId: item.id, quantity: newQuantity })
+      jitsuTrack("cart_updated", {
+        item_id: item.product_id || item.id,
+        item_name: item.product_title || item.title,
+        previous_quantity: item.quantity,
+        new_quantity: newQuantity,
+        price: (item.unit_price ?? 0) / 100,
+      })
       router.refresh()
     } catch (error) {
       setOptimisticQuantity(item.quantity)
@@ -154,6 +162,24 @@ export default function SideCart({ cart }: SideCartProps) {
   const subtotal = (cart?.subtotal ?? 0) + optimisticDelta
 
   const checkoutUrl = "/checkout"
+
+  // Track cart_viewed when side cart opens
+  useEffect(() => {
+    if (isOpen && cart?.items?.length) {
+      jitsuTrack("cart_viewed", {
+        cart_id: cart.id,
+        value: (cart.subtotal ?? 0) / 100,
+        currency: cart.currency_code?.toUpperCase() || "USD",
+        item_count: cart.items.reduce((acc, item) => acc + item.quantity, 0),
+        items: cart.items.map((item) => ({
+          item_id: item.product_id || item.id,
+          item_name: item.product_title || item.title,
+          price: (item.unit_price ?? 0) / 100,
+          quantity: item.quantity,
+        })),
+      })
+    }
+  }, [isOpen]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-open cart when items are added (not on initial page load)
   useEffect(() => {

@@ -2,6 +2,7 @@
 
 import { useState, FormEvent, useId } from "react"
 import { subscribeToNewsletter } from "@lib/data/newsletter"
+import { jitsuTrack } from "@lib/jitsu"
 
 type NewsletterFormProps = {
   title?: string
@@ -38,6 +39,7 @@ export default function NewsletterForm({
     const result = await subscribeToNewsletter(email, source)
 
     if (result.success) {
+      jitsuTrack("email_signup", { source })
       setStatus("success")
       setMessage(result.message || successMessage)
       setEmail("")

@@ -4,6 +4,8 @@ import { useState } from "react"
 import Image from "next/image"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import { addToCart } from "@lib/data/cart"
+import { trackAddToCart } from "@lib/gtm"
+import { jitsuTrack } from "@lib/jitsu"
 import type { StrapiProductData } from "types/strapi"
 
 const ProductCard = ({ hit }: { hit: StrapiProductData }) => {
@@ -19,7 +21,19 @@ const ProductCard = ({ hit }: { hit: StrapiProductData }) => {
       await addToCart({
         variantId,
         quantity: 1,
-        countryCode: "us", // You might want to get this from context
+        countryCode: "us",
+      })
+
+      const price = hit?.MedusaProduct?.Variants?.[0]?.Price?.CalculatedPriceNumber
+      const itemId = hit?.MedusaProduct?.Id || hit.objectID
+      trackAddToCart({ id: itemId, title: hit.Title, price }, 1)
+      jitsuTrack("product_added_to_cart", {
+        item_id: itemId,
+        item_name: hit.Title,
+        variant_id: variantId,
+        price,
+        quantity: 1,
+        currency: "USD",
       })
     } catch (error) {
       console.error("Failed to add to cart:", error)
@@ -28,11 +42,20 @@ const ProductCard = ({ hit }: { hit: StrapiProductData }) => {
     }
   }
 
+  const handleProductClick = () => {
+    jitsuTrack("product_selected_from_list", {
+      item_id: hit?.MedusaProduct?.Id || hit.objectID,
+      item_name: hit.Title,
+      price: hit?.MedusaProduct?.Variants?.[0]?.Price?.CalculatedPriceNumber,
+    })
+  }
+
   return (
   <article>
     <LocalizedClientLink
       href={`/products/${hit?.MedusaProduct?.Handle}`}
       className="block"
+      onClick={handleProductClick}
     >
       <figure className="relative w-full aspect-square bg-gray-50">
         <Image

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { Button } from "@medusajs/ui"
 import { HttpTypes } from "@medusajs/types"
 import { setFulfillmentDetails, setShippingMethod, type FulfillmentType } from "@lib/data/cart"
+import { jitsuTrack, setJitsuContext } from "@lib/jitsu"
 import { findPickupOption } from "@lib/data/fulfillment"
 import type { FulfillmentConfigData } from "@lib/data/strapi/checkout"
 import { convertToLocale } from "@lib/util/money"
@@ -124,11 +125,26 @@ export default function FulfillmentSelector({
   const handleOptionSelect = (option: FulfillmentType) => {
     setSelectedOption(option)
     setError(null)
-    
+
+    // Track delivery zone selection
+    jitsuTrack("delivery_zone_selected", {
+      zone_name: option,
+      fulfillment_type: option,
+    })
+
+    // Update global route_market context for subsequent events
+    const routeMarket =
+      option === "plant_pickup" || option === "atlanta_delivery"
+        ? "core"
+        : option === "southeast_pickup"
+          ? "scheduled_pod"
+          : "unknown"
+    setJitsuContext({ route_market: routeMarket })
+
     // Reset scheduling data when switching options
     setScheduledDate("")
     setScheduledTimeWindow("")
-    
+
     // Navigate to appropriate next step
     switch (option) {
       case "ups_shipping":

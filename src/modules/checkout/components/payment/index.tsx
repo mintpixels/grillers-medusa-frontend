@@ -4,6 +4,7 @@ import { RadioGroup } from "@headlessui/react"
 import { isStripe as isStripeFunc, paymentInfoMap } from "@lib/constants"
 import { initiatePaymentSession } from "@lib/data/cart"
 import { trackAddPaymentInfo } from "@lib/gtm"
+import { jitsuTrack } from "@lib/jitsu"
 import { useCartTitleMap } from "@lib/hooks/use-cart-title-map"
 import { CreditCard } from "@medusajs/icons"
 import { Button, Container, clx } from "@medusajs/ui"
@@ -153,17 +154,32 @@ const Payment = ({
       }
 
       // Track add_payment_info event
+      const paymentItems = cart.items?.map((item: any) => ({
+        id: item.product_id || item.id,
+        title: item.product_title || '',
+        price: (item.unit_price || 0) / 100,
+        quantity: item.quantity,
+      })) || []
+
       trackAddPaymentInfo({
         total: (cart.total || 0) / 100,
         currency: cart.currency_code?.toUpperCase(),
         paymentType: paymentInfoMap[selectedPaymentMethod]?.title || selectedPaymentMethod,
-        items: cart.items?.map((item: any) => ({
-          id: item.product_id || item.id,
-          title: item.product_title || '',
-          price: (item.unit_price || 0) / 100,
-          quantity: item.quantity,
-        })) || [],
+        items: paymentItems,
         titleMap: cartTitleMap,
+      })
+
+      jitsuTrack("payment_info_submitted", {
+        cart_id: cart.id,
+        payment_type: paymentInfoMap[selectedPaymentMethod]?.title || selectedPaymentMethod,
+        value: (cart.total || 0) / 100,
+        currency: cart.currency_code?.toUpperCase() || "USD",
+        items: paymentItems.map(item => ({
+          item_id: item.id,
+          item_name: (cartTitleMap && cartTitleMap[item.id]) || item.title,
+          price: item.price,
+          quantity: item.quantity,
+        })),
       })
     } catch (err: any) {
       setError(err.message)

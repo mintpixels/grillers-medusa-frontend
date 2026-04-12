@@ -4,6 +4,7 @@ import { Badge, Heading, Input, Label, Text, clx } from "@medusajs/ui"
 import React, { useActionState } from "react"
 
 import { applyPromotions, submitPromotionForm } from "@lib/data/cart"
+import { jitsuTrack } from "@lib/jitsu"
 import { convertToLocale } from "@lib/util/money"
 import { HttpTypes } from "@medusajs/types"
 import Trash from "@modules/common/icons/trash"
@@ -44,6 +45,12 @@ const DiscountCode: React.FC<DiscountCodeProps> = ({ cart, variant = "light" }) 
     codes.push(code.toString())
 
     await applyPromotions(codes)
+
+    jitsuTrack("coupon_applied", {
+      coupon_code: code.toString(),
+      cart_id: cart.id,
+      success: true,
+    })
 
     if (input) {
       input.value = ""

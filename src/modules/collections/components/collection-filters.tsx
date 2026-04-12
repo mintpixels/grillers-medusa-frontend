@@ -1,6 +1,7 @@
 "use client"
 
 import { useMemo, useState, useRef, useEffect, useCallback } from "react"
+import { jitsuTrack } from "@lib/jitsu"
 import type { StrapiCollectionProduct } from "@lib/data/strapi/collections"
 
 export type ActiveFilters = {
@@ -296,9 +297,16 @@ export default function CollectionFilters({
     value: string
   ) => {
     const current = activeFilters[group]
-    const updated = current.includes(value)
+    const isActive = current.includes(value)
+    const updated = isActive
       ? current.filter((v) => v !== value)
       : [...current, value]
+
+    jitsuTrack("filter_applied", {
+      filter_type: group,
+      filter_value: value,
+      action: isActive ? "removed" : "applied",
+    })
 
     onFilterChange({ ...activeFilters, [group]: updated })
   }

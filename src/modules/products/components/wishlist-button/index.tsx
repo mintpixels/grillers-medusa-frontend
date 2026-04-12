@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react"
 import { toggleWishlist } from "@lib/data/wishlist"
+import { jitsuTrack } from "@lib/jitsu"
 
 type WishlistButtonProps = {
   productId: string
@@ -30,6 +31,10 @@ export default function WishlistButton({
       const result = await toggleWishlist(productId, productHandle, title, thumbnail)
       if (result.success) {
         setIsWishlisted(result.isWishlisted)
+        jitsuTrack(result.isWishlisted ? "wishlist_added" : "wishlist_removed", {
+          item_id: productId,
+          item_name: title,
+        })
       }
     })
   }

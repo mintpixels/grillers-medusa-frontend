@@ -4,6 +4,7 @@ import { setAddresses, setOrderNotes } from "@lib/data/cart"
 import type { FulfillmentType } from "@lib/data/cart"
 import compareAddresses from "@lib/util/compare-addresses"
 import { trackBeginCheckout } from "@lib/gtm"
+import { jitsuTrack } from "@lib/jitsu"
 import { useCartTitleMap } from "@lib/hooks/use-cart-title-map"
 import { HttpTypes } from "@medusajs/types"
 import { useToggleState } from "@medusajs/ui"
@@ -50,17 +51,33 @@ const Addresses = ({
   useEffect(() => {
     if (cart && !hasTrackedCheckout.current) {
       hasTrackedCheckout.current = true
+      const checkoutItems = cart.items?.map(item => ({
+        id: item.product_id || item.id,
+        title: item.product_title || '',
+        price: (item.unit_price || 0) / 100,
+        quantity: item.quantity,
+      })) || []
+
       trackBeginCheckout({
         id: cart.id,
         total: (cart.total || 0) / 100,
         currency: cart.currency_code?.toUpperCase(),
-        items: cart.items?.map(item => ({
-          id: item.product_id || item.id,
-          title: item.product_title || '',
-          price: (item.unit_price || 0) / 100,
-          quantity: item.quantity,
-        })) || [],
+        items: checkoutItems,
         titleMap: cartTitleMap,
+      })
+
+      const coupon = (cart as any).promotions?.[0]?.code || undefined
+      jitsuTrack("checkout_started", {
+        cart_id: cart.id,
+        value: (cart.total || 0) / 100,
+        currency: cart.currency_code?.toUpperCase() || "USD",
+        coupon,
+        items: checkoutItems.map(item => ({
+          item_id: item.id,
+          item_name: (cartTitleMap && cartTitleMap[item.id]) || item.title,
+          price: item.price,
+          quantity: item.quantity,
+        })),
       })
     }
   }, [cart, cartTitleMap])

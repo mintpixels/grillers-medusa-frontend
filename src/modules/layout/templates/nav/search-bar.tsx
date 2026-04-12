@@ -19,6 +19,7 @@ import {
 import { searchLiteClient } from "@lib/algolia"
 import { PRODUCT_INDEX } from "@lib/algolia/indexes"
 import { trackSearch } from "@lib/gtm"
+import { jitsuTrack } from "@lib/jitsu"
 
 type Product = {
   objectID: string
@@ -70,6 +71,7 @@ function InstantComboboxInput() {
     if (query.length >= 3 && query !== lastTrackedQuery.current) {
       const timer = setTimeout(() => {
         trackSearch(query)
+        jitsuTrack("search_performed", { search_term: query })
         lastTrackedQuery.current = query
       }, 500) // 500ms debounce
       return () => clearTimeout(timer)
