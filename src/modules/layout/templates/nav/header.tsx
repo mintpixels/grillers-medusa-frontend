@@ -1,6 +1,7 @@
 import { Suspense } from "react"
 
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
+import AccountMenu from "@modules/layout/components/account-menu"
 import CartButton from "@modules/layout/components/cart-button"
 import HeaderCountrySelect from "@modules/layout/components/header-country-select"
 import Image from "next/image"
@@ -14,9 +15,13 @@ type HeaderProps = {
   navLinks: HeaderNavLink[]
   regions: HttpTypes.StoreRegion[]
   phoneNumber?: string | null
+  customer?: HttpTypes.StoreCustomer | null
 }
 
-const Header = ({ navLinks, regions, phoneNumber }: HeaderProps) => {
+const Header = ({ navLinks, regions, phoneNumber, customer }: HeaderProps) => {
+  const initials = customer
+    ? `${(customer.first_name?.[0] || "").toUpperCase()}${(customer.last_name?.[0] || "").toUpperCase()}`
+    : null
   return (
     <header className="relative inset-x-0 z-40 bg-white border-b border-[#000/25]">
       <a
@@ -72,21 +77,25 @@ const Header = ({ navLinks, regions, phoneNumber }: HeaderProps) => {
             {/* Mobile Search */}
             <MobileSearch />
 
-            <div className="h-full">
-              <LocalizedClientLink
-                className="hover:text-ui-fg-base focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold rounded"
-                href="/account"
-                data-testid="nav-account-link"
-                aria-label="My account"
-              >
-                <Image
-                  src={"/images/icons/account.svg"}
-                  alt=""
-                  width={24}
-                  height={24}
-                  aria-hidden="true"
-                />
-              </LocalizedClientLink>
+            <div className="h-full flex items-center">
+              {initials ? (
+                <AccountMenu initials={initials} firstName={customer?.first_name || ""} />
+              ) : (
+                <LocalizedClientLink
+                  className="hover:text-ui-fg-base focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold rounded"
+                  href="/account"
+                  data-testid="nav-account-link"
+                  aria-label="My account"
+                >
+                  <Image
+                    src={"/images/icons/account.svg"}
+                    alt=""
+                    width={24}
+                    height={24}
+                    aria-hidden="true"
+                  />
+                </LocalizedClientLink>
+              )}
             </div>
             <Suspense
               fallback={
