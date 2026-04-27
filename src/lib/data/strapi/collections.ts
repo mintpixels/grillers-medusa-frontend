@@ -133,14 +133,77 @@ export type StrapiCollectionProduct = {
     url: string
   }>
   Metadata?: {
-    GlutenFree?: boolean
-    MSG?: boolean
-    Cooked?: boolean
-    Uncooked?: boolean
+    // Pack info
     AvgPackSize?: string
     AvgPackWeight?: string
     Serves?: string
     PiecesPerPack?: number
+    // Cooking state
+    Uncooked?: boolean
+    Cooked?: boolean
+    HeatAndServe?: boolean
+    // Diet & clean labels
+    GlutenFree?: boolean
+    MSG?: boolean
+    AntibioticFree?: boolean
+    HormoneFree?: boolean
+    NoSteroids?: boolean
+    NoNitrites?: boolean
+    NoNitrates?: boolean
+    Organic?: boolean
+    // Sourcing
+    Brand?: string
+    Source?: string
+    Origin?: string
+    Breed?: string
+    Supplier?: string
+    Angus?: boolean
+    GrassFed?: boolean
+    FreeRange?: boolean
+    SouthAmerican?: boolean
+    GrainFree?: boolean
+    // Cut
+    BoneIn?: boolean
+    Boneless?: boolean
+    SkinOn?: boolean
+    Skinless?: boolean
+    Trimmed?: boolean
+    Untrimmed?: boolean
+    Netted?: boolean
+    FirstCut?: boolean
+    DeckelOn?: boolean
+    WholePacker?: boolean
+    CowboyCut?: boolean
+    Thickness?: string
+    Pargiot?: boolean
+    Capon?: boolean
+    Schnitzel?: boolean
+    Strips?: boolean
+    Marrow?: boolean
+    Kebab?: boolean
+    // Preparation
+    Smoked?: boolean
+    Pickled?: boolean
+    Cured?: boolean
+    Marinated?: boolean
+    MarinadeFlavor?: string
+    CharGrilled?: boolean
+    Sliced?: boolean
+    Ground?: boolean
+    Bulk?: boolean
+    Offcut?: boolean
+    // Packaging
+    VacuumPacked?: boolean
+    BulkPack?: boolean
+    BoilablePouch?: boolean
+    AluminumPan?: boolean
+    IQF?: boolean
+    // Kosher
+    KosherForPassover?: boolean
+    Pareve?: boolean
+    Meat?: boolean
+    Dairy?: boolean
+    CholovYisroel?: boolean
   }
   Categorization?: {
     ProductTags?: Array<{ Name: string }>
@@ -178,14 +241,69 @@ export const GetProductsByTagQuery = gql`
         url
       }
       Metadata {
-        GlutenFree
-        MSG
-        Cooked
-        Uncooked
         AvgPackSize
         AvgPackWeight
         Serves
         PiecesPerPack
+        Uncooked
+        Cooked
+        HeatAndServe
+        GlutenFree
+        MSG
+        AntibioticFree
+        HormoneFree
+        NoSteroids
+        NoNitrites
+        NoNitrates
+        Organic
+        Brand
+        Source
+        Origin
+        Breed
+        Supplier
+        Angus
+        GrassFed
+        FreeRange
+        SouthAmerican
+        GrainFree
+        BoneIn
+        Boneless
+        SkinOn
+        Skinless
+        Trimmed
+        Untrimmed
+        Netted
+        FirstCut
+        DeckelOn
+        WholePacker
+        CowboyCut
+        Thickness
+        Pargiot
+        Capon
+        Schnitzel
+        Strips
+        Marrow
+        Kebab
+        Smoked
+        Pickled
+        Cured
+        Marinated
+        MarinadeFlavor
+        CharGrilled
+        Sliced
+        Ground
+        Bulk
+        Offcut
+        VacuumPacked
+        BulkPack
+        BoilablePouch
+        AluminumPan
+        IQF
+        KosherForPassover
+        Pareve
+        Meat
+        Dairy
+        CholovYisroel
       }
       Categorization {
         ProductTags {
@@ -227,14 +345,69 @@ export const GetProductsByCollectionSlugQuery = gql`
         url
       }
       Metadata {
-        GlutenFree
-        MSG
-        Cooked
-        Uncooked
         AvgPackSize
         AvgPackWeight
         Serves
         PiecesPerPack
+        Uncooked
+        Cooked
+        HeatAndServe
+        GlutenFree
+        MSG
+        AntibioticFree
+        HormoneFree
+        NoSteroids
+        NoNitrites
+        NoNitrates
+        Organic
+        Brand
+        Source
+        Origin
+        Breed
+        Supplier
+        Angus
+        GrassFed
+        FreeRange
+        SouthAmerican
+        GrainFree
+        BoneIn
+        Boneless
+        SkinOn
+        Skinless
+        Trimmed
+        Untrimmed
+        Netted
+        FirstCut
+        DeckelOn
+        WholePacker
+        CowboyCut
+        Thickness
+        Pargiot
+        Capon
+        Schnitzel
+        Strips
+        Marrow
+        Kebab
+        Smoked
+        Pickled
+        Cured
+        Marinated
+        MarinadeFlavor
+        CharGrilled
+        Sliced
+        Ground
+        Bulk
+        Offcut
+        VacuumPacked
+        BulkPack
+        BoilablePouch
+        AluminumPan
+        IQF
+        KosherForPassover
+        Pareve
+        Meat
+        Dairy
+        CholovYisroel
       }
       Categorization {
         ProductTags {
@@ -337,14 +510,69 @@ export const GetProductsByMedusaIdsQuery = gql`
         url
       }
       Metadata {
-        GlutenFree
-        MSG
-        Cooked
-        Uncooked
         AvgPackSize
         AvgPackWeight
         Serves
         PiecesPerPack
+        Uncooked
+        Cooked
+        HeatAndServe
+        GlutenFree
+        MSG
+        AntibioticFree
+        HormoneFree
+        NoSteroids
+        NoNitrites
+        NoNitrates
+        Organic
+        Brand
+        Source
+        Origin
+        Breed
+        Supplier
+        Angus
+        GrassFed
+        FreeRange
+        SouthAmerican
+        GrainFree
+        BoneIn
+        Boneless
+        SkinOn
+        Skinless
+        Trimmed
+        Untrimmed
+        Netted
+        FirstCut
+        DeckelOn
+        WholePacker
+        CowboyCut
+        Thickness
+        Pargiot
+        Capon
+        Schnitzel
+        Strips
+        Marrow
+        Kebab
+        Smoked
+        Pickled
+        Cured
+        Marinated
+        MarinadeFlavor
+        CharGrilled
+        Sliced
+        Ground
+        Bulk
+        Offcut
+        VacuumPacked
+        BulkPack
+        BoilablePouch
+        AluminumPan
+        IQF
+        KosherForPassover
+        Pareve
+        Meat
+        Dairy
+        CholovYisroel
       }
       Categorization {
         ProductTags {
@@ -404,14 +632,69 @@ export const GetProductsWithImagesQuery = gql`
         url
       }
       Metadata {
-        GlutenFree
-        MSG
-        Cooked
-        Uncooked
         AvgPackSize
         AvgPackWeight
         Serves
         PiecesPerPack
+        Uncooked
+        Cooked
+        HeatAndServe
+        GlutenFree
+        MSG
+        AntibioticFree
+        HormoneFree
+        NoSteroids
+        NoNitrites
+        NoNitrates
+        Organic
+        Brand
+        Source
+        Origin
+        Breed
+        Supplier
+        Angus
+        GrassFed
+        FreeRange
+        SouthAmerican
+        GrainFree
+        BoneIn
+        Boneless
+        SkinOn
+        Skinless
+        Trimmed
+        Untrimmed
+        Netted
+        FirstCut
+        DeckelOn
+        WholePacker
+        CowboyCut
+        Thickness
+        Pargiot
+        Capon
+        Schnitzel
+        Strips
+        Marrow
+        Kebab
+        Smoked
+        Pickled
+        Cured
+        Marinated
+        MarinadeFlavor
+        CharGrilled
+        Sliced
+        Ground
+        Bulk
+        Offcut
+        VacuumPacked
+        BulkPack
+        BoilablePouch
+        AluminumPan
+        IQF
+        KosherForPassover
+        Pareve
+        Meat
+        Dairy
+        CholovYisroel
       }
       Categorization {
         ProductTags {

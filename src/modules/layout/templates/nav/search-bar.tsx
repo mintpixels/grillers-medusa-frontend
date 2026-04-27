@@ -2,7 +2,7 @@
 
 import { Fragment, useCallback, useEffect, useRef } from "react"
 import Image from "next/image"
-import { useRouter } from "next/navigation"
+import { useParams, useRouter } from "next/navigation"
 import {
   Combobox,
   ComboboxInput,
@@ -62,7 +62,11 @@ const SearchIcon = () => (
   </div>
 )
 
-function InstantComboboxInput() {
+function InstantComboboxInput({
+  onSubmitQuery,
+}: {
+  onSubmitQuery: (q: string) => void
+}) {
   const { query, refine, clear } = useSearchBox()
   const lastTrackedQuery = useRef<string>("")
 
@@ -85,6 +89,17 @@ function InstantComboboxInput() {
         placeholder="Search products…"
         value={query}
         onChange={(e) => refine(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key !== "Enter") return
+          const target = e.target as HTMLInputElement
+          // If the dropdown has a focused option, Headless UI's Combobox will
+          // handle the Enter (selects that product). Detect via aria-activedescendant.
+          if (target.getAttribute("aria-activedescendant")) return
+          const q = (target.value || "").trim()
+          if (!q) return
+          e.preventDefault()
+          onSubmitQuery(q)
+        }}
         displayValue={(hit: Product) => hit?.Title || ""}
         aria-label="Search products"
         aria-autocomplete="list"
@@ -190,11 +205,21 @@ function InstantComboboxOptions() {
 
 export default function SearchBar() {
   const router = useRouter()
+  const params = useParams<{ countryCode?: string }>()
+  const countryCode = params?.countryCode || "us"
+
   const onSelect = useCallback(
     (product: Product) => {
-      router.push(`/products/${product.MedusaProduct.Handle}`)
+      router.push(`/products/${product.MedusaProduct?.Handle}`)
     },
     [router]
+  )
+
+  const onSubmitQuery = useCallback(
+    (q: string) => {
+      router.push(`/${countryCode}/search?q=${encodeURIComponent(q)}`)
+    },
+    [router, countryCode]
   )
 
   return (
@@ -207,7 +232,7 @@ export default function SearchBar() {
 
       <Combobox onChange={onSelect}>
         <div className="relative w-full max-w-md mx-auto">
-          <InstantComboboxInput />
+          <InstantComboboxInput onSubmitQuery={onSubmitQuery} />
           <InstantComboboxOptions />
         </div>
       </Combobox>

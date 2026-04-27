@@ -4,9 +4,114 @@ import { useMemo, useState, useRef, useEffect, useCallback } from "react"
 import { jitsuTrack } from "@lib/jitsu"
 import type { StrapiCollectionProduct } from "@lib/data/strapi/collections"
 
+type MetadataField = NonNullable<StrapiCollectionProduct["Metadata"]>
+type BoolMetadataKey = {
+  [K in keyof MetadataField]: MetadataField[K] extends boolean | undefined ? K : never
+}[keyof MetadataField]
+
+type FacetGroupDef = {
+  id: string
+  label: string
+  options: Array<{ field: BoolMetadataKey; label: string }>
+}
+
+const FACET_GROUPS: FacetGroupDef[] = [
+  {
+    id: "cookState",
+    label: "Cooking State",
+    options: [
+      { field: "Uncooked", label: "Uncooked" },
+      { field: "Cooked", label: "Ready to Eat" },
+      { field: "HeatAndServe", label: "Heat & Serve" },
+    ],
+  },
+  {
+    id: "diet",
+    label: "Dietary",
+    options: [
+      { field: "GlutenFree", label: "Gluten Free" },
+      { field: "MSG", label: "No MSG" },
+      { field: "AntibioticFree", label: "Antibiotic Free" },
+      { field: "HormoneFree", label: "Hormone Free" },
+      { field: "NoSteroids", label: "No Steroids" },
+      { field: "NoNitrites", label: "No Nitrites" },
+      { field: "NoNitrates", label: "No Nitrates" },
+      { field: "Organic", label: "Organic" },
+    ],
+  },
+  {
+    id: "sourcing",
+    label: "Sourcing",
+    options: [
+      { field: "Angus", label: "Angus" },
+      { field: "GrassFed", label: "Grass-Fed" },
+      { field: "FreeRange", label: "Free-Range" },
+      { field: "SouthAmerican", label: "South American" },
+      { field: "GrainFree", label: "Grain-Free" },
+    ],
+  },
+  {
+    id: "cut",
+    label: "Cut",
+    options: [
+      { field: "BoneIn", label: "Bone-In" },
+      { field: "Boneless", label: "Boneless" },
+      { field: "SkinOn", label: "Skin-On" },
+      { field: "Skinless", label: "Skinless" },
+      { field: "Trimmed", label: "Trimmed" },
+      { field: "Untrimmed", label: "Untrimmed" },
+      { field: "Netted", label: "Netted" },
+      { field: "FirstCut", label: "First Cut" },
+      { field: "DeckelOn", label: "Deckel-On" },
+      { field: "WholePacker", label: "Whole Packer" },
+      { field: "CowboyCut", label: "Cowboy Cut" },
+      { field: "Pargiot", label: "Pargiot" },
+      { field: "Capon", label: "Capon" },
+      { field: "Schnitzel", label: "Schnitzel" },
+      { field: "Strips", label: "Strips" },
+      { field: "Marrow", label: "Marrow" },
+      { field: "Kebab", label: "Kebab" },
+    ],
+  },
+  {
+    id: "kosher",
+    label: "Kosher",
+    options: [
+      { field: "KosherForPassover", label: "Kosher for Passover" },
+      { field: "Pareve", label: "Pareve" },
+      { field: "Meat", label: "Meat" },
+      { field: "Dairy", label: "Dairy" },
+      { field: "CholovYisroel", label: "Cholov Yisroel" },
+    ],
+  },
+  {
+    id: "preparation",
+    label: "Preparation",
+    options: [
+      { field: "Smoked", label: "Smoked" },
+      { field: "Pickled", label: "Pickled" },
+      { field: "Cured", label: "Cured" },
+      { field: "Marinated", label: "Marinated" },
+      { field: "CharGrilled", label: "Char-Grilled" },
+      { field: "Sliced", label: "Sliced" },
+      { field: "Ground", label: "Ground" },
+    ],
+  },
+  {
+    id: "packaging",
+    label: "Packaging",
+    options: [
+      { field: "VacuumPacked", label: "Vacuum Packed" },
+      { field: "BulkPack", label: "Bulk Pack" },
+      { field: "BoilablePouch", label: "Boilable Pouch" },
+      { field: "AluminumPan", label: "Aluminum Pan" },
+      { field: "IQF", label: "IQF" },
+    ],
+  },
+]
+
 export type ActiveFilters = {
-  preparation: string[]
-  dietary: string[]
+  metadata: Record<string, string[]> // group.id → array of field names
   tags: string[]
 }
 
@@ -23,74 +128,54 @@ interface CollectionFiltersProps {
 }
 
 export function getEmptyFilters(): ActiveFilters {
-  return { preparation: [], dietary: [], tags: [] }
+  return { metadata: {}, tags: [] }
 }
 
 export function hasActiveFilters(filters: ActiveFilters): boolean {
   return (
-    filters.preparation.length > 0 ||
-    filters.dietary.length > 0 ||
-    filters.tags.length > 0
+    filters.tags.length > 0 ||
+    Object.values(filters.metadata).some((arr) => arr.length > 0)
   )
 }
 
 export function getActiveFilterCount(filters: ActiveFilters): number {
   return (
-    filters.preparation.length +
-    filters.dietary.length +
-    filters.tags.length
+    filters.tags.length +
+    Object.values(filters.metadata).reduce((sum, arr) => sum + arr.length, 0)
   )
 }
 
-// Check if products have any filterable data (need 2+ options per section to be useful)
+// Build visible facet groups. Skip options with count==0; skip a group unless
+// at least one of its options actually distinguishes some products
+// (i.e. count < total). A group where every option matches every product
+// is a useless filter and we hide it.
+function buildFacetGroups(products: StrapiCollectionProduct[]) {
+  const total = products.length
+  return FACET_GROUPS
+    .map((g) => ({
+      ...g,
+      options: g.options
+        .map((o) => ({
+          ...o,
+          count: products.filter(
+            (p) => (p.Metadata as Record<string, unknown> | undefined)?.[o.field as string] === true
+          ).length,
+        }))
+        .filter((o) => o.count > 0),
+    }))
+    .filter((g) => g.options.length >= 2 && g.options.some((o) => o.count < total))
+}
+
+// At least one filterable thing exists for these products?
 export function productsHaveFilters(products: StrapiCollectionProduct[]): boolean {
-  // Preparation: need both Uncooked AND Cooked to have a meaningful filter
-  const uncookedCount = products.filter((p) => p.Metadata?.Uncooked === true).length
-  const cookedCount = products.filter((p) => p.Metadata?.Cooked === true).length
-  const hasPreparation = (uncookedCount > 0 ? 1 : 0) + (cookedCount > 0 ? 1 : 0) >= 2
-
-  // Dietary: need 2+ distinct dietary options
-  const gfCount = products.filter((p) => p.Metadata?.GlutenFree === true).length
-  const msgCount = products.filter((p) => p.Metadata?.MSG === true).length
-  const hasDietary = (gfCount > 0 ? 1 : 0) + (msgCount > 0 ? 1 : 0) >= 2
-
-  // Tags: need at least one L2 group with 2+ L3 children
-  const l3ToL2 = new Map<string, Set<string>>()
+  if (buildFacetGroups(products).length > 0) return true
+  // Tags fallback: any L2 with any L3 children counts.
   const l2Set = new Set<string>()
   products.forEach((p) => {
     const tags = p.Categorization?.ProductTags || []
-    const productL2s = tags.filter((t) => t.Name.startsWith("L2:")).map((t) => t.Name)
-    const productL3s = tags.filter((t) => t.Name.startsWith("L3:")).map((t) => t.Name)
-    productL2s.forEach((l2) => l2Set.add(l2))
-    productL3s.forEach((l3) => {
-      if (!l3ToL2.has(l3)) l3ToL2.set(l3, new Set())
-      productL2s.forEach((l2) => l3ToL2.get(l3)!.add(l2))
-    })
+    tags.filter((t) => t.Name.startsWith("L2:")).forEach((t) => l2Set.add(t.Name))
   })
-  // Check if any L2 has 2+ L3 children
-  let hasTags = false
-  for (const l2 of l2Set) {
-    let childCount = 0
-    l3ToL2.forEach((parents) => {
-      if (parents.has(l2)) childCount++
-    })
-    if (childCount >= 2) { hasTags = true; break }
-  }
-  // Also consider meaningful if there are 2+ L2 groups (even with few children each)
-  if (!hasTags && l2Set.size >= 2) {
-    // Check if at least 2 groups have 2+ children
-    let groupsWithChildren = 0
-    for (const l2 of l2Set) {
-      let childCount = 0
-      l3ToL2.forEach((parents) => {
-        if (parents.has(l2)) childCount++
-      })
-      if (childCount >= 2) groupsWithChildren++
-    }
-    hasTags = groupsWithChildren >= 1
-  }
-
-  return hasPreparation || hasDietary || hasTags
+  return l2Set.size > 0
 }
 
 export function filterProducts(
@@ -98,24 +183,13 @@ export function filterProducts(
   filters: ActiveFilters
 ): StrapiCollectionProduct[] {
   return products.filter((product) => {
-    // Preparation filters (OR within group)
-    if (filters.preparation.length > 0) {
-      const matchesPrep = filters.preparation.some((prep) => {
-        if (prep === "Uncooked") return product.Metadata?.Uncooked === true
-        if (prep === "Cooked") return product.Metadata?.Cooked === true
-        return false
-      })
-      if (!matchesPrep) return false
-    }
-
-    // Dietary filters (AND within group)
-    if (filters.dietary.length > 0) {
-      const matchesDietary = filters.dietary.every((diet) => {
-        if (diet === "GlutenFree") return product.Metadata?.GlutenFree === true
-        if (diet === "NoMSG") return product.Metadata?.MSG === true
-        return false
-      })
-      if (!matchesDietary) return false
+    // Metadata facet groups: OR within a group, AND across groups.
+    for (const [groupId, selectedFields] of Object.entries(filters.metadata)) {
+      if (selectedFields.length === 0) continue
+      const matches = selectedFields.some(
+        (field) => (product.Metadata as Record<string, unknown> | undefined)?.[field] === true
+      )
+      if (!matches) return false
     }
 
     // Tag filters (OR within group)
@@ -132,49 +206,112 @@ export function filterProducts(
   })
 }
 
+// Session-persisted collapse flag per facet group id.
+function useCollapse(storageKey: string, defaultCollapsed = false) {
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    if (typeof window === "undefined") return defaultCollapsed
+    const saved = window.sessionStorage.getItem(storageKey)
+    if (saved === "1") return true
+    if (saved === "0") return false
+    return defaultCollapsed
+  })
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    window.sessionStorage.setItem(storageKey, collapsed ? "1" : "0")
+  }, [storageKey, collapsed])
+  return [collapsed, setCollapsed] as const
+}
+
+function ChevronIcon({ collapsed }: { collapsed: boolean }) {
+  return (
+    <svg
+      className={`w-4 h-4 text-Charcoal/60 transition-transform duration-200 ${collapsed ? "" : "rotate-180"}`}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      aria-hidden="true"
+    >
+      <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function CategoryFilterSection({ children }: { children: React.ReactNode }) {
+  const [collapsed, setCollapsed] = useCollapse("collection-filter-collapse-category")
+  return (
+    <div className="border-t border-Charcoal/10 pt-4">
+      <button
+        type="button"
+        onClick={() => setCollapsed((c) => !c)}
+        className="w-full flex items-center justify-between mb-3 pr-3 group"
+        aria-expanded={!collapsed}
+      >
+        <h3 className="text-p-sm-mono font-maison-neue-mono font-bold uppercase text-Charcoal group-hover:text-VibrantRed transition-colors">
+          Category
+        </h3>
+        <ChevronIcon collapsed={collapsed} />
+      </button>
+      {!collapsed && children}
+    </div>
+  )
+}
+
 function FilterSection({
+  storageKey,
   title,
   options,
   activeValues,
   onToggle,
 }: {
+  storageKey: string
   title: string
   options: FilterOption[]
   activeValues: string[]
   onToggle: (value: string) => void
 }) {
-  // Need at least 2 options to make filtering meaningful
-  if (options.length < 2) return null
+  const [collapsed, setCollapsed] = useCollapse(storageKey)
+  if (options.length === 0) return null
 
   return (
     <div className="border-t border-Charcoal/10 pt-4">
-      <h3 className="text-p-sm-mono font-maison-neue-mono font-bold uppercase text-Charcoal mb-3">
-        {title}
-      </h3>
-      <div className="flex flex-col gap-2">
-        {options.map((option) => {
-          const isActive = activeValues.includes(option.value)
-          return (
-            <label
-              key={option.value}
-              className="flex items-center gap-2 cursor-pointer group pr-3"
-            >
-              <input
-                type="checkbox"
-                checked={isActive}
-                onChange={() => onToggle(option.value)}
-                className="w-4 h-4 rounded border-gray-300 text-Charcoal focus:ring-Gold accent-Charcoal"
-              />
-              <span className="text-p-sm font-maison-neue text-Charcoal group-hover:text-VibrantRed transition-colors">
-                {option.label}
-              </span>
-              <span className="text-xs text-gray-400 ml-auto">
-                ({option.count})
-              </span>
-            </label>
-          )
-        })}
-      </div>
+      <button
+        type="button"
+        onClick={() => setCollapsed((c) => !c)}
+        className="w-full flex items-center justify-between mb-3 pr-3 group"
+        aria-expanded={!collapsed}
+      >
+        <h3 className="text-p-sm-mono font-maison-neue-mono font-bold uppercase text-Charcoal group-hover:text-VibrantRed transition-colors">
+          {title}
+        </h3>
+        <ChevronIcon collapsed={collapsed} />
+      </button>
+      {!collapsed && (
+        <div className="flex flex-col gap-2">
+          {options.map((option) => {
+            const isActive = activeValues.includes(option.value)
+            return (
+              <label
+                key={option.value}
+                className="flex items-center gap-2 cursor-pointer group pr-3"
+              >
+                <input
+                  type="checkbox"
+                  checked={isActive}
+                  onChange={() => onToggle(option.value)}
+                  className="w-4 h-4 rounded border-gray-300 text-Charcoal focus:ring-Gold accent-Charcoal"
+                />
+                <span className="text-xs font-maison-neue text-Charcoal/70 group-hover:text-VibrantRed transition-colors">
+                  {option.label}
+                </span>
+                <span className="text-xs text-gray-400 ml-auto">
+                  ({option.count})
+                </span>
+              </label>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
@@ -184,40 +321,8 @@ export default function CollectionFilters({
   activeFilters,
   onFilterChange,
 }: CollectionFiltersProps) {
-  // Build filter options from the product data
-  const preparationOptions = useMemo<FilterOption[]>(() => {
-    const opts: FilterOption[] = []
-    const uncookedCount = products.filter(
-      (p) => p.Metadata?.Uncooked === true
-    ).length
-    const cookedCount = products.filter(
-      (p) => p.Metadata?.Cooked === true
-    ).length
-
-    if (uncookedCount > 0)
-      opts.push({ label: "Uncooked", value: "Uncooked", count: uncookedCount })
-    if (cookedCount > 0)
-      opts.push({ label: "Ready to Eat", value: "Cooked", count: cookedCount })
-
-    return opts
-  }, [products])
-
-  const dietaryOptions = useMemo<FilterOption[]>(() => {
-    const opts: FilterOption[] = []
-    const gfCount = products.filter(
-      (p) => p.Metadata?.GlutenFree === true
-    ).length
-    const noMsgCount = products.filter(
-      (p) => p.Metadata?.MSG === true
-    ).length
-
-    if (gfCount > 0)
-      opts.push({ label: "Gluten Free", value: "GlutenFree", count: gfCount })
-    if (noMsgCount > 0)
-      opts.push({ label: "No MSG", value: "NoMSG", count: noMsgCount })
-
-    return opts
-  }, [products])
+  // Data-driven facet groups built from new Metadata fields.
+  const facetGroups = useMemo(() => buildFacetGroups(products), [products])
 
   // Build hierarchical tag filter options: L2 parents with L3 children
   type TagGroup = {
@@ -277,38 +382,50 @@ export default function CollectionFilters({
         })
       })
 
-    // Filter out L2 groups that have only 1 child (nothing to filter between)
-    // Keep the L2 parent only if it has 2+ L3 children
-    const meaningfulGroups = groups.filter(
-      (g) => g.l3Children.length >= 2
-    )
-
-    // Need at least 2 groups, or 1 group with 2+ children, to be useful
-    if (meaningfulGroups.length === 0) return []
-    if (meaningfulGroups.length === 1 && meaningfulGroups[0].l3Children.length < 2) return []
-
-    return meaningfulGroups
+    // Hide groups that wouldn't actually filter anything:
+    // - L2 with no children (nothing to drill into)
+    // - A single L2 whose lone L3 has the same count as the L2 itself
+    //   (selecting either does nothing — already on the only category)
+    const useful = groups.filter((g) => g.l3Children.length >= 1)
+    if (useful.length === 1) {
+      const g = useful[0]
+      if (g.l3Children.length === 1 && g.l3Children[0].count === g.l2.count) {
+        return []
+      }
+    }
+    return useful
   }, [products])
 
   const totalFilterCount = getActiveFilterCount(activeFilters)
 
-  const toggleFilter = (
-    group: keyof ActiveFilters,
-    value: string
-  ) => {
-    const current = activeFilters[group]
+  const toggleTagFilter = (value: string) => {
+    const current = activeFilters.tags
     const isActive = current.includes(value)
     const updated = isActive
       ? current.filter((v) => v !== value)
       : [...current, value]
-
     jitsuTrack("filter_applied", {
-      filter_type: group,
+      filter_type: "tags",
       filter_value: value,
       action: isActive ? "removed" : "applied",
     })
+    onFilterChange({ ...activeFilters, tags: updated })
+  }
 
-    onFilterChange({ ...activeFilters, [group]: updated })
+  const toggleMetadataFilter = (groupId: string, field: string) => {
+    const current = activeFilters.metadata[groupId] || []
+    const isActive = current.includes(field)
+    const updated = isActive
+      ? current.filter((v) => v !== field)
+      : [...current, field]
+    jitsuTrack("filter_applied", {
+      filter_type: groupId,
+      filter_value: field,
+      action: isActive ? "removed" : "applied",
+    })
+    const nextMetadata = { ...activeFilters.metadata, [groupId]: updated }
+    if (updated.length === 0) delete nextMetadata[groupId]
+    onFilterChange({ ...activeFilters, metadata: nextMetadata })
   }
 
   const clearAll = () => {
@@ -362,8 +479,7 @@ export default function CollectionFilters({
     )
   }
 
-  const hasFilters = preparationOptions.length >= 2 || dietaryOptions.length >= 2 || tagGroups.length > 0
-
+  const hasFilters = facetGroups.length > 0 || tagGroups.length > 0
   if (!hasFilters) return null
 
   return (
@@ -384,10 +500,7 @@ export default function CollectionFilters({
       <div className="lg:overflow-y-auto lg:pb-6 space-y-6 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' } as React.CSSProperties}>
       {/* Hierarchical Category filters: L2 parents with L3 children */}
       {tagGroups.length > 0 && (
-        <div className="border-t border-Charcoal/10 pt-4">
-          <h3 className="text-p-sm-mono font-maison-neue-mono font-bold uppercase text-Charcoal mb-3">
-            Category
-          </h3>
+        <CategoryFilterSection>
           <div className="flex flex-col gap-3">
             {tagGroups.map((group) => {
               const isExpanded = expandedGroups.has(group.l2.value)
@@ -404,7 +517,7 @@ export default function CollectionFilters({
                     <input
                       type="checkbox"
                       checked={activeFilters.tags.includes(group.l2.value)}
-                      onChange={() => toggleFilter("tags", group.l2.value)}
+                      onChange={() => toggleTagFilter(group.l2.value)}
                       className="w-4 h-4 rounded border-gray-300 text-Charcoal focus:ring-Gold accent-Charcoal"
                     />
                     <span className="text-p-sm font-maison-neue font-semibold text-Charcoal group-hover:text-VibrantRed transition-colors">
@@ -426,10 +539,10 @@ export default function CollectionFilters({
                           <input
                             type="checkbox"
                             checked={activeFilters.tags.includes(child.value)}
-                            onChange={() => toggleFilter("tags", child.value)}
+                            onChange={() => toggleTagFilter(child.value)}
                             className="w-4 h-4 rounded border-gray-300 text-Charcoal focus:ring-Gold accent-Charcoal"
                           />
-                          <span className="text-p-sm font-maison-neue text-Charcoal group-hover:text-VibrantRed transition-colors">
+                          <span className="text-xs font-maison-neue text-Charcoal/70 group-hover:text-VibrantRed transition-colors">
                             {child.label}
                           </span>
                           <span className="text-xs text-gray-400 ml-auto">
@@ -450,7 +563,7 @@ export default function CollectionFilters({
                                   <input
                                     type="checkbox"
                                     checked={activeFilters.tags.includes(child.value)}
-                                    onChange={() => toggleFilter("tags", child.value)}
+                                    onChange={() => toggleTagFilter(child.value)}
                                     className="w-4 h-4 rounded border-gray-300 text-Charcoal focus:ring-Gold accent-Charcoal"
                                   />
                                   <span className="text-p-sm font-maison-neue text-Charcoal group-hover:text-VibrantRed transition-colors">
@@ -477,22 +590,23 @@ export default function CollectionFilters({
               )
             })}
           </div>
-        </div>
+        </CategoryFilterSection>
       )}
 
-      <FilterSection
-        title="Dietary"
-        options={dietaryOptions}
-        activeValues={activeFilters.dietary}
-        onToggle={(value) => toggleFilter("dietary", value)}
-      />
-
-      <FilterSection
-        title="Preparation"
-        options={preparationOptions}
-        activeValues={activeFilters.preparation}
-        onToggle={(value) => toggleFilter("preparation", value)}
-      />
+      {facetGroups.map((group) => (
+        <FilterSection
+          key={group.id}
+          storageKey={`collection-filter-collapse-${group.id}`}
+          title={group.label}
+          options={group.options.map((o) => ({
+            label: o.label,
+            value: String(o.field),
+            count: o.count,
+          }))}
+          activeValues={activeFilters.metadata[group.id] || []}
+          onToggle={(value) => toggleMetadataFilter(group.id, value)}
+        />
+      ))}
 
       </div>
     </aside>

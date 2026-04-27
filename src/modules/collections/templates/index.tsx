@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useMemo } from "react"
+import React, { useState, useMemo, useEffect } from "react"
 
 import { ProductCollectionData, type StrapiCollectionProduct } from "@lib/data/strapi/collections"
 import ViewToggle, { ViewMode } from "@modules/algolia/components/view-toggle"
@@ -39,7 +39,17 @@ export default function CollectionTemplate({
   collection,
   products,
 }: CollectionTemplateProps) {
-  const [viewMode, setViewMode] = useState<ViewMode>("grid")
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    if (typeof window === "undefined") return "grid"
+    const saved = window.sessionStorage.getItem("collection-view-mode")
+    return saved === "grid" || saved === "list" ? saved : "grid"
+  })
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.sessionStorage.setItem("collection-view-mode", viewMode)
+    }
+  }, [viewMode])
+
   const [activeFilters, setActiveFilters] = useState<ActiveFilters>(getEmptyFilters())
   const [currentPage, setCurrentPage] = useState(1)
   const [sortBy, setSortBy] = useState<string>("price-asc")
@@ -111,7 +121,7 @@ export default function CollectionTemplate({
         <CollectionHero collection={collection} countryCode={countryCode} />
       )}
 
-      <div className="pt-6 pb-16 content-container" data-testid="category-container">
+      <div className="pt-6 mt-6 pb-16 content-container border-t border-gray-200" data-testid="category-container">
         <div className={`gap-8 grid grid-cols-1 ${showFilters ? "lg:grid-cols-[0.25fr_1fr]" : ""}`}>
           {/* Filter sidebar */}
           {showFilters && (
@@ -140,22 +150,34 @@ export default function CollectionTemplate({
                   {hasActiveFilters(activeFilters) && ` of ${products.length}`}
                 </p>
                 {hasActiveFilters(activeFilters) &&
-                  [...activeFilters.preparation, ...activeFilters.dietary, ...activeFilters.tags].map(
-                    (value) => {
+                  [
+                    ...Object.entries(activeFilters.metadata).flatMap(([groupId, fields]) =>
+                      fields.map((field) => ({ groupId, field, value: field }))
+                    ),
+                    ...activeFilters.tags.map((value) => ({ groupId: "tags" as const, field: value, value })),
+                  ].map(({ groupId, field, value }) => {
                       const label = value
                         .replace(/^L[23]:\s*/, "")
-                        .replace("GlutenFree", "Gluten Free")
-                        .replace("NoMSG", "No MSG")
+                        .replace(/([A-Z])/g, " $1")
+                        .trim()
+                        .replace(/^MSG$/, "No MSG")
 
                       return (
                         <button
-                          key={value}
+                          key={`${groupId}:${value}`}
                           onClick={() => {
-                            handleFilterChange({
-                              preparation: activeFilters.preparation.filter((v) => v !== value),
-                              dietary: activeFilters.dietary.filter((v) => v !== value),
-                              tags: activeFilters.tags.filter((v) => v !== value),
-                            })
+                            if (groupId === "tags") {
+                              handleFilterChange({
+                                ...activeFilters,
+                                tags: activeFilters.tags.filter((v) => v !== value),
+                              })
+                            } else {
+                              const nextMetadata = { ...activeFilters.metadata }
+                              const updated = (nextMetadata[groupId] || []).filter((v) => v !== field)
+                              if (updated.length === 0) delete nextMetadata[groupId]
+                              else nextMetadata[groupId] = updated
+                              handleFilterChange({ ...activeFilters, metadata: nextMetadata })
+                            }
                           }}
                           className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-Charcoal/10 text-Charcoal text-xs font-maison-neue rounded-full hover:bg-Charcoal/20 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold"
                           aria-label={`Remove filter: ${label}`}

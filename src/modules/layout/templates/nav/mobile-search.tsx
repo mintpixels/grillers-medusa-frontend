@@ -2,7 +2,7 @@
 
 import { Fragment, useState, useCallback, useRef, useEffect } from "react"
 import Image from "next/image"
-import { useRouter } from "next/navigation"
+import { useParams, useRouter } from "next/navigation"
 import {
   Dialog,
   DialogPanel,
@@ -41,8 +41,10 @@ type Product = {
 
 function MobileSearchInput({
   onClose,
+  onSubmitQuery,
 }: {
   onClose: () => void
+  onSubmitQuery: (q: string) => void
 }) {
   const { query, refine, clear } = useSearchBox()
   const inputRef = useRef<HTMLInputElement>(null)
@@ -73,6 +75,15 @@ function MobileSearchInput({
         placeholder="Search products…"
         value={query}
         onChange={(e) => refine(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key !== "Enter") return
+          const target = e.target as HTMLInputElement
+          if (target.getAttribute("aria-activedescendant")) return
+          const q = (target.value || "").trim()
+          if (!q) return
+          e.preventDefault()
+          onSubmitQuery(q)
+        }}
         displayValue={(hit: Product) => hit?.Title || ""}
         aria-label="Search products"
       />
@@ -208,6 +219,8 @@ function MobileSearchResults({ onSelect }: { onSelect: (product: Product) => voi
 export default function MobileSearch() {
   const [isOpen, setIsOpen] = useState(false)
   const router = useRouter()
+  const params = useParams<{ countryCode?: string }>()
+  const countryCode = params?.countryCode || "us"
 
   const handleOpen = useCallback(() => setIsOpen(true), [])
   const handleClose = useCallback(() => setIsOpen(false), [])
@@ -220,6 +233,14 @@ export default function MobileSearch() {
       }
     },
     [router, handleClose]
+  )
+
+  const handleSubmitQuery = useCallback(
+    (q: string) => {
+      router.push(`/${countryCode}/search?q=${encodeURIComponent(q)}`)
+      handleClose()
+    },
+    [router, countryCode, handleClose]
   )
 
   return (
@@ -272,7 +293,7 @@ export default function MobileSearch() {
                 <Configure hitsPerPage={10} />
 
                 <Combobox onChange={handleSelect}>
-                  <MobileSearchInput onClose={handleClose} />
+                  <MobileSearchInput onClose={handleClose} onSubmitQuery={handleSubmitQuery} />
                   <MobileSearchResults onSelect={handleSelect} />
                 </Combobox>
               </InstantSearch>
