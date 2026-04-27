@@ -1,60 +1,74 @@
 "use client"
 
-import { useLayoutEffect, useRef, useState } from "react"
+import { useLayoutEffect, useState } from "react"
 import Image from "next/image"
 import { Tooltip, TooltipProvider } from "@medusajs/ui"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import { addToCart } from "@lib/data/cart"
 import type { StrapiCollectionProduct } from "@lib/data/strapi/collections"
 
-// Force the title to fill the available 3-line slot. Subgrid sizes the title
-// track to the longest title in a row, but shorter titles still wrap to 1–2
-// lines, leaving the badges/desc rows visually anchored to a half-empty title.
-// We binary-search a right-padding value that pushes the natural wrap to 3
-// lines so all titles in a row look like equal blocks of text.
-function useTitleFillsThreeLines(ref: React.RefObject<HTMLElement>, deps: any[]) {
-  useLayoutEffect(() => {
-    const el = ref.current
-    if (!el) return
+// Find every card title in the document, group them by visible row (Y top),
+// and pad shorter titles within each row to the max natural height of that
+// row. Works in both the CSS-grid collection page and the PDP Swiper because
+// it groups by rendered position, not parent type. Runs once per animation
+// frame regardless of how many cards request alignment.
+function alignTitlesAcrossRows() {
+  if (typeof document === "undefined") return
+  const titles = Array.from(
+    document.querySelectorAll<HTMLElement>("[data-card-title]")
+  )
+  if (titles.length === 0) return
 
-    const adjust = () => {
-      // Reset inline pr so the base class (pr-3) takes effect for measurement.
-      el.style.paddingRight = ""
-      const cs = window.getComputedStyle(el)
-      const lineHeight = parseFloat(cs.lineHeight)
-      const basePr = parseFloat(cs.paddingRight) || 0
-      if (!lineHeight || !isFinite(lineHeight)) return
-      const targetHeight = lineHeight * 3
-      // Already 3+ lines (or clamped to 3). Nothing to do.
-      if (el.offsetHeight >= targetHeight - 1) return
+  // Reset every title's inline padding-right so we measure natural heights.
+  for (const t of titles) t.style.paddingRight = ""
 
-      const fullWidth = el.clientWidth
-      if (fullWidth <= 0) return
+  // Group by Y position (5px tolerance to account for sub-pixel rounding).
+  const buckets: Array<{ y: number; titles: HTMLElement[] }> = []
+  for (const t of titles) {
+    const y = t.getBoundingClientRect().top
+    const bucket = buckets.find((b) => Math.abs(b.y - y) < 5)
+    if (bucket) bucket.titles.push(t)
+    else buckets.push({ y, titles: [t] })
+  }
 
-      // Binary search the smallest pr (≥ basePr) that pushes the wrap to 3 lines.
-      let lo = basePr
-      let hi = basePr + fullWidth * 0.7
-      // Safety: 12 iterations gives ~px precision over the search range.
+  for (const { titles: rowTitles } of buckets) {
+    if (rowTitles.length <= 1) continue
+    let maxH = 0
+    for (const t of rowTitles) if (t.offsetHeight > maxH) maxH = t.offsetHeight
+    for (const t of rowTitles) {
+      if (t.offsetHeight >= maxH - 1) continue
+      const fullWidth = t.clientWidth
+      if (fullWidth <= 0) continue
+      let lo = 0
+      let hi = fullWidth * 0.7
       for (let i = 0; i < 12; i++) {
         const mid = (lo + hi) / 2
-        el.style.paddingRight = `${mid}px`
-        if (el.offsetHeight >= targetHeight - 1) {
-          hi = mid
-        } else {
-          lo = mid
-        }
+        t.style.paddingRight = `${mid}px`
+        if (t.offsetHeight >= maxH - 1) hi = mid
+        else lo = mid
       }
-      el.style.paddingRight = `${hi}px`
+      t.style.paddingRight = `${hi}px`
     }
+  }
+}
 
-    adjust()
+let alignScheduled = false
+function scheduleAlignTitles() {
+  if (alignScheduled || typeof window === "undefined") return
+  alignScheduled = true
+  requestAnimationFrame(() => {
+    alignScheduled = false
+    alignTitlesAcrossRows()
+  })
+}
 
-    // Re-run on parent resize (viewport resize, sidebar collapse, etc.).
-    const parent = el.parentElement
-    if (!parent || typeof ResizeObserver === "undefined") return
-    const ro = new ResizeObserver(adjust)
-    ro.observe(parent)
-    return () => ro.disconnect()
+if (typeof window !== "undefined") {
+  window.addEventListener("resize", scheduleAlignTitles)
+}
+
+function useTitleAlignToRow(deps: any[]) {
+  useLayoutEffect(() => {
+    scheduleAlignTitles()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps)
 }
@@ -67,11 +81,7 @@ type StrapiProductGridProps = {
 
 export function ProductCard({ product, countryCode, viewMode = "grid" }: { product: StrapiCollectionProduct; countryCode: string; viewMode?: "grid" | "list" }) {
   const [isAdding, setIsAdding] = useState(false)
-  const titleRef = useRef<HTMLHeadingElement>(null)
-  useTitleFillsThreeLines(
-    titleRef,
-    [product.Title, viewMode]
-  )
+  useTitleAlignToRow([product.Title, viewMode])
 
   const handleAddToCart = async () => {
     const variantId = product?.MedusaProduct?.Variants?.[0]?.VariantId
@@ -137,18 +147,26 @@ export function ProductCard({ product, countryCode, viewMode = "grid" }: { produ
                   <span className="inline-flex items-center cursor-default">
                     <Image
                       src="/images/icons/gluten-free.png"
-                      width={64}
-                      height={32}
+                      width={48}
+                      height={48}
                       alt="Gluten Free"
-                      className="h-7 w-auto"
+                      className="h-6 w-auto"
                     />
                   </span>
                 </Tooltip>
               )}
               {product?.Metadata?.Cooked ? (
-                <span className="text-xs font-maison-neue-mono uppercase text-gray-500">
-                  Ready to Eat
-                </span>
+                <Tooltip content="Ready to Eat" className="bg-Charcoal text-white">
+                  <span className="inline-flex items-center cursor-default">
+                    <Image
+                      src="/images/icons/ready-to-eat.png"
+                      width={347}
+                      height={126}
+                      alt="Ready to Eat"
+                      className="h-5 w-auto"
+                    />
+                  </span>
+                </Tooltip>
               ) : product?.Metadata?.Uncooked ? (
                 <Tooltip content="Uncooked" className="bg-Charcoal text-white">
                   <span className="inline-flex items-center cursor-default">
@@ -261,8 +279,8 @@ export function ProductCard({ product, countryCode, viewMode = "grid" }: { produ
         </figure>
       </LocalizedClientLink>
 
-      {/* Row 2: Price */}
-      <div className="mt-6">
+      {/* Row 2: Price (left) + SKU (right) */}
+      <div className="mt-6 flex items-baseline justify-between gap-3">
         {price ? (
           <p className="text-Charcoal leading-none">
             <span className="text-h4 font-gyst">
@@ -272,80 +290,88 @@ export function ProductCard({ product, countryCode, viewMode = "grid" }: { produ
               per lb
             </span>
           </p>
-        ) : null}
+        ) : <span />}
+        {product?.MedusaProduct?.Variants?.[0]?.Sku && (
+          <p className="text-xs font-maison-neue-mono text-gray-400 shrink-0">
+            {product.MedusaProduct.Variants[0].Sku}
+          </p>
+        )}
       </div>
 
-      {/* Row 3: Title — line-clamp-3 caps at 3 lines, and useTitleFillsThreeLines
-         pushes shorter titles to 3 lines via JS-measured padding-right so the
-         row of cards has visually balanced 3-line title blocks. */}
+      {/* Row 3: Title — line-clamp-3 caps at 3 lines, and useTitleAlignToTrack
+         pads shorter titles to match the actual title-row track height so all
+         cards in the same row have aligned title blocks. */}
       <LocalizedClientLink
         href={`/products/${product?.MedusaProduct?.Handle}`}
-        className="block"
+        className="block mt-3"
       >
         <h2
-          ref={titleRef}
-          className="text-h4 font-gyst font-bold text-Charcoal hover:text-VibrantRed transition-colors line-clamp-3 pr-6 text-balance"
+          data-card-title
+          className="text-h4 font-gyst font-bold text-Charcoal hover:text-VibrantRed transition-colors sm:line-clamp-3 pr-6 text-balance"
         >
           {product.Title}
         </h2>
       </LocalizedClientLink>
 
-      {/* Row 4: Icons (left) + SKU (right) — below the title */}
+      {/* Row 4: Icons — below the title */}
       <TooltipProvider delayDuration={100}>
-        <div className="flex items-center justify-between mt-3">
-          <div className="flex flex-wrap items-center gap-4 text-xs font-maison-neue-mono uppercase text-gray-500 justify-start">
-            {product?.Metadata?.GlutenFree && (
-              <Tooltip content="Gluten Free" className="bg-Charcoal text-white">
-                <span className="inline-flex items-center cursor-default">
-                  <Image
-                    src="/images/icons/gluten-free.png"
-                    width={64}
-                    height={32}
-                    alt="Gluten Free"
-                    className="h-7 w-auto"
-                  />
-                </span>
-              </Tooltip>
-            )}
-            {product?.Metadata?.Cooked ? (
-              <span className="inline-flex items-center">Ready to Eat</span>
-            ) : product?.Metadata?.Uncooked ? (
-              <Tooltip content="Uncooked" className="bg-Charcoal text-white">
-                <span className="inline-flex items-center cursor-default">
-                  <Image
-                    src="/images/icons/raw.png"
-                    width={95}
-                    height={43}
-                    alt="Uncooked"
-                    className="h-5 w-auto"
-                  />
-                </span>
-              </Tooltip>
-            ) : null}
-            {product?.Metadata?.MSG && (
-              <Tooltip content="No MSG" className="bg-Charcoal text-white">
-                <span className="inline-flex items-center cursor-default">
-                  <Image
-                    src="/images/icons/no-msg.png"
-                    width={48}
-                    height={24}
-                    alt="No MSG"
-                    className="h-5 w-auto"
-                  />
-                </span>
-              </Tooltip>
-            )}
-          </div>
-          {product?.MedusaProduct?.Variants?.[0]?.Sku && (
-            <p className="text-xs font-maison-neue-mono text-gray-400 shrink-0 ml-3">
-              {product.MedusaProduct.Variants[0].Sku}
-            </p>
+        <div className="flex flex-wrap items-center gap-4 mt-3 text-xs font-maison-neue-mono uppercase text-gray-500 justify-start">
+          {product?.Metadata?.GlutenFree && (
+            <Tooltip content="Gluten Free" className="bg-Charcoal text-white">
+              <span className="inline-flex items-center cursor-default">
+                <Image
+                  src="/images/icons/gluten-free.png"
+                  width={48}
+                  height={48}
+                  alt="Gluten Free"
+                  className="h-6 w-auto"
+                />
+              </span>
+            </Tooltip>
+          )}
+          {product?.Metadata?.Cooked ? (
+            <Tooltip content="Ready to Eat" className="bg-Charcoal text-white">
+              <span className="inline-flex items-center cursor-default">
+                <Image
+                  src="/images/icons/ready-to-eat.png"
+                  width={347}
+                  height={126}
+                  alt="Ready to Eat"
+                  className="h-5 w-auto"
+                />
+              </span>
+            </Tooltip>
+          ) : product?.Metadata?.Uncooked ? (
+            <Tooltip content="Uncooked" className="bg-Charcoal text-white">
+              <span className="inline-flex items-center cursor-default">
+                <Image
+                  src="/images/icons/raw.png"
+                  width={95}
+                  height={43}
+                  alt="Uncooked"
+                  className="h-5 w-auto"
+                />
+              </span>
+            </Tooltip>
+          ) : null}
+          {product?.Metadata?.MSG && (
+            <Tooltip content="No MSG" className="bg-Charcoal text-white">
+              <span className="inline-flex items-center cursor-default">
+                <Image
+                  src="/images/icons/no-msg.png"
+                  width={48}
+                  height={24}
+                  alt="No MSG"
+                  className="h-5 w-auto"
+                />
+              </span>
+            </Tooltip>
           )}
         </div>
       </TooltipProvider>
 
       {/* Row 5: Short Description (always rendered to keep subgrid alignment) */}
-      <p className="text-sm font-maison-neue text-gray-500 leading-snug line-clamp-3 mt-3 text-balance">
+      <p className="text-sm font-maison-neue text-gray-500 leading-snug sm:line-clamp-3 mt-3 text-balance">
         {product?.MedusaProduct?.ShortDescription ?? ""}
       </p>
 
@@ -417,7 +443,7 @@ export default function StrapiProductGrid({ products, countryCode, viewMode = "g
       <div
         className={
           viewMode === "grid"
-            ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-0"
+            ? "grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-x-6 gap-y-0"
             : "flex flex-col space-y-8"
         }
       >
