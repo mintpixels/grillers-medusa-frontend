@@ -1,4 +1,5 @@
 import type { StrapiCollectionProduct } from "@lib/data/strapi/collections"
+import { enrichStrapiProductsWithMedusaPrices } from "@lib/data/products"
 import RelatedProductsSwiper from "./swiper"
 
 // Pre-selected curated products — no API calls needed at runtime.
@@ -21,6 +22,8 @@ const CURATED_PRODUCTS: StrapiCollectionProduct[] = [
         "chicken-wings-david-elliot-chk-supervision-vacuum-packed-17-lb-kosher-for-passover-328lb",
       Description:
         "Expertly prepared and hand-trimmed, these premium, tender pieces deliver superior flavor and consistent cooking results.",
+      ShortDescription:
+        "David Elliot chicken wings, vacuum-packed at about 1.7 lb. The everyday wing pack for weeknight or weekend cooking.",
       Variants: [
         {
           VariantId: "variant_01KC9RFN9Z4M3C2NY23E2X2GY9",
@@ -62,6 +65,8 @@ const CURATED_PRODUCTS: StrapiCollectionProduct[] = [
         "first-cut-lamb-chops-hand-trimmed-4-chops-uncooked-kosher-for-passover",
       Description:
         "Expertly prepared and hand-trimmed, these premium, tender lamb chops sear quickly for a flavorful crust.",
+      ShortDescription:
+        "First cut lamb chops, hand-trimmed, four pieces per pack. The most prized lamb chop, lean and tender.",
       Variants: [
         {
           VariantId: "variant_01KC9RFARNGDWGSTBDFW264DCQ",
@@ -103,6 +108,8 @@ const CURATED_PRODUCTS: StrapiCollectionProduct[] = [
         "veal-scallopini-5-8-slices-1-lb-uncooked-kosher-for-passover-3699lb",
       Description:
         "Expertly prepared and hand-trimmed, this premium tender cut is thin-sliced and ready for quick sautéing.",
+      ShortDescription:
+        "Veal scallopini, five to eight thin slices in a 1 lb pack. The thin-pounded veal for piccata and saltimbocca.",
       Variants: [
         {
           VariantId: "variant_01KC9RF68JJ7PA67ZS67YMV5ZM",
@@ -145,6 +152,8 @@ const CURATED_PRODUCTS: StrapiCollectionProduct[] = [
         "8-piece-cutup-chicken-antibiotic-free-hormone-free-3-lb-uncooked-kosher-for-passover-vacuum-packed-kosher-for-passover-615lb",
       Description:
         "Expertly prepared and hand-trimmed, this premium portioned bird roasts, grills or braises to tender, juicy results.",
+      ShortDescription:
+        "Antibiotic-free, hormone-free 8-piece cut-up chicken in a 3 lb pack. The whole bird sectioned for the pan, with cleaner sourcing.",
       Variants: [
         {
           VariantId: "variant_01KC9RG879V83NFB87V21V7B7M",
@@ -187,6 +196,8 @@ const CURATED_PRODUCTS: StrapiCollectionProduct[] = [
         "veal-chops-first-cut-15-thick-beautifully-trimmed-2x15-oz-uncooked-kosher-for-passover-4224lb",
       Description:
         "Expertly prepared and hand-trimmed, this premium veal offers a tender, delicate texture that shines when quickly pan-seared.",
+      ShortDescription:
+        "First cut veal chops, hand-trimmed and one and a half inches thick, two 15 oz pieces. The double-cut veal chop, steakhouse-style.",
       Variants: [
         {
           VariantId: "variant_01KC9RF3E6JXBCG7DJSFGJ0G21",
@@ -229,6 +240,8 @@ const CURATED_PRODUCTS: StrapiCollectionProduct[] = [
         "turkey-drumsticks-2-x-1-lb-certified-organic-and-free-range-kosher-for-passover-1017lb",
       Description:
         "Expertly prepared and hand-trimmed for roasting or braising, these bone-in cuts deliver premium, tender, richly flavored meat.",
+      ShortDescription:
+        "Certified Organic, free-range turkey drumstick, 2 lb single piece. The cleanest sourcing on the showpiece dark-meat cut.",
       Variants: [
         {
           VariantId: "variant_01KC9RGZV3DXE00HDTW304765Z",
@@ -271,6 +284,8 @@ const CURATED_PRODUCTS: StrapiCollectionProduct[] = [
         "ground-turkey-dark-meat-vacuum-packed-antibiotic-free-hormone-free-1-lb-uncooked-not-kosher-for-passover",
       Description:
         "Expertly prepared and hand-trimmed, this premium, tender blend is sealed for peak flavor and ready for quick sautés.",
+      ShortDescription:
+        "Ground turkey dark meat from antibiotic-free, hormone-free birds, 1 lb. The richer, more flavorful ground turkey.",
       Variants: [
         {
           VariantId: "variant_01KC9RH2M80DJBMKEM087SJYHC",
@@ -313,6 +328,8 @@ const CURATED_PRODUCTS: StrapiCollectionProduct[] = [
         "organic-chicken-8-piece-cutup-3-lb-uncooked-kosher-for-passover-882lb",
       Description:
         "Expertly prepared and hand-trimmed, these tender, premium portions are ideal for even roasting and quick braising.",
+      ShortDescription:
+        "Organic 8-piece cut-up chicken in a 3 lb pack. The whole bird sectioned for one-pan cooking, with the cleanest-spec sourcing.",
       Variants: [
         {
           VariantId: "variant_01KC9RG4MG5PNFV7WYG506VPGS",
@@ -345,7 +362,7 @@ type RelatedProductsProps = {
   countryCode: string
 }
 
-export default function RelatedProducts({
+export default async function RelatedProducts({
   product,
   countryCode,
 }: RelatedProductsProps) {
@@ -356,7 +373,14 @@ export default function RelatedProducts({
 
   if (!products.length) return null
 
+  // Overlay live Medusa prices so the rail mirrors the PDP's price source of truth.
+  // Falls back to the hardcoded CURATED_PRODUCTS prices if the Medusa fetch fails.
+  const enriched = await enrichStrapiProductsWithMedusaPrices(
+    products,
+    countryCode
+  )
+
   return (
-    <RelatedProductsSwiper products={products} countryCode={countryCode} />
+    <RelatedProductsSwiper products={enriched} countryCode={countryCode} />
   )
 }

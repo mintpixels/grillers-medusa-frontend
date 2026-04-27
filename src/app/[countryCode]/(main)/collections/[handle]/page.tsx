@@ -11,6 +11,7 @@ import {
   getProductsByCollectionSlug,
   type StrapiCollectionProduct,
 } from "@lib/data/strapi/collections"
+import { enrichStrapiProductsWithMedusaPrices } from "@lib/data/products"
 import CollectionTemplate from "@modules/collections/templates"
 
 interface GetProductCollectionResponse {
@@ -191,6 +192,11 @@ export default async function CollectionPage(props: Props) {
       return notFound()
     }
   }
+
+  // Strapi caches a CalculatedPriceNumber via a sync workflow that can lag.
+  // Always overlay live Medusa prices so cards (grid + list) display the
+  // current price regardless of Strapi sync state.
+  products = await enrichStrapiProductsWithMedusaPrices(products, countryCode)
 
   const jsonLd = generateCollectionJsonLd(collection, countryCode)
 

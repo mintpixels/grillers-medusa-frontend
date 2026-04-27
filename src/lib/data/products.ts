@@ -6,6 +6,7 @@ import { HttpTypes } from "@medusajs/types"
 import { SortOptions } from "@modules/store/components/refinement-list/sort-products"
 import { getAuthHeaders, getCacheOptions } from "./cookies"
 import { getRegion, retrieveRegion } from "./regions"
+import type { StrapiCollectionProduct } from "@lib/data/strapi/collections"
 
 export const listProducts = async ({
   pageParam = 1,
@@ -133,4 +134,93 @@ export const listProductsWithSort = async ({
     nextPage,
     queryParams,
   }
+}
+
+/**
+ * Strapi is the source of truth for product copy/metadata, but Medusa is the
+ * source of truth for live prices. The Strapi `MedusaProduct.Variants[*].Price`
+ * is populated via a sync workflow that can lag or miss products. This helper
+ * fetches live prices from Medusa for the given Strapi products and patches
+ * `Variants[i].Price.CalculatedPriceNumber` so cards render the live price
+ * regardless of Strapi sync state.
+ */
+export const enrichStrapiProductsWithMedusaPrices = async <T extends StrapiCollectionProduct>(
+  products: T[],
+  countryCode: string
+): Promise<T[]> => {
+  const productIds = Array.from(
+    new Set(
+      products
+        .map((p) => p.MedusaProduct?.ProductId)
+        .filter((id): id is string => Boolean(id))
+    )
+  )
+  if (productIds.length === 0) return products
+
+  let medusaProducts: HttpTypes.StoreProduct[] = []
+  try {
+    const { response } = await listProducts({
+      countryCode,
+      queryParams: {
+        id: productIds,
+        limit: productIds.length,
+      } as HttpTypes.FindParams & HttpTypes.StoreProductParams,
+    })
+    medusaProducts = response.products
+  } catch (err) {
+    console.error("enrichStrapiProductsWithMedusaPrices: Medusa fetch failed", err)
+    return products
+  }
+
+  const priceByVariantId = new Map<string, number>()
+  const priceByProductFirstVariant = new Map<string, number>()
+  for (const mp of medusaProducts) {
+    const variants = mp.variants ?? []
+    let firstAmount: number | null = null
+    for (const v of variants) {
+      const amount = (v as any).calculated_price?.calculated_amount
+      if (typeof amount === "number") {
+        priceByVariantId.set(v.id, amount)
+        if (firstAmount === null) firstAmount = amount
+      }
+    }
+    if (firstAmount !== null) {
+      priceByProductFirstVariant.set(mp.id, firstAmount)
+    }
+  }
+
+  return products.map((p) => {
+    if (!p.MedusaProduct) return p
+    const variants = p.MedusaProduct.Variants ?? []
+    if (variants.length === 0) {
+      const fallback = priceByProductFirstVariant.get(p.MedusaProduct.ProductId)
+      if (fallback == null) return p
+      return {
+        ...p,
+        MedusaProduct: {
+          ...p.MedusaProduct,
+          Variants: [
+            {
+              VariantId: "",
+              Price: { CalculatedPriceNumber: fallback },
+            },
+          ],
+        },
+      }
+    }
+    const enrichedVariants = variants.map((v) => {
+      const amount =
+        priceByVariantId.get(v.VariantId) ??
+        priceByProductFirstVariant.get(p.MedusaProduct!.ProductId)
+      if (amount == null) return v
+      return {
+        ...v,
+        Price: { ...(v.Price ?? {}), CalculatedPriceNumber: amount },
+      }
+    })
+    return {
+      ...p,
+      MedusaProduct: { ...p.MedusaProduct, Variants: enrichedVariants },
+    }
+  })
 }

@@ -149,6 +149,7 @@ export type StrapiCollectionProduct = {
     ProductId: string
     Handle: string
     Description?: string
+    ShortDescription?: string | null
     Variants?: Array<{
       VariantId: string
       Sku?: string
@@ -195,6 +196,7 @@ export const GetProductsByTagQuery = gql`
         ProductId
         Handle
         Description
+        ShortDescription
         Variants {
           VariantId
           Sku
@@ -243,6 +245,7 @@ export const GetProductsByCollectionSlugQuery = gql`
         ProductId
         Handle
         Description
+        ShortDescription
         Variants {
           VariantId
           Sku
@@ -352,6 +355,7 @@ export const GetProductsByMedusaIdsQuery = gql`
         ProductId
         Handle
         Description
+        ShortDescription
         Variants {
           VariantId
           Sku
@@ -418,6 +422,7 @@ export const GetProductsWithImagesQuery = gql`
         ProductId
         Handle
         Description
+        ShortDescription
         Variants {
           VariantId
           Sku

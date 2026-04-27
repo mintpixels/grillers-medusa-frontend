@@ -14,7 +14,7 @@ export default function CollectionHero({ collection, countryCode }: CollectionHe
   // If no hero image and no description, return minimal header
   if (!hasHeroImage && !hasDescription) {
     return (
-      <div className="bg-Cream pt-12">
+      <div className="bg-Cream pt-6">
         <div className="content-container">
           <h1 className="text-h2-mobile md:text-h2 font-gyst text-Charcoal text-center">
             {collection.Name}
@@ -60,7 +60,7 @@ export default function CollectionHero({ collection, countryCode }: CollectionHe
 
   // Description without hero image
   return (
-    <div className="bg-Cream pt-12">
+    <div className="bg-Cream pt-6">
       <div className="content-container text-center">
         <h1 className="text-h2-mobile md:text-h2 font-gyst text-Charcoal mb-1">
           {collection.Name}
