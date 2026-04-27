@@ -196,37 +196,11 @@ export function ProductCard({ product, countryCode, viewMode = "grid" }: { produ
             </div>
           </TooltipProvider>
 
-          {/* Pack info */}
-          <div className="flex items-center flex-wrap gap-2">
-            {product?.Metadata?.AvgPackWeight && (
-              <div className="border border-gray-200 rounded-md px-3 py-1 bg-white">
-                <span className="text-xs font-maison-neue-mono uppercase text-gray-500 mr-1">Weight:</span>
-                <span className="text-xs font-bold font-maison-neue text-Charcoal">{product.Metadata.AvgPackWeight}</span>
-              </div>
-            )}
-            {product?.Metadata?.Serves && (
-              <div className="border border-gray-200 rounded-md px-3 py-1 bg-white">
-                <span className="text-xs font-maison-neue-mono uppercase text-gray-500 mr-1">Serves:</span>
-                <span className="text-xs font-bold font-maison-neue text-Charcoal">{product.Metadata.Serves}</span>
-              </div>
-            )}
-            {product?.Metadata?.PiecesPerPack && (
-              <div className="border border-gray-200 rounded-md px-3 py-1 bg-white">
-                <span className="text-xs font-maison-neue-mono uppercase text-gray-500 mr-1">Pieces:</span>
-                <span className="text-xs font-bold font-maison-neue text-Charcoal">{product.Metadata.PiecesPerPack}</span>
-              </div>
-            )}
-          </div>
         </div>
 
         {/* Col 3: Price & Actions */}
         <div className="flex flex-col items-end justify-between py-1 h-full self-stretch">
           <div className="flex flex-col items-end gap-1 whitespace-nowrap">
-            {product?.MedusaProduct?.Variants?.[0]?.Sku && (
-              <p className="text-xs font-maison-neue-mono text-gray-400">
-                {product.MedusaProduct.Variants[0].Sku}
-              </p>
-            )}
             {price && (
               <p className="text-Charcoal">
                 <span className="text-h4 font-gyst">${Number(price).toFixed(2)}</span>{" "}
@@ -264,7 +238,7 @@ export function ProductCard({ product, countryCode, viewMode = "grid" }: { produ
     // auto-sizes to the longest title in that row, etc. — no fixed
     // line-clamp needed. Falls back to a regular grid container when
     // the parent isn't a CSS grid (e.g. the PDP swiper).
-    <article className="grid grid-rows-subgrid row-span-7 gap-y-0 pb-8">
+    <article className="grid grid-rows-subgrid row-span-6 gap-y-0 pb-8">
       <LocalizedClientLink
         href={`/products/${product?.MedusaProduct?.Handle}`}
         className="block"
@@ -291,11 +265,6 @@ export function ProductCard({ product, countryCode, viewMode = "grid" }: { produ
             </span>
           </p>
         ) : <span />}
-        {product?.MedusaProduct?.Variants?.[0]?.Sku && (
-          <p className="text-xs font-maison-neue-mono text-gray-400 shrink-0">
-            {product.MedusaProduct.Variants[0].Sku}
-          </p>
-        )}
       </div>
 
       {/* Row 3: Title — line-clamp-3 caps at 3 lines, and useTitleAlignToTrack
@@ -375,29 +344,7 @@ export function ProductCard({ product, countryCode, viewMode = "grid" }: { produ
         {product?.MedusaProduct?.ShortDescription ?? ""}
       </p>
 
-      {/* Row 6: Pack Information */}
-      <div className="grid grid-cols-3 gap-2 mt-3">
-        {product?.Metadata?.AvgPackWeight && (
-          <div className="border border-gray-200 rounded-lg p-3 bg-white">
-            <p className="text-xs font-maison-neue-mono uppercase text-gray-500 mb-1">Weight</p>
-            <p className="text-sm font-bold font-maison-neue text-Charcoal">{product.Metadata.AvgPackWeight}</p>
-          </div>
-        )}
-        {product?.Metadata?.Serves && (
-          <div className="border border-gray-200 rounded-lg p-3 bg-white">
-            <p className="text-xs font-maison-neue-mono uppercase text-gray-500 mb-1">Serves</p>
-            <p className="text-sm font-bold font-maison-neue text-Charcoal">{product.Metadata.Serves}</p>
-          </div>
-        )}
-        {product?.Metadata?.PiecesPerPack && (
-          <div className="border border-gray-200 rounded-lg p-3 bg-white">
-            <p className="text-xs font-maison-neue-mono uppercase text-gray-500 mb-1">Pieces</p>
-            <p className="text-sm font-bold font-maison-neue text-Charcoal">{product.Metadata.PiecesPerPack}</p>
-          </div>
-        )}
-      </div>
-
-      {/* Row 7: Actions */}
+      {/* Row 6: Actions */}
       <div className="flex items-center justify-between gap-2 mt-4">
         <button
           onClick={handleAddToCart}
