@@ -67,13 +67,40 @@ export default function Breadcrumb({ items, currentPage }: BreadcrumbProps) {
   )
 }
 
-// Helper function to build breadcrumb items for product pages
+type ProductCategory = {
+  name: string
+  handle: string
+  parent_category?: ProductCategory | null
+}
+
+// Helper function to build breadcrumb items for product pages.
+// Walks up the deepest category's parent chain when categories are present,
+// then falls back to the collection if no categories.
 export function buildProductBreadcrumbs(
   collection?: { title: string; handle: string } | null,
-  countryCode?: string
+  countryCode?: string,
+  categories?: ProductCategory[] | null
 ): BreadcrumbItem[] {
   const prefix = countryCode ? `/${countryCode}` : ""
   const items: BreadcrumbItem[] = [{ name: "Home", href: prefix || "/" }]
+
+  // Prefer category trail (most specific) when available — walk parents up
+  // and reverse so the root appears first.
+  if (categories && categories.length > 0) {
+    const trail: BreadcrumbItem[] = []
+    let node: ProductCategory | null | undefined = categories[0]
+    const seen = new Set<string>()
+    while (node && !seen.has(node.handle)) {
+      seen.add(node.handle)
+      trail.unshift({
+        name: node.name,
+        href: `${prefix}/categories/${node.handle}`,
+      })
+      node = node.parent_category
+    }
+    items.push(...trail)
+    return items
+  }
 
   if (collection) {
     items.push({

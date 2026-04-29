@@ -101,3 +101,20 @@ export function generateOrganizationJsonLd(
     ...(sameAs && sameAs.length > 0 && { sameAs }),
   }
 }
+
+/**
+ * Generates WebSite JSON-LD with SearchAction for the Google sitelinks searchbox.
+ */
+export function generateWebSiteJsonLd(baseUrl: string, countryCode: string) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: "Grillers Pride",
+    url: baseUrl,
+    potentialAction: {
+      "@type": "SearchAction",
+      target: `${baseUrl}/${countryCode}/search?q={search_term_string}`,
+      "query-input": "required name=search_term_string",
+    },
+  }
+}

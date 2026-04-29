@@ -9,7 +9,7 @@ type OverviewProps = {
 }
 
 const Overview = ({ customer, orders }: OverviewProps) => {
-  const profilePct = getProfileCompletion(customer)
+  const profileStatus = getProfileStatus(customer)
   const addressCount = customer?.addresses?.length || 0
   const orderCount = orders?.length || 0
 
@@ -61,16 +61,7 @@ const Overview = ({ customer, orders }: OverviewProps) => {
             </svg>
           }
         />
-        <StatCard
-          label="Profile"
-          value={`${profilePct}%`}
-          href="/account/profile"
-          icon={
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
-            </svg>
-          }
-        />
+        <ProfileStatCard status={profileStatus} />
       </div>
 
       {/* Recent Orders */}
@@ -302,15 +293,133 @@ function OrderStatusBadge({ status }: { status?: string }) {
   )
 }
 
-const getProfileCompletion = (customer: HttpTypes.StoreCustomer | null) => {
-  let count = 0
-  if (!customer) return 0
-  if (customer.email) count++
-  if (customer.first_name && customer.last_name) count++
-  if (customer.phone) count++
-  const billingAddress = customer.addresses?.find((addr) => addr.is_default_billing)
-  if (billingAddress) count++
-  return (count / 4) * 100
+type ProfileField = {
+  label: string
+  done: boolean
+  href: string
+}
+
+type ProfileStatus = {
+  fields: ProfileField[]
+  doneCount: number
+  total: number
+  pct: number
+  firstMissingHref: string
+}
+
+// Replaces the bare percentage tile with field-level breakdown so customers
+// can see which 25% they're missing and click straight to the field that
+// needs filling. Closes the "what does 75% even mean?" gap (#28).
+const getProfileStatus = (
+  customer: HttpTypes.StoreCustomer | null
+): ProfileStatus => {
+  const billingAddress = customer?.addresses?.find(
+    (addr) => addr.is_default_billing
+  )
+  const fields: ProfileField[] = [
+    {
+      label: "Name",
+      done: Boolean(customer?.first_name && customer?.last_name),
+      href: "/account/profile",
+    },
+    {
+      label: "Email",
+      done: Boolean(customer?.email),
+      href: "/account/profile",
+    },
+    {
+      label: "Phone",
+      done: Boolean(customer?.phone),
+      href: "/account/profile",
+    },
+    {
+      label: "Default billing address",
+      done: Boolean(billingAddress),
+      href: "/account/addresses",
+    },
+  ]
+  const doneCount = fields.filter((f) => f.done).length
+  const total = fields.length
+  const firstMissing = fields.find((f) => !f.done)
+  return {
+    fields,
+    doneCount,
+    total,
+    pct: Math.round((doneCount / total) * 100),
+    firstMissingHref: firstMissing?.href || "/account/profile",
+  }
+}
+
+function ProfileStatCard({ status }: { status: ProfileStatus }) {
+  const isComplete = status.doneCount === status.total
+  const ctaHref = isComplete ? "/account/profile" : status.firstMissingHref
+
+  return (
+    <LocalizedClientLink
+      href={ctaHref}
+      className="bg-white rounded-xl border border-gray-200 p-5 hover:border-Gold/30 hover:shadow-sm transition-all group"
+    >
+      <div className="flex items-center gap-3 mb-3">
+        <span className="text-Gold/70 group-hover:text-Gold transition-colors">
+          <svg
+            className="w-5 h-5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={1.5}
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"
+            />
+          </svg>
+        </span>
+        <span className="text-xs font-maison-neue font-semibold text-Charcoal/50 uppercase tracking-wider">
+          Profile
+        </span>
+      </div>
+      {isComplete ? (
+        <>
+          <p className="text-2xl font-gyst font-bold text-Charcoal">
+            ✓ Complete
+          </p>
+          <p className="text-xs font-maison-neue text-Charcoal/50 mt-1">
+            All set — faster checkout, saved everything.
+          </p>
+        </>
+      ) : (
+        <>
+          <p className="text-2xl font-gyst font-bold text-Charcoal">
+            {status.doneCount} of {status.total} done
+          </p>
+          <ul className="mt-3 space-y-1">
+            {status.fields.map((f) => (
+              <li
+                key={f.label}
+                className="flex items-center gap-2 text-xs font-maison-neue text-Charcoal/70"
+              >
+                <span
+                  aria-hidden="true"
+                  className={
+                    f.done
+                      ? "inline-block w-3.5 text-Gold"
+                      : "inline-block w-3.5 text-Charcoal/30"
+                  }
+                >
+                  {f.done ? "✓" : "○"}
+                </span>
+                <span className={f.done ? "" : "text-Charcoal"}>{f.label}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-3 text-xs font-maison-neue font-semibold text-Gold group-hover:text-Gold/80">
+            Complete profile →
+          </p>
+        </>
+      )}
+    </LocalizedClientLink>
+  )
 }
 
 export default Overview

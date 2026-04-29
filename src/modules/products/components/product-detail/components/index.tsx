@@ -202,8 +202,12 @@ export default function ProductDetail({
     ...(strapiProductData?.GalleryImages || []),
   ].filter((image) => image?.url)
 
-  // Build breadcrumb items
-  const breadcrumbItems = buildProductBreadcrumbs(product.collection, countryCode)
+  // Build breadcrumb items — uses category chain when present, falls back to collection
+  const breadcrumbItems = buildProductBreadcrumbs(
+    product.collection,
+    countryCode,
+    (product as any).categories
+  )
 
   return (
     <section className="py-4 md:pt-4 md:pb-16 bg-Scroll relative">

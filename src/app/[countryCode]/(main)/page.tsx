@@ -1,6 +1,8 @@
+import React from "react"
 import { Metadata } from "next"
 
 import Hero from "@modules/home/components/hero"
+import TrustBand from "@modules/home/components/trust-band"
 import BestsellersSection from "@modules/home/components/shop-bestsellers"
 import KosherPromiseSection from "@modules/home/components/kosher-promise"
 import ShopCollectionsSection from "@modules/home/components/shop-collections"
@@ -10,9 +12,16 @@ import BlogExploreSection from "@modules/home/components/blog-explore"
 import LazySection from "@modules/common/components/lazy-section"
 import { listCollections } from "@lib/data/collections"
 import { getRegion } from "@lib/data/regions"
+import { retrieveCustomer } from "@lib/data/customer"
+import { listOrders } from "@lib/data/orders"
 import strapiClient from "@lib/strapi"
 import { GetHomePageQuery, type HomePageData } from "@lib/data/strapi/home"
-import { GetGlobalQuery, type GlobalData, generateOrganizationJsonLd } from "@lib/data/strapi/global"
+import {
+  GetGlobalQuery,
+  type GlobalData,
+  generateOrganizationJsonLd,
+  generateWebSiteJsonLd,
+} from "@lib/data/strapi/global"
 import { generateAlternates } from "@lib/util/seo"
 
 type PageProps = {
@@ -94,6 +103,15 @@ export default async function Home(props: {
     return null
   }
 
+  // Customer state for the conditional Hero CTA (#57). Both calls swallow
+  // errors — homepage must render for logged-out visitors too.
+  const customer = await retrieveCustomer().catch(() => null)
+  const orders = customer
+    ? await listOrders().catch(() => null)
+    : null
+  const isLoggedIn = !!customer
+  const hasOrders = (orders?.length || 0) > 0
+
   const strapiData = await strapiClient.request<HomePageData>(GetHomePageQuery)
   
   // Fetch global data for Organization JSON-LD
@@ -105,9 +123,10 @@ export default async function Home(props: {
   }
 
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://grillerspride.com"
-  const organizationJsonLd = globalData?.global 
+  const organizationJsonLd = globalData?.global
     ? generateOrganizationJsonLd(globalData.global, baseUrl)
     : null
+  const websiteJsonLd = generateWebSiteJsonLd(baseUrl, countryCode)
 
   const renderSections = () => {
     if (strapiData?.home?.Sections) {
@@ -117,8 +136,19 @@ export default async function Home(props: {
 
         switch (section.__typename) {
           case "ComponentHomeHero":
-            // Hero always renders immediately
-            return <Hero key={section.__typename} data={section} />
+            // Hero always renders immediately. TrustBand sits directly under
+            // it so the value props are visible above the fold (#58).
+            return (
+              <React.Fragment key={section.__typename}>
+                <Hero
+                  data={section}
+                  countryCode={countryCode}
+                  isLoggedIn={isLoggedIn}
+                  hasOrders={hasOrders}
+                />
+                <TrustBand customer={customer} phoneNumber={null} />
+              </React.Fragment>
+            )
           case "ComponentHomeBestsellers":
             return (
               <BestsellersSection key={section.__typename} data={section} />
@@ -168,13 +198,17 @@ export default async function Home(props: {
 
   return (
     <>
-      {/* Organization JSON-LD for SEO */}
+      {/* Organization + WebSite JSON-LD for SEO (Google Knowledge Panel + sitelinks searchbox) */}
       {organizationJsonLd && (
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
         />
       )}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
+      />
       {renderSections()}
     </>
   )

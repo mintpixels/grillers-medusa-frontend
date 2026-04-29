@@ -144,6 +144,7 @@ export function generateProductJsonLd(
     }>
   },
   strapiData: {
+    Title?: string
     FeaturedImage?: { url: string }
     GalleryImages?: Array<{ url: string }>
     MedusaProduct?: {
@@ -175,10 +176,17 @@ export function generateProductJsonLd(
 
   const productUrl = `${baseUrl}/${countryCode}/products/${product.handle}`
 
+  // Prefer the cleaner Strapi display title for the JSON-LD name. Falls back
+  // to Medusa's product.title if Strapi has no override. The Medusa title is
+  // often the raw legacy import (e.g., "Chuckeye Steak, Boneless,(2x9oz)
+  // American Angus, Uncooked, KFP. $19.99/lb."), which makes for an ugly
+  // SERP rich snippet — use the display title instead.
+  const displayName = strapiData?.Title || product.title
+
   return {
     "@context": "https://schema.org",
     "@type": "Product",
-    name: product.title,
+    name: displayName,
     description: strapiData?.MedusaProduct?.Description || product.description,
     image: images.length > 0 ? images : undefined,
     url: productUrl,

@@ -294,8 +294,15 @@ export const addCustomerAddress = async (
   currentState: Record<string, unknown>,
   formData: FormData
 ): Promise<any> => {
-  const isDefaultBilling = (currentState.isDefaultBilling as boolean) || false
-  const isDefaultShipping = (currentState.isDefaultShipping as boolean) || false
+  // Read default flags from FormData (checkboxes) first, falling back to
+  // currentState for legacy callers that pre-set them. Empty checkboxes
+  // don't appear in FormData, so use a presence check.
+  const formDefaultBilling = formData.has("is_default_billing")
+  const formDefaultShipping = formData.has("is_default_shipping")
+  const isDefaultBilling =
+    formDefaultBilling || (currentState.isDefaultBilling as boolean) || false
+  const isDefaultShipping =
+    formDefaultShipping || (currentState.isDefaultShipping as boolean) || false
 
   const address = {
     first_name: formData.get("first_name") as string,
@@ -306,7 +313,7 @@ export const addCustomerAddress = async (
     city: formData.get("city") as string,
     postal_code: formData.get("postal_code") as string,
     province: formData.get("province") as string,
-    country_code: formData.get("country_code") as string,
+    country_code: (formData.get("country_code") as string) || "us",
     phone: formData.get("phone") as string,
     is_default_billing: isDefaultBilling,
     is_default_shipping: isDefaultShipping,
@@ -367,13 +374,21 @@ export const updateCustomerAddress = async (
     city: formData.get("city") as string,
     postal_code: formData.get("postal_code") as string,
     province: formData.get("province") as string,
-    country_code: formData.get("country_code") as string,
+    country_code: (formData.get("country_code") as string) || "us",
   } as HttpTypes.StoreUpdateCustomerAddress
 
   const phone = formData.get("phone") as string
 
   if (phone) {
     address.phone = phone
+  }
+
+  // Default-flag checkboxes (#49) — only sent when checked.
+  if (formData.has("is_default_shipping")) {
+    address.is_default_shipping = true
+  }
+  if (formData.has("is_default_billing")) {
+    address.is_default_billing = true
   }
 
   const headers = {

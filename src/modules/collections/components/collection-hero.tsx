@@ -1,6 +1,7 @@
 import Image from "next/image"
 import Link from "next/link"
 import { ProductCollectionData } from "@lib/data/strapi/collections"
+import CollectionDescription from "./collection-description"
 
 type CollectionHeroProps = {
   collection: ProductCollectionData
@@ -48,9 +49,10 @@ export default function CollectionHero({ collection, countryCode }: CollectionHe
             </h1>
             
             {hasDescription && (
-              <p className="text-p-md text-white/90 max-w-5xl mx-auto text-balance">
-                {collection.Description}
-              </p>
+              <CollectionDescription
+                text={collection.Description as string}
+                variant="dark"
+              />
             )}
           </div>
         </div>
@@ -67,9 +69,10 @@ export default function CollectionHero({ collection, countryCode }: CollectionHe
         </h1>
         
         {hasDescription && (
-          <p className="text-p-md text-Charcoal/80 max-w-5xl mx-auto text-balance">
-            {collection.Description}
-          </p>
+          <CollectionDescription
+            text={collection.Description as string}
+            variant="light"
+          />
         )}
       </div>
     </div>

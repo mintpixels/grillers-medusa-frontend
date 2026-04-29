@@ -64,7 +64,10 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
     title,
     description,
     alternates: {
-      canonical: seo?.canonicalUrl || productUrl,
+      // Always use our env-driven productUrl — Strapi's seo.canonicalUrl is
+      // often the legacy grillerspride.com URL imported from the old site,
+      // which would tell Google to index the legacy domain instead of ours.
+      canonical: productUrl,
     },
     openGraph: {
       title: socialMeta?.ogTitle || title,

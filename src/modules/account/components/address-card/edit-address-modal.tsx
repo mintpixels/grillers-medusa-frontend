@@ -5,8 +5,6 @@ import { PencilSquare as Edit, Trash } from "@medusajs/icons"
 import { Button, Heading, Text, clx } from "@medusajs/ui"
 
 import useToggleState from "@lib/hooks/use-toggle-state"
-import CountrySelect from "@modules/checkout/components/country-select"
-import Input from "@modules/common/components/input"
 import Modal from "@modules/common/components/modal"
 import Spinner from "@modules/common/icons/spinner"
 import { SubmitButton } from "@modules/checkout/components/submit-button"
@@ -15,6 +13,7 @@ import {
   deleteCustomerAddress,
   updateCustomerAddress,
 } from "@lib/data/customer"
+import AddressFormFields from "./address-form-fields"
 
 type EditAddressProps = {
   region: HttpTypes.StoreRegion
@@ -154,88 +153,7 @@ const EditAddress: React.FC<EditAddressProps> = ({
         <form action={formAction}>
           <input type="hidden" name="addressId" value={address.id} />
           <Modal.Body>
-            <div className="grid grid-cols-1 gap-y-2">
-              <div className="grid grid-cols-2 gap-x-2">
-                <Input
-                  label="First name"
-                  name="first_name"
-                  required
-                  autoComplete="given-name"
-                  defaultValue={address.first_name || undefined}
-                  data-testid="first-name-input"
-                />
-                <Input
-                  label="Last name"
-                  name="last_name"
-                  required
-                  autoComplete="family-name"
-                  defaultValue={address.last_name || undefined}
-                  data-testid="last-name-input"
-                />
-              </div>
-              <Input
-                label="Company"
-                name="company"
-                autoComplete="organization"
-                defaultValue={address.company || undefined}
-                data-testid="company-input"
-              />
-              <Input
-                label="Address"
-                name="address_1"
-                required
-                autoComplete="address-line1"
-                defaultValue={address.address_1 || undefined}
-                data-testid="address-1-input"
-              />
-              <Input
-                label="Apartment, suite, etc."
-                name="address_2"
-                autoComplete="address-line2"
-                defaultValue={address.address_2 || undefined}
-                data-testid="address-2-input"
-              />
-              <div className="grid grid-cols-[144px_1fr] gap-x-2">
-                <Input
-                  label="Postal code"
-                  name="postal_code"
-                  required
-                  autoComplete="postal-code"
-                  defaultValue={address.postal_code || undefined}
-                  data-testid="postal-code-input"
-                />
-                <Input
-                  label="City"
-                  name="city"
-                  required
-                  autoComplete="locality"
-                  defaultValue={address.city || undefined}
-                  data-testid="city-input"
-                />
-              </div>
-              <Input
-                label="Province / State"
-                name="province"
-                autoComplete="address-level1"
-                defaultValue={address.province || undefined}
-                data-testid="state-input"
-              />
-              <CountrySelect
-                name="country_code"
-                region={region}
-                required
-                autoComplete="country"
-                defaultValue={address.country_code || undefined}
-                data-testid="country-select"
-              />
-              <Input
-                label="Phone"
-                name="phone"
-                autoComplete="phone"
-                defaultValue={address.phone || undefined}
-                data-testid="phone-input"
-              />
-            </div>
+            <AddressFormFields defaults={address} />
             {formState.error && (
               <div className="text-rose-500 text-small-regular py-2">
                 {formState.error}

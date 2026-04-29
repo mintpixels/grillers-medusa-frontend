@@ -24,7 +24,10 @@ export default function BestsellersSection({
   }
 }) {
   return (
-    <section className="py-10 md:py-20 bg-Scroll overflow-hidden">
+    <section
+      id="bestsellers"
+      className="py-10 md:py-20 bg-Scroll overflow-hidden scroll-mt-[120px]"
+    >
       <div className="content-container">
         <div className="flex justify-between items-end mb-12">
           <h3 className="text-h2-mobile md:text-h2 font-gyst text-Charcoal">
