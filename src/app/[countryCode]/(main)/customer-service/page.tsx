@@ -88,7 +88,7 @@ export default async function CustomerServicePage() {
               <details key={idx} className="group py-4">
                 <summary className="flex cursor-pointer items-start justify-between gap-4 list-none">
                   <span className="text-p-md font-semibold text-Charcoal">
-                    {faq.question}
+                    {faq.Question}
                   </span>
                   <span
                     aria-hidden="true"
@@ -98,7 +98,7 @@ export default async function CustomerServicePage() {
                   </span>
                 </summary>
                 <p className="mt-3 text-p-sm text-Charcoal/80 leading-relaxed">
-                  {faq.answer}
+                  {faq.Answer}
                 </p>
               </details>
             ))}
