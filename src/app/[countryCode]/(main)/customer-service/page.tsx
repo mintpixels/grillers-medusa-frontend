@@ -116,7 +116,7 @@ export default async function CustomerServicePage() {
           <ul className="flex flex-wrap gap-x-6 gap-y-2 text-p-sm">
             <li>
               <LocalizedClientLink
-                href="/legal/privacy-policy"
+                href="/page/privacy-policy"
                 className="text-Gold hover:text-Gold/80 underline"
               >
                 Privacy Policy
@@ -124,7 +124,7 @@ export default async function CustomerServicePage() {
             </li>
             <li>
               <LocalizedClientLink
-                href="/legal/terms-of-sale"
+                href="/page/terms-of-sale"
                 className="text-Gold hover:text-Gold/80 underline"
               >
                 Terms of Sale
@@ -132,7 +132,7 @@ export default async function CustomerServicePage() {
             </li>
             <li>
               <LocalizedClientLink
-                href="/legal/terms-of-use"
+                href="/page/terms-of-use"
                 className="text-Gold hover:text-Gold/80 underline"
               >
                 Terms of Use

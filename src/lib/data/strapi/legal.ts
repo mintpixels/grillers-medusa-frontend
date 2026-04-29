@@ -17,7 +17,7 @@ export type LegalPagesQueryResult = {
   legalPages?: LegalPageData[]
 }
 
-// Strapi `legal-page` collection-type. The route is /us/legal/[slug] and
+// Strapi `legal-page` collection-type. The route is /us/page/[slug] and
 // each entry's Slug field must match. Until that schema is added in Strapi
 // admin, getLegalPage falls back to the Latin placeholder content below.
 export const GetLegalPageQuery = gql`

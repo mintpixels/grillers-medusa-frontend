@@ -1,23 +1,10 @@
-import { Metadata } from "next"
-import { notFound } from "next/navigation"
-import { getInfoPage } from "@lib/data/strapi/legal"
-import InfoPageTemplate from "@modules/info/templates/info-page"
+import { redirect } from "next/navigation"
 
-export async function generateMetadata(): Promise<Metadata> {
-  const page = await getInfoPage("careers")
-  return {
-    title: `${page?.Title || "Careers"} | Grillers Pride`,
-    description:
-      page?.SEO?.metaDescription ||
-      "Open roles at Grillers Pride — Doraville, GA.",
-  }
+type Props = {
+  params: Promise<{ countryCode: string }>
 }
 
-export default async function CareersPage() {
-  const page = await getInfoPage("careers")
-  if (!page) notFound()
-
-  return <InfoPageTemplate page={page} section="About" />
+export default async function CareersRedirect({ params }: Props) {
+  const { countryCode } = await params
+  redirect(`/${countryCode}/page/careers`)
 }
-
-export const dynamic = "force-dynamic"

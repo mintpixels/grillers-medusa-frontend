@@ -1,6 +1,7 @@
 import { Text } from "@medusajs/ui"
 import Image from "next/image"
 import Link from "next/link"
+import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import strapiClient from "@lib/strapi"
 import { GetFooterQuery, type FooterData } from "@lib/data/strapi/footer"
 import NewsletterForm from "../../../../components/newsletter-form"
@@ -167,9 +168,9 @@ export default async function Footer() {
   // surfaces Privacy / Terms of Sale / Terms of Use, even before lawyer-
   // reviewed copy has been loaded into Strapi (#42).
   const DEFAULT_LEGAL_LINKS = [
-    { id: "default-legal-privacy", Text: "Privacy Policy", Url: "/legal/privacy-policy" },
-    { id: "default-legal-tos", Text: "Terms of Sale", Url: "/legal/terms-of-sale" },
-    { id: "default-legal-tou", Text: "Terms of Use", Url: "/legal/terms-of-use" },
+    { id: "default-legal-privacy", Text: "Privacy Policy", Url: "/page/privacy-policy" },
+    { id: "default-legal-tos", Text: "Terms of Sale", Url: "/page/terms-of-sale" },
+    { id: "default-legal-tou", Text: "Terms of Use", Url: "/page/terms-of-use" },
   ]
   const legalLinks = (() => {
     const strapiLinks = footer?.LegalLinks ?? []
@@ -348,12 +349,12 @@ export default async function Footer() {
                         <ul className="flex flex-col gap-y-2.5">
                           {column.Links.map((link) => (
                             <li key={link.id}>
-                              <Link
+                              <LocalizedClientLink
                                 href={link.Url}
                                 className="text-p-sm text-Pewter hover:text-Gold transition-colors"
                               >
                                 {link.Text}
-                              </Link>
+                              </LocalizedClientLink>
                             </li>
                           ))}
                         </ul>
@@ -402,12 +403,12 @@ export default async function Footer() {
                 <ul className="flex flex-wrap justify-center sm:justify-start gap-x-6 gap-y-2">
                   {legalLinks.map((link) => (
                     <li key={link.id}>
-                      <Link
+                      <LocalizedClientLink
                         href={link.Url}
                         className="text-p-ex-sm-mono text-Pewter/60 hover:text-Gold transition-colors"
                       >
                         {link.Text}
-                      </Link>
+                      </LocalizedClientLink>
                     </li>
                   ))}
                 </ul>

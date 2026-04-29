@@ -102,11 +102,9 @@ export default function CookieConsentBanner({
               <p className="text-sm md:text-base">{message}</p>
               {privacyLink && (
                 <Link
-                  // Strapi may have shipped with the placeholder "#" Url
-                  // (#30); fall back to the new legal route (#42).
                   href={
                     !privacyLink.Url || privacyLink.Url === "#"
-                      ? "/legal/privacy-policy"
+                      ? "/page/privacy-policy"
                       : privacyLink.Url
                   }
                   className="text-sm underline hover:opacity-80 mt-2 inline-block"
