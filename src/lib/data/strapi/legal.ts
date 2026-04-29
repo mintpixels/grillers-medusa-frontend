@@ -151,3 +151,22 @@ export async function getLegalPage(slug: string): Promise<LegalPageData | null> 
     Content: PLACEHOLDER_CONTENT[slug],
   }
 }
+
+// Generic static-page fetcher — uses the same `legal-page` collection-type
+// but without the LEGAL_SLUGS restriction. Used by the footer info pages
+// (#11/#18 — Ship to Me, About, Mission, Careers, etc.) so the entire footer
+// content lives in one Strapi collection editors can manage in admin.
+export async function getInfoPage(slug: string): Promise<LegalPageData | null> {
+  if (!slug) return null
+  try {
+    const data = await strapiClient.request<LegalPagesQueryResult>(
+      GetLegalPageQuery,
+      { slug }
+    )
+    const page = data?.legalPages?.[0]
+    if (page?.Title && page?.Content?.length) return page
+  } catch {
+    // Network or schema error — return null so the route 404s cleanly.
+  }
+  return null
+}
