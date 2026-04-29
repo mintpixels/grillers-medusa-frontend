@@ -1,122 +1,48 @@
-"use client"
-import React from "react"
-import { Swiper, SwiperSlide } from "swiper/react"
-import "swiper/css"
-import Image from "next/image"
+import strapiClient from "@lib/strapi"
+import { getProductsByHandles } from "@lib/data/strapi/collections"
+import { enrichStrapiProductsWithMedusaPrices } from "@lib/data/products"
+import BestsellersSwiper from "./swiper"
 
-export default function BestsellersSection({
+// Strapi seeds this section with a curated list — each entry's `Slug` field
+// stores the Medusa product handle (#38). At render time we look up the full
+// Strapi product by handle so the cards mirror the PDP related-products UI
+// (image gallery, badges, live Medusa price, Add-to-Cart, View Details).
+type BestsellersData = {
+  BestsellersTitle: string
+  Products?: Array<{
+    id: number
+    Slug?: string
+    Title?: string
+  }>
+}
+
+export default async function BestsellersSection({
   data,
+  countryCode = "us",
 }: {
-  data: {
-    BestsellersTitle: string
-    Products: [
-      {
-        id: number
-        Title: string
-        Slug: string
-        Price: number
-        Image: {
-          url: string
-        }
-        Description: string
-      }
-    ]
-  }
+  data: BestsellersData
+  countryCode?: string
 }) {
+  const handles = (data?.Products || [])
+    .map((p) => p?.Slug?.trim())
+    .filter((s): s is string => !!s)
+
+  const strapiProducts = await getProductsByHandles(handles, strapiClient)
+  const products = await enrichStrapiProductsWithMedusaPrices(
+    strapiProducts,
+    countryCode
+  )
+
   return (
     <section
       id="bestsellers"
       className="py-10 md:py-20 bg-Scroll overflow-hidden scroll-mt-[120px]"
     >
-      <div className="content-container">
-        <div className="flex justify-between items-end mb-12">
-          <h3 className="text-h2-mobile md:text-h2 font-gyst text-Charcoal">
-            {data?.BestsellersTitle}
-          </h3>
-          <a
-            href="#"
-            className="size-[44px] border border-black rounded-full flex justify-center items-center"
-          >
-            <Image
-              src={"/images/icons/arrow-right.svg"}
-              width={20}
-              height={12}
-              alt="Shop Bestsellers"
-            />
-          </a>
-        </div>
-
-        <div className="">
-          <Swiper
-            spaceBetween={16}
-            slidesPerView={1}
-            breakpoints={{
-              480: {
-                slidesPerView: 2,
-              },
-              768: {
-                slidesPerView: 3,
-              },
-              1024: {
-                slidesPerView: 4,
-              },
-            }}
-            className="swiper-visible"
-          >
-            {data?.Products?.map((product) => (
-              <SwiperSlide
-                key={product.id}
-                className="px-2 pb-4 outline-none md:min-w-[381px]"
-                aria-labelledby={`product-${product.id}-title`}
-              >
-                <article>
-                  <a href={product?.Slug ?? "#"} className="">
-                    <figure className="relative w-full aspect-square bg-gray-50">
-                      <Image
-                        src={product?.Image?.url}
-                        alt={product.Title}
-                        fill
-                        className="object-cover"
-                      />
-                    </figure>
-
-                    <div className="py-8">
-                      <h4
-                        id={`product-${product.id}-title`}
-                        className="text-h4 font-gyst font-bold text-Charcoal pb-6 border-b border-Charcoal"
-                      >
-                        {product.Title}
-                      </h4>
-                      <p className="text-Charcoal py-7 border-b border-Charcoal">
-                        <span className="text-h3 font-gyst">
-                          ${product.Price}
-                        </span>{" "}
-                        <span className="text-p-sm-mono font-maison-neue-mono uppercase ml-2">
-                          per lb
-                        </span>
-                      </p>
-                      <p className="text-p-sm font-maison-neue text-black py-6">
-                        {product.Description}
-                      </p>
-                      <p className="inline-flex gap-3">
-                        <span className="text-Charcoal font-rexton text-h6 font-bold uppercase">
-                          View Details
-                        </span>
-                        <Image
-                          src={"/images/icons/arrow-right.svg"}
-                          width={20}
-                          height={12}
-                          alt="view details"
-                        />
-                      </p>
-                    </div>
-                  </a>
-                </article>
-              </SwiperSlide>
-            ))}
-          </Swiper>
-        </div>
-      </div>
+      <BestsellersSwiper
+        title={data?.BestsellersTitle || "Shop Bestsellers"}
+        products={products}
+        countryCode={countryCode}
+      />
     </section>
   )
 }

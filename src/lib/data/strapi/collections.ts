@@ -623,6 +623,74 @@ export async function getProductsByMedusaIds(
   }
 }
 
+// Fetch Strapi products by Medusa handle. Used by the homepage Bestsellers
+// section (#38) which stores a list of curated handles and renders the same
+// ProductCard the PDP related-products carousel uses.
+export const GetProductsByHandlesQuery = gql`
+  query GetProductsByHandles($handles: [String]!) {
+    products(
+      filters: { MedusaProduct: { Handle: { in: $handles } } }
+      pagination: { limit: 50, start: 0 }
+    ) {
+      documentId
+      Title
+      FeaturedImage { url }
+      GalleryImages { url }
+      Metadata {
+        AvgPackSize
+        AvgPackWeight
+        Serves
+        PiecesPerPack
+        Uncooked
+        Cooked
+        HeatAndServe
+        GlutenFree
+        MSG
+        Organic
+        KosherForPassover
+        Pareve
+        Meat
+        Dairy
+        CholovYisroel
+      }
+      Categorization { ProductTags { Name } }
+      MedusaProduct {
+        ProductId
+        Handle
+        Description
+        ShortDescription
+        Variants {
+          VariantId
+          Sku
+          Price { CalculatedPriceNumber }
+        }
+      }
+    }
+  }
+`
+
+export async function getProductsByHandles(
+  handles: string[],
+  client: any
+): Promise<StrapiCollectionProduct[]> {
+  if (!handles.length) return []
+  try {
+    const result = await client.request(GetProductsByHandlesQuery, { handles })
+    const products: StrapiCollectionProduct[] = result.products || []
+    // Strapi doesn't preserve the input order — re-sort to match the curated
+    // sequence so editors control the display order in Strapi.
+    const order = new Map(handles.map((h, i) => [h, i]))
+    return products.sort((a, b) => {
+      const ai = order.get(a.MedusaProduct?.Handle || "") ?? 999
+      const bi = order.get(b.MedusaProduct?.Handle || "") ?? 999
+      return ai - bi
+    })
+  } catch (error) {
+    console.error("Error fetching products by handles:", error)
+    return []
+  }
+}
+
 // Query to fetch all products (image filtering done client-side since Strapi can't filter on media fields)
 export const GetProductsWithImagesQuery = gql`
   query GetProductsWithImages($limit: Int, $start: Int) {

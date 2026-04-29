@@ -151,7 +151,11 @@ export default async function Home(props: {
             )
           case "ComponentHomeBestsellers":
             return (
-              <BestsellersSection key={section.__typename} data={section} />
+              <BestsellersSection
+                key={section.__typename}
+                data={section}
+                countryCode={countryCode}
+              />
             )
           case "ComponentHomeKosherPromise":
             return (
