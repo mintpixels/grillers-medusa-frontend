@@ -2,7 +2,7 @@
 
 import { useLayoutEffect, useState } from "react"
 import Image from "next/image"
-import { Tooltip, TooltipProvider } from "@medusajs/ui"
+import { Tooltip, TooltipProvider, toast } from "@medusajs/ui"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import FormattedPrice from "@modules/common/components/formatted-price"
 import ProductCardCarousel from "@modules/common/components/product-card-carousel"
@@ -96,8 +96,12 @@ export function ProductCard({ product, countryCode, viewMode = "grid" }: { produ
         quantity: 1,
         countryCode,
       })
+      toast.success("Added to cart", { description: product.Title })
     } catch (error) {
       console.error("Failed to add to cart:", error)
+      toast.error("Couldn't add to cart", {
+        description: "Please try again in a moment.",
+      })
     } finally {
       setIsAdding(false)
     }

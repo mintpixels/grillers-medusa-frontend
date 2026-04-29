@@ -71,7 +71,14 @@ const PaymentIcon = ({ method }: { method: string }) => {
 }
 
 // Accepted payment methods
-const PAYMENT_METHODS = ["visa", "mastercard", "amex", "paypal"]
+const PAYMENT_METHODS = ["visa", "mastercard", "amex"]
+
+// Default social links — used as fallback when Strapi has none configured
+const DEFAULT_SOCIAL_LINKS = [
+  { id: "default-facebook", Platform: "facebook", Url: "https://www.facebook.com/GrillersPride" },
+  { id: "default-instagram", Platform: "instagram", Url: "https://www.instagram.com/grillerspride/" },
+  { id: "default-x", Platform: "x", Url: "https://x.com/kosher_meat" },
+]
 
 // Social media icons with built-in SVGs for common platforms
 const SocialIcon = ({ platform }: { platform: string }) => {
@@ -141,7 +148,19 @@ export default async function Footer() {
 
   // Check what data we have available
   const hasNavigationColumns = footer?.NavigationColumns && footer.NavigationColumns.length > 0
-  const hasSocialLinks = footer?.SocialLinks && footer.SocialLinks.length > 0
+  // Merge Strapi social links with defaults — Strapi entries take precedence,
+  // and any default platform missing from Strapi is appended so FB/IG/X are
+  // always present in the footer.
+  const socialLinks = (() => {
+    const strapiLinks = footer?.SocialLinks ?? []
+    const present = new Set(strapiLinks.map((s) => s.Platform.toLowerCase()))
+    const merged = [...strapiLinks]
+    for (const def of DEFAULT_SOCIAL_LINKS) {
+      if (!present.has(def.Platform.toLowerCase())) merged.push(def)
+    }
+    return merged
+  })()
+  const hasSocialLinks = socialLinks.length > 0
   const hasContactInfo = footer?.ContactPhone || footer?.ContactEmail || footer?.ContactAddress
   const hasLegalLinks = footer?.LegalLinks && footer.LegalLinks.length > 0
   const hasCertificationBadges = footer?.CertificationBadges && footer.CertificationBadges.length > 0
@@ -270,7 +289,7 @@ export default async function Footer() {
               {/* Social Links */}
               {hasSocialLinks && (
                 <div className="flex items-center gap-4 pt-2">
-                  {footer.SocialLinks.map((social) => (
+                  {socialLinks.map((social) => (
                     <a
                       key={social.id}
                       href={social.Url}

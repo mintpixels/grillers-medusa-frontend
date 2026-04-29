@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import Image from "next/image"
+import { toast } from "@medusajs/ui"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import { addToCart } from "@lib/data/cart"
 import type { StrapiProductData } from "types/strapi"
@@ -20,8 +21,12 @@ const ProductListItem = ({ hit }: { hit: StrapiProductData }) => {
         quantity: 1,
         countryCode: "us",
       })
+      toast.success("Added to cart", { description: hit.Title })
     } catch (error) {
       console.error("Failed to add to cart:", error)
+      toast.error("Couldn't add to cart", {
+        description: "Please try again in a moment.",
+      })
     } finally {
       setIsAdding(false)
     }

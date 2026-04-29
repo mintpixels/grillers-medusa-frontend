@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import Image from "next/image"
+import { toast } from "@medusajs/ui"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import { addToCart } from "@lib/data/cart"
 import { trackAddToCart } from "@lib/gtm"
@@ -24,6 +25,8 @@ const ProductCard = ({ hit }: { hit: StrapiProductData }) => {
         countryCode: "us",
       })
 
+      toast.success("Added to cart", { description: hit.Title })
+
       const price = hit?.MedusaProduct?.Variants?.[0]?.Price?.CalculatedPriceNumber
       const itemId = hit?.MedusaProduct?.Id || hit.objectID
       trackAddToCart({ id: itemId, title: hit.Title, price }, 1)
@@ -37,6 +40,9 @@ const ProductCard = ({ hit }: { hit: StrapiProductData }) => {
       })
     } catch (error) {
       console.error("Failed to add to cart:", error)
+      toast.error("Couldn't add to cart", {
+        description: "Please try again in a moment.",
+      })
     } finally {
       setIsAdding(false)
     }

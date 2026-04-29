@@ -25,7 +25,7 @@ export default function BestsellersSection({
 }) {
   return (
     <section className="py-10 md:py-20 bg-Scroll overflow-hidden">
-      <div className="mx-auto max-w-7xl px-4.5">
+      <div className="content-container">
         <div className="flex justify-between items-end mb-12">
           <h3 className="text-h2-mobile md:text-h2 font-gyst text-Charcoal">
             {data?.BestsellersTitle}

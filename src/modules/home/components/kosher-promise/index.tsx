@@ -67,7 +67,7 @@ const KosherPromise = ({
                 src={data.FeatureImage.url}
                 width={370}
                 height={45}
-                alt="image"
+                alt={data.FeatureText || "Griller's Pride feature"}
               />
             </div>
           )}

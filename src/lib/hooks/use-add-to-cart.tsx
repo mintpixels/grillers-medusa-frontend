@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from "react"
 import { HttpTypes } from "@medusajs/types"
 import { isEqual } from "lodash"
+import { toast } from "@medusajs/ui"
 import { addToCart } from "@lib/data/cart"
 import { trackAddToCart } from "@lib/gtm"
 import { jitsuTrack } from "@lib/jitsu"
@@ -108,35 +109,48 @@ export function useAddToCart(
       return
     }
     setIsAdding(true)
-    await addToCart({
-      variantId: selectedVariant.id,
-      quantity,
-      countryCode,
-      metadata: strapiTitle && strapiTitle !== product.title
-        ? { strapi_title: strapiTitle }
-        : undefined,
-    })
+    try {
+      await addToCart({
+        variantId: selectedVariant.id,
+        quantity,
+        countryCode,
+        metadata: strapiTitle && strapiTitle !== product.title
+          ? { strapi_title: strapiTitle }
+          : undefined,
+      })
 
-    const price = selectedVariant?.calculated_price?.calculated_amount
-      ? selectedVariant.calculated_price.calculated_amount / 100
-      : undefined
-    const titleOverride = strapiTitle !== product.title ? strapiTitle : undefined
+      const displayTitle = strapiTitle || product.title
+      toast.success("Added to cart", {
+        description: quantity > 1
+          ? `${quantity} × ${displayTitle}`
+          : displayTitle,
+      })
 
-    trackAddToCart(
-      { id: product.id, title: product.title, price },
-      quantity,
-      titleOverride
-    )
-    jitsuTrack("product_added_to_cart", {
-      item_id: product.id,
-      item_name: strapiTitle || product.title,
-      variant_id: selectedVariant.id,
-      price,
-      quantity,
-      currency: "USD",
-    })
+      const price = selectedVariant?.calculated_price?.calculated_amount
+        ? selectedVariant.calculated_price.calculated_amount / 100
+        : undefined
+      const titleOverride = strapiTitle !== product.title ? strapiTitle : undefined
 
-    setIsAdding(false)
+      trackAddToCart(
+        { id: product.id, title: product.title, price },
+        quantity,
+        titleOverride
+      )
+      jitsuTrack("product_added_to_cart", {
+        item_id: product.id,
+        item_name: strapiTitle || product.title,
+        variant_id: selectedVariant.id,
+        price,
+        quantity,
+        currency: "USD",
+      })
+    } catch (err) {
+      toast.error("Couldn't add to cart", {
+        description: "Please try again in a moment.",
+      })
+    } finally {
+      setIsAdding(false)
+    }
   }
 
   return {

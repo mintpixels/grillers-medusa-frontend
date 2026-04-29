@@ -72,17 +72,18 @@ const AccountInfo = ({
       <Disclosure>
         <Disclosure.Panel
           static
+          aria-hidden={!isSuccess}
           className={clx(
             "transition-[max-height,opacity] duration-300 ease-in-out overflow-hidden",
             {
               "max-h-[1000px] opacity-100": isSuccess,
-              "max-h-0 opacity-0": !isSuccess,
+              "max-h-0 opacity-0 pointer-events-none": !isSuccess,
             }
           )}
           data-testid="success-message"
         >
           <Badge className="p-2 my-4" color="green">
-            <span>{label} updated succesfully</span>
+            <span>{label} updated successfully</span>
           </Badge>
         </Disclosure.Panel>
       </Disclosure>
@@ -91,11 +92,12 @@ const AccountInfo = ({
       <Disclosure>
         <Disclosure.Panel
           static
+          aria-hidden={!isError}
           className={clx(
             "transition-[max-height,opacity] duration-300 ease-in-out overflow-hidden",
             {
               "max-h-[1000px] opacity-100": isError,
-              "max-h-0 opacity-0": !isError,
+              "max-h-0 opacity-0 pointer-events-none": !isError,
             }
           )}
           data-testid="error-message"

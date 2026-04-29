@@ -25,7 +25,7 @@ export default function FollowUsSection({
               >
                 <Image
                   src={img.url}
-                  alt={"small image"}
+                  alt={`${data.FollowUsTitle || "Griller's Pride on Instagram"} — photo ${index + 1}`}
                   fill
                   className="object-cover"
                 />
@@ -37,7 +37,7 @@ export default function FollowUsSection({
             <div className="relative w-full h-full aspect-square overflow-hidden">
               <Image
                 src={data.BigImage.url}
-                alt={"big image"}
+                alt={data.FollowUsTitle || "Griller's Pride on Instagram"}
                 fill
                 className="object-cover"
               />

@@ -6,7 +6,7 @@ import { retrieveCustomer } from "@lib/data/customer"
 import { listOrders } from "@lib/data/orders"
 
 export const metadata: Metadata = {
-  title: "Account",
+  title: "My Account | Griller's Pride",
   description: "Overview of your account activity.",
 }
 

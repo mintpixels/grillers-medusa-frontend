@@ -22,6 +22,27 @@ type EditAddressProps = {
   isActive?: boolean
 }
 
+const COUNTRY_NAMES: Record<string, string> = {
+  us: "United States",
+  ca: "Canada",
+}
+
+const formatCountryName = (code?: string | null) => {
+  if (!code) return ""
+  return COUNTRY_NAMES[code.toLowerCase()] || code.toUpperCase()
+}
+
+const formatPhone = (raw: string) => {
+  const digits = raw.replace(/\D/g, "")
+  if (digits.length === 10) {
+    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`
+  }
+  if (digits.length === 11 && digits.startsWith("1")) {
+    return `(${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`
+  }
+  return raw
+}
+
 const EditAddress: React.FC<EditAddressProps> = ({
   region,
   address,
@@ -92,13 +113,18 @@ const EditAddress: React.FC<EditAddressProps> = ({
               {address.address_1}
               {address.address_2 && <span>, {address.address_2}</span>}
             </span>
-            <span data-testid="address-postal-city">
-              {address.postal_code}, {address.city}
+            <span data-testid="address-city-province-postal">
+              {[address.city, address.province].filter(Boolean).join(", ")}
+              {address.postal_code ? ` ${address.postal_code}` : ""}
             </span>
-            <span data-testid="address-province-country">
-              {address.province && `${address.province}, `}
-              {address.country_code?.toUpperCase()}
+            <span data-testid="address-country">
+              {formatCountryName(address.country_code)}
             </span>
+            {address.phone && (
+              <span data-testid="address-phone">
+                {formatPhone(address.phone)}
+              </span>
+            )}
           </Text>
         </div>
         <div className="flex items-center gap-x-4">

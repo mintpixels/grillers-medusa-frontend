@@ -21,7 +21,8 @@ export default function TestimonialSection({
           {data?.BackgroundImage?.url && (
             <Image
               src={data.BackgroundImage.url}
-              alt="bg"
+              alt=""
+              aria-hidden="true"
               fill
               className="object-contain"
               sizes="(max-width: 768px) 80vw, 50vw"
