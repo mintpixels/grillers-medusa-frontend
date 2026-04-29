@@ -116,8 +116,13 @@ export async function middleware(request: NextRequest) {
 
   const countryCode = regionMap && (await getCountryCode(request, regionMap))
 
-  const urlHasCountryCode =
-    countryCode && request.nextUrl.pathname.split("/")[1].includes(countryCode)
+  // Strict equality, not .includes() — otherwise a junk first segment like
+  // "usasdasdasd" would substring-match "us" and middleware would let the
+  // request through with that bogus value as countryCode, breaking Medusa
+  // region lookups (prices vanish) and any LocalizedClientLink that reads
+  // countryCode from URL params (PDP links 404).
+  const urlFirstSegment = request.nextUrl.pathname.split("/")[1]?.toLowerCase()
+  const urlHasCountryCode = countryCode && urlFirstSegment === countryCode
 
   // if one of the country codes is in the url and the cache id is set, return next
   if (urlHasCountryCode && cacheIdCookie) {
