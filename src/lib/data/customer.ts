@@ -17,10 +17,23 @@ import {
 
 export async function requestPasswordReset(email: string) {
   try {
-    await sdk.auth.resetPassword("customer", "emailpass", { identifier: email })
+    const backendUrl =
+      process.env.MEDUSA_BACKEND_URL || "http://localhost:9000"
+    const publishableKey =
+      process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY || ""
+
+    await fetch(`${backendUrl}/store/forgot-password`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-publishable-api-key": publishableKey,
+      },
+      body: JSON.stringify({ email }),
+    })
   } catch {
     // Intentionally swallow — caller shows the same success state regardless,
-    // to avoid leaking whether an account exists for this email.
+    // to avoid leaking whether an account exists for this email or whether
+    // the backend is reachable.
   }
 }
 
