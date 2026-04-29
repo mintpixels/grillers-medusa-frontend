@@ -15,6 +15,37 @@ import {
   setAuthToken,
 } from "./cookies"
 
+export async function requestPasswordReset(email: string) {
+  try {
+    await sdk.auth.resetPassword("customer", "emailpass", { identifier: email })
+  } catch {
+    // Intentionally swallow — caller shows the same success state regardless,
+    // to avoid leaking whether an account exists for this email.
+  }
+}
+
+export async function completePasswordReset(
+  token: string,
+  email: string,
+  password: string
+): Promise<{ success: boolean; error: string | null }> {
+  try {
+    await sdk.auth.updateProvider(
+      "customer",
+      "emailpass",
+      { email, password },
+      token
+    )
+    return { success: true, error: null }
+  } catch {
+    return {
+      success: false,
+      error:
+        "This reset link is invalid or has expired. Please request a new one.",
+    }
+  }
+}
+
 export async function loginWithCredentials(email: string, password: string) {
   try {
     const token = await sdk.auth.login("customer", "emailpass", {

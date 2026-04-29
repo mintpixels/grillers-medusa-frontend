@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { sdk } from "@lib/config"
+import { requestPasswordReset } from "@lib/data/customer"
 import { LOGIN_VIEW } from "@modules/account/templates/login-template"
 import Input from "@modules/common/components/input"
 import { SubmitButton } from "@modules/checkout/components/submit-button"
@@ -13,25 +13,14 @@ type Props = {
 const ForgotPassword = ({ setCurrentView }: Props) => {
   const [email, setEmail] = useState("")
   const [submitted, setSubmitted] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError(null)
     setIsLoading(true)
-
-    try {
-      await sdk.auth.resetPassword("customer", "emailpass", {
-        identifier: email,
-      })
-      setSubmitted(true)
-    } catch (err: any) {
-      // Don't reveal whether the email exists — always show success
-      setSubmitted(true)
-    } finally {
-      setIsLoading(false)
-    }
+    await requestPasswordReset(email)
+    setSubmitted(true)
+    setIsLoading(false)
   }
 
   if (submitted) {
@@ -73,9 +62,6 @@ const ForgotPassword = ({ setCurrentView }: Props) => {
           required
           data-testid="forgot-password-email-input"
         />
-        {error && (
-          <p className="text-sm text-red-500 mt-2">{error}</p>
-        )}
         <SubmitButton
           data-testid="forgot-password-submit"
           className="w-full mt-6"
