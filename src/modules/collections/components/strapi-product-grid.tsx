@@ -4,6 +4,8 @@ import { useLayoutEffect, useState } from "react"
 import Image from "next/image"
 import { Tooltip, TooltipProvider } from "@medusajs/ui"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
+import FormattedPrice from "@modules/common/components/formatted-price"
+import ProductCardCarousel from "@modules/common/components/product-card-carousel"
 import { addToCart } from "@lib/data/cart"
 import type { StrapiCollectionProduct } from "@lib/data/strapi/collections"
 
@@ -103,6 +105,11 @@ export function ProductCard({ product, countryCode, viewMode = "grid" }: { produ
 
   const price = product?.MedusaProduct?.Variants?.[0]?.Price?.CalculatedPriceNumber
 
+  const galleryImages = [
+    product?.FeaturedImage?.url,
+    ...(product?.GalleryImages?.map((g) => g?.url) ?? []),
+  ].filter((u): u is string => !!u)
+
   if (viewMode === "list") {
     return (
       <article className="grid grid-cols-[180px_1fr_auto] gap-6 border-b border-gray-200 pb-6 items-stretch">
@@ -112,11 +119,10 @@ export function ProductCard({ product, countryCode, viewMode = "grid" }: { produ
           className="block shrink-0"
         >
           <figure className="relative w-[180px] aspect-square bg-gray-50 overflow-hidden">
-            <Image
-              src={product?.FeaturedImage?.url ?? "https://placehold.co/400x400"}
+            <ProductCardCarousel
+              images={galleryImages}
               alt={product.Title}
-              fill
-              className="object-cover"
+              sizes="180px"
             />
           </figure>
         </LocalizedClientLink>
@@ -203,7 +209,10 @@ export function ProductCard({ product, countryCode, viewMode = "grid" }: { produ
           <div className="flex flex-col items-end gap-1 whitespace-nowrap">
             {price && (
               <p className="text-Charcoal">
-                <span className="text-h4 font-gyst">${Number(price).toFixed(2)}</span>{" "}
+                <FormattedPrice
+                  value={`$${Number(price).toFixed(2)}`}
+                  className="text-h4 font-gyst"
+                />{" "}
                 <span className="text-p-sm-mono font-maison-neue-mono uppercase ml-1">per lb</span>
               </p>
             )}
@@ -243,13 +252,15 @@ export function ProductCard({ product, countryCode, viewMode = "grid" }: { produ
         href={`/products/${product?.MedusaProduct?.Handle}`}
         className="block"
       >
-        <figure className="relative w-full aspect-square bg-gray-50">
-          <Image
-            src={product?.FeaturedImage?.url ?? "https://placehold.co/400x400"}
-            alt={product.Title}
-            fill
-            className="object-cover"
-          />
+        <figure className="relative w-full bg-gray-50 overflow-hidden">
+          <div aria-hidden className="block pb-[100%]" />
+          <div className="absolute inset-0">
+            <ProductCardCarousel
+              images={galleryImages}
+              alt={product.Title}
+              sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 33vw"
+            />
+          </div>
         </figure>
       </LocalizedClientLink>
 
@@ -257,9 +268,10 @@ export function ProductCard({ product, countryCode, viewMode = "grid" }: { produ
       <div className="mt-6 flex items-baseline justify-between gap-3">
         {price ? (
           <p className="text-Charcoal leading-none">
-            <span className="text-h4 font-gyst">
-              ${Number(price).toFixed(2)}
-            </span>{" "}
+            <FormattedPrice
+              value={`$${Number(price).toFixed(2)}`}
+              className="text-h4 font-gyst"
+            />{" "}
             <span className="text-p-sm-mono font-maison-neue-mono uppercase ml-1">
               per lb
             </span>

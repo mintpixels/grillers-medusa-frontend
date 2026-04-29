@@ -240,6 +240,9 @@ export const GetProductsByTagQuery = gql`
       FeaturedImage {
         url
       }
+      GalleryImages {
+        url
+      }
       Metadata {
         AvgPackSize
         AvgPackWeight
@@ -342,6 +345,9 @@ export const GetProductsByCollectionSlugQuery = gql`
       documentId
       Title
       FeaturedImage {
+        url
+      }
+      GalleryImages {
         url
       }
       Metadata {

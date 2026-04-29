@@ -1,5 +1,6 @@
 import { getProductPrice } from "@lib/util/get-product-price"
 import { HttpTypes } from "@medusajs/types"
+import FormattedPrice from "@modules/common/components/formatted-price"
 
 export default function ProductPrice({
   product,
@@ -21,9 +22,10 @@ export default function ProductPrice({
 
   return (
     <div className="border-b sm:border-b-0 sm:border-r border-Charcoal py-6">
-      <span className="text-h3 font-gyst text-Charcoal">
-        {selectedPrice.calculated_price}
-      </span>
+      <FormattedPrice
+        value={selectedPrice.calculated_price}
+        className="text-h3 font-gyst text-Charcoal"
+      />
       <span className="text-p-sm-mono font-maison-neue-mono uppercase text-Charcoal pl-5">
         per lb
       </span>
