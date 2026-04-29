@@ -162,7 +162,29 @@ export default async function Footer() {
   })()
   const hasSocialLinks = socialLinks.length > 0
   const hasContactInfo = footer?.ContactPhone || footer?.ContactEmail || footer?.ContactAddress
-  const hasLegalLinks = footer?.LegalLinks && footer.LegalLinks.length > 0
+
+  // Merge Strapi legal links with our default trio so the footer always
+  // surfaces Privacy / Terms of Sale / Terms of Use, even before lawyer-
+  // reviewed copy has been loaded into Strapi (#42).
+  const DEFAULT_LEGAL_LINKS = [
+    { id: "default-legal-privacy", Text: "Privacy Policy", Url: "/legal/privacy-policy" },
+    { id: "default-legal-tos", Text: "Terms of Sale", Url: "/legal/terms-of-sale" },
+    { id: "default-legal-tou", Text: "Terms of Use", Url: "/legal/terms-of-use" },
+  ]
+  const legalLinks = (() => {
+    const strapiLinks = footer?.LegalLinks ?? []
+    const presentByUrl = new Set(
+      strapiLinks
+        .map((l) => l.Url?.replace(/\/+$/, ""))
+        .filter(Boolean)
+    )
+    const merged = [...strapiLinks]
+    for (const def of DEFAULT_LEGAL_LINKS) {
+      if (!presentByUrl.has(def.Url)) merged.push(def)
+    }
+    return merged
+  })()
+  const hasLegalLinks = legalLinks.length > 0
   const hasCertificationBadges = footer?.CertificationBadges && footer.CertificationBadges.length > 0
   const showNewsletter = footer?.ShowNewsletterSection === true
 
@@ -378,7 +400,7 @@ export default async function Footer() {
             {hasLegalLinks && (
               <nav aria-label="Legal links">
                 <ul className="flex flex-wrap justify-center sm:justify-start gap-x-6 gap-y-2">
-                  {footer.LegalLinks.map((link) => (
+                  {legalLinks.map((link) => (
                     <li key={link.id}>
                       <Link
                         href={link.Url}

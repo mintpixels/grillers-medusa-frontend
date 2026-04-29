@@ -2,6 +2,7 @@
 
 import { Fragment, useCallback, useEffect, useRef } from "react"
 import Image from "next/image"
+import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 import {
   Combobox,
@@ -90,14 +91,15 @@ function InstantComboboxInput({
         value={query}
         onChange={(e) => refine(e.target.value)}
         onKeyDown={(e) => {
+          // Enter always routes to the full results page (#40). Clicking a
+          // row still navigates to the PDP. Stopping propagation prevents
+          // Headless UI's Combobox from auto-selecting the focused option.
           if (e.key !== "Enter") return
           const target = e.target as HTMLInputElement
-          // If the dropdown has a focused option, Headless UI's Combobox will
-          // handle the Enter (selects that product). Detect via aria-activedescendant.
-          if (target.getAttribute("aria-activedescendant")) return
           const q = (target.value || "").trim()
           if (!q) return
           e.preventDefault()
+          e.stopPropagation()
           onSubmitQuery(q)
         }}
         displayValue={(hit: Product) => hit?.Title || ""}
@@ -114,9 +116,17 @@ function formatPrice(price: number | undefined): string | null {
   return `$${price.toFixed(2)}`
 }
 
-function InstantComboboxOptions() {
+function InstantComboboxOptions({
+  countryCode,
+  onSubmitQuery,
+}: {
+  countryCode: string
+  onSubmitQuery: (q: string) => void
+}) {
   const { items } = useHits<Product>()
   const { query } = useSearchBox()
+  const trimmedQuery = query.trim()
+  const showAllResultsLink = trimmedQuery.length >= 2
 
   return (
     <>
@@ -140,63 +150,94 @@ function InstantComboboxOptions() {
       >
         {items.length === 0 ? (
           <div className="px-4 py-3 text-p-md text-Pewter" role="option" aria-selected="false">
-            No results found.
+            {showAllResultsLink ? (
+              <>
+                No quick matches.{" "}
+                <button
+                  type="button"
+                  onClick={() => onSubmitQuery(trimmedQuery)}
+                  className="text-Gold hover:text-Gold/80 font-semibold"
+                >
+                  Search all products for &ldquo;{trimmedQuery}&rdquo; →
+                </button>
+              </>
+            ) : (
+              "Start typing to search…"
+            )}
           </div>
         ) : (
-          items.map((item) => {
-            const price = item.MedusaProduct?.Variants?.[0]?.Price?.CalculatedPriceNumber
-            const formattedPrice = formatPrice(price)
-            const weight = item.Metadata?.AvgPackWeight
-            const imageUrl = item.FeaturedImage?.url
+          <>
+            {items.map((item) => {
+              const price = item.MedusaProduct?.Variants?.[0]?.Price?.CalculatedPriceNumber
+              const formattedPrice = formatPrice(price)
+              const weight = item.Metadata?.AvgPackWeight
+              const imageUrl = item.FeaturedImage?.url
+              const handle = item.MedusaProduct?.Handle
+              const href = handle ? `/${countryCode}/products/${handle}` : "#"
 
-            return (
-              <ComboboxOption key={item.objectID} value={item} as={Fragment}>
-                {({ focus }) => (
-                  <div
-                    className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer border-b border-gray-50 last:border-b-0 ${
-                      focus ? "bg-gray-50" : ""
-                    }`}
-                  >
-                    {/* Product image */}
-                    <div className="w-12 h-12 rounded bg-gray-100 shrink-0 overflow-hidden">
-                      {imageUrl ? (
-                        <Image
-                          src={imageUrl}
-                          alt={item.Title || "Product"}
-                          width={48}
-                          height={48}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-gray-300">
-                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                            <rect x="3" y="3" width="18" height="18" rx="2" />
-                            <circle cx="8.5" cy="8.5" r="1.5" />
-                            <path d="m21 15-5-5L5 21" />
-                          </svg>
-                        </div>
-                      )}
-                    </div>
+              return (
+                <ComboboxOption key={item.objectID} value={item} as={Fragment}>
+                  {({ focus }) => (
+                    <Link
+                      href={href}
+                      className={`flex items-center gap-3 px-3 py-2.5 border-b border-gray-50 last:border-b-0 ${
+                        focus ? "bg-gray-50" : ""
+                      }`}
+                    >
+                      {/* Product image */}
+                      <div className="w-12 h-12 rounded bg-gray-100 shrink-0 overflow-hidden">
+                        {imageUrl ? (
+                          <Image
+                            src={imageUrl}
+                            alt={item.Title || "Product"}
+                            width={48}
+                            height={48}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-gray-300">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                              <rect x="3" y="3" width="18" height="18" rx="2" />
+                              <circle cx="8.5" cy="8.5" r="1.5" />
+                              <path d="m21 15-5-5L5 21" />
+                            </svg>
+                          </div>
+                        )}
+                      </div>
 
-                    {/* Title and price */}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-Charcoal truncate">
-                        {item.Title}
-                      </p>
-                      {formattedPrice && (
+                      {/* Title and price (consistent row — falls back to "View →" when price isn't indexed) */}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-Charcoal truncate">
+                          {item.Title}
+                        </p>
                         <p className="text-sm text-Charcoal/70 mt-0.5">
-                          <span className="font-semibold text-Charcoal">{formattedPrice}</span>
-                          {weight && (
-                            <span className="text-xs text-Charcoal/50 ml-1">per lb</span>
+                          {formattedPrice ? (
+                            <>
+                              <span className="font-semibold text-Charcoal">{formattedPrice}</span>
+                              {weight && (
+                                <span className="text-xs text-Charcoal/50 ml-1">per lb</span>
+                              )}
+                            </>
+                          ) : (
+                            <span className="text-xs text-Gold font-medium">View product →</span>
                           )}
                         </p>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </ComboboxOption>
-            )
-          })
+                      </div>
+                    </Link>
+                  )}
+                </ComboboxOption>
+              )
+            })}
+            {showAllResultsLink && (
+              <button
+                type="button"
+                onClick={() => onSubmitQuery(trimmedQuery)}
+                className="block w-full text-left px-3 py-2.5 text-sm font-semibold text-Gold hover:bg-Scroll/30 border-t border-gray-100"
+              >
+                See all results for &ldquo;{trimmedQuery}&rdquo; →
+              </button>
+            )}
+          </>
         )}
       </ComboboxOptions>
     </>
@@ -208,13 +249,6 @@ export default function SearchBar() {
   const params = useParams<{ countryCode?: string }>()
   const countryCode = params?.countryCode || "us"
 
-  const onSelect = useCallback(
-    (product: Product) => {
-      router.push(`/products/${product.MedusaProduct?.Handle}`)
-    },
-    [router]
-  )
-
   const onSubmitQuery = useCallback(
     (q: string) => {
       router.push(`/${countryCode}/search?q=${encodeURIComponent(q)}`)
@@ -222,6 +256,8 @@ export default function SearchBar() {
     [router, countryCode]
   )
 
+  // Combobox onChange is a no-op — rows are real Links, so click navigates,
+  // and Enter is intercepted in the input's keydown to always go to /search.
   return (
     <InstantSearch
       searchClient={searchLiteClient}
@@ -230,10 +266,13 @@ export default function SearchBar() {
     >
       <Configure hitsPerPage={10} />
 
-      <Combobox onChange={onSelect}>
+      <Combobox onChange={() => {}}>
         <div className="relative w-full max-w-md mx-auto">
           <InstantComboboxInput onSubmitQuery={onSubmitQuery} />
-          <InstantComboboxOptions />
+          <InstantComboboxOptions
+            countryCode={countryCode}
+            onSubmitQuery={onSubmitQuery}
+          />
         </div>
       </Combobox>
     </InstantSearch>

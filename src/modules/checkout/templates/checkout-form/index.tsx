@@ -63,9 +63,9 @@ export default async function CheckoutForm({
       {isLoggedIn && (
         <FulfillmentEditProvider>
           {/* Step 1: Fulfillment selection */}
-          <FulfillmentStep 
-            cart={cart} 
-            customer={customer} 
+          <FulfillmentStep
+            cart={cart}
+            customer={customer}
             config={fulfillmentConfig}
             availableFulfillmentTypes={availableFulfillmentTypes}
             pickupCreditConfig={pickupCreditConfig}

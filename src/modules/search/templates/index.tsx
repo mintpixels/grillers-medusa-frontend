@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { useParams } from "next/navigation"
+import Link from "next/link"
 import { InstantSearch, Configure, useHits, useSearchBox, useStats } from "react-instantsearch"
 import { searchLiteClient } from "@lib/algolia"
 import { PRODUCT_INDEX } from "@lib/algolia/indexes"
@@ -56,8 +57,45 @@ function ResultCount({ initialQuery }: { initialQuery: string }) {
   )
 }
 
+function EmptyResults({
+  query,
+  countryCode,
+}: {
+  query: string
+  countryCode: string
+}) {
+  return (
+    <div className="py-16 text-center">
+      <h2 className="text-h3-mobile md:text-h3 font-gyst text-Charcoal mb-3">
+        No results for &ldquo;{query}&rdquo;
+      </h2>
+      <p className="text-p-md text-Charcoal/70 max-w-lg mx-auto mb-8">
+        We couldn&apos;t find any products matching that search. Try a broader
+        term, check spelling, or browse one of the popular categories below.
+      </p>
+      <div className="flex flex-wrap justify-center gap-3">
+        {[
+          { label: "Beef", href: `/${countryCode}/store` },
+          { label: "Chicken", href: `/${countryCode}/store` },
+          { label: "Lamb", href: `/${countryCode}/store` },
+          { label: "View all", href: `/${countryCode}/store` },
+        ].map((s) => (
+          <Link
+            key={s.label}
+            href={s.href}
+            className="px-4 py-2 border border-Charcoal/20 rounded-full text-p-sm font-maison-neue hover:border-Gold hover:text-Gold transition-colors"
+          >
+            {s.label}
+          </Link>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function SearchBody({ initialQuery, countryCode }: { initialQuery: string; countryCode: string }) {
   const { items } = useHits<any>()
+  const { query: liveQuery } = useSearchBox()
   const allProducts = useMemo(() => items.map(hitToProduct), [items])
 
   const [activeFilters, setActiveFilters] = useState<ActiveFilters>(getEmptyFilters())
@@ -91,6 +129,22 @@ function SearchBody({ initialQuery, countryCode }: { initialQuery: string; count
   }, [allProducts.length, initialQuery])
 
   const showFilters = productsHaveFilters(allProducts)
+  const displayQuery = (liveQuery || initialQuery).trim()
+  const isEmpty = displayQuery.length > 0 && allProducts.length === 0
+
+  if (isEmpty) {
+    return (
+      <>
+        <div className="flex items-baseline justify-between mb-6 gap-4 flex-wrap">
+          <h1 className="text-h2-mobile md:text-h2 font-gyst text-Charcoal">
+            Search
+          </h1>
+          <ResultCount initialQuery={initialQuery} />
+        </div>
+        <EmptyResults query={displayQuery} countryCode={countryCode} />
+      </>
+    )
+  }
 
   return (
     <>
