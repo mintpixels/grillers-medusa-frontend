@@ -14,6 +14,11 @@ import {
   updateCustomerAddress,
 } from "@lib/data/customer"
 import AddressFormFields from "./address-form-fields"
+import {
+  formatCityStateZip,
+  formatCountry,
+} from "@lib/util/format-address"
+import { formatPhone as formatPhoneDigits, stripPhone } from "@lib/util/format-phone"
 
 type EditAddressProps = {
   region: HttpTypes.StoreRegion
@@ -21,26 +26,9 @@ type EditAddressProps = {
   isActive?: boolean
 }
 
-const COUNTRY_NAMES: Record<string, string> = {
-  us: "United States",
-  ca: "Canada",
-}
-
-const formatCountryName = (code?: string | null) => {
-  if (!code) return ""
-  return COUNTRY_NAMES[code.toLowerCase()] || code.toUpperCase()
-}
-
-const formatPhone = (raw: string) => {
-  const digits = raw.replace(/\D/g, "")
-  if (digits.length === 10) {
-    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`
-  }
-  if (digits.length === 11 && digits.startsWith("1")) {
-    return `(${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`
-  }
-  return raw
-}
+// Local wrapper that strips first to keep formatter idempotent — addresses
+// from Medusa may already be stored formatted (#68).
+const formatPhone = (raw: string) => formatPhoneDigits(stripPhone(raw))
 
 const EditAddress: React.FC<EditAddressProps> = ({
   region,
@@ -113,11 +101,10 @@ const EditAddress: React.FC<EditAddressProps> = ({
               {address.address_2 && <span>, {address.address_2}</span>}
             </span>
             <span data-testid="address-city-province-postal">
-              {[address.city, address.province].filter(Boolean).join(", ")}
-              {address.postal_code ? ` ${address.postal_code}` : ""}
+              {formatCityStateZip(address)}
             </span>
             <span data-testid="address-country">
-              {formatCountryName(address.country_code)}
+              {formatCountry(address.country_code)}
             </span>
             {address.phone && (
               <span data-testid="address-phone">

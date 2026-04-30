@@ -31,7 +31,7 @@ const NetWeightDisclaimer = () => (
           charge will be based on actual product weights when your order is
           weighed and packed.{" "}
           <a
-            href="/faq/net-weight-pricing"
+            href="/page/catch-weight-pricing"
             className="text-Gold hover:text-Gold/80 underline"
           >
             Learn more

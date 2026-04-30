@@ -13,7 +13,12 @@ type Props = {
   params: Promise<{ countryCode: string; slug: string }>
 }
 
-const INFO_SLUGS = ["about-us", "our-mission", "careers"] as const
+const INFO_SLUGS = [
+  "about-us",
+  "our-mission",
+  "careers",
+  "catch-weight-pricing",
+] as const
 type InfoSlug = (typeof INFO_SLUGS)[number]
 
 const VALID_SLUGS = new Set<string>([...LEGAL_SLUGS, ...INFO_SLUGS])
@@ -22,6 +27,7 @@ const SECTION_BY_SLUG: Record<InfoSlug, string> = {
   "about-us": "About",
   "our-mission": "About",
   careers: "About",
+  "catch-weight-pricing": "How it works",
 }
 
 export async function generateStaticParams() {

@@ -7,6 +7,7 @@ import { InstantSearch, Configure, useHits, useSearchBox, useStats } from "react
 import { searchLiteClient } from "@lib/algolia"
 import { PRODUCT_INDEX } from "@lib/algolia/indexes"
 import type { StrapiCollectionProduct } from "@lib/data/strapi/collections"
+import { enrichStrapiProductsWithMedusaPrices } from "@lib/data/products"
 import StrapiProductGrid from "@modules/collections/components/strapi-product-grid"
 import CollectionFilters, {
   type ActiveFilters,
@@ -24,15 +25,25 @@ interface SearchResultsProps {
 }
 
 // Adapt an Algolia hit to the StrapiCollectionProduct shape that
-// CollectionFilters / StrapiProductGrid expect.
+// CollectionFilters / StrapiProductGrid expect. The indexer has shipped
+// both shapes over time — `MedusaProduct.Id` and `MedusaProduct.ProductId` —
+// so we normalize ProductId so price hydration always finds the id.
 function hitToProduct(hit: any): StrapiCollectionProduct {
+  const mp = hit.MedusaProduct
+  const normalizedMp = mp
+    ? {
+        ...mp,
+        ProductId: mp.ProductId || mp.Id || "",
+        Handle: mp.Handle || "",
+      }
+    : undefined
   return {
     documentId: hit.documentId || String(hit.objectID || ""),
     Title: hit.Title || "",
     FeaturedImage: hit.FeaturedImage,
     Metadata: hit.Metadata,
     Categorization: hit.Categorization,
-    MedusaProduct: hit.MedusaProduct,
+    MedusaProduct: normalizedMp,
   } as StrapiCollectionProduct
 }
 
@@ -113,6 +124,26 @@ function SearchBody({ initialQuery, countryCode }: { initialQuery: string; count
     return filtered.slice(start, start + RESULTS_PER_PAGE)
   }, [filtered, currentPage])
 
+  // Algolia indexes Strapi metadata but does not carry live Medusa prices,
+  // so the visible page is hydrated with current Medusa pricing before the
+  // grid renders. Falls back silently to Algolia data on Medusa failure.
+  const [pricedProducts, setPricedProducts] = useState<StrapiCollectionProduct[]>(paginated)
+  useEffect(() => {
+    let cancelled = false
+    setPricedProducts(paginated)
+    if (paginated.length === 0) return
+    enrichStrapiProductsWithMedusaPrices(paginated, countryCode)
+      .then((enriched) => {
+        if (!cancelled) setPricedProducts(enriched)
+      })
+      .catch(() => {
+        // keep unpriced fallback
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [paginated, countryCode])
+
   const handleFilterChange = (filters: ActiveFilters) => {
     setActiveFilters(filters)
     setCurrentPage(1)
@@ -172,7 +203,7 @@ function SearchBody({ initialQuery, countryCode }: { initialQuery: string; count
           )}
 
           <StrapiProductGrid
-            products={paginated}
+            products={pricedProducts}
             countryCode={countryCode}
             viewMode="grid"
           />

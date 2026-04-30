@@ -1,13 +1,22 @@
 export default function medusaError(error: any): never {
-  // Handle Medusa JS SDK v2 FetchError (uses fetch, not Axios)
-  if (error.status && error.statusText) {
+  // Handle Medusa JS SDK v2 FetchError (uses fetch, not Axios). The
+  // backend's real message lives at error.data.message; .message itself
+  // is often empty for 500s. Read the data payload first so the storefront
+  // surfaces actionable errors instead of "An unknown error occurred".
+  if (error.status && (error.statusText || error.data)) {
     console.error("Medusa API error:", {
+      dataMessage: error.data?.message,
+      dataType: error.data?.type,
       message: error.message,
       status: error.status,
       statusText: error.statusText,
     })
 
-    const message = error.message || error.statusText || "An unknown error occurred"
+    const message =
+      error.data?.message ||
+      error.message ||
+      error.statusText ||
+      "An unknown error occurred"
     throw new Error(message.charAt(0).toUpperCase() + message.slice(1))
   }
 
