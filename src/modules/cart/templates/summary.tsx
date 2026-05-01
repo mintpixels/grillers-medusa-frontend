@@ -80,7 +80,11 @@ const Summary = ({ cart }: SummaryProps) => {
 
       <DiscountCode cart={cart} />
       <Divider />
-      <CartTotals totals={cart} />
+      <CartTotals
+        totals={cart}
+        shipState={cart.shipping_address?.province}
+        fulfillmentType={fulfillmentType}
+      />
       <LocalizedClientLink
         href="/checkout"
         data-testid="checkout-button"

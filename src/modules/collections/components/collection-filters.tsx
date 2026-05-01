@@ -75,13 +75,29 @@ const FACET_GROUPS: FacetGroupDef[] = [
   },
   {
     id: "kosher",
-    label: "Kosher",
+    label: "Kosher Type",
     options: [
       { field: "KosherForPassover", label: "Kosher for Passover" },
       { field: "Pareve", label: "Pareve" },
       { field: "Meat", label: "Meat" },
       { field: "Dairy", label: "Dairy" },
       { field: "CholovYisroel", label: "Cholov Yisroel" },
+    ],
+  },
+  {
+    // Hechsher / Shchita filter group (#43). Auto-hides until at least 2 of these
+    // fields are populated in Strapi product metadata.
+    id: "hechsher",
+    label: "Hechsher / Shchita",
+    options: [
+      { field: "ChassidishShchita", label: "Chassidish Shchita" },
+      { field: "CHK", label: "CHK" },
+      { field: "RabbiWeissmandl", label: "Rabbi Weissmandl" },
+      { field: "OU", label: "OU" },
+      { field: "StarK", label: "Star-K" },
+      { field: "RabbiTeitelbaum", label: "Rabbi Teitelbaum" },
+      { field: "CRC", label: "CRC (Brooklyn)" },
+      { field: "Lubavitch", label: "Lubavitch" },
     ],
   },
   {

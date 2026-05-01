@@ -170,8 +170,11 @@ export default function NewsletterForm({
           )}
         </div>
 
-        {/* Privacy note */}
-        <p className="text-[11px] text-Charcoal/50 mt-0 font-maison-neue">
+        {/* Frequency expectation + privacy note */}
+        <p className="text-p-sm text-Charcoal/70 mt-3 font-maison-neue">
+          We email 2-3 times a year — usually before each major holiday. No spam, ever.
+        </p>
+        <p className="text-[11px] text-Charcoal/50 mt-1 font-maison-neue">
           We respect your privacy. Unsubscribe at any time.
         </p>
       </div>

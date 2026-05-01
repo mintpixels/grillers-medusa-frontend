@@ -204,6 +204,15 @@ export type StrapiCollectionProduct = {
     Meat?: boolean
     Dairy?: boolean
     CholovYisroel?: boolean
+    // Hechsher / Shchita (#43). Backfill in Strapi will surface these in PLP filters.
+    ChassidishShchita?: boolean
+    CHK?: boolean
+    RabbiWeissmandl?: boolean
+    OU?: boolean
+    StarK?: boolean
+    RabbiTeitelbaum?: boolean
+    CRC?: boolean
+    Lubavitch?: boolean
   }
   Categorization?: {
     ProductTags?: Array<{ Name: string }>

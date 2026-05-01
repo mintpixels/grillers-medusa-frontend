@@ -5,6 +5,7 @@ import Hero from "@modules/home/components/hero"
 import TrustBand from "@modules/home/components/trust-band"
 import BestsellersSection from "@modules/home/components/shop-bestsellers"
 import KosherPromiseSection from "@modules/home/components/kosher-promise"
+import WholesaleBand from "@modules/home/components/wholesale-band"
 import ShopCollectionsSection from "@modules/home/components/shop-collections"
 import TestimonialSection from "@modules/home/components/testimonial"
 import FollowUsSection from "@modules/home/components/follow-us"
@@ -159,7 +160,10 @@ export default async function Home(props: {
             )
           case "ComponentHomeKosherPromise":
             return (
-              <KosherPromiseSection key={section.__typename} data={section} />
+              <React.Fragment key={section.__typename}>
+                <KosherPromiseSection data={section} />
+                <WholesaleBand />
+              </React.Fragment>
             )
           case "ComponentHomeShopCollections":
             return (

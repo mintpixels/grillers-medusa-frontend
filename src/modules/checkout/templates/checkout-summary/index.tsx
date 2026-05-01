@@ -7,6 +7,7 @@ import { useProductTitle } from "@lib/hooks/use-product-title"
 import DiscountCode from "@modules/checkout/components/discount-code"
 import Thumbnail from "@modules/products/components/thumbnail"
 import type { FulfillmentType } from "@lib/data/cart"
+import { FreeShippingHelper } from "@modules/common/components/cart-helpers"
 
 type CheckoutSummaryProps = {
   cart: HttpTypes.StoreCart
@@ -92,6 +93,13 @@ const CheckoutSummary = ({ cart }: CheckoutSummaryProps) => {
             })}
           </span>
         </div>
+        <FreeShippingHelper
+          subtotal={cart.subtotal}
+          currencyCode={cart.currency_code}
+          shipState={cart.shipping_address?.province}
+          fulfillmentType={fulfillmentType}
+          variant="dark"
+        />
         {/* Only show shipping for delivery orders, not pickup */}
         {!isPickup && (
           <div className="flex justify-between text-sm">

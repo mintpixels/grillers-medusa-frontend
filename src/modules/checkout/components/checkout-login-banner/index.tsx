@@ -1,10 +1,9 @@
 "use client"
 
-import React, { useState, Fragment } from "react"
+import React, { useState } from "react"
 import { useRouter } from "next/navigation"
 import { loginWithCredentials, signupWithCredentials, signoutKeepCart } from "@lib/data/customer"
 import { HttpTypes } from "@medusajs/types"
-import { Dialog, Transition } from "@headlessui/react"
 
 const SmallSpinner = () => (
   <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
@@ -17,115 +16,21 @@ type Props = {
   customer: HttpTypes.StoreCustomer | null
 }
 
-function WhyAccountModal({
-  isOpen,
-  onClose,
-}: {
-  isOpen: boolean
-  onClose: () => void
-}) {
+const WhyAccountInline: React.FC<{ open: boolean }> = ({ open }) => {
+  if (!open) return null
   return (
-    <Transition appear show={isOpen} as={Fragment}>
-      <Dialog as="div" className="relative z-[75]" onClose={onClose}>
-        <Transition.Child
-          as={Fragment}
-          enter="ease-out duration-300"
-          enterFrom="opacity-0"
-          enterTo="opacity-100"
-          leave="ease-in duration-200"
-          leaveFrom="opacity-100"
-          leaveTo="opacity-0"
-        >
-          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" />
-        </Transition.Child>
-
-        <div className="fixed inset-0 overflow-y-auto">
-          <div className="flex min-h-full items-center justify-center p-4">
-            <Transition.Child
-              as={Fragment}
-              enter="ease-out duration-300"
-              enterFrom="opacity-0 scale-95"
-              enterTo="opacity-100 scale-100"
-              leave="ease-in duration-200"
-              leaveFrom="opacity-100 scale-100"
-              leaveTo="opacity-0 scale-95"
-            >
-              <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-0 shadow-2xl transition-all">
-                {/* Gold accent bar */}
-                <div className="h-1.5 bg-gradient-to-r from-Gold via-Gold/80 to-Gold" />
-
-                <div className="p-6 sm:p-8">
-                  {/* Header */}
-                  <div className="flex items-start justify-between mb-5">
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center justify-center w-10 h-10 rounded-full bg-Gold/10">
-                        <svg className="w-5 h-5 text-Gold" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
-                        </svg>
-                      </div>
-                      <Dialog.Title className="text-lg font-semibold text-Charcoal">
-                        Fair Pricing, Honest Weights
-                      </Dialog.Title>
-                    </div>
-                    <button
-                      onClick={onClose}
-                      className="text-gray-400 hover:text-gray-600 transition-colors p-1 -m-1"
-                    >
-                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-
-                  {/* Content */}
-                  <div className="space-y-4 text-sm text-Charcoal/80 leading-relaxed">
-                    <p>
-                      At Grillers Pride, we believe in <span className="font-semibold text-Charcoal">complete transparency</span> with
-                      our pricing. Because we sell premium cuts by the pound, the price you see at checkout is an
-                      estimate based on the target weight.
-                    </p>
-
-                    <div className="flex gap-3 p-4 bg-Scroll/30 rounded-xl border border-Gold/15">
-                      <svg className="w-5 h-5 text-Gold shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                      </svg>
-                      <p>
-                        When your order is packed, we weigh each item and adjust your final invoice to reflect the
-                        <span className="font-semibold text-Charcoal"> exact weight</span> — so you only pay for what you actually receive.
-                      </p>
-                    </div>
-
-                    <p>
-                      To make this seamless, we keep your payment method securely on file so we can process the
-                      final adjusted amount. No surprises, no overcharges — just honest pricing for the highest
-                      quality kosher meats.
-                    </p>
-
-                    <div className="flex gap-3 p-4 bg-gray-50 rounded-xl border border-gray-100">
-                      <svg className="w-5 h-5 text-[#2D479D] shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
-                      </svg>
-                      <p>
-                        Plus, your account makes reordering a breeze — saved addresses, order history,
-                        and faster checkout every time you come back.
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* CTA */}
-                  <button
-                    onClick={onClose}
-                    className="mt-6 w-full h-11 text-sm font-semibold text-white bg-Gold rounded-lg hover:bg-Gold/90 transition-colors"
-                  >
-                    Got it, let&apos;s get started
-                  </button>
-                </div>
-              </Dialog.Panel>
-            </Transition.Child>
-          </div>
-        </div>
-      </Dialog>
-    </Transition>
+    <div
+      id="why-account-explanation"
+      className="ml-11 mt-3 mb-4 p-4 bg-Scroll/40 border-l-4 border-Gold rounded-r-md text-sm text-Charcoal/85 leading-relaxed"
+      role="region"
+      aria-label="Why an account is required"
+    >
+      <p>
+        We hand-cut your meat to order, then weigh and charge for the actual
+        weight. That requires a payment method we can adjust the charge
+        against — and that needs an account.
+      </p>
+    </div>
   )
 }
 
@@ -138,7 +43,7 @@ const CheckoutLoginBanner: React.FC<Props> = ({ customer }) => {
   const [lastName, setLastName] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [showWhyModal, setShowWhyModal] = useState(false)
+  const [showWhy, setShowWhy] = useState(false)
 
   const [loggingOut, setLoggingOut] = useState(false)
 
@@ -234,7 +139,6 @@ const CheckoutLoginBanner: React.FC<Props> = ({ customer }) => {
   if (mode === "prompt") {
     return (
       <>
-        <WhyAccountModal isOpen={showWhyModal} onClose={() => setShowWhyModal(false)} />
         <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
           <div className="p-5 sm:p-6">
             <div className="flex items-center gap-3 mb-3">
@@ -248,19 +152,20 @@ const CheckoutLoginBanner: React.FC<Props> = ({ customer }) => {
               </h3>
             </div>
 
-            <p className="text-sm text-Charcoal/60 mb-5 ml-11">
+            <p className={`text-sm text-Charcoal/60 ml-11 ${showWhy ? "mb-1" : "mb-5"}`}>
               An account is required to complete your order.{" "}
               <button
                 type="button"
-                onClick={() => setShowWhyModal(true)}
+                onClick={() => setShowWhy((v) => !v)}
+                aria-expanded={showWhy}
+                aria-controls="why-account-explanation"
                 className="inline-flex items-center gap-1 text-Gold hover:text-Gold/80 font-medium transition-colors"
               >
-                Why?
-                <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                </svg>
+                {showWhy ? "Why? ▴" : "Why? ▾"}
               </button>
             </p>
+
+            <WhyAccountInline open={showWhy} />
 
             <div className="flex flex-col sm:flex-row gap-3 ml-11">
               <button
@@ -288,7 +193,6 @@ const CheckoutLoginBanner: React.FC<Props> = ({ customer }) => {
   if (mode === "signin") {
     return (
       <>
-        <WhyAccountModal isOpen={showWhyModal} onClose={() => setShowWhyModal(false)} />
         <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
           <div className="p-5 sm:p-6">
             <div className="flex items-center justify-between mb-5">
@@ -349,7 +253,6 @@ const CheckoutLoginBanner: React.FC<Props> = ({ customer }) => {
   // Sign-up form
   return (
     <>
-      <WhyAccountModal isOpen={showWhyModal} onClose={() => setShowWhyModal(false)} />
       <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
         <div className="p-5 sm:p-6">
           <div className="flex items-center justify-between mb-5">
@@ -415,15 +318,15 @@ const CheckoutLoginBanner: React.FC<Props> = ({ customer }) => {
             By creating an account you agree to our terms of service.{" "}
             <button
               type="button"
-              onClick={() => setShowWhyModal(true)}
+              onClick={() => setShowWhy((v) => !v)}
+              aria-expanded={showWhy}
+              aria-controls="why-account-explanation"
               className="inline-flex items-center gap-0.5 text-Gold/70 hover:text-Gold font-medium transition-colors"
             >
               Why do I need an account?
-              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-              </svg>
             </button>
           </p>
+          <WhyAccountInline open={showWhy} />
 
           <div className="mt-3 pt-3 border-t border-gray-100 text-center">
             <button

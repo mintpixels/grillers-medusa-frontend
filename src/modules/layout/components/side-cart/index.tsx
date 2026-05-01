@@ -19,6 +19,11 @@ import { useCart } from "./cart-context"
 import { updateLineItem } from "@lib/data/cart"
 import { jitsuTrack } from "@lib/jitsu"
 import Spinner from "@modules/common/icons/spinner"
+import {
+  CartLevelEstimateNote,
+  CatchWeightBadge,
+  FreeShippingHelper,
+} from "@modules/common/components/cart-helpers"
 
 // Cart item image with Strapi fallback
 const CartItemImage = ({ item }: { item: HttpTypes.StoreCartLineItem }) => {
@@ -293,6 +298,7 @@ export default function SideCart({ cart }: SideCartProps) {
                                               /lb
                                             </span>
                                           </p>
+                                          <CatchWeightBadge className="mt-1.5" />
                                         </div>
 
                                         {/* Quantity + Remove */}
@@ -335,6 +341,19 @@ export default function SideCart({ cart }: SideCartProps) {
                                 })}
                               </span>
                             </div>
+
+                            <FreeShippingHelper
+                              subtotal={subtotal}
+                              currencyCode={cart.currency_code}
+                              shipState={cart.shipping_address?.province}
+                              fulfillmentType={
+                                (cart.metadata as Record<string, any> | null)
+                                  ?.fulfillmentType
+                              }
+                              className="mb-3"
+                            />
+
+                            <CartLevelEstimateNote className="mb-3" />
 
                             <p className="text-xs font-maison-neue text-Charcoal/40 mb-4">
                               Shipping and taxes calculated at checkout.

@@ -2,6 +2,7 @@
 
 import { convertToLocale } from "@lib/util/money"
 import React, { useState } from "react"
+import { FreeShippingHelper } from "@modules/common/components/cart-helpers"
 
 type CartTotalsProps = {
   totals: {
@@ -15,6 +16,8 @@ type CartTotalsProps = {
     shipping_subtotal?: number | null
   }
   hasNetWeightItems?: boolean
+  shipState?: string | null
+  fulfillmentType?: string | null
 }
 
 // Net-weight info tooltip component
@@ -58,7 +61,12 @@ const NetWeightTooltip = () => {
   )
 }
 
-const CartTotals: React.FC<CartTotalsProps> = ({ totals, hasNetWeightItems = false }) => {
+const CartTotals: React.FC<CartTotalsProps> = ({
+  totals,
+  hasNetWeightItems = false,
+  shipState,
+  fulfillmentType,
+}) => {
   const {
     currency_code,
     total,
@@ -80,6 +88,13 @@ const CartTotals: React.FC<CartTotalsProps> = ({ totals, hasNetWeightItems = fal
             {convertToLocale({ amount: subtotal ?? 0, currency_code })}
           </span>
         </div>
+        <FreeShippingHelper
+          subtotal={subtotal}
+          currencyCode={currency_code}
+          shipState={shipState}
+          fulfillmentType={fulfillmentType}
+          className="my-1"
+        />
         {!!discount_total && (
           <div className="flex items-center justify-between">
             <span>Discount</span>

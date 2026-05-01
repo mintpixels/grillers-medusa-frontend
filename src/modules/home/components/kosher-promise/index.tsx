@@ -49,7 +49,7 @@ const KosherPromise = ({
         )}
 
         {data?.Content && (
-          <div className="text-h6 font-rexton font-bold uppercase text-Scroll mb-8 z-[1] px-4.5 md:px-0">
+          <div className="text-p-lg font-maison-neue text-Scroll/95 mb-8 z-[1] px-4.5 md:px-0 leading-relaxed max-w-[560px]">
             <BlocksRenderer content={data.Content} />
           </div>
         )}
