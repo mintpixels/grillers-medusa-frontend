@@ -76,6 +76,15 @@ export const GetProductQuery = gql`
           }
         }
       }
+      ProductCollections {
+        Title
+        Handle
+      }
+      Categorization {
+        ProductTags {
+          Name
+        }
+      }
     }
   }
 `
