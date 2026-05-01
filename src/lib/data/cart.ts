@@ -377,14 +377,37 @@ export async function initiatePaymentSession(
     ...(await getAuthHeaders()),
   }
 
-  return sdk.store.payment
-    .initiatePaymentSession(cart, data, {}, headers)
-    .then(async (resp) => {
-      const cartCacheTag = await getCacheTag("carts")
-      revalidateTag(cartCacheTag)
-      return resp
-    })
-    .catch(medusaError)
+  const tryInit = () =>
+    sdk.store.payment.initiatePaymentSession(cart, data, {}, headers)
+
+  try {
+    const resp = await tryInit()
+    const cartCacheTag = await getCacheTag("carts")
+    revalidateTag(cartCacheTag)
+    return resp
+  } catch (err: any) {
+    // If the backend rejects with a 5xx, the cart's payment_collection may
+    // be carrying a Stripe PaymentIntent in an unrecoverable state (e.g. it
+    // was created against a $0 total when a misconfigured promo zeroed out
+    // the cart). Recreate the payment_collection from the cart and retry
+    // once so the customer self-heals on the next page load.
+    if (err?.status >= 500) {
+      try {
+        await sdk.client.fetch(`/store/payment-collections`, {
+          method: "POST",
+          body: { cart_id: cart.id },
+          headers,
+        })
+        const resp = await tryInit()
+        const cartCacheTag = await getCacheTag("carts")
+        revalidateTag(cartCacheTag)
+        return resp
+      } catch (retryErr) {
+        throw medusaError(retryErr)
+      }
+    }
+    throw medusaError(err)
+  }
 }
 
 export async function applyPromotions(codes: string[]) {
@@ -398,16 +421,40 @@ export async function applyPromotions(codes: string[]) {
     ...(await getAuthHeaders()),
   }
 
-  return sdk.store.cart
-    .update(cartId, { promo_codes: codes }, {}, headers)
-    .then(async () => {
-      const cartCacheTag = await getCacheTag("carts")
-      revalidateTag(cartCacheTag)
+  const tryApply = () =>
+    sdk.store.cart.update(cartId, { promo_codes: codes }, {}, headers)
 
-      const fulfillmentCacheTag = await getCacheTag("fulfillment")
-      revalidateTag(fulfillmentCacheTag)
-    })
-    .catch(medusaError)
+  const revalidate = async () => {
+    const cartCacheTag = await getCacheTag("carts")
+    revalidateTag(cartCacheTag)
+    const fulfillmentCacheTag = await getCacheTag("fulfillment")
+    revalidateTag(fulfillmentCacheTag)
+  }
+
+  try {
+    await tryApply()
+    await revalidate()
+  } catch (err: any) {
+    // Applying a promo recomputes totals, which forces Medusa to update the
+    // cart's Stripe PaymentIntent. If the PaymentIntent is in a poisoned
+    // state, the update 5xxs. Recreate the payment_collection so the next
+    // totals-recompute hits a fresh PaymentIntent, then retry once.
+    if (err?.status >= 500) {
+      try {
+        await sdk.client.fetch(`/store/payment-collections`, {
+          method: "POST",
+          body: { cart_id: cartId },
+          headers,
+        })
+        await tryApply()
+        await revalidate()
+        return
+      } catch (retryErr) {
+        throw medusaError(retryErr)
+      }
+    }
+    throw medusaError(err)
+  }
 }
 
 export async function applyGiftCard(code: string) {

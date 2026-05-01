@@ -1,6 +1,6 @@
-import { BlocksRenderer } from "@strapi/blocks-react-renderer"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import type { LegalPageData } from "@lib/data/strapi/legal"
+import { StructuredInfoContent } from "./structured-content"
 
 type Props = {
   page: LegalPageData
@@ -47,7 +47,7 @@ export default function InfoPageTemplate({
         </header>
 
         <div className="prose prose-Charcoal max-w-none font-maison-neue text-Charcoal/90 [&_h2]:font-gyst [&_h2]:text-Charcoal [&_h2]:mt-10 [&_h2]:mb-4 [&_h2]:text-h3-mobile md:[&_h2]:text-h3 [&_h3]:font-gyst [&_h3]:text-Charcoal [&_h3]:mt-6 [&_h3]:mb-2 [&_a]:text-Gold [&_a:hover]:text-Gold/80 [&_strong]:text-Charcoal [&_blockquote]:border-l-4 [&_blockquote]:border-Gold/30 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-Charcoal/70 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_li]:my-1">
-          <BlocksRenderer content={page.Content} />
+          <StructuredInfoContent content={page.Content as any} />
         </div>
 
         {backHref && (
