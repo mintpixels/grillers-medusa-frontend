@@ -124,9 +124,12 @@ export default async function Home(props: {
   }
 
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://grillerspride.com"
-  const organizationJsonLd = globalData?.global
-    ? generateOrganizationJsonLd(globalData.global, baseUrl)
-    : null
+  // Always emit Organization JSON-LD — defaults kick in when Strapi Global
+  // isn't populated yet so Google still gets the entity for the Knowledge Panel.
+  const organizationJsonLd = generateOrganizationJsonLd(
+    globalData?.global,
+    baseUrl
+  )
   const websiteJsonLd = generateWebSiteJsonLd(baseUrl, countryCode)
 
   const renderSections = () => {

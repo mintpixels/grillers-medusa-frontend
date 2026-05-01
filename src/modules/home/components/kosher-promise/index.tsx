@@ -34,9 +34,9 @@ const KosherPromise = ({
           />
         )}
 
-        <h3 className="text-h3 font-gyst text-Scroll pt-8 pb-7">
+        <h2 className="text-h3 font-gyst text-Scroll pt-8 pb-7">
           {data?.KosherPromiseTitle}
-        </h3>
+        </h2>
 
         {data?.Badge?.url && (
           <Image

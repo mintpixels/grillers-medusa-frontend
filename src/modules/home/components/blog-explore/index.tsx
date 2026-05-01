@@ -30,9 +30,9 @@ export default function BlogExploreSection({
               {data?.CategoryLabel}
             </p>
             <div className="h-[1px] w-[473px] bg-Scroll mb-5" />
-            <h3 className="text-h2 font-gyst text-Charcoal mb-12">
+            <h2 className="text-h2 font-gyst text-Charcoal mb-12">
               {data?.BlogExploreTitle}
-            </h3>
+            </h2>
             {data?.Button?.Text && data?.Button?.Url && (
               <div>
                 <LocalizedClientLink

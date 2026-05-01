@@ -231,9 +231,9 @@ export default async function Footer() {
                 <p className="text-p-sm font-maison-neue font-semibold text-Charcoal/60 uppercase tracking-widest mb-3">
                   Stay in the loop
                 </p>
-                <h3 className="font-rexton text-h4 md:text-h3 text-Charcoal uppercase mb-3 leading-tight">
+                <h2 className="font-rexton text-h4 md:text-h3 text-Charcoal uppercase mb-3 leading-tight">
                   {footer.NewsletterTitle || "Get exclusive deals & recipes"}
-                </h3>
+                </h2>
                 <p className="text-p-md font-maison-neue text-Charcoal/70 max-w-lg">
                   {footer.NewsletterDescription || "Be the first to know about new products, special promotions, and grilling tips delivered straight to your inbox."}
                 </p>

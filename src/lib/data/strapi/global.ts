@@ -42,15 +42,29 @@ export const GetGlobalQuery = gql`
   }
 `
 
+// Defaults for Organization JSON-LD so the schema is always emitted even
+// when Strapi Global → Organization isn't populated. Any field set in
+// Strapi overrides these. See #66.
+const DEFAULT_ORG = {
+  StreetAddress: "3939 McElroy Road",
+  City: "Doraville",
+  State: "GA",
+  PostalCode: "30340",
+  Country: "US",
+  Phone: "+1-770-454-8108",
+  Email: "peter@grillerspride.com",
+}
+
 /**
- * Generates Organization JSON-LD schema from Strapi Global data
+ * Generates Organization JSON-LD schema from Strapi Global data, with
+ * sensible defaults so the homepage always emits a valid Organization
+ * entity for Google's Knowledge Panel even if Strapi data isn't filled in.
  */
 export function generateOrganizationJsonLd(
-  global: GlobalData["global"],
+  global: GlobalData["global"] | undefined,
   baseUrl: string
 ) {
-  const org = global?.Organization
-  if (!org) return null
+  const org = { ...DEFAULT_ORG, ...(global?.Organization || {}) }
 
   const address = org.StreetAddress
     ? {
@@ -63,19 +77,16 @@ export function generateOrganizationJsonLd(
       }
     : undefined
 
-  // Safely parse SocialProfiles JSON data
   let sameAs: string[] | undefined
-  if (org.SocialProfiles) {
+  const profiles = (org as any).SocialProfiles
+  if (profiles) {
     try {
-      // SocialProfiles is a JSON field that should contain an array of {Platform, Url} objects
-      const profiles = Array.isArray(org.SocialProfiles) 
-        ? org.SocialProfiles 
-        : []
-      sameAs = profiles
+      const list = Array.isArray(profiles) ? profiles : []
+      sameAs = list
         .map((profile: any) => profile?.Url)
-        .filter((url: any): url is string => typeof url === 'string' && url.length > 0)
+        .filter((url: any): url is string => typeof url === "string" && url.length > 0)
     } catch (error) {
-      console.warn('Failed to parse SocialProfiles from Strapi Global data:', error)
+      console.warn("Failed to parse SocialProfiles from Strapi Global data:", error)
       sameAs = undefined
     }
   }
@@ -83,10 +94,17 @@ export function generateOrganizationJsonLd(
   return {
     "@context": "https://schema.org",
     "@type": "Organization",
-    name: global.siteName || "Grillers Pride",
-    description: global.siteDescription,
+    "@id": `${baseUrl}/#organization`,
+    // Strapi's default placeholder is "Strapi Blog" — guard against it so
+    // the JSON-LD doesn't ship that name into Google's Knowledge Graph if
+    // the Global → siteName field hasn't been set yet.
+    name:
+      global?.siteName && global.siteName !== "Strapi Blog"
+        ? global.siteName
+        : "Griller's Pride",
+    description: global?.siteDescription,
     url: baseUrl,
-    logo: global.OrganizationLogo?.url,
+    logo: global?.OrganizationLogo?.url,
     ...(address && { address }),
     ...(org.Phone && {
       telephone: org.Phone,

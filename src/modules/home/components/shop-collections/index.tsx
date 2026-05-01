@@ -27,9 +27,9 @@ export default function ShopCollectionsSection({
     <section className="pt-14 md:pt-32 pb-8 bg-Scroll overflow-hidden">
       <div className="mx-auto max-w-7xl px-4.5">
         <div className="flex justify-between items-end mb-12">
-          <h3 className="text-h2-mobile font-gyst md:text-h2 text-Charcoal">
+          <h2 className="text-h2-mobile font-gyst md:text-h2 text-Charcoal">
             {data?.CollectionsTitle}
-          </h3>
+          </h2>
           <LocalizedClientLink
             href="/collections"
             className="h-[44px] w-[44px] border border-black rounded-full flex items-center justify-center"
