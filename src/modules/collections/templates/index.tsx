@@ -133,7 +133,7 @@ export default function CollectionTemplate({
           )}
 
           {/* Product grid and pagination */}
-          <main className="flex-1">
+          <main className="flex-1 min-w-0">
             {/* Only show title if no hero */}
             {!collection?.HeroImage && !collection?.Description && (
               <h1 className="text-h3 font-gyst text-Charcoal capitalize mb-4">
@@ -228,6 +228,7 @@ export default function CollectionTemplate({
               products={paginatedProducts}
               countryCode={countryCode}
               viewMode={viewMode}
+              wide={!showFilters}
             />
 
             {/* Pagination */}

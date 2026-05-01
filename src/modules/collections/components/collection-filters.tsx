@@ -183,15 +183,47 @@ function buildFacetGroups(products: StrapiCollectionProduct[]) {
 }
 
 // At least one filterable thing exists for these products?
+// Build the same L2 / L3 tag groups the sidebar would render, applying the
+// same "useful" filter so this matches the sidebar's own visibility rules.
+function buildTagGroups(products: StrapiCollectionProduct[]) {
+  const l2Counts = new Map<string, number>()
+  const l3Counts = new Map<string, number>()
+  const l3ToL2 = new Map<string, Set<string>>()
+
+  products.forEach((product) => {
+    const tags = product.Categorization?.ProductTags || []
+    const productL2s = tags.filter((t) => t.Name.startsWith("L2:")).map((t) => t.Name)
+    const productL3s = tags.filter((t) => t.Name.startsWith("L3:")).map((t) => t.Name)
+
+    productL2s.forEach((l2) => l2Counts.set(l2, (l2Counts.get(l2) || 0) + 1))
+    productL3s.forEach((l3) => {
+      l3Counts.set(l3, (l3Counts.get(l3) || 0) + 1)
+      if (!l3ToL2.has(l3)) l3ToL2.set(l3, new Set())
+      productL2s.forEach((l2) => l3ToL2.get(l3)!.add(l2))
+    })
+  })
+
+  const groups: Array<{ l2Count: number; l3Children: number[] }> = []
+  l2Counts.forEach((l2Count, l2Name) => {
+    const children: number[] = []
+    l3ToL2.forEach((parentL2s, l3Name) => {
+      if (parentL2s.has(l2Name)) children.push(l3Counts.get(l3Name) || 0)
+    })
+    if (children.length >= 1) groups.push({ l2Count, l3Children: children })
+  })
+
+  // Same "useful" filter as the rendered component: a single L2 with a single
+  // L3 of equal count to itself is hidden (filter would do nothing).
+  if (groups.length === 1) {
+    const g = groups[0]
+    if (g.l3Children.length === 1 && g.l3Children[0] === g.l2Count) return []
+  }
+  return groups
+}
+
 export function productsHaveFilters(products: StrapiCollectionProduct[]): boolean {
   if (buildFacetGroups(products).length > 0) return true
-  // Tags fallback: any L2 with any L3 children counts.
-  const l2Set = new Set<string>()
-  products.forEach((p) => {
-    const tags = p.Categorization?.ProductTags || []
-    tags.filter((t) => t.Name.startsWith("L2:")).forEach((t) => l2Set.add(t.Name))
-  })
-  return l2Set.size > 0
+  return buildTagGroups(products).length > 0
 }
 
 export function filterProducts(

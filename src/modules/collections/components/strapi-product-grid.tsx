@@ -79,6 +79,9 @@ type StrapiProductGridProps = {
   products: StrapiCollectionProduct[]
   countryCode: string
   viewMode?: "grid" | "list"
+  /** When the filter sidebar is hidden the products area is wider, so we
+   * bump to 4 cols at xl. Default 3 cols matches the with-sidebar layout. */
+  wide?: boolean
 }
 
 export function ProductCard({ product, countryCode, viewMode = "grid" }: { product: StrapiCollectionProduct; countryCode: string; viewMode?: "grid" | "list" }) {
@@ -389,7 +392,7 @@ export function ProductCard({ product, countryCode, viewMode = "grid" }: { produ
   )
 }
 
-export default function StrapiProductGrid({ products, countryCode, viewMode = "grid" }: StrapiProductGridProps) {
+export default function StrapiProductGrid({ products, countryCode, viewMode = "grid", wide = false }: StrapiProductGridProps) {
   if (products.length === 0) {
     return (
       <div className="text-center py-12">
@@ -406,7 +409,9 @@ export default function StrapiProductGrid({ products, countryCode, viewMode = "g
       <div
         className={
           viewMode === "grid"
-            ? "grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-x-6 gap-y-0"
+            ? `grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 ${
+                wide ? "xl:grid-cols-4" : "xl:grid-cols-3"
+              } gap-x-6 gap-y-0`
             : "flex flex-col space-y-8"
         }
       >
