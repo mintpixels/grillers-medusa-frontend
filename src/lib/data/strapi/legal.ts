@@ -74,6 +74,26 @@ export type LegalPagesQueryResult = {
   legalPages?: LegalPageData[]
 }
 
+// Legacy query — used as a fallback when the deployed Strapi instance
+// hasn't been rebuilt with the Hero / Body / info.* schema yet. The new
+// query references types (ComponentInfoSection, etc.) that don't exist
+// pre-deploy and would otherwise hard-fail the whole request → 404.
+export const GetLegalPageQueryLegacy = gql`
+  query LegalPageLegacy($slug: String!) {
+    legalPages(filters: { Slug: { eq: $slug } }) {
+      Slug
+      Title
+      Content
+      UpdatedAt: updatedAt
+      SEO {
+        metaTitle
+        metaDescription
+        canonicalUrl
+      }
+    }
+  }
+`
+
 export const GetLegalPageQuery = gql`
   query LegalPage($slug: String!) {
     legalPages(filters: { Slug: { eq: $slug } }) {
@@ -258,8 +278,7 @@ function pageHasContent(page?: LegalPageData | null) {
   )
 }
 
-export async function getLegalPage(slug: string): Promise<LegalPageData | null> {
-  if (!isLegalSlug(slug)) return null
+async function fetchLegalPage(slug: string): Promise<LegalPageData | null> {
   try {
     const data = await strapiClient.request<LegalPagesQueryResult>(
       GetLegalPageQuery,
@@ -267,10 +286,29 @@ export async function getLegalPage(slug: string): Promise<LegalPageData | null> 
     )
     const page = data?.legalPages?.[0]
     if (pageHasContent(page)) return page!
+    return null
   } catch {
-    // Strapi `legal-page` collection-type not created yet — fall through
-    // to the placeholder content below.
+    // Strapi schema may not be redeployed yet (Hero / Body / info.*
+    // components missing). Fall back to the legacy query so existing
+    // Content-only pages keep rendering until the schema lands.
+    try {
+      const data = await strapiClient.request<LegalPagesQueryResult>(
+        GetLegalPageQueryLegacy,
+        { slug }
+      )
+      const page = data?.legalPages?.[0]
+      if (pageHasContent(page)) return page!
+    } catch {
+      // Network or other unrecoverable error.
+    }
+    return null
   }
+}
+
+export async function getLegalPage(slug: string): Promise<LegalPageData | null> {
+  if (!isLegalSlug(slug)) return null
+  const page = await fetchLegalPage(slug)
+  if (page) return page
   return {
     Slug: slug,
     Title: PLACEHOLDER_TITLES[slug],
@@ -284,15 +322,5 @@ export async function getLegalPage(slug: string): Promise<LegalPageData | null> 
 // content lives in one Strapi collection editors can manage in admin.
 export async function getInfoPage(slug: string): Promise<LegalPageData | null> {
   if (!slug) return null
-  try {
-    const data = await strapiClient.request<LegalPagesQueryResult>(
-      GetLegalPageQuery,
-      { slug }
-    )
-    const page = data?.legalPages?.[0]
-    if (pageHasContent(page)) return page!
-  } catch {
-    // Network or schema error — return null so the route 404s cleanly.
-  }
-  return null
+  return fetchLegalPage(slug)
 }
