@@ -2,13 +2,15 @@
 
 import { useRouter, useSearchParams, usePathname } from "next/navigation"
 import { useCallback, useState, useTransition } from "react"
+import {
+  extractFilterOptions as _extract,
+  buildStrapiFilters as _build,
+  type FilterOptions,
+} from "@modules/recipes/lib/filter-helpers"
 
-export type FilterOptions = {
-  categories: Array<{ Name: string; Slug: string }>
-  cookingMethods: string[]
-  difficulties: string[]
-  dietaryTags: string[]
-}
+export type { FilterOptions }
+export const extractFilterOptions = _extract
+export const buildStrapiFilters = _build
 
 type RecipeFiltersProps = {
   filterOptions: FilterOptions
@@ -201,58 +203,8 @@ export default function RecipeFilters({ filterOptions }: RecipeFiltersProps) {
   )
 }
 
-// Helper function to extract unique filter options from recipes
-export function extractFilterOptions(recipes: any[]): FilterOptions {
-  const categories = new Map<string, { Name: string; Slug: string }>()
-  const difficulties = new Set<string>()
-
-  recipes.forEach((recipe) => {
-    // Schema is RecipeCategories (relation, multiple) — flatten into the
-    // category set. CookingMethod / DietaryTags fields were removed from
-    // the Strapi schema so those filter groups are inert until they return.
-    const cats = recipe.RecipeCategories || []
-    for (const cat of cats) {
-      if (cat?.Slug) {
-        categories.set(cat.Slug, { Name: cat.Name, Slug: cat.Slug })
-      }
-    }
-    if (recipe.Difficulty) {
-      difficulties.add(recipe.Difficulty)
-    }
-  })
-
-  return {
-    categories: Array.from(categories.values()).sort((a, b) => a.Name.localeCompare(b.Name)),
-    cookingMethods: [],
-    difficulties: ["Easy", "Medium", "Advanced"].filter((d) => difficulties.has(d)),
-    dietaryTags: [],
-  }
-}
-
-// Helper function to build Strapi filter object from URL params
-export function buildStrapiFilters(params: {
-  category?: string
-  method?: string
-  difficulty?: string
-  dietary?: string
-  search?: string
-}): Record<string, any> | undefined {
-  const filters: Record<string, any> = {}
-
-  if (params.category) {
-    filters.RecipeCategories = { Slug: { eq: params.category } }
-  }
-  if (params.difficulty) {
-    filters.Difficulty = { eq: params.difficulty }
-  }
-  if (params.search) {
-    filters.or = [
-      { Title: { containsi: params.search } },
-      { ShortDescription: { containsi: params.search } },
-    ]
-  }
-
-  return Object.keys(filters).length > 0 ? filters : undefined
-}
+// extractFilterOptions / buildStrapiFilters live in
+// @modules/recipes/lib/filter-helpers so the server-side recipes route
+// can import them without crossing the "use client" boundary.
 
 

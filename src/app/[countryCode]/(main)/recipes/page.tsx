@@ -8,7 +8,10 @@ import {
   GetRecipeFilterOptionsQuery,
 } from "@lib/data/strapi/recipes"
 import RecipesCollection from "@modules/recipes/templates/recipes-collection"
-import { extractFilterOptions, buildStrapiFilters } from "@modules/recipes/components/recipe-filters"
+import {
+  extractFilterOptions,
+  buildStrapiFilters,
+} from "@modules/recipes/lib/filter-helpers"
 import { generateAlternates } from "@lib/util/seo"
 
 type PageProps = {
@@ -75,13 +78,13 @@ export default async function RecipesPage(props: PageProps) {
   // Fetch recipes with or without filters
   let recipes_connection
   if (strapiFilters) {
-    const result = await strapiClient.request(
+    const result = await strapiClient.request<any>(
       GetFilteredRecipesQuery,
       { page, pageSize, filters: strapiFilters }
     )
     recipes_connection = result.recipes_connection
   } else {
-    const result = await strapiClient.request(
+    const result = await strapiClient.request<any>(
       GetPaginatedRecipesQuery,
       { page, pageSize }
     )
@@ -89,7 +92,7 @@ export default async function RecipesPage(props: PageProps) {
   }
 
   // Fetch all recipes to extract filter options (only unique values)
-  const { recipes: allRecipes } = await strapiClient.request(
+  const { recipes: allRecipes } = await strapiClient.request<any>(
     GetRecipeFilterOptionsQuery
   )
   const filterOptions = extractFilterOptions(allRecipes || [])
