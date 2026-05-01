@@ -10,7 +10,7 @@ import type {
 } from "@lib/data/strapi/legal"
 
 const richProse =
-  "font-maison-neue text-Charcoal/90 [&_h2]:font-gyst [&_h2]:text-Charcoal [&_h2]:mt-10 [&_h2]:mb-4 [&_h2]:text-h3-mobile md:[&_h2]:text-h3 [&_h3]:font-gyst [&_h3]:text-Charcoal [&_h3]:mt-6 [&_h3]:mb-2 [&_a]:text-Gold [&_a:hover]:text-Gold/80 [&_strong]:text-Charcoal [&_blockquote]:border-l-4 [&_blockquote]:border-Gold/30 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-Charcoal/70 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_li]:my-1 [&_p]:my-5 [&_p]:leading-[1.7]"
+  "font-maison-neue text-Charcoal/90 [&_h2]:font-gyst [&_h2]:text-Charcoal [&_h2]:mt-10 [&_h2]:mb-4 [&_h2]:text-h3-mobile md:[&_h2]:text-h3 [&_h2]:text-balance [&_h3]:font-gyst [&_h3]:text-Charcoal [&_h3]:mt-6 [&_h3]:mb-2 [&_h3]:text-balance [&_a]:text-Gold [&_a:hover]:text-Gold/80 [&_strong]:text-Charcoal [&_blockquote]:border-l-4 [&_blockquote]:border-Gold/30 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-Charcoal/70 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_li]:my-1 [&_p]:my-5 [&_p]:leading-[1.7] [&_p]:text-pretty"
 
 function isInternal(url: string) {
   return url.startsWith("/")
@@ -54,8 +54,8 @@ function HeroBlock({ hero }: { hero: InfoHero }) {
   return (
     <section className="content-container pt-10 md:pt-16 pb-8 md:pb-12">
       <div
-        className={`mx-auto max-w-6xl grid gap-10 md:gap-14 ${
-          hasImage ? "md:grid-cols-2 items-center" : "max-w-3xl"
+        className={`grid gap-10 md:gap-14 ${
+          hasImage ? "md:grid-cols-2 items-center" : ""
         }`}
       >
         <div>
@@ -64,11 +64,11 @@ function HeroBlock({ hero }: { hero: InfoHero }) {
               {hero.Eyebrow}
             </p>
           )}
-          <h1 className="text-h1-mobile md:text-h1 font-gyst text-Charcoal leading-tight">
+          <h1 className="text-h1-mobile md:text-h1 font-gyst text-Charcoal leading-tight text-balance">
             {hero.Headline}
           </h1>
           {hero.Subhead && (
-            <p className="mt-5 text-p-lg font-maison-neue text-Charcoal/75 max-w-xl leading-[1.6]">
+            <p className="mt-5 text-p-lg font-maison-neue text-Charcoal/75 leading-[1.6] text-pretty">
               {hero.Subhead}
             </p>
           )}
@@ -138,13 +138,13 @@ function SectionBlock({
     return (
       <section className="content-container my-12">
         <div
-          className={`mx-auto max-w-6xl grid gap-10 md:grid-cols-2 items-center ${
+          className={`grid gap-10 md:grid-cols-2 items-center ${
             pos === "right" ? "md:[&>div:first-child]:order-2" : ""
           }`}
         >
           <div>
             {block.SectionTitle && (
-              <h2 className="font-gyst text-Charcoal text-h3-mobile md:text-h3 mb-5">
+              <h2 className="font-gyst text-Charcoal text-h3-mobile md:text-h3 mb-5 text-balance">
                 {block.SectionTitle}
               </h2>
             )}
@@ -169,9 +169,9 @@ function SectionBlock({
 
   return (
     <section className="content-container my-10">
-      <div className="mx-auto max-w-3xl">
+      <div className="mx-auto ">
         {block.SectionTitle && (
-          <h2 className="font-gyst text-Charcoal text-h3-mobile md:text-h3 mb-5">
+          <h2 className="font-gyst text-Charcoal text-h3-mobile md:text-h3 mb-5 text-balance">
             {block.SectionTitle}
           </h2>
         )}
@@ -206,11 +206,11 @@ function FeatureGridBlock({
 
   return (
     <section className="content-container my-14">
-      <div className="mx-auto max-w-6xl">
+      <div className="mx-auto ">
         {(block.Heading || block.Intro) && (
           <div className="text-center mb-10 max-w-2xl mx-auto">
             {block.Heading && (
-              <h2 className="font-gyst text-Charcoal text-h3-mobile md:text-h3 mb-4">
+              <h2 className="font-gyst text-Charcoal text-h3-mobile md:text-h3 mb-4 text-balance">
                 {block.Heading}
               </h2>
             )}
@@ -272,7 +272,7 @@ function ImageBlockComponent({
     <figure className={wide ? "my-10" : "content-container my-10"}>
       <div
         className={`${
-          wide ? "" : "mx-auto max-w-4xl"
+          wide ? "" : "mx-auto "
         } rounded-2xl overflow-hidden bg-Charcoal/5`}
       >
         <StrapiImage
@@ -300,7 +300,7 @@ function RichTextBlock({
   return (
     <section className="content-container my-10">
       <div
-        className={`mx-auto max-w-3xl ${richProse}`}
+        className={`${richProse}`}
         dangerouslySetInnerHTML={{ __html: block.body }}
       />
     </section>

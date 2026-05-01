@@ -202,12 +202,12 @@ const Hero: React.FC<{ data: HeroData }> = ({ data }) => {
         </p>
       )}
       {data.headline && (
-        <h2 className="text-h2-mobile md:text-h2 font-gyst text-Charcoal leading-tight mb-5 max-w-3xl">
+        <h2 className="text-h2-mobile md:text-h2 font-gyst text-Charcoal leading-tight mb-5">
           {data.headline}
         </h2>
       )}
       {data.subhead && (
-        <p className="text-p-md md:text-p-lg font-maison-neue text-Charcoal/75 leading-relaxed max-w-2xl">
+        <p className="text-p-md md:text-p-lg font-maison-neue text-Charcoal/75 leading-relaxed">
           {data.subhead}
         </p>
       )}
@@ -299,7 +299,7 @@ const renderBlocks = (
       nodes.push(
         <p
           key={k}
-          className="text-p-md font-maison-neue text-Charcoal/85 leading-[1.7] my-5 max-w-prose"
+          className="text-p-md font-maison-neue text-Charcoal/85 leading-[1.7] my-5"
         >
           {renderInline(b.children, k)}
         </p>

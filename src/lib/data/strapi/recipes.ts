@@ -113,6 +113,24 @@ export const GetRecipeBySlugQuery = gql`
   }
 `
 
+// Recipe schema in Strapi has been simplified — Category (singular),
+// CookingMethod, and DietaryTags fields no longer exist on the type.
+// The current schema exposes RecipeCategories (relation) and Difficulty.
+const RECIPE_CARD_FIELDS = `
+  documentId
+  Slug
+  Title
+  ShortDescription
+  Image {
+    url
+  }
+  RecipeCategories {
+    Name
+    Slug
+  }
+  Difficulty
+`
+
 export const GetPaginatedRecipesQuery = gql`
   query PaginatedRecipes($page: Int!, $pageSize: Int!) {
     recipes_connection(
@@ -121,20 +139,7 @@ export const GetPaginatedRecipesQuery = gql`
       status: PUBLISHED
     ) {
       nodes {
-        documentId
-        Slug
-        Title
-        ShortDescription
-        Image {
-          url
-        }
-        Category {
-          Name
-          Slug
-        }
-        CookingMethod
-        Difficulty
-        DietaryTags
+        ${RECIPE_CARD_FIELDS}
       }
       pageInfo {
         page
@@ -160,20 +165,7 @@ export const GetFilteredRecipesQuery = gql`
       filters: $filters
     ) {
       nodes {
-        documentId
-        Slug
-        Title
-        ShortDescription
-        Image {
-          url
-        }
-        Category {
-          Name
-          Slug
-        }
-        CookingMethod
-        Difficulty
-        DietaryTags
+        ${RECIPE_CARD_FIELDS}
       }
       pageInfo {
         page
@@ -199,13 +191,11 @@ export const GetRecipeCategoriesQuery = gql`
 export const GetRecipeFilterOptionsQuery = gql`
   query RecipeFilterOptions {
     recipes(pagination: { limit: 100 }, status: PUBLISHED) {
-      Category {
+      RecipeCategories {
         Name
         Slug
       }
-      CookingMethod
       Difficulty
-      DietaryTags
     }
   }
 `

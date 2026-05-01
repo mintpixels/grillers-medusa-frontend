@@ -40,7 +40,7 @@ export default function InfoPageTemplate({
           <StructuredInfoHero hero={page.Hero} />
         ) : (
           <header className="content-container pt-12 pb-6 border-b border-Charcoal/10 mb-6">
-            <div className="max-w-3xl mx-auto">
+            <div>
               {section && (
                 <p className="text-p-sm-mono font-maison-neue-mono uppercase tracking-[0.2em] text-Gold mb-3">
                   {section}
@@ -59,7 +59,7 @@ export default function InfoPageTemplate({
 
         {(updated || backHref) && (
           <div className="content-container mt-14">
-            <div className="max-w-3xl mx-auto pt-6 border-t border-Charcoal/10 flex flex-col gap-4">
+            <div className="pt-6 border-t border-Charcoal/10 flex flex-col gap-4">
               {backHref && (
                 <LocalizedClientLink
                   href={backHref}
@@ -82,7 +82,7 @@ export default function InfoPageTemplate({
 
   return (
     <div className="content-container py-12 md:py-16">
-      <article className="max-w-3xl mx-auto">
+      <article>
         <header className="mb-10 pb-6 border-b border-Charcoal/10">
           {section && (
             <p className="text-p-sm-mono font-maison-neue-mono uppercase tracking-[0.2em] text-Gold mb-3">

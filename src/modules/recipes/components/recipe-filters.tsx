@@ -204,33 +204,28 @@ export default function RecipeFilters({ filterOptions }: RecipeFiltersProps) {
 // Helper function to extract unique filter options from recipes
 export function extractFilterOptions(recipes: any[]): FilterOptions {
   const categories = new Map<string, { Name: string; Slug: string }>()
-  const cookingMethods = new Set<string>()
   const difficulties = new Set<string>()
-  const dietaryTags = new Set<string>()
 
   recipes.forEach((recipe) => {
-    if (recipe.Category?.Slug) {
-      categories.set(recipe.Category.Slug, {
-        Name: recipe.Category.Name,
-        Slug: recipe.Category.Slug,
-      })
-    }
-    if (recipe.CookingMethod) {
-      cookingMethods.add(recipe.CookingMethod)
+    // Schema is RecipeCategories (relation, multiple) — flatten into the
+    // category set. CookingMethod / DietaryTags fields were removed from
+    // the Strapi schema so those filter groups are inert until they return.
+    const cats = recipe.RecipeCategories || []
+    for (const cat of cats) {
+      if (cat?.Slug) {
+        categories.set(cat.Slug, { Name: cat.Name, Slug: cat.Slug })
+      }
     }
     if (recipe.Difficulty) {
       difficulties.add(recipe.Difficulty)
-    }
-    if (recipe.DietaryTags && Array.isArray(recipe.DietaryTags)) {
-      recipe.DietaryTags.forEach((tag: string) => dietaryTags.add(tag))
     }
   })
 
   return {
     categories: Array.from(categories.values()).sort((a, b) => a.Name.localeCompare(b.Name)),
-    cookingMethods: Array.from(cookingMethods).sort(),
+    cookingMethods: [],
     difficulties: ["Easy", "Medium", "Advanced"].filter((d) => difficulties.has(d)),
-    dietaryTags: Array.from(dietaryTags).sort(),
+    dietaryTags: [],
   }
 }
 
@@ -245,16 +240,10 @@ export function buildStrapiFilters(params: {
   const filters: Record<string, any> = {}
 
   if (params.category) {
-    filters.Category = { Slug: { eq: params.category } }
-  }
-  if (params.method) {
-    filters.CookingMethod = { eq: params.method }
+    filters.RecipeCategories = { Slug: { eq: params.category } }
   }
   if (params.difficulty) {
     filters.Difficulty = { eq: params.difficulty }
-  }
-  if (params.dietary) {
-    filters.DietaryTags = { contains: params.dietary }
   }
   if (params.search) {
     filters.or = [
