@@ -32,9 +32,12 @@ export type InfoFeatureCard = {
 export type InfoBodyComponent =
   | {
       __typename: "ComponentInfoSection"
-      Title?: string | null
-      Body?: any[] | null
-      Image?: StrapiMedia | null
+      // Aliased in the GraphQL query because GraphQL flags Image/Title/Body
+      // selections that overlap across inline fragments with mismatched
+      // nullability. Renderer reads these aliased names directly.
+      SectionTitle?: string | null
+      SectionBody?: any[] | null
+      SectionImage?: StrapiMedia | null
       ImageAlt?: string | null
       ImagePosition?: "none" | "full" | "left" | "right" | null
     }
@@ -46,7 +49,7 @@ export type InfoBodyComponent =
     }
   | {
       __typename: "ComponentInfoImageBlock"
-      Image: StrapiMedia
+      BlockImage: StrapiMedia
       Alt: string
       Caption?: string | null
       Width?: "contained" | "full" | null
@@ -73,26 +76,6 @@ export type LegalPageData = {
 export type LegalPagesQueryResult = {
   legalPages?: LegalPageData[]
 }
-
-// Legacy query — used as a fallback when the deployed Strapi instance
-// hasn't been rebuilt with the Hero / Body / info.* schema yet. The new
-// query references types (ComponentInfoSection, etc.) that don't exist
-// pre-deploy and would otherwise hard-fail the whole request → 404.
-export const GetLegalPageQueryLegacy = gql`
-  query LegalPageLegacy($slug: String!) {
-    legalPages(filters: { Slug: { eq: $slug } }) {
-      Slug
-      Title
-      Content
-      UpdatedAt: updatedAt
-      SEO {
-        metaTitle
-        metaDescription
-        canonicalUrl
-      }
-    }
-  }
-`
 
 export const GetLegalPageQuery = gql`
   query LegalPage($slug: String!) {
@@ -122,9 +105,9 @@ export const GetLegalPageQuery = gql`
       Body {
         __typename
         ... on ComponentInfoSection {
-          Title
-          Body
-          Image {
+          SectionTitle: Title
+          SectionBody: Body
+          SectionImage: Image {
             url
             width
             height
@@ -148,7 +131,7 @@ export const GetLegalPageQuery = gql`
           }
         }
         ... on ComponentInfoImageBlock {
-          Image {
+          BlockImage: Image {
             url
             width
             height
@@ -286,23 +269,10 @@ async function fetchLegalPage(slug: string): Promise<LegalPageData | null> {
     )
     const page = data?.legalPages?.[0]
     if (pageHasContent(page)) return page!
-    return null
   } catch {
-    // Strapi schema may not be redeployed yet (Hero / Body / info.*
-    // components missing). Fall back to the legacy query so existing
-    // Content-only pages keep rendering until the schema lands.
-    try {
-      const data = await strapiClient.request<LegalPagesQueryResult>(
-        GetLegalPageQueryLegacy,
-        { slug }
-      )
-      const page = data?.legalPages?.[0]
-      if (pageHasContent(page)) return page!
-    } catch {
-      // Network or other unrecoverable error.
-    }
-    return null
+    // Network or schema error — return null so the route 404s cleanly.
   }
+  return null
 }
 
 export async function getLegalPage(slug: string): Promise<LegalPageData | null> {

@@ -132,7 +132,7 @@ function SectionBlock({
   block: Extract<InfoBodyComponent, { __typename: "ComponentInfoSection" }>
 }) {
   const pos = block.ImagePosition || "none"
-  const hasImage = Boolean(block.Image?.url) && pos !== "none"
+  const hasImage = Boolean(block.SectionImage?.url) && pos !== "none"
 
   if (hasImage && (pos === "left" || pos === "right")) {
     return (
@@ -143,21 +143,21 @@ function SectionBlock({
           }`}
         >
           <div>
-            {block.Title && (
+            {block.SectionTitle && (
               <h2 className="font-gyst text-Charcoal text-h3-mobile md:text-h3 mb-5">
-                {block.Title}
+                {block.SectionTitle}
               </h2>
             )}
-            {block.Body && (
+            {block.SectionBody && (
               <div className={richProse}>
-                <BlocksRenderer content={block.Body as any} />
+                <BlocksRenderer content={block.SectionBody as any} />
               </div>
             )}
           </div>
           <div className="relative rounded-2xl overflow-hidden bg-Charcoal/5">
             <StrapiImage
-              media={block.Image!}
-              alt={block.ImageAlt || block.Title || ""}
+              media={block.SectionImage!}
+              alt={block.ImageAlt || block.SectionTitle || ""}
               sizes="(min-width: 768px) 50vw, 100vw"
               className="w-full h-auto object-cover"
             />
@@ -170,24 +170,24 @@ function SectionBlock({
   return (
     <section className="content-container my-10">
       <div className="mx-auto max-w-3xl">
-        {block.Title && (
+        {block.SectionTitle && (
           <h2 className="font-gyst text-Charcoal text-h3-mobile md:text-h3 mb-5">
-            {block.Title}
+            {block.SectionTitle}
           </h2>
         )}
-        {hasImage && pos === "full" && block.Image && (
+        {hasImage && pos === "full" && block.SectionImage && (
           <div className="my-6 rounded-2xl overflow-hidden bg-Charcoal/5">
             <StrapiImage
-              media={block.Image}
-              alt={block.ImageAlt || block.Title || ""}
+              media={block.SectionImage}
+              alt={block.ImageAlt || block.SectionTitle || ""}
               sizes="(min-width: 768px) 768px, 100vw"
               className="w-full h-auto object-cover"
             />
           </div>
         )}
-        {block.Body && (
+        {block.SectionBody && (
           <div className={richProse}>
-            <BlocksRenderer content={block.Body as any} />
+            <BlocksRenderer content={block.SectionBody as any} />
           </div>
         )}
       </div>
@@ -276,7 +276,7 @@ function ImageBlockComponent({
         } rounded-2xl overflow-hidden bg-Charcoal/5`}
       >
         <StrapiImage
-          media={block.Image}
+          media={block.BlockImage}
           alt={block.Alt}
           sizes={wide ? "100vw" : "(min-width: 1024px) 1024px, 100vw"}
           className="w-full h-auto object-cover"
