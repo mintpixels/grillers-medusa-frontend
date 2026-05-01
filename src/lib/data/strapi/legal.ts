@@ -1,10 +1,67 @@
 import { gql } from "graphql-request"
 import strapiClient from "@lib/strapi"
 
+export type StrapiMedia = {
+  url: string
+  width?: number
+  height?: number
+  alternativeText?: string | null
+}
+
+export type StrapiLink = {
+  Text: string
+  Url: string
+}
+
+export type InfoHero = {
+  Eyebrow?: string | null
+  Headline: string
+  Subhead?: string | null
+  Image?: StrapiMedia | null
+  ImageAlt?: string | null
+  PrimaryCta?: StrapiLink | null
+  SecondaryCta?: StrapiLink | null
+}
+
+export type InfoFeatureCard = {
+  Icon?: StrapiMedia | null
+  Title: string
+  Body?: string | null
+}
+
+export type InfoBodyComponent =
+  | {
+      __typename: "ComponentInfoSection"
+      Title?: string | null
+      Body?: any[] | null
+      Image?: StrapiMedia | null
+      ImageAlt?: string | null
+      ImagePosition?: "none" | "full" | "left" | "right" | null
+    }
+  | {
+      __typename: "ComponentInfoFeatureGrid"
+      Heading?: string | null
+      Intro?: string | null
+      Cards?: InfoFeatureCard[] | null
+    }
+  | {
+      __typename: "ComponentInfoImageBlock"
+      Image: StrapiMedia
+      Alt: string
+      Caption?: string | null
+      Width?: "contained" | "full" | null
+    }
+  | {
+      __typename: "ComponentSharedRichText"
+      body?: string | null
+    }
+
 export type LegalPageData = {
   Slug: string
   Title: string
-  Content: any[] // BlocksRenderer content
+  Hero?: InfoHero | null
+  Body?: InfoBodyComponent[] | null
+  Content?: any[] | null
   UpdatedAt?: string
   SEO?: {
     metaTitle?: string
@@ -17,14 +74,74 @@ export type LegalPagesQueryResult = {
   legalPages?: LegalPageData[]
 }
 
-// Strapi `legal-page` collection-type. The route is /us/page/[slug] and
-// each entry's Slug field must match. Until that schema is added in Strapi
-// admin, getLegalPage falls back to the Latin placeholder content below.
 export const GetLegalPageQuery = gql`
   query LegalPage($slug: String!) {
     legalPages(filters: { Slug: { eq: $slug } }) {
       Slug
       Title
+      Hero {
+        Eyebrow
+        Headline
+        Subhead
+        Image {
+          url
+          width
+          height
+          alternativeText
+        }
+        ImageAlt
+        PrimaryCta {
+          Text
+          Url
+        }
+        SecondaryCta {
+          Text
+          Url
+        }
+      }
+      Body {
+        __typename
+        ... on ComponentInfoSection {
+          Title
+          Body
+          Image {
+            url
+            width
+            height
+            alternativeText
+          }
+          ImageAlt
+          ImagePosition
+        }
+        ... on ComponentInfoFeatureGrid {
+          Heading
+          Intro
+          Cards {
+            Title
+            Body
+            Icon {
+              url
+              width
+              height
+              alternativeText
+            }
+          }
+        }
+        ... on ComponentInfoImageBlock {
+          Image {
+            url
+            width
+            height
+            alternativeText
+          }
+          Alt
+          Caption
+          Width
+        }
+        ... on ComponentSharedRichText {
+          body
+        }
+      }
       Content
       UpdatedAt: updatedAt
       SEO {
@@ -132,6 +249,15 @@ const PLACEHOLDER_CONTENT: Record<LegalSlug, any[]> = {
   ],
 }
 
+function pageHasContent(page?: LegalPageData | null) {
+  if (!page?.Title) return false
+  return Boolean(
+    page.Hero?.Headline ||
+      (page.Body && page.Body.length > 0) ||
+      (page.Content && page.Content.length > 0)
+  )
+}
+
 export async function getLegalPage(slug: string): Promise<LegalPageData | null> {
   if (!isLegalSlug(slug)) return null
   try {
@@ -140,7 +266,7 @@ export async function getLegalPage(slug: string): Promise<LegalPageData | null> 
       { slug }
     )
     const page = data?.legalPages?.[0]
-    if (page?.Title && page?.Content?.length) return page
+    if (pageHasContent(page)) return page!
   } catch {
     // Strapi `legal-page` collection-type not created yet — fall through
     // to the placeholder content below.
@@ -164,7 +290,7 @@ export async function getInfoPage(slug: string): Promise<LegalPageData | null> {
       { slug }
     )
     const page = data?.legalPages?.[0]
-    if (page?.Title && page?.Content?.length) return page
+    if (pageHasContent(page)) return page!
   } catch {
     // Network or schema error — return null so the route 404s cleanly.
   }

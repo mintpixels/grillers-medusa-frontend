@@ -1,6 +1,10 @@
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import type { LegalPageData } from "@lib/data/strapi/legal"
 import { StructuredInfoContent } from "./structured-content"
+import {
+  StructuredInfoBody,
+  StructuredInfoHero,
+} from "./info-page-renderer"
 
 type Props = {
   page: LegalPageData
@@ -26,6 +30,55 @@ export default function InfoPageTemplate({
         day: "numeric",
       })
     : null
+
+  const hasStructured = Boolean(page.Hero || (page.Body && page.Body.length))
+
+  if (hasStructured) {
+    return (
+      <div className="pb-16">
+        {page.Hero ? (
+          <StructuredInfoHero hero={page.Hero} />
+        ) : (
+          <header className="content-container pt-12 pb-6 border-b border-Charcoal/10 mb-6">
+            <div className="max-w-3xl mx-auto">
+              {section && (
+                <p className="text-p-sm-mono font-maison-neue-mono uppercase tracking-[0.2em] text-Gold mb-3">
+                  {section}
+                </p>
+              )}
+              <h1 className="text-h2-mobile md:text-h2 font-gyst text-Charcoal">
+                {page.Title}
+              </h1>
+            </div>
+          </header>
+        )}
+
+        {page.Body && page.Body.length > 0 && (
+          <StructuredInfoBody body={page.Body} />
+        )}
+
+        {(updated || backHref) && (
+          <div className="content-container mt-14">
+            <div className="max-w-3xl mx-auto pt-6 border-t border-Charcoal/10 flex flex-col gap-4">
+              {backHref && (
+                <LocalizedClientLink
+                  href={backHref}
+                  className="inline-flex items-center gap-2 text-Gold hover:text-Gold/80 font-maison-neue font-semibold"
+                >
+                  ← {backLabel || "Back"}
+                </LocalizedClientLink>
+              )}
+              {updated && (
+                <p className="text-p-sm text-Charcoal/50">
+                  Last updated: {updated}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div className="content-container py-12 md:py-16">
