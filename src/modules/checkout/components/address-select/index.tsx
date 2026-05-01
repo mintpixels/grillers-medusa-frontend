@@ -6,6 +6,8 @@ import { Fragment, useMemo } from "react"
 import Radio from "@modules/common/components/radio"
 import compareAddresses from "@lib/util/compare-addresses"
 import { HttpTypes } from "@medusajs/types"
+import { formatCityStateZip, formatCountry } from "@lib/util/format-address"
+import { formatPhone, stripPhone } from "@lib/util/format-phone"
 
 type AddressSelectProps = {
   addresses: HttpTypes.StoreCustomerAddress[]
@@ -93,13 +95,11 @@ const AddressSelect = ({
                             <span>, {address.address_2}</span>
                           )}
                         </span>
-                        <span>
-                          {address.postal_code}, {address.city}
-                        </span>
-                        <span>
-                          {address.province && `${address.province}, `}
-                          {address.country_code?.toUpperCase()}
-                        </span>
+                        <span>{formatCityStateZip(address)}</span>
+                        <span>{formatCountry(address.country_code)}</span>
+                        {address.phone && (
+                          <span>{formatPhone(stripPhone(address.phone))}</span>
+                        )}
                       </div>
                     </div>
                   </div>

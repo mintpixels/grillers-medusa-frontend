@@ -8,6 +8,8 @@ import NativeSelect from "@modules/common/components/native-select"
 import AccountInfo from "../account-info"
 import { HttpTypes } from "@medusajs/types"
 import { addCustomerAddress, updateCustomerAddress } from "@lib/data/customer"
+import { formatCityStateZip, formatCountry } from "@lib/util/format-address"
+import { formatPhone, stripPhone } from "@lib/util/format-phone"
 
 type MyInformationProps = {
   customer: HttpTypes.StoreCustomer
@@ -69,22 +71,26 @@ const ProfileBillingAddress: React.FC<MyInformationProps> = ({
     const country =
       regionOptions?.find(
         (country) => country?.value === billingAddress.country_code
-      )?.label || billingAddress.country_code?.toUpperCase()
+      )?.label || formatCountry(billingAddress.country_code)
+
+    const cityStateZip = formatCityStateZip(billingAddress)
+    const phone = billingAddress.phone
+      ? formatPhone(stripPhone(billingAddress.phone))
+      : ""
 
     return (
       <div className="flex flex-col font-semibold" data-testid="current-info">
         <span>
           {billingAddress.first_name} {billingAddress.last_name}
         </span>
-        <span>{billingAddress.company}</span>
+        {billingAddress.company && <span>{billingAddress.company}</span>}
         <span>
           {billingAddress.address_1}
           {billingAddress.address_2 ? `, ${billingAddress.address_2}` : ""}
         </span>
-        <span>
-          {billingAddress.postal_code}, {billingAddress.city}
-        </span>
-        <span>{country}</span>
+        {cityStateZip && <span>{cityStateZip}</span>}
+        {country && <span>{country}</span>}
+        {phone && <span>{phone}</span>}
       </div>
     )
   }, [billingAddress, regionOptions])

@@ -3,6 +3,8 @@ import { HttpTypes } from "@medusajs/types"
 import { Heading, Text } from "@medusajs/ui"
 
 import Divider from "@modules/common/components/divider"
+import { formatCityStateZip, formatCountry } from "@lib/util/format-address"
+import { formatPhone, stripPhone } from "@lib/util/format-phone"
 
 type ShippingDetailsProps = {
   order: HttpTypes.StoreOrder
@@ -26,16 +28,22 @@ const ShippingDetails = ({ order }: ShippingDetailsProps) => {
             {order.shipping_address?.first_name}{" "}
             {order.shipping_address?.last_name}
           </Text>
+          {order.shipping_address?.company && (
+            <Text className="txt-medium text-ui-fg-subtle">
+              {order.shipping_address.company}
+            </Text>
+          )}
           <Text className="txt-medium text-ui-fg-subtle">
-            {order.shipping_address?.address_1}{" "}
-            {order.shipping_address?.address_2}
+            {order.shipping_address?.address_1}
+            {order.shipping_address?.address_2
+              ? `, ${order.shipping_address.address_2}`
+              : ""}
           </Text>
           <Text className="txt-medium text-ui-fg-subtle">
-            {order.shipping_address?.postal_code},{" "}
-            {order.shipping_address?.city}
+            {order.shipping_address && formatCityStateZip(order.shipping_address as any)}
           </Text>
           <Text className="txt-medium text-ui-fg-subtle">
-            {order.shipping_address?.country_code?.toUpperCase()}
+            {formatCountry(order.shipping_address?.country_code)}
           </Text>
         </div>
 
@@ -45,7 +53,9 @@ const ShippingDetails = ({ order }: ShippingDetailsProps) => {
         >
           <Text className="txt-medium-plus text-ui-fg-base mb-1">Contact</Text>
           <Text className="txt-medium text-ui-fg-subtle">
-            {order.shipping_address?.phone}
+            {order.shipping_address?.phone
+              ? formatPhone(stripPhone(order.shipping_address.phone))
+              : ""}
           </Text>
           <Text className="txt-medium text-ui-fg-subtle">{order.email}</Text>
         </div>
