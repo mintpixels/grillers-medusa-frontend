@@ -1,30 +1,15 @@
-import { ArrowUpRightMini } from "@medusajs/icons"
-import { Text } from "@medusajs/ui"
 import { Metadata } from "next"
-import Link from "next/link"
+import NotFoundContent from "@modules/layout/components/not-found-content"
 
 export const metadata: Metadata = {
-  title: "404",
-  description: "Something went wrong",
+  title: "Page Not Found | Grillers Pride",
+  description:
+    "The page you're looking for doesn't exist. Browse the counter, find a recipe, or get in touch.",
+  robots: { index: false, follow: false },
 }
 
+// Root not-found — for top-level paths that never reached the [countryCode]
+// segment. Defaults links to the "us" locale since there's no params here.
 export default function NotFound() {
-  return (
-    <div className="flex flex-col gap-4 items-center justify-center min-h-[calc(100vh-64px)]">
-      <h1 className="text-2xl-semi text-ui-fg-base">Page not found</h1>
-      <p className="text-small-regular text-ui-fg-base">
-        The page you tried to access does not exist.
-      </p>
-      <Link
-        className="flex gap-x-1 items-center group"
-        href="/"
-      >
-        <Text className="text-ui-fg-interactive">Go to frontpage</Text>
-        <ArrowUpRightMini
-          className="group-hover:rotate-45 ease-in-out duration-150"
-          color="var(--fg-interactive)"
-        />
-      </Link>
-    </div>
-  )
+  return <NotFoundContent countryCode="us" />
 }

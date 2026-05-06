@@ -54,6 +54,21 @@ const nextConfig = {
       },
     ],
   },
+  // Permanent redirects for legacy paths from the old grillerspride.com URL
+  // structure. Skipped /us/wholesale and /us/passover — destinations don't
+  // exist yet (no wholesale info-page slug, no passover holidays slug). (#79)
+  async redirects() {
+    return [
+      { source: "/us/about", destination: "/us/page/about-us", permanent: true },
+      { source: "/us/about-us", destination: "/us/page/about-us", permanent: true },
+      { source: "/us/contact", destination: "/us/customer-service", permanent: true },
+      { source: "/us/contact-us", destination: "/us/customer-service", permanent: true },
+      { source: "/us/privacy-policy", destination: "/us/page/privacy-policy", permanent: true },
+      { source: "/us/terms", destination: "/us/page/terms-of-use", permanent: true },
+      { source: "/us/terms-of-sale", destination: "/us/page/terms-of-sale", permanent: true },
+      { source: "/us/terms-of-use", destination: "/us/page/terms-of-use", permanent: true },
+    ]
+  },
 }
 
 module.exports = nextConfig
