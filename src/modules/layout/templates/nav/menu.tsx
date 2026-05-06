@@ -200,12 +200,12 @@ export const MobileNavMenu = ({
                                 <LocalizedClientLink
                                   key={itemIdx}
                                   href={navItem.Url}
-                                  className="flex items-baseline gap-2 px-6 py-1.5 text-xs text-gray-600 hover:bg-gray-100 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold"
+                                  className="block px-6 py-1.5 text-xs text-gray-600 hover:bg-gray-100 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold"
                                   onClick={() => setMobileOpen(false)}
                                 >
-                                  <span className="flex-1">{navItem.Text}</span>
+                                  {navItem.Text}
                                   {countLabel && (
-                                    <span className="text-gray-400 text-[11px] tabular-nums shrink-0">
+                                    <span className="text-gray-400 text-[11px] tabular-nums ml-1.5">
                                       {countLabel}
                                     </span>
                                   )}
@@ -370,19 +370,19 @@ const DesktopNavMenu = ({
                               )
                               return (
                               <div key={secIdx} className="space-y-3">
-                                <h3 className="text-sm font-semibold text-gray-900 border-b border-orange-200 pb-2 flex items-baseline gap-2">
+                                <h3 className="text-sm font-semibold text-gray-900 border-b border-orange-200 pb-2">
                                   <LocalizedClientLink
                                     href={headerUrl}
-                                    className="flex-1 hover:text-orange-600 transition-colors"
+                                    className="hover:text-orange-600 transition-colors"
                                     onClick={() => setActiveMenu(null)}
                                   >
                                     {section.title}
+                                    {headerCountLabel && (
+                                      <span className="text-gray-400 text-xs font-normal tabular-nums ml-1.5">
+                                        {headerCountLabel}
+                                      </span>
+                                    )}
                                   </LocalizedClientLink>
-                                  {headerCountLabel && (
-                                    <span className="text-gray-400 text-xs font-normal tabular-nums shrink-0">
-                                      {headerCountLabel}
-                                    </span>
-                                  )}
                                 </h3>
                                 <ul className="space-y-1 pl-2">
                                   {section.items.map((navItem, subIndex) => {
@@ -400,14 +400,12 @@ const DesktopNavMenu = ({
                                         />
                                         <LocalizedClientLink
                                           href={navItem.Url}
-                                          className="flex-1 flex items-baseline gap-2 text-sm text-gray-600 hover:text-orange-600 transition-colors py-1 hover:translate-x-1 transform duration-200"
+                                          className="text-sm text-gray-600 hover:text-orange-600 transition-colors block py-1 hover:translate-x-1 transform duration-200"
                                           onClick={() => setActiveMenu(null)}
                                         >
-                                          <span className="flex-1">
-                                            {navItem.Text}
-                                          </span>
+                                          {navItem.Text}
                                           {countLabel && (
-                                            <span className="text-gray-400 text-xs tabular-nums shrink-0">
+                                            <span className="text-gray-400 text-xs tabular-nums ml-1.5">
                                               {countLabel}
                                             </span>
                                           )}
