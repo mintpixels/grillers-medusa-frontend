@@ -54,7 +54,7 @@ export default async function EmailPreferencesPage({ searchParams }: PageProps) 
             Email
           </p>
           <h1 className="text-h1-mobile md:text-h1 font-gyst text-Charcoal leading-tight text-balance">
-            Email preferences
+            Email Preferences
           </h1>
           <p className="mt-5 text-p-lg font-maison-neue text-Charcoal/75 leading-[1.6] text-pretty">
             Manage what email we send you, or unsubscribe with one click.
