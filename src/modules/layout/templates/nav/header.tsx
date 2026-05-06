@@ -16,9 +16,10 @@ type HeaderProps = {
   regions: HttpTypes.StoreRegion[]
   phoneNumber?: string | null
   customer?: HttpTypes.StoreCustomer | null
+  navCounts?: Record<string, number | null>
 }
 
-const Header = ({ navLinks, regions, phoneNumber, customer }: HeaderProps) => {
+const Header = ({ navLinks, regions, phoneNumber, customer, navCounts }: HeaderProps) => {
   const initials = customer
     ? `${(customer.first_name?.[0] || "").toUpperCase()}${(customer.last_name?.[0] || "").toUpperCase()}`
     : null
@@ -31,7 +32,7 @@ const Header = ({ navLinks, regions, phoneNumber, customer }: HeaderProps) => {
         Skip to main content
       </a>
       <nav className="flex items-center justify-between w-full h-[106px] px-4 lg:px-8">
-        <MobileNavMenu navLinks={navLinks} />
+        <MobileNavMenu navLinks={navLinks} navCounts={navCounts} />
 
         <div className="flex items-center gap-4">
           <LocalizedClientLink href="/" data-testid="nav-store-link" className="flex items-center gap-2">

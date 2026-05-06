@@ -18,8 +18,25 @@ const iconMap = {
   star: Star,
 }
 
+// Live count badge — formats as "(N)" right-aligned next to the link
+// label. `null` means we couldn't compute a count for that URL (unknown
+// shape, or Strapi was unreachable when the page rendered) — render nothing
+// rather than a misleading 0.
+type NavCounts = Record<string, number | null>
+
+const formatCount = (n: number | null | undefined): string | null => {
+  if (n == null) return null
+  return `(${n.toLocaleString("en-US")})`
+}
+
 // Mobile version with sections
-export const MobileNavMenu = ({ navLinks }: { navLinks: HeaderNavLink[] }) => {
+export const MobileNavMenu = ({
+  navLinks,
+  navCounts,
+}: {
+  navLinks: HeaderNavLink[]
+  navCounts?: NavCounts
+}) => {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null)
   const [expandedSection, setExpandedSection] = useState<string | null>(null)
@@ -163,16 +180,26 @@ export const MobileNavMenu = ({ navLinks }: { navLinks: HeaderNavLink[] }) => {
                         </button>
                         {expandedSection === `${idx}-${sectionIdx}` && (
                           <div className="mt-1 flex flex-col space-y-1">
-                            {section.items.map((navItem, itemIdx) => (
-                              <LocalizedClientLink
-                                key={itemIdx}
-                                href={navItem.Url}
-                                className="block px-6 py-1.5 text-xs text-gray-600 hover:bg-gray-100 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold"
-                                onClick={() => setMobileOpen(false)}
-                              >
-                                {navItem.Text}
-                              </LocalizedClientLink>
-                            ))}
+                            {section.items.map((navItem, itemIdx) => {
+                              const countLabel = formatCount(
+                                navCounts?.[navItem.Url],
+                              )
+                              return (
+                                <LocalizedClientLink
+                                  key={itemIdx}
+                                  href={navItem.Url}
+                                  className="flex items-baseline gap-2 px-6 py-1.5 text-xs text-gray-600 hover:bg-gray-100 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold"
+                                  onClick={() => setMobileOpen(false)}
+                                >
+                                  <span className="flex-1">{navItem.Text}</span>
+                                  {countLabel && (
+                                    <span className="text-gray-400 text-[11px] tabular-nums shrink-0">
+                                      {countLabel}
+                                    </span>
+                                  )}
+                                </LocalizedClientLink>
+                              )
+                            })}
                           </div>
                         )}
                       </div>
@@ -233,7 +260,13 @@ function packSectionsIntoColumns(sections: NavSection[]): PackedColumn[] {
 }
 
 // Desktop mega menu
-const DesktopNavMenu = ({ navLinks }: { navLinks: HeaderNavLink[] }) => {
+const DesktopNavMenu = ({
+  navLinks,
+  navCounts,
+}: {
+  navLinks: HeaderNavLink[]
+  navCounts?: NavCounts
+}) => {
   const [activeMenu, setActiveMenu] = useState<string | null>(null)
   const [isAnimating, setIsAnimating] = useState(false)
   const timeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -329,18 +362,36 @@ const DesktopNavMenu = ({ navLinks }: { navLinks: HeaderNavLink[] }) => {
                                   </LocalizedClientLink>
                                 </h3>
                                 <ul className="space-y-1 pl-2">
-                                  {section.items.map((navItem, subIndex) => (
-                                    <li key={subIndex} className="flex items-center gap-2">
-                                      <span className="w-1 h-1 rounded-full bg-Gold shrink-0" aria-hidden="true" />
-                                      <LocalizedClientLink
-                                        href={navItem.Url}
-                                        className="text-sm text-gray-600 hover:text-orange-600 transition-colors block py-1 hover:translate-x-1 transform duration-200"
-                                        onClick={() => setActiveMenu(null)}
+                                  {section.items.map((navItem, subIndex) => {
+                                    const countLabel = formatCount(
+                                      navCounts?.[navItem.Url],
+                                    )
+                                    return (
+                                      <li
+                                        key={subIndex}
+                                        className="flex items-center gap-2"
                                       >
-                                        {navItem.Text}
-                                      </LocalizedClientLink>
-                                    </li>
-                                  ))}
+                                        <span
+                                          className="w-1 h-1 rounded-full bg-Gold shrink-0"
+                                          aria-hidden="true"
+                                        />
+                                        <LocalizedClientLink
+                                          href={navItem.Url}
+                                          className="flex-1 flex items-baseline gap-2 text-sm text-gray-600 hover:text-orange-600 transition-colors py-1 hover:translate-x-1 transform duration-200"
+                                          onClick={() => setActiveMenu(null)}
+                                        >
+                                          <span className="flex-1">
+                                            {navItem.Text}
+                                          </span>
+                                          {countLabel && (
+                                            <span className="text-gray-400 text-xs tabular-nums shrink-0">
+                                              {countLabel}
+                                            </span>
+                                          )}
+                                        </LocalizedClientLink>
+                                      </li>
+                                    )
+                                  })}
                                 </ul>
                               </div>
                             ))}
@@ -430,9 +481,15 @@ const DesktopNavMenu = ({ navLinks }: { navLinks: HeaderNavLink[] }) => {
   )
 }
 
-const NavMenu = ({ navLinks }: { navLinks: HeaderNavLink[] }) => (
+const NavMenu = ({
+  navLinks,
+  navCounts,
+}: {
+  navLinks: HeaderNavLink[]
+  navCounts?: NavCounts
+}) => (
   <>
-    <DesktopNavMenu navLinks={navLinks} />
+    <DesktopNavMenu navLinks={navLinks} navCounts={navCounts} />
   </>
 )
 
