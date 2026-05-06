@@ -7,6 +7,7 @@ import {
   Dialog,
   DialogPanel,
   Transition,
+  TransitionChild,
   Combobox,
   ComboboxInput,
   ComboboxOptions,
@@ -293,7 +294,7 @@ export default function MobileSearch() {
       {/* Mobile search dialog */}
       <Transition show={isOpen} as={Fragment}>
         <Dialog onClose={handleClose} className="relative z-50">
-          <Transition
+          <TransitionChild
             as={Fragment}
             enter="ease-out duration-200"
             enterFrom="opacity-0"
@@ -303,9 +304,9 @@ export default function MobileSearch() {
             leaveTo="opacity-0"
           >
             <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
-          </Transition>
+          </TransitionChild>
 
-          <Transition
+          <TransitionChild
             as={Fragment}
             enter="ease-out duration-200"
             enterFrom="opacity-0 -translate-y-full"
@@ -331,7 +332,7 @@ export default function MobileSearch() {
                 </Combobox>
               </InstantSearch>
             </DialogPanel>
-          </Transition>
+          </TransitionChild>
         </Dialog>
       </Transition>
     </>
