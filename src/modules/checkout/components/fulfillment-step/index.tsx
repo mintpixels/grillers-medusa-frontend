@@ -4,12 +4,14 @@ import { useState, useMemo, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { HttpTypes } from "@medusajs/types"
 import { setFulfillmentDetails, setShippingMethod, type FulfillmentType } from "@lib/data/cart"
+import { saveAddressToProfileAndCart } from "@lib/data/customer"
 import { findShippingOptionByType } from "@lib/data/fulfillment"
 import { convertToLocale } from "@lib/util/money"
 import type { FulfillmentConfigData, PickupCreditConfig } from "@lib/data/strapi/checkout"
 import { useFulfillmentEdit } from "@modules/checkout/context/fulfillment-edit-context"
 import PlantPickupScheduling from "@modules/checkout/components/fulfillment-selector/scheduling/plant-pickup"
 import SoutheastPickupScheduling from "@modules/checkout/components/fulfillment-selector/scheduling/southeast-pickup"
+import AddressForm, { type DeliveryAddress } from "@modules/checkout/components/fulfillment-selector/address-form"
 
 type FulfillmentStepProps = {
   cart: HttpTypes.StoreCart
@@ -75,7 +77,7 @@ const fulfillmentLabels: Record<FulfillmentType, { label: string; description: s
   },
 }
 
-type SubStep = "select" | "plant_date" | "southeast_pickup"
+type SubStep = "select" | "plant_date" | "southeast_pickup" | "save_address"
 
 export default function FulfillmentStep({ cart, customer, config, availableFulfillmentTypes, pickupCreditConfig }: FulfillmentStepProps) {
   const router = useRouter()
@@ -87,6 +89,8 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
   const [pendingPickupDate, setPendingPickupDate] = useState("")
   const [pendingSELocationId, setPendingSELocationId] = useState("")
   const [pendingSEDate, setPendingSEDate] = useState("")
+  const [savingAddress, setSavingAddress] = useState(false)
+  const [saveAddressError, setSaveAddressError] = useState<string | null>(null)
 
   const attachShippingMethod = async (type: FulfillmentType) => {
     if (type === "ups_shipping") return
@@ -230,6 +234,63 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
   ]
 
   const options = allOptions
+
+  const hasSavedAddress = Boolean(activeAddress?.postal_code)
+  // Show the address CTA when:
+  //   1. logged-in customer with no address on file at all, OR
+  //   2. they have an address but it doesn't qualify for any local option
+  //      (Atlanta delivery, Southeast pickup) — they may want to switch to a
+  //      different address (e.g. office vs home) before falling back to UPS.
+  const addressUnlocksNothing =
+    hasSavedAddress &&
+    !availability.atlantaDelivery &&
+    !availability.southeastPickup &&
+    !availability.atlantaDeliveryReason?.startsWith("Add") &&
+    !availability.southeastReason?.startsWith("Add")
+  const showAddressCTA = Boolean(customer) && (!hasSavedAddress || addressUnlocksNothing)
+
+  const initialFormAddress: DeliveryAddress | null = activeAddress
+    ? {
+        firstName: activeAddress.first_name || customer?.first_name || "",
+        lastName: activeAddress.last_name || customer?.last_name || "",
+        address: activeAddress.address_1 || "",
+        city: activeAddress.city || "",
+        state: activeAddress.province || "GA",
+        zip: activeAddress.postal_code || "",
+        phone: activeAddress.phone || "",
+      }
+    : customer
+      ? {
+          firstName: customer.first_name || "",
+          lastName: customer.last_name || "",
+          address: "",
+          city: "",
+          state: "GA",
+          zip: "",
+          phone: customer.phone || "",
+        }
+      : null
+
+  const handleSaveAddress = async (addr: DeliveryAddress) => {
+    setSavingAddress(true)
+    setSaveAddressError(null)
+    const res = await saveAddressToProfileAndCart({
+      first_name: addr.firstName,
+      last_name: addr.lastName,
+      address_1: addr.address,
+      city: addr.city,
+      province: addr.state,
+      postal_code: addr.zip,
+      phone: addr.phone,
+    })
+    setSavingAddress(false)
+    if (!res.success) {
+      setSaveAddressError(res.error || "Could not save your address.")
+      return
+    }
+    setSubStep("select")
+    router.refresh()
+  }
 
   const handleSelectOption = async (option: FulfillmentType) => {
     if (isSubmitting) return
@@ -381,54 +442,118 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
           Select your preferred fulfillment method.
         </p>
 
-        <div className="grid grid-cols-2 gap-3">
-          {options.map((option) => (
-            <button
-              key={option.id}
-              type="button"
-              onClick={() => option.available && handleSelectOption(option.id)}
-              disabled={!option.available || isSubmitting}
-              className={`
-                relative p-4 rounded-xl border-2 text-left transition-all duration-200 bg-white
-                ${option.available && !isSubmitting
-                  ? "border-gray-200 hover:border-Gold hover:shadow-md cursor-pointer active:scale-[0.98]" 
-                  : "border-gray-100 bg-gray-50/80 cursor-not-allowed opacity-50"
-                }
-              `}
-            >
-              <div className="flex flex-col">
-                <div className={`mb-2.5 ${option.available ? "text-Charcoal/80" : "text-gray-400"}`}>
-                  {option.icon}
-                </div>
-                <h3 className={`font-semibold text-sm leading-tight ${option.available ? "text-Charcoal" : "text-gray-500"}`}>
-                  {option.title}
-                </h3>
-                <p className={`text-xs mt-0.5 leading-snug ${option.available ? "text-Charcoal/50" : "text-gray-400"}`}>
-                  {option.subtitle}
-                </p>
-
-                {option.id === "plant_pickup" && option.available && (
-                  <p className="text-xs text-green-600 mt-2.5 font-semibold leading-tight">
-                    {pickupCreditQualifies
-                      ? `${convertToLocale({ amount: pickupCreditConfig.creditAmount, currency_code: cart.currency_code })} pickup credit!`
-                      : `Add ${convertToLocale({ amount: pickupCreditAmountAway, currency_code: cart.currency_code })} for a ${convertToLocale({ amount: pickupCreditConfig.creditAmount, currency_code: cart.currency_code })} credit`
-                    }
-                  </p>
-                )}
-                
-                {!option.available && option.minimum > 0 && cartTotal < option.minimum && (
-                  <p className="text-xs text-amber-600 mt-2.5 font-semibold">
-                    Add {convertToLocale({ amount: option.amountAway, currency_code: cart.currency_code })} more
-                  </p>
-                )}
-                {!option.available && option.reason && cartTotal >= option.minimum && (
-                  <p className="text-xs text-Charcoal/60 mt-2.5 font-medium leading-tight">
-                    {option.reason}
-                  </p>
+        {/* CTA: address gate. Two flavors:
+            (a) no address on file → invite the customer to add one
+            (b) address on file but doesn't unlock Atlanta or Southeast →
+                show their current address with an "Edit" CTA so they can
+                try a different one (e.g. work vs home) before falling back
+                to UPS. Both save to BOTH the customer profile and the cart. */}
+        {showAddressCTA && (
+          <div className="mb-4 p-4 rounded-xl border border-Gold/30 bg-Gold/[0.07]">
+            <div className="flex items-start gap-3">
+              <svg className="w-5 h-5 text-Gold flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              <div className="flex-1 min-w-0">
+                {hasSavedAddress ? (
+                  <>
+                    <p className="text-sm font-semibold text-Charcoal leading-tight">
+                      Local delivery and pickup aren't available for this address
+                    </p>
+                    <p className="text-xs text-Charcoal/65 mt-1 leading-snug">
+                      Currently using <span className="font-medium">{[activeAddress?.address_1, activeAddress?.city, activeAddress?.province].filter(Boolean).join(", ")} {activeAddress?.postal_code}</span>. Try a different address to see more options.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm font-semibold text-Charcoal leading-tight">
+                      We don't have your delivery address yet
+                    </p>
+                    <p className="text-xs text-Charcoal/65 mt-1 leading-snug">
+                      Add one to unlock Atlanta delivery and Southeast pickup. We'll save it to your profile.
+                    </p>
+                  </>
                 )}
               </div>
-            </button>
-          ))}
+              <button
+                type="button"
+                onClick={() => { setSaveAddressError(null); setSubStep("save_address") }}
+                className="flex-shrink-0 h-9 px-3 text-xs font-semibold text-white bg-Gold rounded-lg hover:bg-Gold/90 transition-colors"
+              >
+                {hasSavedAddress ? "Edit Address" : "Add Address"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-3">
+          {options.map((option) => {
+            // A disabled card is "addressable" when the only blocker is a
+            // missing customer address. Clicking it jumps to the same
+            // save-address flow as the CTA banner.
+            const blockedByMissingAddress =
+              !option.available &&
+              showAddressCTA &&
+              cartTotal >= option.minimum &&
+              (option.id === "atlanta_delivery" || option.id === "southeast_pickup")
+            const clickable = (option.available || blockedByMissingAddress) && !isSubmitting
+            return (
+              <button
+                key={option.id}
+                type="button"
+                onClick={() => {
+                  if (option.available) handleSelectOption(option.id)
+                  else if (blockedByMissingAddress) {
+                    setSaveAddressError(null)
+                    setSubStep("save_address")
+                  }
+                }}
+                disabled={!clickable}
+                className={`
+                  relative p-4 rounded-xl border-2 text-left transition-all duration-200 bg-white
+                  ${option.available && !isSubmitting
+                    ? "border-gray-200 hover:border-Gold hover:shadow-md cursor-pointer active:scale-[0.98]"
+                    : blockedByMissingAddress
+                      ? "border-gray-200 hover:border-Gold hover:shadow-md cursor-pointer opacity-90"
+                      : "border-gray-100 bg-gray-50/80 cursor-not-allowed opacity-50"
+                  }
+                `}
+              >
+                <div className="flex flex-col">
+                  <div className={`mb-2.5 ${clickable ? "text-Charcoal/80" : "text-gray-400"}`}>
+                    {option.icon}
+                  </div>
+                  <h3 className={`font-semibold text-sm leading-tight ${clickable ? "text-Charcoal" : "text-gray-500"}`}>
+                    {option.title}
+                  </h3>
+                  <p className={`text-xs mt-0.5 leading-snug ${clickable ? "text-Charcoal/50" : "text-gray-400"}`}>
+                    {option.subtitle}
+                  </p>
+
+                  {option.id === "plant_pickup" && option.available && (
+                    <p className="text-xs text-green-600 mt-2.5 font-semibold leading-tight">
+                      {pickupCreditQualifies
+                        ? `${convertToLocale({ amount: pickupCreditConfig.creditAmount, currency_code: cart.currency_code })} pickup credit!`
+                        : `Add ${convertToLocale({ amount: pickupCreditAmountAway, currency_code: cart.currency_code })} for a ${convertToLocale({ amount: pickupCreditConfig.creditAmount, currency_code: cart.currency_code })} credit`
+                      }
+                    </p>
+                  )}
+
+                  {!option.available && option.minimum > 0 && cartTotal < option.minimum && (
+                    <p className="text-xs text-amber-600 mt-2.5 font-semibold">
+                      Add {convertToLocale({ amount: option.amountAway, currency_code: cart.currency_code })} more
+                    </p>
+                  )}
+                  {!option.available && option.reason && cartTotal >= option.minimum && (
+                    <p className={`text-xs mt-2.5 font-medium leading-tight ${blockedByMissingAddress ? "text-Gold" : "text-Charcoal/60"}`}>
+                      {blockedByMissingAddress ? "Add address to enable" : option.reason}
+                    </p>
+                  )}
+                </div>
+              </button>
+            )
+          })}
         </div>
 
         {error && (
@@ -437,6 +562,25 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
           </div>
         )}
       </div>
+
+      {/* Save Address sub-step */}
+      {showSelection && subStep === "save_address" && (
+        <div>
+          <AddressForm
+            initialAddress={initialFormAddress}
+            onSubmit={handleSaveAddress}
+            onBack={() => { setSaveAddressError(null); setSubStep("select") }}
+            atlantaZipCodes={[]}
+            isSubmitting={savingAddress}
+            mode="general"
+          />
+          {saveAddressError && (
+            <div className="mt-3 p-3 bg-red-50 border border-red-200/80 rounded-xl text-red-700 text-sm">
+              {saveAddressError}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Plant Pickup Date Selection */}
       {showSelection && subStep === "plant_date" && (
@@ -490,19 +634,21 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
               {fulfillmentLabels[fulfillmentType].description}
             </p>
 
-            {fulfillmentType === "southeast_pickup" && cart.metadata?.pickupLocationId && (
-              <div className="mt-2 flex items-center gap-1.5 text-sm text-Charcoal/70">
-                <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-                <span className="font-medium">
-                  {config.SoutheastPickupLocations?.find(
-                    (l) => l.id === cart.metadata?.pickupLocationId
-                  )?.Name || cart.metadata.pickupLocationId}
-                </span>
-              </div>
-            )}
+            {fulfillmentType === "southeast_pickup" && Boolean(cart.metadata?.pickupLocationId) && (() => {
+              const pickupLocationId = String(cart.metadata?.pickupLocationId)
+              const locationName =
+                config.SoutheastPickupLocations?.find((l) => l.id === pickupLocationId)?.Name ||
+                pickupLocationId
+              return (
+                <div className="mt-2 flex items-center gap-1.5 text-sm text-Charcoal/70">
+                  <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  <span className="font-medium">{locationName}</span>
+                </div>
+              )
+            })()}
 
             {fulfillmentType === "plant_pickup" && pickupCreditQualifies && (
               <div className="mt-2.5 inline-flex items-center gap-1.5 bg-green-50 text-green-700 text-xs font-semibold px-2.5 py-1 rounded-full">

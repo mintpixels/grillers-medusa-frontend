@@ -2,7 +2,7 @@
 
 import React, { useState } from "react"
 import { useRouter } from "next/navigation"
-import { loginWithCredentials, signupWithCredentials, signoutKeepCart } from "@lib/data/customer"
+import { loginWithCredentials, signupWithCredentials, signoutKeepCart, requestPasswordReset } from "@lib/data/customer"
 import { HttpTypes } from "@medusajs/types"
 
 const SmallSpinner = () => (
@@ -36,7 +36,7 @@ const WhyAccountInline: React.FC<{ open: boolean }> = ({ open }) => {
 
 const CheckoutLoginBanner: React.FC<Props> = ({ customer }) => {
   const router = useRouter()
-  const [mode, setMode] = useState<"prompt" | "signin" | "signup">("prompt")
+  const [mode, setMode] = useState<"prompt" | "signin" | "signup" | "forgot">("prompt")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [firstName, setFirstName] = useState("")
@@ -44,6 +44,7 @@ const CheckoutLoginBanner: React.FC<Props> = ({ customer }) => {
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showWhy, setShowWhy] = useState(false)
+  const [forgotSent, setForgotSent] = useState(false)
 
   const [loggingOut, setLoggingOut] = useState(false)
 
@@ -104,6 +105,21 @@ const CheckoutLoginBanner: React.FC<Props> = ({ customer }) => {
       } else {
         setError(result.error || "Invalid email or password")
       }
+    } catch {
+      setError("Something went wrong. Please try again.")
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!email) return
+    setIsSubmitting(true)
+    setError(null)
+    try {
+      await requestPasswordReset(email)
+      setForgotSent(true)
     } catch {
       setError("Something went wrong. Please try again.")
     } finally {
@@ -235,6 +251,16 @@ const CheckoutLoginBanner: React.FC<Props> = ({ customer }) => {
 
             {error && <p className="mt-3 text-xs text-rose-500">{error}</p>}
 
+            <div className="mt-3 text-right">
+              <button
+                type="button"
+                onClick={() => { setError(null); setPassword(""); setForgotSent(false); setMode("forgot") }}
+                className="text-xs text-Gold hover:text-Gold/80 font-medium transition-colors"
+              >
+                Forgot password?
+              </button>
+            </div>
+
             <div className="mt-4 pt-4 border-t border-gray-100 text-center">
               <button
                 type="button"
@@ -247,6 +273,73 @@ const CheckoutLoginBanner: React.FC<Props> = ({ customer }) => {
           </div>
         </div>
       </>
+    )
+  }
+
+  // Forgot-password form — same flow as the main account login's
+  // forgot-password view: POSTs the email to requestPasswordReset and
+  // shows a "check your email" confirmation regardless of whether the
+  // address exists (avoids user-enumeration).
+  if (mode === "forgot") {
+    if (forgotSent) {
+      return (
+        <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
+          <div className="p-5 sm:p-6 text-center">
+            <h3 className="text-base font-semibold text-Charcoal mb-2">Check your email</h3>
+            <p className="text-sm text-Charcoal/70 mb-5">
+              If an account exists for <span className="font-semibold">{email}</span>, we've sent a link to reset your password.
+            </p>
+            <button
+              type="button"
+              onClick={() => { setForgotSent(false); setMode("signin") }}
+              className="text-xs text-Gold hover:text-Gold/80 font-medium transition-colors"
+            >
+              Back to sign in
+            </button>
+          </div>
+        </div>
+      )
+    }
+    return (
+      <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
+        <div className="p-5 sm:p-6">
+          <div className="flex items-center justify-between mb-5">
+            <h3 className="text-base font-semibold text-Charcoal">Reset your password</h3>
+            <button
+              type="button"
+              onClick={() => { setError(null); setMode("signin") }}
+              className="text-xs text-Gold hover:text-Gold/80 font-medium"
+            >
+              Back to sign in
+            </button>
+          </div>
+
+          <p className="text-sm text-Charcoal/60 mb-4">
+            Enter your email and we'll send you a link to reset your password.
+          </p>
+
+          <form onSubmit={handleForgotPassword} className="space-y-3">
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Email address"
+              required
+              autoFocus
+              className="w-full h-10 px-3 text-sm bg-ui-bg-field border border-ui-border-base rounded-md focus:outline-none focus:ring-1 focus:ring-Gold focus:border-Gold"
+            />
+            <button
+              type="submit"
+              disabled={isSubmitting || !email}
+              className="w-full h-11 text-sm font-semibold text-white bg-Gold rounded-lg hover:bg-Gold/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {isSubmitting ? <span className="flex items-center justify-center gap-2"><SmallSpinner /> Sending...</span> : "Send reset link"}
+            </button>
+          </form>
+
+          {error && <p className="mt-3 text-xs text-rose-500">{error}</p>}
+        </div>
+      </div>
     )
   }
 

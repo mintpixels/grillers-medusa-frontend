@@ -246,7 +246,11 @@ export const retrieveCustomer =
       .fetch<{ customer: HttpTypes.StoreCustomer }>(`/store/customers/me`, {
         method: "GET",
         query: {
-          fields: "*orders",
+          // Expand BOTH orders and addresses. Without `*addresses` Medusa
+          // omits the customer's saved addresses, which the checkout flow
+          // (and the "Add Address" CTA) depend on to detect whether a
+          // logged-in customer already has a delivery address on file.
+          fields: "*orders,*addresses",
         },
         headers,
         next,
@@ -483,6 +487,86 @@ export const addCustomerAddress = async (
     .catch((err) => {
       return { success: false, error: err.toString() }
     })
+}
+
+/**
+ * Save a delivery address to BOTH the customer's address book and the
+ * current cart's shipping_address. Used by the checkout flow's
+ * "Add your address" CTA so logged-in customers can unlock local delivery
+ * and pickup options whose eligibility depends on a postal code.
+ *
+ * Idempotent on the customer side: if an address with the same
+ * address_1 + postal_code already exists, we skip the createAddress call.
+ */
+export async function saveAddressToProfileAndCart(input: {
+  first_name: string
+  last_name: string
+  address_1: string
+  city: string
+  province: string
+  postal_code: string
+  phone: string
+  country_code?: string
+}): Promise<{ success: boolean; error: string | null }> {
+  const headers = { ...(await getAuthHeaders()) }
+  const country = (input.country_code || "us").toLowerCase()
+  const addressPayload = {
+    first_name: input.first_name,
+    last_name: input.last_name,
+    address_1: input.address_1,
+    city: input.city,
+    province: input.province,
+    postal_code: input.postal_code,
+    country_code: country,
+    phone: input.phone,
+  }
+
+  try {
+    const me = await retrieveCustomer()
+    const alreadyOnFile = (me?.addresses || []).some(
+      (a) =>
+        (a.address_1 || "").trim().toLowerCase() ===
+          input.address_1.trim().toLowerCase() &&
+        (a.postal_code || "").trim() === input.postal_code.trim()
+    )
+    const customerHadNoAddresses = (me?.addresses || []).length === 0
+
+    if (!alreadyOnFile) {
+      await sdk.store.customer.createAddress(
+        {
+          ...addressPayload,
+          // First saved address becomes the default for shipping + billing.
+          is_default_shipping: customerHadNoAddresses,
+          is_default_billing: customerHadNoAddresses,
+        },
+        {},
+        headers
+      )
+      revalidateTag(await getCacheTag("customers"))
+    }
+
+    const cartId = await getCartId()
+    if (cartId) {
+      await sdk.store.cart.update(
+        cartId,
+        {
+          shipping_address: addressPayload,
+          billing_address: addressPayload,
+        },
+        {},
+        headers
+      )
+      revalidateTag(await getCacheTag("carts"))
+      revalidateTag(await getCacheTag("fulfillment"))
+    }
+
+    return { success: true, error: null }
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err?.message || "Could not save your address. Please try again.",
+    }
+  }
 }
 
 export const deleteCustomerAddress = async (
