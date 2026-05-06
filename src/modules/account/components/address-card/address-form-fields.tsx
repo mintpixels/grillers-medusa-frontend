@@ -7,6 +7,7 @@ import USStateSelect, {
 } from "@modules/common/components/us-state-select"
 import AddressAutocomplete from "@modules/checkout/components/address-autocomplete"
 import { HttpTypes } from "@medusajs/types"
+import { unscrambleAddress } from "@lib/util/format-address"
 
 type AddressFormFieldsProps = {
   defaults?: Partial<HttpTypes.StoreCustomerAddress> | null
@@ -29,11 +30,14 @@ const AddressFormFields: React.FC<AddressFormFieldsProps> = ({
   showDefaultFlags = true,
   isOnlyAddress = false,
 }) => {
-  const [address1, setAddress1] = useState(defaults?.address_1 || "")
-  const [city, setCity] = useState(defaults?.city || "")
-  const [postalCode, setPostalCode] = useState(defaults?.postal_code || "")
+  // Unswap historically corrupted records (#24 / #76) so the form pre-fills
+  // with the right values and the next Save writes them back correctly.
+  const fixed = defaults ? unscrambleAddress(defaults) : null
+  const [address1, setAddress1] = useState(fixed?.address_1 || "")
+  const [city, setCity] = useState(fixed?.city || "")
+  const [postalCode, setPostalCode] = useState(fixed?.postal_code || "")
   const [stateCode, setStateCode] = useState(
-    normalizeStateCode(defaults?.province) || ""
+    normalizeStateCode(fixed?.province) || ""
   )
 
   const handleAddressSelect = (fields: {
@@ -57,7 +61,7 @@ const AddressFormFields: React.FC<AddressFormFieldsProps> = ({
           name="first_name"
           required
           autoComplete="given-name"
-          defaultValue={defaults?.first_name || undefined}
+          defaultValue={fixed?.first_name || undefined}
           data-testid="first-name-input"
         />
         <Input
@@ -65,7 +69,7 @@ const AddressFormFields: React.FC<AddressFormFieldsProps> = ({
           name="last_name"
           required
           autoComplete="family-name"
-          defaultValue={defaults?.last_name || undefined}
+          defaultValue={fixed?.last_name || undefined}
           data-testid="last-name-input"
         />
       </div>
@@ -73,7 +77,7 @@ const AddressFormFields: React.FC<AddressFormFieldsProps> = ({
         label="Company"
         name="company"
         autoComplete="organization"
-        defaultValue={defaults?.company || undefined}
+        defaultValue={fixed?.company || undefined}
         data-testid="company-input"
       />
       <AddressAutocomplete
@@ -90,7 +94,7 @@ const AddressFormFields: React.FC<AddressFormFieldsProps> = ({
         label="Apartment, suite, etc."
         name="address_2"
         autoComplete="address-line2"
-        defaultValue={defaults?.address_2 || undefined}
+        defaultValue={fixed?.address_2 || undefined}
         data-testid="address-2-input"
       />
       <div className="grid grid-cols-[144px_1fr] gap-x-2">
@@ -127,7 +131,7 @@ const AddressFormFields: React.FC<AddressFormFieldsProps> = ({
         label="Phone"
         name="phone"
         autoComplete="phone"
-        defaultValue={defaults?.phone || undefined}
+        defaultValue={fixed?.phone || undefined}
         data-testid="phone-input"
       />
 
@@ -142,7 +146,7 @@ const AddressFormFields: React.FC<AddressFormFieldsProps> = ({
               name="is_default_shipping"
               value="on"
               defaultChecked={
-                isOnlyAddress || defaults?.is_default_shipping || false
+                isOnlyAddress || fixed?.is_default_shipping || false
               }
               className="h-4 w-4"
               data-testid="default-shipping-checkbox"
@@ -155,7 +159,7 @@ const AddressFormFields: React.FC<AddressFormFieldsProps> = ({
               name="is_default_billing"
               value="on"
               defaultChecked={
-                isOnlyAddress || defaults?.is_default_billing || false
+                isOnlyAddress || fixed?.is_default_billing || false
               }
               className="h-4 w-4"
               data-testid="default-billing-checkbox"
