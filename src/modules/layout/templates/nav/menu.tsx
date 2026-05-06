@@ -151,19 +151,31 @@ export const MobileNavMenu = ({
                     role="group"
                     aria-label={`${item.title} submenu`}
                   >
-                    {item.sections.map((section, sectionIdx) => (
+                    {item.sections.map((section, sectionIdx) => {
+                      const headerUrl = `/collections/kosher-${section.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`
+                      const headerCountLabel = formatCount(
+                        navCounts?.[headerUrl],
+                      )
+                      return (
                       <div key={sectionIdx} className="mb-3">
                         <button
-                          onClick={() => 
+                          onClick={() =>
                             setExpandedSection(
-                              expandedSection === `${idx}-${sectionIdx}` 
-                                ? null 
+                              expandedSection === `${idx}-${sectionIdx}`
+                                ? null
                                 : `${idx}-${sectionIdx}`
                             )
                           }
                           className="w-full text-left px-4 py-1 text-xs font-semibold text-gray-700 flex items-center justify-between"
                         >
-                          {section.title}
+                          <span className="flex items-baseline gap-2">
+                            <span>{section.title}</span>
+                            {headerCountLabel && (
+                              <span className="text-gray-400 text-[11px] font-normal tabular-nums">
+                                {headerCountLabel}
+                              </span>
+                            )}
+                          </span>
                           <Image
                             className={classNames(
                               "ml-1 transform transition-transform duration-200",
@@ -203,7 +215,8 @@ export const MobileNavMenu = ({
                           </div>
                         )}
                       </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 )}
               </div>
@@ -350,16 +363,26 @@ const DesktopNavMenu = ({
                       <div className="flex gap-6">
                         {packSectionsIntoColumns(item.sections).map((column, colIdx) => (
                           <div key={colIdx} className="flex-1 min-w-0 space-y-6">
-                            {column.map((section, secIdx) => (
+                            {column.map((section, secIdx) => {
+                              const headerUrl = `/collections/kosher-${section.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`
+                              const headerCountLabel = formatCount(
+                                navCounts?.[headerUrl],
+                              )
+                              return (
                               <div key={secIdx} className="space-y-3">
-                                <h3 className="text-sm font-semibold text-gray-900 border-b border-orange-200 pb-2">
+                                <h3 className="text-sm font-semibold text-gray-900 border-b border-orange-200 pb-2 flex items-baseline gap-2">
                                   <LocalizedClientLink
-                                    href={`/collections/kosher-${section.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`}
-                                    className="hover:text-orange-600 transition-colors"
+                                    href={headerUrl}
+                                    className="flex-1 hover:text-orange-600 transition-colors"
                                     onClick={() => setActiveMenu(null)}
                                   >
                                     {section.title}
                                   </LocalizedClientLink>
+                                  {headerCountLabel && (
+                                    <span className="text-gray-400 text-xs font-normal tabular-nums shrink-0">
+                                      {headerCountLabel}
+                                    </span>
+                                  )}
                                 </h3>
                                 <ul className="space-y-1 pl-2">
                                   {section.items.map((navItem, subIndex) => {
@@ -394,7 +417,8 @@ const DesktopNavMenu = ({
                                   })}
                                 </ul>
                               </div>
-                            ))}
+                              )
+                            })}
                           </div>
                         ))}
                       </div>

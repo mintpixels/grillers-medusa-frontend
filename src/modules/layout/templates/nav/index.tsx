@@ -22,12 +22,26 @@ export default async function Nav({ customer }: NavProps = {}) {
   // Live count badge per nav link — derived from Strapi product→tag data,
   // mirroring the storefront's `containsi` filter so the badge matches what
   // the user lands on after clicking. Cached for 5 min on the server side.
+  // We collect URLs for both section sub-items AND each section's synthetic
+  // header URL (`/collections/kosher-{slug-of-title}`), so the column header
+  // (e.g. "Beef", "Chicken") gets a badge too.
+  const sectionHeaderUrl = (title: string): string => {
+    const slug = title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "")
+    return `/collections/kosher-${slug}`
+  }
   const navUrls = Array.from(
     new Set(
       navLinks.flatMap((link) =>
-        (link.sections ?? []).flatMap((s) =>
-          (s.items ?? []).map((i) => i.Url).filter(Boolean) as string[],
-        ),
+        (link.sections ?? []).flatMap((s) => {
+          const headerUrl = sectionHeaderUrl(s.title)
+          const itemUrls = (s.items ?? [])
+            .map((i) => i.Url)
+            .filter((u): u is string => Boolean(u))
+          return [headerUrl, ...itemUrls]
+        }),
       ),
     ),
   )
