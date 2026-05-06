@@ -124,7 +124,16 @@ async function loadDataset(): Promise<CacheEntry> {
   }
 }
 
-function tagValueForCollectionSlug(
+// The storefront's collection page resolves /collections/<slug> by finding
+// the Strapi tag whose generated slug matches, then runs
+//   contains: tag.Name
+// against ProductTags.Name. We mirror that precisely so the nav badge
+// matches what the user lands on after clicking — including the implicit
+// "case-sensitive substring of the FULL tag name" semantics of Strapi's
+// `contains` operator. Crucially, we count using the *full* tag name
+// (e.g. "L2: Beef"), not the extracted value ("Beef") — the L2/L3 prefix
+// is what scopes "L3: Brisket" away from "L3: Whole Packer Brisket".
+function fullTagNameForCollectionSlug(
   slug: string,
   uniqueTagNames: Set<string>,
 ): string | null {
@@ -132,19 +141,18 @@ function tagValueForCollectionSlug(
   uniqueTagNames.forEach((tagName) => {
     if (result) return
     const value = extractTagValue(tagName)
-    if (generateTagSlug(value) === slug) result = value
+    if (generateTagSlug(value) === slug) result = tagName
   })
   return result
 }
 
-async function countProductsContainingTag(
+async function countProductsContainingTagSubstring(
   needle: string,
   products: ProductTagSet[],
 ): Promise<number> {
-  const lower = needle.toLowerCase()
   let count = 0
   for (const p of products) {
-    if (p.tags.some((t) => t.toLowerCase().includes(lower))) count++
+    if (p.tags.some((t) => t.includes(needle))) count++
   }
   return count
 }
@@ -188,10 +196,10 @@ export async function countForNavUrl(url: string): Promise<number | null> {
     return countProductsInCollection(slug)
   }
 
-  const tagValue = tagValueForCollectionSlug(slug, data.uniqueTagNames)
-  if (!tagValue) return null
+  const fullTagName = fullTagNameForCollectionSlug(slug, data.uniqueTagNames)
+  if (!fullTagName) return null
 
-  return countProductsContainingTag(tagValue, data.products)
+  return countProductsContainingTagSubstring(fullTagName, data.products)
 }
 
 export async function countsForNavUrls(
