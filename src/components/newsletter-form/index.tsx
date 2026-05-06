@@ -4,6 +4,12 @@ import { useState, FormEvent, useId } from "react"
 import { subscribeToNewsletter } from "@lib/data/newsletter"
 import { jitsuTrack } from "@lib/jitsu"
 
+// Identifier for the consent text the user saw at sign-up time. Bump this
+// (and update the form copy + this constant in lockstep) any time the
+// privacy / frequency / unsubscribe language below the form changes — the
+// audit log uses this string to prove what disclosure they agreed to.
+const NEWSLETTER_CONSENT_VERSION = "v1-2026-05"
+
 type NewsletterFormProps = {
   title?: string
   description?: string
@@ -36,14 +42,63 @@ export default function NewsletterForm({
     setIsSubmitting(true)
     setStatus("idle")
 
-    const result = await subscribeToNewsletter(email, source)
+    // Prefer the new self-hosted proxy at /api/newsletter/subscribe so we
+    // capture full opt-in metadata (IP, UA, source URL, consent version)
+    // for the audit log. Fall back to the legacy `subscribeToNewsletter`
+    // server action only on transport errors so existing Klaviyo / Mailchimp
+    // / log-only callers keep working in environments where the new
+    // service isn't configured.
+    let success = false
+    let resultMessage: string | undefined
+    let resultError: string | undefined
 
-    if (result.success) {
+    try {
+      const res = await fetch("/api/newsletter/subscribe", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          email,
+          source,
+          source_url:
+            typeof window !== "undefined" ? window.location.href : undefined,
+          consent_version: NEWSLETTER_CONSENT_VERSION,
+          referrer:
+            typeof document !== "undefined" && document.referrer
+              ? document.referrer
+              : undefined,
+        }),
+      })
+
+      if (res.ok) {
+        success = true
+        resultMessage = successMessage
+      } else if (res.status === 503) {
+        // Service not configured — fall through to legacy provider so the
+        // form still works in dev / staging without the env vars set.
+        const legacy = await subscribeToNewsletter(email, source)
+        success = legacy.success
+        resultMessage = legacy.message
+        resultError = legacy.error
+      } else if (res.status === 400) {
+        resultError = errorMessage
+      } else {
+        resultError = "Unable to subscribe. Please try again later."
+      }
+    } catch (err) {
+      // Network / transport failure — try the legacy path so a misconfigured
+      // proxy doesn't drop a real signup on the floor.
+      const legacy = await subscribeToNewsletter(email, source)
+      success = legacy.success
+      resultMessage = legacy.message
+      resultError = legacy.error
+    }
+
+    if (success) {
       jitsuTrack("email_signup", { source })
       setStatus("success")
-      setMessage(result.message || successMessage)
+      setMessage(resultMessage || successMessage)
       setEmail("")
-      
+
       // Reset success message after 5 seconds
       setTimeout(() => {
         setStatus("idle")
@@ -51,7 +106,7 @@ export default function NewsletterForm({
       }, 5000)
     } else {
       setStatus("error")
-      setMessage(result.error || errorMessage)
+      setMessage(resultError || errorMessage)
     }
 
     setIsSubmitting(false)
