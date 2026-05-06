@@ -173,7 +173,7 @@ export default async function Footer() {
     { id: "default-legal-tou", Text: "Terms of Use", Url: "/page/terms-of-use" },
     // Self-hosted newsletter subscriber console (#77). Lives next to the
     // privacy / terms links so it's discoverable as an opt-out control.
-    { id: "default-email-preferences", Text: "Email preferences", Url: "/email-preferences" },
+    { id: "default-email-preferences", Text: "Email Preferences", Url: "/email-preferences" },
   ]
   const legalLinks = (() => {
     const strapiLinks = footer?.LegalLinks ?? []
