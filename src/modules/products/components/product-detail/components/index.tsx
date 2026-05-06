@@ -205,16 +205,17 @@ export default function ProductDetail({
   // Build breadcrumb items.
   // Order of preference: Medusa product.categories (Medusa-managed category
   // tree) → Medusa product.collection → Strapi ProductCollections (the
-  // collections used in the storefront's nav) → Strapi L2 product tag.
+  // collections used in the storefront's nav, now nested under
+  // Categorization) → Strapi L2 product tag.
   const strapiData = strapiProductData as any
-  const strapiCollection = strapiData?.ProductCollections?.[0]
+  const strapiCollection = strapiData?.Categorization?.ProductCollections?.[0]
   const strapiL2Tag = strapiData?.Categorization?.ProductTags?.find(
     (t: { Name: string }) => t.Name?.startsWith("L2:")
   )
   const fallbackCollection =
     product.collection ||
     (strapiCollection
-      ? { title: strapiCollection.Title, handle: strapiCollection.Handle }
+      ? { title: strapiCollection.Name, handle: strapiCollection.Slug }
       : strapiL2Tag
         ? {
             title: strapiL2Tag.Name.replace(/^L2:\s*/, ""),
