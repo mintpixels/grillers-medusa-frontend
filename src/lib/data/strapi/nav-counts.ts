@@ -57,8 +57,10 @@ async function loadDataset(): Promise<CacheEntry> {
         "populate[Categorization][populate][ProductTags][fields][0]",
         "Name",
       )
-      url.searchParams.set("pagination[pageSize]", String(pageSize))
+      // Strapi rejects mixing `pageSize` (page-based) with `start`
+      // (offset-based). Use `start` + `limit` for offset pagination.
       url.searchParams.set("pagination[start]", String(start))
+      url.searchParams.set("pagination[limit]", String(pageSize))
 
       const res = await fetch(url.toString(), {
         headers,
@@ -88,7 +90,7 @@ async function loadDataset(): Promise<CacheEntry> {
     try {
       const cu = new URL(`${endpoint}/api/product-collections`)
       cu.searchParams.set("fields[0]", "Slug")
-      cu.searchParams.set("pagination[pageSize]", "200")
+      cu.searchParams.set("pagination[limit]", "200")
       const cr = await fetch(cu.toString(), {
         headers,
         next: { revalidate: 300 },
@@ -161,7 +163,8 @@ async function countProductsInCollection(
     "filters[Categorization][ProductCollections][Slug][$eq]",
     slug,
   )
-  u.searchParams.set("pagination[pageSize]", "1")
+  u.searchParams.set("pagination[limit]", "1")
+  u.searchParams.set("pagination[withCount]", "true")
   const res = await fetch(u.toString(), {
     headers: { Authorization: `Bearer ${token}` },
     next: { revalidate: 300 },
