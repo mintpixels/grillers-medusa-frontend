@@ -16,7 +16,17 @@ type Recipe = {
   ShortDescription: string
 }
 
-export default function HowItFitsSection({ recipes }: { recipes: Recipe[] }) {
+export default function HowItFitsSection({
+  recipes,
+}: {
+  recipes?: Recipe[] | null
+}) {
+  // Strapi product → Recipes is an optional relation. Bail entirely when
+  // the product has no recipes attached — calling .map on undefined was
+  // the actual cause of the PDP "Something went wrong" boundary on every
+  // recipe-less SKU (#75).
+  if (!recipes?.length) return null
+
   return (
     <section className="py-16 md:py-32 bg-Scroll overflow-hidden">
       <div className="mx-auto max-w-7xl px-4.5">
