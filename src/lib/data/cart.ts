@@ -1,6 +1,7 @@
 "use server"
 
 import { sdk } from "@lib/config"
+import { isSameAddressKey } from "@lib/util/compare-addresses"
 import medusaError from "@lib/util/medusa-error"
 import { HttpTypes } from "@medusajs/types"
 import { revalidateTag } from "next/cache"
@@ -523,17 +524,21 @@ export async function setAddresses(currentState: unknown, formData: FormData) {
 
     await updateCart(data)
 
-    // Save address to customer account for future orders
+    // Save address to customer account for future orders.
+    // Note: this only runs for customers who are already authenticated when
+    // setAddresses fires. The register-during-checkout case is handled by
+    // saveCartAddressesToAccount in customer.ts (Path A) and
+    // persistOrderShippingAddressToAccount below in placeOrder (Path B).
+    // See issue #74.
     try {
       const headers = { ...(await getAuthHeaders()) }
-      if (headers.authorization) {
-        const { customer } = await sdk.store.customer.retrieve(headers)
-        const existingAddresses = customer?.addresses || []
-        const normalizedNew = `${data.shipping_address.address_1}|${data.shipping_address.postal_code}`.toLowerCase().trim()
-        const isDuplicate = existingAddresses.some(
-          (a: any) => `${a.address_1}|${a.postal_code}`.toLowerCase().trim() === normalizedNew
-        )
-        if (!isDuplicate && data.shipping_address.address_1) {
+      if ("authorization" in headers && (headers as any).authorization) {
+        const { customer } = await sdk.store.customer.retrieve({}, headers)
+        const existingAddresses: any[] = customer?.addresses || []
+        if (
+          data.shipping_address.address_1 &&
+          !existingAddresses.some((a) => isSameAddressKey(a, data.shipping_address))
+        ) {
           await sdk.store.customer.createAddress(
             {
               first_name: data.shipping_address.first_name as string,
@@ -547,6 +552,7 @@ export async function setAddresses(currentState: unknown, formData: FormData) {
               country_code: data.shipping_address.country_code as string,
               phone: (data.shipping_address.phone as string) || "",
               is_default_shipping: existingAddresses.length === 0,
+              is_default_billing: existingAddresses.length === 0,
             },
             {},
             headers
@@ -615,11 +621,68 @@ export async function placeOrder(cartId?: string) {
     const orderCacheTag = await getCacheTag("orders")
     revalidateTag(orderCacheTag)
 
+    // Issue #74 — Path B (belt-and-suspenders): if the customer is logged in
+    // (e.g. registered earlier in this checkout flow, or partway through),
+    // make sure the order's shipping address ends up in their address book.
+    // Idempotent — skips when an equivalent address already exists.
+    await persistOrderShippingAddressToAccount(cartRes.order)
+
     removeCartId()
     redirect(`/${countryCode}/order/${cartRes?.order.id}/confirmed`)
   }
 
   return cartRes.cart
+}
+
+/**
+ * Issue #74 — best-effort: copy the just-completed order's shipping address
+ * into the logged-in customer's address book if it's not already there.
+ * Silent on every failure mode (guest checkout, no-auth, network blip, etc.)
+ * so it can never block the order-confirmation redirect.
+ */
+async function persistOrderShippingAddressToAccount(
+  order: HttpTypes.StoreOrder
+): Promise<void> {
+  try {
+    const headers = { ...(await getAuthHeaders()) }
+    if (!("authorization" in headers) || !(headers as any).authorization) {
+      return
+    }
+
+    const shipping = order?.shipping_address
+    if (!shipping?.address_1) return
+
+    const { customer } = await sdk.store.customer.retrieve({}, headers)
+    if (!customer) return
+
+    const existing: any[] = customer.addresses || []
+    if (existing.some((a) => isSameAddressKey(a, shipping))) return
+
+    await sdk.store.customer.createAddress(
+      {
+        first_name: shipping.first_name || "",
+        last_name: shipping.last_name || "",
+        address_1: shipping.address_1 || "",
+        address_2: shipping.address_2 || "",
+        company: shipping.company || "",
+        city: shipping.city || "",
+        postal_code: shipping.postal_code || "",
+        province: shipping.province || "",
+        country_code: shipping.country_code || "",
+        phone: shipping.phone || "",
+        // Only mark default if the address book was previously empty.
+        is_default_shipping: existing.length === 0,
+        is_default_billing: existing.length === 0,
+      },
+      {},
+      headers
+    )
+
+    const customerCacheTag = await getCacheTag("customers")
+    revalidateTag(customerCacheTag)
+  } catch {
+    // Non-critical — never block the order-confirmation redirect.
+  }
 }
 
 /**

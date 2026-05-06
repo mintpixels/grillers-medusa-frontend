@@ -2,6 +2,7 @@
 
 import { sdk } from "@lib/config"
 import medusaError from "@lib/util/medusa-error"
+import { isSameAddressKey } from "@lib/util/compare-addresses"
 import { HttpTypes } from "@medusajs/types"
 import { revalidateTag } from "next/cache"
 import { redirect } from "next/navigation"
@@ -14,6 +15,96 @@ import {
   removeCartId,
   setAuthToken,
 } from "./cookies"
+
+/**
+ * Issue #74 — When an account is created during checkout, the cart's
+ * shipping address never lands in the customer's address book. After the
+ * customer is created and authenticated, copy the cart's shipping (and
+ * distinct billing) address into the address book so the customer's first
+ * order populates "saved addresses".
+ *
+ * Idempotent: skips addresses that already match (address_1 + postal_code +
+ * country_code, normalized). Marks the first inserted address as default
+ * shipping/billing only when the address book is currently empty.
+ */
+async function saveCartAddressesToAccount(): Promise<void> {
+  try {
+    const cartId = await getCartId()
+    if (!cartId) return
+
+    const headers = { ...(await getAuthHeaders()) }
+    if (!("authorization" in headers) || !(headers as any).authorization) return
+
+    // Pull the cart fresh — the auth context just changed, so go direct
+    // (no-cache) rather than reusing a possibly-stale cached response.
+    const { cart } = await sdk.client.fetch<HttpTypes.StoreCartResponse>(
+      `/store/carts/${cartId}`,
+      {
+        method: "GET",
+        headers,
+        cache: "no-store",
+      }
+    )
+
+    const shipping = cart?.shipping_address
+    if (!shipping?.address_1) return
+
+    const { customer } = await sdk.store.customer.retrieve({}, headers)
+    const existing: any[] = customer?.addresses || []
+    const isFirstAddress = existing.length === 0
+
+    if (!existing.some((a) => isSameAddressKey(a, shipping))) {
+      await sdk.store.customer.createAddress(
+        {
+          first_name: shipping.first_name || "",
+          last_name: shipping.last_name || "",
+          address_1: shipping.address_1 || "",
+          address_2: shipping.address_2 || "",
+          company: shipping.company || "",
+          city: shipping.city || "",
+          postal_code: shipping.postal_code || "",
+          province: shipping.province || "",
+          country_code: shipping.country_code || "",
+          phone: shipping.phone || "",
+          is_default_shipping: isFirstAddress,
+          is_default_billing: isFirstAddress,
+        },
+        {},
+        headers
+      )
+    }
+
+    const billing = cart?.billing_address
+    if (
+      billing?.address_1 &&
+      !isSameAddressKey(billing, shipping) &&
+      !existing.some((a) => isSameAddressKey(a, billing))
+    ) {
+      await sdk.store.customer.createAddress(
+        {
+          first_name: billing.first_name || "",
+          last_name: billing.last_name || "",
+          address_1: billing.address_1 || "",
+          address_2: billing.address_2 || "",
+          company: billing.company || "",
+          city: billing.city || "",
+          postal_code: billing.postal_code || "",
+          province: billing.province || "",
+          country_code: billing.country_code || "",
+          phone: billing.phone || "",
+        },
+        {},
+        headers
+      )
+    }
+
+    const customerCacheTag = await getCacheTag("customers")
+    revalidateTag(customerCacheTag)
+  } catch {
+    // Non-critical — never block account creation or order completion if
+    // saving the address to the book fails.
+  }
+}
 
 export async function requestPasswordReset(email: string) {
   try {
@@ -104,6 +195,11 @@ export async function signupWithCredentials(data: {
     const customerCacheTag = await getCacheTag("customers")
     revalidateTag(customerCacheTag)
     await transferCart()
+
+    // Issue #74 — Path A: copy the in-flight cart's shipping address to the
+    // newly-created customer's address book so first-order checkout
+    // populates "saved addresses".
+    await saveCartAddressesToAccount()
 
     return { success: true, error: null }
   } catch (error: any) {
@@ -213,6 +309,11 @@ export async function signup(_currentState: unknown, formData: FormData) {
     revalidateTag(customerCacheTag)
 
     await transferCart()
+
+    // Issue #74 — Path A: copy the in-flight cart's shipping address to the
+    // newly-created customer's address book so first-order checkout
+    // populates "saved addresses".
+    await saveCartAddressesToAccount()
 
     return createdCustomer
   } catch (error: any) {
