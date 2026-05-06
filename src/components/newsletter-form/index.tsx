@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, FormEvent, useId } from "react"
+import { toast } from "@medusajs/ui"
 import { subscribeToNewsletter } from "@lib/data/newsletter"
 import { jitsuTrack } from "@lib/jitsu"
 
@@ -32,15 +33,12 @@ export default function NewsletterForm({
   variant = "default",
 }: NewsletterFormProps) {
   const [email, setEmail] = useState("")
-  const [status, setStatus] = useState<"idle" | "success" | "error">("idle")
-  const [message, setMessage] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const formId = useId()
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
-    setStatus("idle")
 
     // Prefer the new self-hosted proxy at /api/newsletter/subscribe so we
     // capture full opt-in metadata (IP, UA, source URL, consent version)
@@ -73,8 +71,6 @@ export default function NewsletterForm({
         success = true
         resultMessage = successMessage
       } else if (res.status === 503) {
-        // Service not configured — fall through to legacy provider so the
-        // form still works in dev / staging without the env vars set.
         const legacy = await subscribeToNewsletter(email, source)
         success = legacy.success
         resultMessage = legacy.message
@@ -85,8 +81,6 @@ export default function NewsletterForm({
         resultError = "Unable to subscribe. Please try again later."
       }
     } catch (err) {
-      // Network / transport failure — try the legacy path so a misconfigured
-      // proxy doesn't drop a real signup on the floor.
       const legacy = await subscribeToNewsletter(email, source)
       success = legacy.success
       resultMessage = legacy.message
@@ -95,18 +89,12 @@ export default function NewsletterForm({
 
     if (success) {
       jitsuTrack("email_signup", { source })
-      setStatus("success")
-      setMessage(resultMessage || successMessage)
+      toast.success(resultMessage || successMessage, {
+        description: "We'll only email 2-3 times a year, before each holiday.",
+      })
       setEmail("")
-
-      // Reset success message after 5 seconds
-      setTimeout(() => {
-        setStatus("idle")
-        setMessage("")
-      }, 5000)
     } else {
-      setStatus("error")
-      setMessage(resultError || errorMessage)
+      toast.error(resultError || errorMessage)
     }
 
     setIsSubmitting(false)
@@ -140,7 +128,6 @@ export default function NewsletterForm({
             Email address
           </label>
           <div className="flex items-center bg-Charcoal/[0.04] rounded-lg overflow-hidden shadow-lg ring-1 ring-Charcoal/20">
-            {/* Mail icon */}
             <div className="pl-4 pr-2 flex items-center pointer-events-none">
               <svg
                 className="w-5 h-5 text-Charcoal/40"
@@ -160,19 +147,11 @@ export default function NewsletterForm({
               id={`${formId}-email`}
               type="email"
               value={email}
-              onChange={(e) => {
-                setEmail(e.target.value)
-                if (status === "error") {
-                  setStatus("idle")
-                  setMessage("")
-                }
-              }}
+              onChange={(e) => setEmail(e.target.value)}
               placeholder={placeholderText}
               className="flex-1 bg-transparent text-Charcoal placeholder:text-Charcoal/40 px-2 py-4 text-p-sm font-maison-neue focus:outline-none"
               disabled={isSubmitting}
               required
-              aria-describedby={status !== "idle" ? `${formId}-status` : undefined}
-              aria-invalid={status === "error"}
             />
             <button
               type="submit"
@@ -199,33 +178,6 @@ export default function NewsletterForm({
           </div>
         </form>
 
-        {/* Status messages */}
-        <div
-          id={`${formId}-status`}
-          role="status"
-          aria-live="polite"
-          aria-atomic="true"
-          className="min-h-[20px] mt-2"
-        >
-          {status === "success" && (
-            <p className="text-p-sm font-maison-neue text-Charcoal flex items-center gap-2">
-              <svg className="w-4 h-4 text-green-800" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              {message}
-            </p>
-          )}
-          {status === "error" && (
-            <p className="text-p-sm font-maison-neue text-red-800 flex items-center gap-2">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
-              </svg>
-              {message}
-            </p>
-          )}
-        </div>
-
-        {/* Frequency expectation + privacy note */}
         <p className="text-p-sm text-Charcoal/70 mt-3 font-maison-neue">
           We email 2-3 times a year — usually before each major holiday. No spam, ever.
         </p>
@@ -265,19 +217,11 @@ export default function NewsletterForm({
           id={`${formId}-email`}
           type="email"
           value={email}
-          onChange={(e) => {
-            setEmail(e.target.value)
-            if (status === "error") {
-              setStatus("idle")
-              setMessage("")
-            }
-          }}
+          onChange={(e) => setEmail(e.target.value)}
           placeholder={placeholderText}
           className="flex-1 px-4 py-3 rounded border border-gray-300 focus:border-gray-500 text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold"
           disabled={isSubmitting}
           required
-          aria-describedby={status !== "idle" ? `${formId}-status` : undefined}
-          aria-invalid={status === "error"}
         />
         <button
           type="submit"
@@ -287,23 +231,6 @@ export default function NewsletterForm({
           {isSubmitting ? "Subscribing..." : buttonText}
         </button>
       </form>
-
-      {/* Status messages with ARIA live region */}
-      <div
-        id={`${formId}-status`}
-        role="status"
-        aria-live="polite"
-        aria-atomic="true"
-        className="min-h-[24px] mt-3"
-      >
-        {status === "success" && (
-          <p className="text-sm text-green-500">{message}</p>
-        )}
-        {status === "error" && (
-          <p className="text-sm text-red-500">{message}</p>
-        )}
-      </div>
     </div>
   )
 }
-
