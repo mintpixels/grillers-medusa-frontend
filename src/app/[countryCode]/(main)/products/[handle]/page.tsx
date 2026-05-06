@@ -5,6 +5,7 @@ import { getRegion } from "@lib/data/regions"
 import ProductTemplate from "@modules/products/templates"
 import strapiClient from "@lib/strapi"
 import { GetCommonPdpQuery, GetProductQuery, generateProductJsonLd } from "@lib/data/strapi/pdp"
+import { getBaseURL } from "@lib/util/env"
 
 type Props = {
   params: Promise<{ countryCode: string; handle: string }>
@@ -39,7 +40,7 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
   }
 
   const strapiProduct = strapiProductData?.products?.[0]
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://grillerspride.com"
+  const baseUrl = getBaseURL()
   const productUrl = `${baseUrl}/${params.countryCode}/products/${handle}`
 
   // Use Strapi SEO data if available, otherwise fallback to Medusa
@@ -144,7 +145,7 @@ export default async function ProductPage(props: Props) {
     )
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://grillerspride.com"
+  const baseUrl = getBaseURL()
   const productJsonLd = generateProductJsonLd(
     pricedProduct,
     strapiProductData?.products?.[0] || null,

@@ -133,6 +133,50 @@ export type ProductMetadata = {
 }
 
 /**
+ * Strip the embedded "$XX.XX/lb" / "$XX/lb" / "$XX.XX/oz" pricing string
+ * (and any leading whitespace/punctuation that becomes orphaned). The
+ * legacy Medusa product titles ship a price baked into the name — we don't
+ * want it in the JSON-LD `name` because:
+ *   1. `offers.price` already carries the canonical price.
+ *   2. The baked-in price is stale relative to current pricing.
+ *   3. Google may surface the JSON-LD `name` in rich snippets, where a
+ *      "$19.99/lb" suffix looks unprofessional.
+ */
+function stripEmbeddedPrice(name: string): string {
+  return name
+    .replace(/\$\s?\d+(?:\.\d+)?\s*\/\s*(?:lb|oz|kg|g|each|ea)\.?/gi, "")
+    .replace(/[\s,.\-–—]+$/g, "") // trim trailing punctuation/whitespace
+    .trim()
+}
+
+/**
+ * Sanitize a Medusa-imported product title for use as the JSON-LD `name`.
+ *
+ * The legacy Medusa import shipped raw descriptions as titles, e.g.:
+ *   "Chuckeye (Delmonico) Steak, Boneless,(2x9oz) American Angus,
+ *    Uncooked, Kosher for Passover. $19.99/lb."
+ *
+ * Heuristic: keep the segment up to the first comma (almost always the
+ * descriptive cut name), then strip any embedded price. If that leaves
+ * something too short to be useful (< 4 chars) we fall back to the full
+ * title with prices stripped instead. This is intentionally conservative
+ * — the canonical fix is populating the Strapi `Title` field, which this
+ * function is bypassed for.
+ */
+function cleanLegacyMedusaName(title: string): string {
+  const stripped = stripEmbeddedPrice(title)
+  const firstComma = stripped.indexOf(",")
+  if (firstComma > 3) {
+    const head = stripped.slice(0, firstComma).trim()
+    if (head.length >= 4) {
+      return head
+    }
+  }
+  // Also collapse double spaces left over from imports
+  return stripped.replace(/\s{2,}/g, " ")
+}
+
+/**
  * Generates Product JSON-LD schema for SEO
  */
 export function generateProductJsonLd(
@@ -185,12 +229,17 @@ export function generateProductJsonLd(
 
   const productUrl = `${baseUrl}/${countryCode}/products/${product.handle}`
 
-  // Prefer the cleaner Strapi display title for the JSON-LD name. Falls back
-  // to Medusa's product.title if Strapi has no override. The Medusa title is
-  // often the raw legacy import (e.g., "Chuckeye Steak, Boneless,(2x9oz)
-  // American Angus, Uncooked, KFP. $19.99/lb."), which makes for an ugly
-  // SERP rich snippet — use the display title instead.
-  const displayName = strapiData?.Title || product.title
+  // Prefer the cleaner Strapi display title for the JSON-LD name. When Strapi
+  // hasn't overridden the title (which is the case for many legacy imports),
+  // run the Medusa fallback through `cleanLegacyMedusaName` to drop the
+  // embedded price string ("$19.99/lb") and the variant/size descriptor
+  // tail. Even when Strapi's `Title` is set, we still strip any embedded
+  // price defensively — it should never appear in the JSON-LD `name` because
+  // `offers.price` is the canonical price source. See issue #45.
+  const rawName = strapiData?.Title?.trim()
+    ? stripEmbeddedPrice(strapiData.Title)
+    : cleanLegacyMedusaName(product.title || "")
+  const displayName = rawName || strapiData?.Title || product.title
 
   return {
     "@context": "https://schema.org",

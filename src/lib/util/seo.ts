@@ -1,6 +1,6 @@
 import { listRegions } from "@lib/data/regions"
+import { getBaseURL } from "@lib/util/env"
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://grillerspride.com"
 const DEFAULT_REGION = process.env.NEXT_PUBLIC_DEFAULT_REGION || "us"
 
 /**
@@ -19,7 +19,7 @@ export function getCanonicalUrl(
   const cleanPath = path.startsWith("/") ? path : `/${path}`
   
   // Build the canonical URL
-  let canonicalUrl = `${BASE_URL}/${countryCode}${cleanPath}`
+  let canonicalUrl = `${getBaseURL()}/${countryCode}${cleanPath}`
 
   // Optionally preserve specific query params (like page for pagination)
   if (options?.preserveParams && options.searchParams) {
@@ -61,13 +61,13 @@ export async function getHreflangAlternates(
         // Use language-COUNTRY format (e.g., en-US, en-CA)
         // For now, assume English for all regions
         const locale = `en-${country.iso_2.toUpperCase()}`
-        alternates[locale] = `${BASE_URL}/${country.iso_2}${path}`
+        alternates[locale] = `${getBaseURL()}/${country.iso_2}${path}`
       }
     })
   })
 
   // Add x-default pointing to default region
-  alternates["x-default"] = `${BASE_URL}/${DEFAULT_REGION}${path}`
+  alternates["x-default"] = `${getBaseURL()}/${DEFAULT_REGION}${path}`
 
   return alternates
 }

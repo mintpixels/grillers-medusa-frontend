@@ -1,4 +1,4 @@
-import { getBaseURL } from "@lib/util/env"
+import { getBaseURL, isProductionHost } from "@lib/util/env"
 import { Metadata } from "next"
 import { rexton, maisonNeue, maisonNeueMono } from "styles/fonts/fonts"
 import NextTopLoader from "nextjs-toploader"
@@ -7,8 +7,17 @@ import JitsuScript from "../components/jitsu-script"
 import CookieConsentProvider from "../components/cookie-consent-provider"
 import "styles/globals.css"
 
+// Site-wide robots policy. Production indexes normally; every other
+// environment (Vercel previews, localhost) emits `noindex, nofollow` so
+// search engines can't index staging URLs and split ranking signal away
+// from the live site. See issue #45.
+const robots = isProductionHost()
+  ? { index: true, follow: true }
+  : { index: false, follow: false }
+
 export const metadata: Metadata = {
   metadataBase: new URL(getBaseURL()),
+  robots,
 }
 
 export default function RootLayout(props: { children: React.ReactNode }) {

@@ -24,6 +24,7 @@ import {
   generateWebSiteJsonLd,
 } from "@lib/data/strapi/global"
 import { generateAlternates } from "@lib/util/seo"
+import { getBaseURL } from "@lib/util/env"
 
 type PageProps = {
   params: Promise<{ countryCode: string }>
@@ -36,7 +37,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     const seo = strapiData?.home?.SEO
     const socialMeta = strapiData?.home?.SocialMeta
 
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://grillerspride.com"
+    const baseUrl = getBaseURL()
     const alternates = await generateAlternates("", countryCode)
 
     return {
@@ -123,7 +124,7 @@ export default async function Home(props: {
     console.error("Error fetching global data:", error)
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://grillerspride.com"
+  const baseUrl = getBaseURL()
   // Always emit Organization JSON-LD — defaults kick in when Strapi Global
   // isn't populated yet so Google still gets the entity for the Knowledge Panel.
   const organizationJsonLd = generateOrganizationJsonLd(

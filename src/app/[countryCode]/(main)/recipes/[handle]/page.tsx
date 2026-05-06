@@ -5,6 +5,7 @@ import strapiClient from "@lib/strapi"
 import { GetRecipeBySlugQuery, generateRecipeJsonLd, type RecipeData } from "@lib/data/strapi/recipes"
 import RecipeTemplate from "@modules/recipes/templates/recipe-detail"
 import { generateAlternates } from "@lib/util/seo"
+import { getBaseURL } from "@lib/util/env"
 import { retrieveCustomer } from "@lib/data/customer"
 import { isRecipeFavorited } from "@lib/data/favorites"
 
@@ -71,7 +72,7 @@ export default async function RecipePage({ params }: PageProps) {
   const isFavorited = isLoggedIn ? await isRecipeFavorited(handle) : false
 
   // Generate Recipe JSON-LD for SEO
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://grillerspride.com"
+  const baseUrl = getBaseURL()
   const recipeJsonLd = generateRecipeJsonLd(record, baseUrl, countryCode)
 
   return (

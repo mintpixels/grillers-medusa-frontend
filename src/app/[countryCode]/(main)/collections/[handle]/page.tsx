@@ -13,6 +13,7 @@ import {
 } from "@lib/data/strapi/collections"
 import { enrichStrapiProductsWithMedusaPrices } from "@lib/data/products"
 import CollectionTemplate from "@modules/collections/templates"
+import { getBaseURL } from "@lib/util/env"
 
 interface GetProductCollectionResponse {
   productCollections: ProductCollectionData[]
@@ -56,7 +57,7 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
     }
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://grillerspride.com"
+  const baseUrl = getBaseURL()
   const canonicalUrl = `${baseUrl}/${countryCode}/collections/${handle}`
 
   const seo = collection.SEO
@@ -112,7 +113,7 @@ function generateCollectionJsonLd(
   collection: ProductCollectionData,
   countryCode: string
 ) {
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://grillerspride.com"
+  const baseUrl = getBaseURL()
   const canonicalUrl = `${baseUrl}/${countryCode}/collections/${collection.Slug}`
   const description =
     collection.SEO?.metaDescription ||

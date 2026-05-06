@@ -13,6 +13,7 @@ import {
   buildStrapiFilters,
 } from "@modules/recipes/lib/filter-helpers"
 import { generateAlternates } from "@lib/util/seo"
+import { getBaseURL } from "@lib/util/env"
 
 type PageProps = {
   params: Promise<{ countryCode: string }>
@@ -28,7 +29,7 @@ type PageProps = {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { countryCode } = await params
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://grillerspride.com"
+  const baseUrl = getBaseURL()
   const alternates = await generateAlternates("/recipes", countryCode)
 
   return {
