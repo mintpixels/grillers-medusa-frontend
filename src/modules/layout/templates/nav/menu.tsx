@@ -228,48 +228,79 @@ export const MobileNavMenu = ({
   )
 }
 
-// Pack sections into columns smartly:
-// - Section with 8+ items gets its own column
-// - Sections with <8 items stack together (max 3 per column, max 11 combined L3s)
+// Pack sections into columns. Hard cap at 5 columns. When sections > 5,
+// pick the contiguous split into exactly 5 ordered groups that minimizes the
+// tallest column height (header + items count). Ties prefer the more
+// back-loaded layout so flagship sections on the left stay in their own
+// column and small/short sections double up at the end.
+const MAX_COLUMNS = 5
 type NavSection = HeaderNavLink["sections"][number]
 type PackedColumn = NavSection[]
 
 function packSectionsIntoColumns(sections: NavSection[]): PackedColumn[] {
-  const columns: PackedColumn[] = []
-  let currentColumn: NavSection[] = []
-  let currentItemCount = 0
+  const N = sections.length
+  if (N === 0) return []
+  const K = Math.min(N, MAX_COLUMNS)
+  if (K === N) return sections.map((s) => [s])
 
-  for (let i = 0; i < sections.length; i++) {
-    const section = sections[i]
-    const itemCount = section.items.length
+  // Weight = 1 (section header) + number of items rendered under it.
+  const weights = sections.map((s) => 1 + s.items.length)
 
-    if (itemCount >= 8) {
-      // Flush current column if it has anything
-      if (currentColumn.length > 0) {
-        columns.push(currentColumn)
-        currentColumn = []
-        currentItemCount = 0
-      }
-      // This section gets its own column
-      columns.push([section])
-    } else {
-      // Check if adding this section would exceed 11 combined items or 3 sections
-      if (currentColumn.length >= 3 || (currentItemCount + itemCount >= 10 && currentColumn.length > 0)) {
-        columns.push(currentColumn)
-        currentColumn = []
-        currentItemCount = 0
-      }
-      currentColumn.push(section)
-      currentItemCount += itemCount
+  // Enumerate all contiguous ordered partitions of N into K non-empty groups
+  // by choosing K-1 cut positions in [1..N-1]. Number of options is small
+  // (C(N-1, K-1)); for N=8,K=5 that's 35.
+  const allBounds: number[][] = []
+  const gen = (start: number, picks: number[]) => {
+    if (picks.length === K - 1) {
+      allBounds.push([0, ...picks, N])
+      return
+    }
+    const remaining = K - 1 - picks.length
+    for (let i = start; i <= N - remaining - 1; i++) {
+      picks.push(i + 1)
+      gen(i + 1, picks)
+      picks.pop()
+    }
+  }
+  gen(0, [])
+
+  let best: number[] | null = null
+  let bestMax = Infinity
+  let bestSizes: number[] | null = null
+
+  for (const bounds of allBounds) {
+    let maxW = 0
+    const sizes: number[] = []
+    for (let g = 0; g < K; g++) {
+      let w = 0
+      for (let j = bounds[g]; j < bounds[g + 1]; j++) w += weights[j]
+      if (w > maxW) maxW = w
+      sizes.push(bounds[g + 1] - bounds[g])
+    }
+    if (maxW < bestMax || (maxW === bestMax && lexSmaller(sizes, bestSizes))) {
+      bestMax = maxW
+      best = bounds
+      bestSizes = sizes
     }
   }
 
-  // Flush remaining
-  if (currentColumn.length > 0) {
-    columns.push(currentColumn)
+  const result: PackedColumn[] = []
+  for (let g = 0; g < K; g++) {
+    result.push(sections.slice(best![g], best![g + 1]))
   }
+  return result
+}
 
-  return columns
+// Lex compare: a < b iff at the first differing index, a[i] < b[i]. Used as
+// tiebreaker — lex-smaller sizes mean the larger groups land at the end of
+// the row (back-loaded), which is what we want for ties.
+function lexSmaller(a: number[], b: number[] | null): boolean {
+  if (!b) return false
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] < b[i]) return true
+    if (a[i] > b[i]) return false
+  }
+  return false
 }
 
 // Desktop mega menu

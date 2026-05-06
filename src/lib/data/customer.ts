@@ -14,6 +14,7 @@ import {
   removeAuthToken,
   removeCartId,
   setAuthToken,
+  setCartId,
 } from "./cookies"
 
 /**
@@ -384,11 +385,59 @@ export async function transferCart() {
   }
 
   const headers = await getAuthHeaders()
+  const cartsCacheTag = await getCacheTag("carts")
 
-  await sdk.store.cart.transferCart(cartId, {}, headers)
+  try {
+    await sdk.store.cart.transferCart(cartId, {}, headers)
+    revalidateTag(cartsCacheTag)
+    return
+  } catch (transferErr) {
+    console.error(
+      "[transferCart] failed; recovering with a fresh, customer-attached cart",
+      transferErr
+    )
+  }
 
-  const cartCacheTag = await getCacheTag("carts")
-  revalidateTag(cartCacheTag)
+  // The guest cart can't be attached to this customer — usually because the
+  // backend cart record is in a state Medusa can't update (e.g. a stuck
+  // payment_collection from an earlier failed checkout). Capture the line
+  // items, drop the broken cookie, then create a fresh cart for the customer
+  // and re-add the items. End state: customer always has a cart whose
+  // customer_id matches them. No mismatch banner needed.
+  let preservedItems: Array<{ variant_id: string; quantity: number }> = []
+  let regionId: string | undefined
+  try {
+    const { cart: brokenCart } = await sdk.client.fetch<HttpTypes.StoreCartResponse>(
+      `/store/carts/${cartId}`,
+      { method: "GET", headers }
+    )
+    regionId = brokenCart?.region_id ?? undefined
+    preservedItems = (brokenCart?.items ?? [])
+      .filter((i) => !!i.variant_id)
+      .map((i) => ({ variant_id: i.variant_id as string, quantity: i.quantity }))
+  } catch {
+    // best-effort; if the broken cart can't be read, just drop it and continue
+  }
+
+  await removeCartId()
+
+  if (regionId) {
+    try {
+      const { cart: fresh } = await sdk.store.cart.create(
+        { region_id: regionId },
+        {},
+        headers
+      )
+      await setCartId(fresh.id)
+      for (const item of preservedItems) {
+        await sdk.store.cart.createLineItem(fresh.id, item, {}, headers)
+      }
+    } catch (recreateErr) {
+      console.error("[transferCart] item preservation failed", recreateErr)
+    }
+  }
+
+  revalidateTag(cartsCacheTag)
 }
 
 export const addCustomerAddress = async (
