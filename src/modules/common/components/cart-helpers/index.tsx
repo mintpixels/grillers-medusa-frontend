@@ -44,7 +44,7 @@ export const FreeShippingHelper: React.FC<FreeShippingHelperProps> = ({
   className = "",
   variant = "light",
 }) => {
-  const sub = (subtotal ?? 0) / 100
+  const sub = subtotal ?? 0
   if (sub <= 0) return null
 
   let message: React.ReactNode = null
@@ -70,7 +70,7 @@ export const FreeShippingHelper: React.FC<FreeShippingHelperProps> = ({
           Pickup is always free. You're{" "}
           <strong>
             {convertToLocale({
-              amount: Math.round(remaining * 100),
+              amount: remaining,
               currency_code: currencyCode,
             })}
           </strong>{" "}
@@ -90,7 +90,7 @@ export const FreeShippingHelper: React.FC<FreeShippingHelperProps> = ({
           You're{" "}
           <strong>
             {convertToLocale({
-              amount: Math.round(remaining * 100),
+              amount: remaining,
               currency_code: currencyCode,
             })}
           </strong>{" "}
@@ -109,7 +109,7 @@ export const FreeShippingHelper: React.FC<FreeShippingHelperProps> = ({
           You're{" "}
           <strong>
             {convertToLocale({
-              amount: Math.round(remaining * 100),
+              amount: remaining,
               currency_code: currencyCode,
             })}
           </strong>{" "}
