@@ -79,7 +79,9 @@ const FACET_GROUPS: FacetGroupDef[] = [
     options: [
       { field: "KosherForPassover", label: "Kosher for Passover" },
       { field: "Pareve", label: "Pareve" },
-      { field: "Meat", label: "Meat" },
+      // "Meat" intentionally omitted — it's a kashrut classification, not a
+      // shopping filter. For a kosher butcher, every cut is Meat by default,
+      // so a "Meat" filter is redundant and visually noisy.
       { field: "Dairy", label: "Dairy" },
       { field: "CholovYisroel", label: "Cholov Yisroel" },
     ],
@@ -141,6 +143,10 @@ interface CollectionFiltersProps {
   products: StrapiCollectionProduct[]
   activeFilters: ActiveFilters
   onFilterChange: (filters: ActiveFilters) => void
+  // Active collection / tag slug for the current page (e.g. "kosher-beef").
+  // Used to hide the L2 parent that *is* the current scope — checking it
+  // would filter to a tag the user is already viewing.
+  currentSlug?: string
 }
 
 export function getEmptyFilters(): ActiveFilters {
@@ -364,10 +370,19 @@ function FilterSection({
   )
 }
 
+// Mirrors `generateTagSlug` in @lib/data/strapi/collections (kept inline here
+// to avoid pulling a server-only file into this client component).
+const slugifyTagValue = (v: string): string =>
+  `kosher-${v.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`
+
+const extractTagValueLocal = (n: string): string =>
+  n.match(/^L[123]:/) ? n.split(":")[1].trim() : n
+
 export default function CollectionFilters({
   products,
   activeFilters,
   onFilterChange,
+  currentSlug,
 }: CollectionFiltersProps) {
   // Data-driven facet groups built from new Metadata fields.
   const facetGroups = useMemo(() => buildFacetGroups(products), [products])
@@ -405,8 +420,22 @@ export default function CollectionFilters({
     const groups: TagGroup[] = []
 
     Array.from(l2Counts.entries())
-      .sort(([a], [b]) => a.localeCompare(b))
+      // Highest-count L2 buckets first — matches merchandiser ordering and
+      // matches the count-desc sort the nav uses, so the dense buckets
+      // (Steaks, Roasts) sit on top of the sidebar instead of alphabetical.
+      .sort(([, a], [, b]) => b - a)
       .forEach(([l2Name, l2Count]) => {
+        // Hide the L2 that *is* the current page scope. If the user is on
+        // /collections/kosher-beef, we don't render an L2: Beef parent —
+        // checking it would filter to a tag they're already viewing, and
+        // its L3s will show under the correct sub-bucket L2 instead.
+        if (
+          currentSlug &&
+          slugifyTagValue(extractTagValueLocal(l2Name)) === currentSlug
+        ) {
+          return
+        }
+
         const l2Label = l2Name.replace(/^L2:\s*/, "")
 
         // Find L3 tags that belong under this L2
@@ -442,7 +471,7 @@ export default function CollectionFilters({
       }
     }
     return useful
-  }, [products])
+  }, [products, currentSlug])
 
   const totalFilterCount = getActiveFilterCount(activeFilters)
 

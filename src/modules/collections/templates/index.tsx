@@ -129,6 +129,7 @@ export default function CollectionTemplate({
               products={products}
               activeFilters={activeFilters}
               onFilterChange={handleFilterChange}
+              currentSlug={slug}
             />
           )}
 
