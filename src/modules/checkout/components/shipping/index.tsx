@@ -1,8 +1,8 @@
 "use client"
 
 import { RadioGroup, Radio } from "@headlessui/react"
-import { setShippingMethod } from "@lib/data/cart"
-import { calculatePriceForShippingOption } from "@lib/data/fulfillment"
+import { setFulfillmentDetails, setShippingMethod } from "@lib/data/cart"
+import { calculatePriceForShippingOption, findShippingOptionByType } from "@lib/data/fulfillment"
 import { convertToLocale } from "@lib/util/money"
 import { trackAddShippingInfo } from "@lib/gtm"
 import { jitsuTrack } from "@lib/jitsu"
@@ -214,6 +214,45 @@ const Shipping: React.FC<ShippingProps> = ({
     setError(null)
   }, [isOpen])
 
+  // Detect the empty Delivery Options dead-end: UPS chosen but no UPS rates apply
+  // (typically because the cart's address falls inside our local-delivery region).
+  const noUpsOptionsAvailable =
+    fulfillmentType === "ups_shipping" &&
+    !isLoadingPrices &&
+    (_shippingMethods?.length ?? 0) === 0
+
+  const handleSwitchFulfillment = async (
+    nextType: "atlanta_delivery" | "plant_pickup"
+  ) => {
+    setError(null)
+    setIsLoading(true)
+    try {
+      const today = new Date().toLocaleDateString("en-US", {
+        month: "numeric",
+        day: "numeric",
+        year: "numeric",
+      })
+      await setFulfillmentDetails({
+        cartId: cart.id,
+        fulfillmentType: nextType,
+        fulfillmentZip: nextType === "atlanta_delivery" ? cart.shipping_address?.postal_code || "" : "00000",
+        scheduledDate: today,
+      })
+      if (nextType === "plant_pickup") {
+        const option = await findShippingOptionByType(cart.id, "plant_pickup")
+        if (option) {
+          await setShippingMethod({ cartId: cart.id, shippingMethodId: option.id })
+        }
+      }
+      router.replace(pathname, { scroll: false })
+      router.refresh()
+    } catch (err: any) {
+      setError(err?.message || "Could not switch fulfillment method")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   const isIncomplete = !isOpen && cart.shipping_methods?.length === 0
 
   return (
@@ -252,6 +291,35 @@ const Shipping: React.FC<ShippingProps> = ({
 
       {isOpen ? (
         <>
+          {noUpsOptionsAvailable && (
+            <div className="mb-4 p-4 bg-amber-50 border border-amber-200/80 rounded-lg">
+              <p className="text-sm font-semibold text-amber-900 mb-1">
+                No UPS shipping options for this address
+              </p>
+              <p className="text-xs text-amber-800 mb-3 leading-relaxed">
+                Your address is in our local delivery region — UPS Ground costs more
+                than our own van. Choose a faster, cheaper alternative:
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleSwitchFulfillment("atlanta_delivery")}
+                  disabled={isLoading}
+                  className="px-4 py-2 text-xs font-semibold text-white bg-Gold rounded-lg hover:bg-Gold/90 transition-colors disabled:opacity-50"
+                >
+                  Switch to Atlanta Delivery
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSwitchFulfillment("plant_pickup")}
+                  disabled={isLoading}
+                  className="px-4 py-2 text-xs font-semibold text-Charcoal bg-white border border-Charcoal/20 rounded-lg hover:border-Gold transition-colors disabled:opacity-50"
+                >
+                  Switch to Plant Pickup
+                </button>
+              </div>
+            </div>
+          )}
           <div>
             <div className="flex flex-col mb-3">
               <span className="text-sm font-medium text-gray-700">

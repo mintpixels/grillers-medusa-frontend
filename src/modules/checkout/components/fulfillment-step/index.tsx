@@ -90,9 +90,17 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
 
   const attachShippingMethod = async (type: FulfillmentType) => {
     if (type === "ups_shipping") return
-    const option = await findShippingOptionByType(cart.id, type)
-    if (option) {
-      await setShippingMethod({ cartId: cart.id, shippingMethodId: option.id })
+    // Wrap so a Medusa rejection (e.g., no matching shipping option) surfaces inline
+    // instead of bubbling out and crashing the Server Components render boundary.
+    try {
+      const option = await findShippingOptionByType(cart.id, type)
+      if (option) {
+        await setShippingMethod({ cartId: cart.id, shippingMethodId: option.id })
+      } else {
+        throw new Error(`No shipping option available for ${type.replace(/_/g, " ")}. Please choose a different fulfillment method.`)
+      }
+    } catch (err: any) {
+      throw new Error(err?.message || "Could not attach shipping method")
     }
   }
 
@@ -122,16 +130,58 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
     southeastPickup: normalizeMinimum(config?.MinimumOrderThresholds?.SoutheastPickup, 0),
   }), [config])
 
-  const availability = useMemo(() => ({
-    upsShipping: cartTotal >= minimums.upsShipping,
-    upsAmountAway: Math.max(0, minimums.upsShipping - cartTotal),
-    atlantaDelivery: cartTotal >= minimums.atlantaDelivery,
-    atlantaDeliveryAmountAway: Math.max(0, minimums.atlantaDelivery - cartTotal),
-    plantPickup: cartTotal >= minimums.plantPickup,
-    plantPickupAmountAway: Math.max(0, minimums.plantPickup - cartTotal),
-    southeastPickup: cartTotal >= minimums.southeastPickup,
-    southeastAmountAway: Math.max(0, minimums.southeastPickup - cartTotal),
-  }), [cartTotal, minimums])
+  // Pull active shipping address from cart (preferred) then fall back to customer's default.
+  const activeAddress = cart.shipping_address ?? customer?.addresses?.[0] ?? null
+  const shipZip = (activeAddress?.postal_code || "").trim()
+  const shipCity = (activeAddress?.city || "").trim()
+
+  const isAtlantaZip = (zip: string) =>
+    Boolean(zip) && (config?.AtlantaDeliveryZipCodes || []).includes(zip)
+
+  const isSoutheastPickupCity = (zip: string, city: string) => {
+    if (!config?.SoutheastPickupLocations) return false
+    return config.SoutheastPickupLocations.some(
+      (loc) =>
+        (loc.ZipCode && loc.ZipCode === zip) ||
+        (loc.City && city && loc.City.toLowerCase() === city.toLowerCase())
+    )
+  }
+
+  const availability = useMemo(() => {
+    const inAtlanta = isAtlantaZip(shipZip)
+    const nearSoutheastPickup = isSoutheastPickupCity(shipZip, shipCity)
+    const haveAddress = Boolean(shipZip)
+
+    return {
+      // UPS targets out-of-region delivery. If we know the address is in Atlanta, hide it.
+      upsShipping: cartTotal >= minimums.upsShipping && (!haveAddress || !inAtlanta),
+      upsAmountAway: Math.max(0, minimums.upsShipping - cartTotal),
+      upsReason: haveAddress && inAtlanta
+        ? "Available for addresses outside our local delivery region"
+        : null,
+
+      atlantaDelivery: cartTotal >= minimums.atlantaDelivery && haveAddress && inAtlanta,
+      atlantaDeliveryAmountAway: Math.max(0, minimums.atlantaDelivery - cartTotal),
+      atlantaDeliveryReason: !haveAddress
+        ? "Add an Atlanta-area address to enable"
+        : !inAtlanta
+          ? "Available for Atlanta-area addresses only"
+          : null,
+
+      // Plant pickup is always eligible — anyone can drive to the plant.
+      plantPickup: cartTotal >= minimums.plantPickup,
+      plantPickupAmountAway: Math.max(0, minimums.plantPickup - cartTotal),
+      plantPickupReason: null as string | null,
+
+      southeastPickup: cartTotal >= minimums.southeastPickup && haveAddress && nearSoutheastPickup,
+      southeastAmountAway: Math.max(0, minimums.southeastPickup - cartTotal),
+      southeastReason: !haveAddress
+        ? "Add a shipping address to check pickup availability"
+        : !nearSoutheastPickup
+          ? "Available near Southeast partner cities only"
+          : null,
+    }
+  }, [cartTotal, minimums, shipZip, shipCity, config])
 
   const pickupCreditQualifies = cartSubtotal >= pickupCreditConfig.threshold
   const pickupCreditAmountAway = Math.max(0, pickupCreditConfig.threshold - cartSubtotal)
@@ -144,6 +194,8 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
       icon: <TruckIcon />,
       available: availability.upsShipping,
       amountAway: availability.upsAmountAway,
+      minimum: minimums.upsShipping,
+      reason: availability.upsReason,
     },
     {
       id: "atlanta_delivery" as FulfillmentType,
@@ -152,6 +204,8 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
       icon: <DeliveryIcon />,
       available: availability.atlantaDelivery,
       amountAway: availability.atlantaDeliveryAmountAway,
+      minimum: minimums.atlantaDelivery,
+      reason: availability.atlantaDeliveryReason,
     },
     {
       id: "plant_pickup" as FulfillmentType,
@@ -160,6 +214,8 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
       icon: <PlantIcon />,
       available: availability.plantPickup,
       amountAway: availability.plantPickupAmountAway,
+      minimum: minimums.plantPickup,
+      reason: availability.plantPickupReason,
     },
     {
       id: "southeast_pickup" as FulfillmentType,
@@ -168,6 +224,8 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
       icon: <MapPinIcon />,
       available: availability.southeastPickup,
       amountAway: availability.southeastAmountAway,
+      minimum: minimums.southeastPickup,
+      reason: availability.southeastReason,
     },
   ]
 
@@ -358,9 +416,14 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
                   </p>
                 )}
                 
-                {!option.available && option.amountAway > 0 && (
+                {!option.available && option.minimum > 0 && cartTotal < option.minimum && (
                   <p className="text-xs text-amber-600 mt-2.5 font-semibold">
                     Add {convertToLocale({ amount: option.amountAway, currency_code: cart.currency_code })} more
+                  </p>
+                )}
+                {!option.available && option.reason && cartTotal >= option.minimum && (
+                  <p className="text-xs text-Charcoal/60 mt-2.5 font-medium leading-tight">
+                    {option.reason}
                   </p>
                 )}
               </div>

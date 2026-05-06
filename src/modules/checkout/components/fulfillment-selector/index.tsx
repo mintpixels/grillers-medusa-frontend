@@ -87,17 +87,54 @@ export default function FulfillmentSelector({
     upsShipping: config?.MinimumOrderThresholds?.UPSShipping || 40,
   }), [config])
 
-  // Check availability based on minimums
-  const availability = useMemo(() => ({
-    upsShipping: cartTotal >= minimums.upsShipping,
-    upsAmountAway: Math.max(0, minimums.upsShipping - cartTotal),
-    atlantaDelivery: cartTotal >= minimums.atlantaDelivery,
-    atlantaDeliveryAmountAway: Math.max(0, minimums.atlantaDelivery - cartTotal),
-    plantPickup: cartTotal >= minimums.plantPickup,
-    plantPickupAmountAway: Math.max(0, minimums.plantPickup - cartTotal),
-    southeastPickup: cartTotal >= minimums.southeastPickup,
-    southeastAmountAway: Math.max(0, minimums.southeastPickup - cartTotal),
-  }), [cartTotal, minimums])
+  // Pull active shipping address from cart (preferred) then fall back to customer's default.
+  const activeAddress = cart.shipping_address ?? customer?.addresses?.[0] ?? null
+  const shipZip = (activeAddress?.postal_code || "").trim()
+  const shipCity = (activeAddress?.city || "").trim()
+
+  const isAtlantaZip = (zip: string) =>
+    Boolean(zip) && (config?.AtlantaDeliveryZipCodes || []).includes(zip)
+
+  const isSoutheastPickupCity = (zip: string, city: string) => {
+    if (!config?.SoutheastPickupLocations) return false
+    return config.SoutheastPickupLocations.some(
+      (loc) =>
+        (loc.ZipCode && loc.ZipCode === zip) ||
+        (loc.City && city && loc.City.toLowerCase() === city.toLowerCase())
+    )
+  }
+
+  // Combine cart-total minimums AND address-zip eligibility.
+  const availability = useMemo(() => {
+    const inAtlanta = isAtlantaZip(shipZip)
+    const nearSoutheastPickup = isSoutheastPickupCity(shipZip, shipCity)
+    const haveAddress = Boolean(shipZip)
+
+    return {
+      upsShipping: cartTotal >= minimums.upsShipping && (!haveAddress || !inAtlanta),
+      upsAmountAway: Math.max(0, minimums.upsShipping - cartTotal),
+      upsReason: haveAddress && inAtlanta
+        ? "Available for addresses outside our local delivery region"
+        : null,
+      atlantaDelivery: cartTotal >= minimums.atlantaDelivery && haveAddress && inAtlanta,
+      atlantaDeliveryAmountAway: Math.max(0, minimums.atlantaDelivery - cartTotal),
+      atlantaDeliveryReason: !haveAddress
+        ? "Add an Atlanta-area address to enable"
+        : !inAtlanta
+          ? "Available for Atlanta-area addresses only"
+          : null,
+      plantPickup: cartTotal >= minimums.plantPickup,
+      plantPickupAmountAway: Math.max(0, minimums.plantPickup - cartTotal),
+      plantPickupReason: null as string | null,
+      southeastPickup: cartTotal >= minimums.southeastPickup && haveAddress && nearSoutheastPickup,
+      southeastAmountAway: Math.max(0, minimums.southeastPickup - cartTotal),
+      southeastReason: !haveAddress
+        ? "Add a shipping address to check pickup availability"
+        : !nearSoutheastPickup
+          ? "Available near Southeast partner cities only"
+          : null,
+    }
+  }, [cartTotal, minimums, shipZip, shipCity, config])
 
   // Get selected location details
   const selectedLocation = useMemo(() => {
@@ -249,6 +286,7 @@ export default function FulfillmentSelector({
       available: availability.upsShipping,
       minimum: minimums.upsShipping,
       amountAway: availability.upsAmountAway,
+      reason: availability.upsReason,
     },
     {
       id: "atlanta_delivery" as FulfillmentType,
@@ -258,17 +296,19 @@ export default function FulfillmentSelector({
       available: availability.atlantaDelivery,
       minimum: minimums.atlantaDelivery,
       amountAway: availability.atlantaDeliveryAmountAway,
+      reason: availability.atlantaDeliveryReason,
     },
     {
       id: "plant_pickup" as FulfillmentType,
       title: "Plant Pickup",
-      subtitle: config?.PlantPickupAddress 
+      subtitle: config?.PlantPickupAddress
         ? `${config.PlantPickupCity}, ${config.PlantPickupState}`
         : "Atlanta, GA",
       icon: <PlantIcon />,
       available: availability.plantPickup,
       minimum: minimums.plantPickup,
       amountAway: availability.plantPickupAmountAway,
+      reason: availability.plantPickupReason,
     },
     {
       id: "southeast_pickup" as FulfillmentType,
@@ -278,6 +318,7 @@ export default function FulfillmentSelector({
       available: availability.southeastPickup,
       minimum: minimums.southeastPickup,
       amountAway: availability.southeastAmountAway,
+      reason: availability.southeastReason,
     },
   ]
 
@@ -321,10 +362,16 @@ export default function FulfillmentSelector({
                       {option.subtitle}
                     </p>
                     
-                    {/* Minimum order message */}
-                    {!option.available && option.minimum > 0 && (
+                    {/* Cart-minimum caption — only shown when cart total is below the minimum */}
+                    {!option.available && option.minimum > 0 && cartTotal < option.minimum && (
                       <p className="text-xs text-amber-600 mt-2 font-medium">
                         Add {convertToLocale({ amount: option.amountAway, currency_code: cart.currency_code })} more to qualify
+                      </p>
+                    )}
+                    {/* Address-eligibility caption — shown when minimum is met but address is incompatible */}
+                    {!option.available && option.reason && cartTotal >= option.minimum && (
+                      <p className="text-xs text-Charcoal/60 mt-2 font-medium">
+                        {option.reason}
                       </p>
                     )}
                   </div>
