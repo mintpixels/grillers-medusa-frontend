@@ -597,7 +597,7 @@ export default function CollectionFilters({
                       onChange={() => toggleTagFilter(group.l2.value)}
                       className="w-4 h-4 rounded border-gray-300 text-Charcoal focus:ring-Gold accent-Charcoal"
                     />
-                    <span className="text-p-sm font-maison-neue font-semibold text-Charcoal group-hover:text-VibrantRed transition-colors">
+                    <span className="text-p-sm font-maison-neue text-Charcoal/70 group-hover:text-VibrantRed transition-colors">
                       {group.l2.label}
                     </span>
                     <span className="text-xs text-gray-400 ml-auto">
