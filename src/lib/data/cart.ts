@@ -230,6 +230,51 @@ export async function setRequestedDeliveryDate({
     ...(await getAuthHeaders()),
   }
 
+  // Server-side eligibility check — defends against #36 / #72 in case the UI
+  // ever lets a customer click an impossible date. An empty string is allowed
+  // (used to clear the selection when method/zip change makes the prior date invalid).
+  if (date) {
+    try {
+      const { isArrivalDateValid } = await import(
+        "@lib/util/eligible-arrival-dates"
+      )
+      const { ATLANTA_DELIVERY_ZIP_DAYS } = await import("@lib/data/strapi/checkout")
+      const cart = await retrieveCart(cartId)
+      const fulfillmentType = cart?.metadata?.fulfillmentType as string | undefined
+      const destZip = (cart?.shipping_address?.postal_code || "").trim()
+      // We can't easily resolve the exact UPS service_code here without an extra
+      // shipping-options fetch, so for ups_shipping we assume Ground (the slowest)
+      // — strictly the safest assumption for "is this date late enough?".
+      let method: any = "ups_ground"
+      if (fulfillmentType === "atlanta_delivery") method = "atlanta_delivery"
+      else if (fulfillmentType === "southeast_pickup") method = "southeast_pickup"
+      else if (fulfillmentType === "plant_pickup") method = "plant_pickup"
+
+      // For southeast_pickup we don't have the date list here cheaply; skip server
+      // validation in that case (the UI source-of-truth is Strapi-backed already).
+      if (method !== "southeast_pickup") {
+        const ok = isArrivalDateValid(date, {
+          method,
+          destinationZip: destZip,
+          atlantaZipConfig: ATLANTA_DELIVERY_ZIP_DAYS,
+        })
+        if (!ok) {
+          throw new Error(
+            "That arrival date isn't available for the selected shipping method. Please pick a different date."
+          )
+        }
+      }
+    } catch (err: any) {
+      // If validation itself errors (e.g., import failure), surface only real
+      // validation errors. Pass-through unexpected errors as 500.
+      if (err?.message?.includes("isn't available")) {
+        throw err
+      }
+      // Non-validation errors fall through to the cart update — we don't want
+      // a transient validation hiccup to block legitimate orders.
+    }
+  }
+
   return sdk.store.cart
     .update(cartId, { metadata: { requestedDeliveryDate: date } }, {}, headers)
     .then(async () => {

@@ -488,7 +488,11 @@ const Shipping: React.FC<ShippingProps> = ({
                 <div className="pb-6">
                   <div className="flex items-start gap-x-1 w-full">
                     <div className="w-2/5">
-                      <ArriveFoodCalendar cart={cart} setError={setError} />
+                      <ArriveFoodCalendar
+                        cart={cart}
+                        setError={setError}
+                        availableShippingMethods={availableShippingMethods}
+                      />
                     </div>
                     <div className="w-3/5 flex flex-col gap-y-2 pt-8 pl-12">
                       <span className="text-sm font-normal text-gray-400">

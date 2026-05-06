@@ -1,123 +1,171 @@
+"use client"
+
 import { Calendar } from "@medusajs/ui"
 import { useState, useEffect, useCallback, useMemo } from "react"
-import { today, getLocalTimeZone, fromDate } from "@internationalized/date"
-import type { StoreCart } from "@medusajs/types"
-import useSWR from "swr"
-import strapiClient from "@lib/strapi"
+import type { StoreCart, StoreCartShippingOption } from "@medusajs/types"
+
 import { setRequestedDeliveryDate } from "@lib/data/cart"
-import Spinner from "@modules/common/icons/spinner"
+import {
+  computeEligibleArrivalDates,
+  toIsoDate,
+  type ArrivalMethod,
+} from "@lib/util/eligible-arrival-dates"
+import { ATLANTA_DELIVERY_ZIP_DAYS } from "@lib/data/strapi/checkout"
 
-import { CheckoutShippingBlackoutQuery } from "@lib/data/strapi/checkout"
-import type { CheckoutShippingBlackoutData } from "@lib/data/strapi/checkout"
+/**
+ * Arrival-date calendar used in the new checkout shipping flow.
+ *
+ * Reads the selected shipping method's service_code (GROUND / OVERNIGHT / 2ND_DAY_AIR)
+ * + the destination zip + the server-derived "now" to compute the set of eligible
+ * arrival dates. Disabled days are non-clickable; the calendar opens on the first
+ * month that contains a valid date so customers in long-transit zones (CA, OR, WA)
+ * don't see an empty current-month grid.
+ *
+ * Fixes #36 and #72.
+ */
 
-const timeZone = getLocalTimeZone()
-const tomorrow = today(timeZone).add({ days: 1 })
-const MIN_DATE = tomorrow.toDate(timeZone)
+type ArriveFoodCalendarProps = {
+  cart: StoreCart
+  setError: (error: string | null) => void
+  /** All shipping options visible to this cart — used to resolve service_code. */
+  availableShippingMethods?: StoreCartShippingOption[] | null
+  /** Server-derived "now" — passed from the parent so the client clock can't lie. */
+  serverNowIso?: string
+}
 
-const WEEKDAY_NAMES = [
-  "Sunday",
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-]
+function deriveArrivalMethod(
+  cart: StoreCart,
+  availableShippingMethods?: StoreCartShippingOption[] | null
+): ArrivalMethod {
+  const fulfillmentType = cart.metadata?.fulfillmentType as string | undefined
+  const selectedOptionId = cart.shipping_methods?.at(-1)?.shipping_option_id
+  const selectedOption = availableShippingMethods?.find((o) => o.id === selectedOptionId)
+  const serviceCode =
+    (selectedOption as any)?.data?.service_code ??
+    (selectedOption as any)?.service_code
 
-type Checkout = CheckoutShippingBlackoutData["checkout"]
+  if (fulfillmentType === "atlanta_delivery") return "atlanta_delivery"
+  if (fulfillmentType === "southeast_pickup") return "southeast_pickup"
+  if (fulfillmentType === "plant_pickup") return "plant_pickup"
 
-const fetcher = async (): Promise<Checkout | null> => {
-  try {
-    const res = await strapiClient.request<CheckoutShippingBlackoutData>(
-      CheckoutShippingBlackoutQuery
-    )
-    return res.checkout
-  } catch {
-    return null
-  }
+  // UPS shipping — service_code drills the transit time
+  if (serviceCode === "OVERNIGHT") return "ups_overnight"
+  if (serviceCode === "2ND_DAY_AIR" || serviceCode === "TWO_DAY") return "ups_2day"
+  if (serviceCode === "GROUND") return "ups_ground"
+
+  // Fallback by name (catches calculated rates that don't expose data.service_code)
+  const name = (selectedOption?.name || "").toLowerCase()
+  if (name.includes("overnight")) return "ups_overnight"
+  if (name.includes("2nd day") || name.includes("two day")) return "ups_2day"
+  return "ups_ground"
 }
 
 export default function ArriveFoodCalendar({
   cart,
   setError,
-}: {
-  cart: StoreCart
-  setError: (error: string | null) => void
-}) {
+  availableShippingMethods,
+  serverNowIso,
+}: ArriveFoodCalendarProps) {
   const [dateValue, setDateValue] = useState<Date | null>(null)
 
-  // 1️⃣ Load existing selection from metadata (MM/DD/YYYY)
+  const method = useMemo(
+    () => deriveArrivalMethod(cart, availableShippingMethods),
+    [cart, availableShippingMethods]
+  )
+  const destinationZip = (cart.shipping_address?.postal_code || "").trim()
+
+  // Derive server-side "now" — fall back to client clock if not provided. The
+  // utility itself will re-derive nowEST() when no `now` arg is passed.
+  const now = useMemo(
+    () => (serverNowIso ? new Date(serverNowIso) : undefined),
+    [serverNowIso]
+  )
+
+  const eligibility = useMemo(
+    () =>
+      computeEligibleArrivalDates({
+        method,
+        destinationZip,
+        now,
+        atlantaZipConfig: ATLANTA_DELIVERY_ZIP_DAYS,
+      }),
+    [method, destinationZip, now]
+  )
+
+  const minDate = eligibility.earliest ?? undefined
+
+  // 1) Hydrate selection from cart metadata. If the stored date is no longer
+  //    eligible (the user changed method or zip) drop it and clear server-side
+  //    so a logically-impossible date can never reach payment.
   useEffect(() => {
     const md = cart?.metadata?.requestedDeliveryDate as string | undefined
-
-    if (md) {
-      const [m, d, y] = md.split("/").map(Number)
-      setDateValue(new Date(y, m - 1, d))
+    if (!md) {
+      // No stored selection — default to earliest valid so the calendar opens
+      // on the right month. We do NOT persist; user must pick to confirm.
+      setDateValue(eligibility.earliest ?? null)
+      return
     }
-  }, [cart?.metadata?.requestedDeliveryDate])
+    const [m, d, y] = md.split("/").map(Number)
+    if (!m || !d || !y) {
+      setDateValue(eligibility.earliest ?? null)
+      return
+    }
+    const stored = new Date(y, m - 1, d)
+    if (eligibility.isoSet.has(toIsoDate(stored))) {
+      setDateValue(stored)
+    } else {
+      setDateValue(eligibility.earliest ?? null)
+      setRequestedDeliveryDate({ cartId: cart.id, date: "" }).catch(() => {
+        /* UI will recover when user re-selects */
+      })
+    }
+  }, [cart?.metadata?.requestedDeliveryDate, eligibility.isoSet, eligibility.earliest, cart.id])
 
-  // 2️⃣ Fetch blackout rules
-  const { data: checkout, isLoading } = useSWR<Checkout | null>(
-    "checkout",
-    fetcher
-  )
-
-  // 3️⃣ Compute blocked weekdays & dates
-  const blockedWeekdays = useMemo(
-    () =>
-      checkout?.ShippingBlackoutDaysOfWeek.map((d) =>
-        WEEKDAY_NAMES.indexOf(d)
-      ) ?? [],
-    [checkout]
-  )
-  const blockedDates = useMemo(
-    () =>
-      new Set(checkout?.ShippingBlackoutDates.map((d) => d.BlackoutDate) ?? []),
-    [checkout]
-  )
-
-  // 4️⃣ Disable any blocked day or date
   const isDateUnavailable = useCallback(
-    (d: Date) => {
-      const wd = fromDate(d, timeZone).toDate().getDay()
-      const yyyy = d.getFullYear()
-      const mm = String(d.getMonth() + 1).padStart(2, "0")
-      const dd = String(d.getDate()).padStart(2, "0")
-      const iso = `${yyyy}-${mm}-${dd}`
-      return blockedDates.has(iso) || blockedWeekdays.includes(wd)
-    },
-    [blockedWeekdays, blockedDates]
+    (d: Date) => !eligibility.isoSet.has(toIsoDate(d)),
+    [eligibility.isoSet]
   )
 
-  // 5️⃣ Persist the user’s selection
   const handleChange = useCallback(
     (d: Date | null) => {
       setError(null)
+      if (d && isDateUnavailable(d)) {
+        // Defensive: refuse to set an unavailable date, even if the calendar somehow
+        // surfaces one.
+        setError(`That date isn't available. ${eligibility.reason}`)
+        return
+      }
       setDateValue(d)
       if (!d) return
       const usaDate = d.toLocaleDateString("en-US")
-      setRequestedDeliveryDate({ cartId: cart.id, date: usaDate }).catch(
-        (err) => setError(err.message)
+      setRequestedDeliveryDate({ cartId: cart.id, date: usaDate }).catch((err) =>
+        setError(err.message)
       )
     },
-    [cart.id, setError]
+    [cart.id, setError, isDateUnavailable, eligibility.reason]
   )
 
-  if (isLoading) {
+  if (!eligibility.earliest) {
     return (
-      <div className="flex items-center justify-center pt-8">
-        <Spinner size={36} />
+      <div className="p-4 bg-amber-50 border border-amber-200/80 rounded-lg text-sm text-amber-800">
+        No eligible arrival dates found in the next 30 days for this shipping method.
+        Please choose a different shipping method or contact us to schedule.
       </div>
     )
   }
 
   return (
-    <Calendar
-      value={dateValue}
-      onChange={handleChange}
-      aria-label="Select your desired delivery date"
-      minValue={MIN_DATE}
-      isDateUnavailable={isDateUnavailable}
-    />
+    <div className="space-y-2">
+      <Calendar
+        value={dateValue}
+        onChange={handleChange}
+        aria-label="Select your desired arrival date"
+        minValue={minDate}
+        isDateUnavailable={isDateUnavailable}
+      />
+      <p className="text-xs text-gray-500 leading-snug" aria-live="polite">
+        {eligibility.reason}
+      </p>
+    </div>
   )
 }

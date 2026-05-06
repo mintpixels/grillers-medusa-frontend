@@ -464,6 +464,7 @@ export default function FulfillmentSelector({
                 selectedTimeWindow={scheduledTimeWindow}
                 onDateChange={setScheduledDate}
                 onTimeWindowChange={setScheduledTimeWindow}
+                destinationZip={address?.zip || cart.shipping_address?.postal_code || ""}
               />
             )}
 

@@ -1,6 +1,7 @@
 "use client"
 
 import { useMemo, useRef, useEffect } from "react"
+import { computeEligibleArrivalDates } from "@lib/util/eligible-arrival-dates"
 
 export type SoutheastPickupCity = {
   id: string
@@ -69,16 +70,27 @@ function parseDateParts(dateStr: string): { iso: string; month: string; day: str
 
 function getValidDates(location: SoutheastPickupCity): string[] {
   if (!location.AvailableDates?.length) return []
-  const now = new Date()
+
+  // Use the shared eligibility utility so the cutoff logic matches
+  // Atlanta Delivery + UPS calendars (#36 / #72). The Strapi `CutoffDays`
+  // field is honored as a fallback floor — if it's set to e.g. 3, we drop
+  // any date less than 3 days out even when the noon-prior cutoff hasn't fired.
   const cutoffDays = location.CutoffDays ?? 3
   const cutoffMs = cutoffDays * 24 * 60 * 60 * 1000
+  const now = new Date()
 
-  return location.AvailableDates.filter((d) => {
-    const [y, m, day] = d.Date.split("-").map(Number)
-    const date = new Date(y, m - 1, day)
-    return date.getTime() - now.getTime() >= cutoffMs
+  const isoList = location.AvailableDates.map((d) => d.Date.split("T")[0])
+  const eligibility = computeEligibleArrivalDates({
+    method: "southeast_pickup",
+    southeastAvailableIso: isoList,
   })
-    .map((d) => d.Date)
+
+  return Array.from(eligibility.isoSet)
+    .filter((iso) => {
+      const [y, m, day] = iso.split("-").map(Number)
+      const date = new Date(y, m - 1, day)
+      return date.getTime() - now.getTime() >= cutoffMs
+    })
     .sort()
 }
 

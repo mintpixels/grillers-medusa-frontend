@@ -2,8 +2,12 @@
 
 import { useMemo } from "react"
 import { Calendar, clx } from "@medusajs/ui"
-import { today, getLocalTimeZone } from "@internationalized/date"
 import type { FulfillmentConfigData } from "@lib/data/strapi/checkout"
+import { ATLANTA_DELIVERY_ZIP_DAYS } from "@lib/data/strapi/checkout"
+import {
+  computeEligibleArrivalDates,
+  toIsoDate,
+} from "@lib/util/eligible-arrival-dates"
 
 type AtlantaDeliverySchedulingProps = {
   config: FulfillmentConfigData["checkout"] | null
@@ -11,9 +15,9 @@ type AtlantaDeliverySchedulingProps = {
   selectedTimeWindow: string
   onDateChange: (date: string) => void
   onTimeWindowChange: (timeWindow: string) => void
+  /** Destination zip — drives the per-zip weekday + cutoff rules. */
+  destinationZip?: string
 }
-
-const timeZone = getLocalTimeZone()
 
 // Default time windows if none configured in Strapi
 const defaultTimeWindows = [
@@ -28,52 +32,76 @@ export default function AtlantaDeliveryScheduling({
   selectedTimeWindow,
   onDateChange,
   onTimeWindowChange,
+  destinationZip,
 }: AtlantaDeliverySchedulingProps) {
-  const minDate = today(timeZone).toDate(timeZone)
-
   const timeWindows = config?.AtlantaDeliveryTimeWindows?.length
     ? config.AtlantaDeliveryTimeWindows
     : defaultTimeWindows
 
+  const eligibility = useMemo(
+    () =>
+      computeEligibleArrivalDates({
+        method: "atlanta_delivery",
+        destinationZip: (destinationZip || "").trim(),
+        atlantaZipConfig: ATLANTA_DELIVERY_ZIP_DAYS,
+      }),
+    [destinationZip]
+  )
+
+  const minDate = eligibility.earliest ?? undefined
+
   // Convert selectedDate to Date object for Calendar
   const dateValue = useMemo(() => {
-    if (!selectedDate) return null
+    if (!selectedDate) {
+      return eligibility.earliest ?? null
+    }
     const [m, d, y] = selectedDate.split("/").map(Number)
-    return new Date(y, m - 1, d)
-  }, [selectedDate])
+    if (!m || !d || !y) return eligibility.earliest ?? null
+    const parsed = new Date(y, m - 1, d)
+    return eligibility.isoSet.has(toIsoDate(parsed))
+      ? parsed
+      : eligibility.earliest ?? null
+  }, [selectedDate, eligibility.earliest, eligibility.isoSet])
+
+  const isDateUnavailable = (date: Date) =>
+    !eligibility.isoSet.has(toIsoDate(date))
 
   const handleDateChange = (date: Date | null) => {
-    if (date) {
+    if (date && !isDateUnavailable(date)) {
       const usaDate = date.toLocaleDateString("en-US")
       onDateChange(usaDate)
     }
   }
 
-  // Disable weekends for Atlanta delivery
-  const isDateUnavailable = (date: Date) => {
-    const day = date.getDay()
-    return day === 0 || day === 6 // Sunday or Saturday
-  }
-
   return (
     <div>
       <h2 className="text-2xl font-bold mb-2">Schedule Atlanta Delivery</h2>
-      <p className="text-gray-600 mb-6">
+      <p className="text-gray-600 mb-2">
         Select a date and time window for your delivery.
+      </p>
+      <p className="text-xs text-gray-500 mb-6" aria-live="polite">
+        {eligibility.reason}
       </p>
 
       {/* Date Selection */}
       <div className="mb-6">
         <h3 className="font-medium mb-3">Select Date</h3>
-        <div className="flex justify-center">
-          <Calendar
-            value={dateValue}
-            onChange={handleDateChange}
-            aria-label="Select delivery date"
-            minValue={minDate}
-            isDateUnavailable={isDateUnavailable}
-          />
-        </div>
+        {eligibility.earliest ? (
+          <div className="flex justify-center">
+            <Calendar
+              value={dateValue}
+              onChange={handleDateChange}
+              aria-label="Select delivery date"
+              minValue={minDate}
+              isDateUnavailable={isDateUnavailable}
+            />
+          </div>
+        ) : (
+          <div className="p-4 bg-amber-50 border border-amber-200/80 rounded-lg text-sm text-amber-800">
+            No upcoming delivery dates available for {destinationZip || "this zip"}.
+            Please contact us to schedule.
+          </div>
+        )}
       </div>
 
       {/* Time Window Selection */}

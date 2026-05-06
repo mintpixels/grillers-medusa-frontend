@@ -1,0 +1,224 @@
+/**
+ * @jest-environment jsdom
+ */
+
+import {
+  computeEligibleArrivalDates,
+  isArrivalDateValid,
+  lookupUpsGroundDays,
+  toIsoDate,
+  UPS_GROUND_TRANSIT_DAYS_BY_PREFIX,
+} from "@lib/util/eligible-arrival-dates"
+
+describe("UPS Ground transit lookup", () => {
+  it("returns 1 day for in-region GA zips", () => {
+    // 30340 = Doraville (origin) → 1 day
+    expect(lookupUpsGroundDays("30340")).toBe(1)
+  })
+
+  it("returns 5 days for Los Angeles 90048 (issue #72 case)", () => {
+    expect(lookupUpsGroundDays("90048")).toBe(5)
+  })
+
+  it("returns 5 day fallback for unknown prefix", () => {
+    expect(lookupUpsGroundDays("00000")).toBe(5)
+  })
+
+  it("does not include weekend zip prefixes mistakenly", () => {
+    // Sanity: every transit value should be 1-7
+    for (const v of Object.values(UPS_GROUND_TRANSIT_DAYS_BY_PREFIX)) {
+      expect(v).toBeGreaterThanOrEqual(1)
+      expect(v).toBeLessThanOrEqual(7)
+    }
+  })
+})
+
+describe("UPS Ground arrival eligibility — issue #72", () => {
+  it("does NOT allow tomorrow as arrival for 90048 from Wed 2026-04-29", () => {
+    // Reproduce the exact bug: customer in 90048 ordering Wed 2026-04-29 ~14:35 ET
+    const now = new Date(2026, 3, 29, 14, 35) // April 29 2026, 2:35 PM
+    const result = computeEligibleArrivalDates({
+      method: "ups_ground",
+      destinationZip: "90048",
+      now,
+    })
+    // Tomorrow = April 30 — must NOT be eligible
+    expect(result.isoSet.has("2026-04-30")).toBe(false)
+    // Earliest should be at least 5 business days out from dispatch.
+    // Wed 4/29 14:35 ET (before 3PM cutoff) → packout Wed 4/29 → dispatch Wed 4/29 →
+    // 5 UPS biz days = Thu, Fri, Mon, Tue, Wed = Wed 2026-05-06.
+    // Per issue #72: "earliest legitimate selectable date is approximately Wed 5/6 — Thu 5/7."
+    const earliest = result.earliest!
+    expect(toIsoDate(earliest) >= "2026-05-06").toBe(true)
+  })
+
+  it("opens on the FIRST month containing a valid date", () => {
+    // For LA, the only valid dates are in May — earliest ought not be in April
+    const now = new Date(2026, 3, 29, 14, 35)
+    const result = computeEligibleArrivalDates({
+      method: "ups_ground",
+      destinationZip: "90048",
+      now,
+    })
+    expect(result.earliest!.getMonth()).toBe(4) // May (0-indexed)
+  })
+
+  it("UPS Overnight allows next business day arrival", () => {
+    const now = new Date(2026, 3, 29, 10, 0) // Wed AM, before cutoff
+    const result = computeEligibleArrivalDates({
+      method: "ups_overnight",
+      destinationZip: "90048",
+      now,
+    })
+    // pack-out same day (before 3PM ET cutoff), dispatch Wed, overnight = Thu 4/30
+    expect(result.isoSet.has("2026-04-30")).toBe(true)
+  })
+
+  it("UPS Ground after cutoff bumps to next operating day for dispatch", () => {
+    const now = new Date(2026, 3, 29, 16, 0) // Wed 4:00 PM — past 3PM cutoff
+    const result = computeEligibleArrivalDates({
+      method: "ups_ground",
+      destinationZip: "30340",
+      now,
+    })
+    // Pack-out Thu 4/30, dispatch Thu 4/30 (lead = 1 means same dispatch day),
+    // GA is 1-day transit so arrival Fri 5/1.
+    // Today Wed 4/29 must NOT be valid.
+    expect(result.isoSet.has("2026-04-29")).toBe(false)
+  })
+})
+
+describe("Atlanta Delivery cutoff — issue #36", () => {
+  const ATL_CFG = {
+    "30328": { weekdays: [2], cutoffHour: 12 }, // Sandy Springs Tuesday route
+  }
+
+  it("Sunday → next Tuesday is eligible", () => {
+    const sunday = new Date(2026, 3, 26, 10, 0) // Sun Apr 26 2026
+    const result = computeEligibleArrivalDates({
+      method: "atlanta_delivery",
+      destinationZip: "30328",
+      now: sunday,
+      atlantaZipConfig: ATL_CFG,
+    })
+    expect(result.isoSet.has("2026-04-28")).toBe(true) // Tue Apr 28
+  })
+
+  it("Monday 11:59 AM → Tuesday IS still eligible", () => {
+    const mon = new Date(2026, 3, 27, 11, 59)
+    const result = computeEligibleArrivalDates({
+      method: "atlanta_delivery",
+      destinationZip: "30328",
+      now: mon,
+      atlantaZipConfig: ATL_CFG,
+    })
+    expect(result.isoSet.has("2026-04-28")).toBe(true)
+  })
+
+  it("Monday 12:01 PM → Tuesday is NOT eligible (cutoff passed)", () => {
+    const mon = new Date(2026, 3, 27, 12, 1)
+    const result = computeEligibleArrivalDates({
+      method: "atlanta_delivery",
+      destinationZip: "30328",
+      now: mon,
+      atlantaZipConfig: ATL_CFG,
+    })
+    expect(result.isoSet.has("2026-04-28")).toBe(false)
+    // Should offer the FOLLOWING Tuesday instead
+    expect(result.isoSet.has("2026-05-05")).toBe(true)
+  })
+
+  it("Tuesday delivery day → today NOT eligible (already past cutoff)", () => {
+    const tue = new Date(2026, 3, 28, 9, 0) // Tue Apr 28 2026 9 AM
+    const result = computeEligibleArrivalDates({
+      method: "atlanta_delivery",
+      destinationZip: "30328",
+      now: tue,
+      atlantaZipConfig: ATL_CFG,
+    })
+    expect(result.isoSet.has("2026-04-28")).toBe(false)
+    expect(result.earliest && toIsoDate(result.earliest)).toBe("2026-05-05")
+  })
+
+  it("only Tuesdays are eligible for a Tuesday-route zip", () => {
+    const sun = new Date(2026, 3, 26, 10, 0)
+    const result = computeEligibleArrivalDates({
+      method: "atlanta_delivery",
+      destinationZip: "30328",
+      now: sun,
+      atlantaZipConfig: ATL_CFG,
+    })
+    for (const d of result.dates) {
+      expect(d.getDay()).toBe(2)
+    }
+  })
+})
+
+describe("isArrivalDateValid server-side check", () => {
+  it("rejects today's date for Atlanta Delivery past noon", () => {
+    const tue = new Date(2026, 3, 28, 13, 0)
+    const ok = isArrivalDateValid("4/28/2026", {
+      method: "atlanta_delivery",
+      destinationZip: "30328",
+      now: tue,
+      atlantaZipConfig: { "30328": { weekdays: [2], cutoffHour: 12 } },
+    })
+    expect(ok).toBe(false)
+  })
+
+  it("rejects tomorrow for UPS Ground GA→CA", () => {
+    const ok = isArrivalDateValid("4/30/2026", {
+      method: "ups_ground",
+      destinationZip: "90048",
+      now: new Date(2026, 3, 29, 14, 35),
+    })
+    expect(ok).toBe(false)
+  })
+
+  it("accepts a far-future date that's a UPS delivery day", () => {
+    const ok = isArrivalDateValid("5/14/2026", {
+      method: "ups_ground",
+      destinationZip: "90048",
+      now: new Date(2026, 3, 29, 14, 35),
+    })
+    expect(ok).toBe(true)
+  })
+})
+
+describe("Holiday + Shabbos exclusions", () => {
+  it("excludes UPS holidays from arrival eligibility", () => {
+    // 2026-12-25 Christmas — UPS does not deliver
+    const now = new Date(2026, 11, 18, 10, 0) // Dec 18 2026
+    const result = computeEligibleArrivalDates({
+      method: "ups_ground",
+      destinationZip: "30340", // 1 day transit
+      now,
+    })
+    expect(result.isoSet.has("2026-12-25")).toBe(false)
+  })
+
+  it("does not pack out on Saturdays", () => {
+    const fri = new Date(2026, 4, 1, 10, 0) // Fri May 1 2026
+    const result = computeEligibleArrivalDates({
+      method: "ups_ground",
+      destinationZip: "30340",
+      now: fri,
+    })
+    // No arrival should fall on Saturday
+    for (const d of result.dates) {
+      expect(d.getDay()).not.toBe(6)
+      expect(d.getDay()).not.toBe(0)
+    }
+  })
+
+  it("excludes Yom Kippur 2026-09-21 from operating days", () => {
+    const now = new Date(2026, 8, 15, 10, 0) // Sep 15 2026
+    const result = computeEligibleArrivalDates({
+      method: "atlanta_delivery",
+      destinationZip: "30328",
+      now,
+      atlantaZipConfig: { "30328": { weekdays: [2], cutoffHour: 12 } },
+    })
+    expect(result.isoSet.has("2026-09-21")).toBe(false)
+  })
+})
