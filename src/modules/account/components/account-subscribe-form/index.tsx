@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 
 const NEWSLETTER_CONSENT_VERSION = "v1-2026-05"
 
@@ -11,9 +12,8 @@ const NEWSLETTER_CONSENT_VERSION = "v1-2026-05"
  * audit log and welcome email both fire normally.
  */
 export default function AccountSubscribeForm({ email }: { email: string }) {
-  const [state, setState] = useState<"idle" | "submitting" | "done" | "error">(
-    "idle",
-  )
+  const router = useRouter()
+  const [state, setState] = useState<"idle" | "submitting" | "error">("idle")
   const [error, setError] = useState<string | null>(null)
 
   const subscribe = async () => {
@@ -32,7 +32,9 @@ export default function AccountSubscribeForm({ email }: { email: string }) {
         }),
       })
       if (r.ok) {
-        setState("done")
+        // Re-render the server component so the page picks up the new
+        // subscriber state (prefs UI replaces the subscribe form).
+        router.refresh()
       } else {
         setState("error")
         setError("Could not subscribe. Please try again in a moment.")
@@ -41,19 +43,6 @@ export default function AccountSubscribeForm({ email }: { email: string }) {
       setState("error")
       setError("Could not subscribe. Please try again in a moment.")
     }
-  }
-
-  if (state === "done") {
-    return (
-      <div className="border border-Charcoal/10 rounded-lg p-6 md:p-8 bg-Charcoal/[0.02]">
-        <p className="font-gyst text-h6 text-Charcoal mb-2">You&rsquo;re subscribed.</p>
-        <p className="font-maison-neue text-Charcoal/75">
-          We just sent a welcome email to{" "}
-          <span className="font-semibold">{email}</span>. Refresh this page to
-          fine-tune your preferences.
-        </p>
-      </div>
-    )
   }
 
   return (
