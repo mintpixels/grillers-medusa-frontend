@@ -43,9 +43,10 @@ const PaymentIcon = ({ method }: { method: string }) => {
     case "amex":
     case "american express":
       return (
-        <svg className={iconClass} viewBox="0 0 48 32" aria-hidden="true">
+        <svg className={iconClass} viewBox="0 0 48 32" aria-hidden="true" role="img" aria-label="American Express">
           <rect width="48" height="32" rx="4" fill="#006FCF"/>
-          <path d="M11 21.5v-6l-3 3.5h-.8l-3-3.5v6H2v-11h2.2l3.4 4 3.4-4H13v11h-2zm7.5-4.5h-3.2v1.5h3.2v2h-3.2v2h3.7v2H13v-11h5.5v2h-3.2v1.5h3.2v2zm5.5 4.5l-2-3.5H21v3.5h-2v-11h4.2c2 0 3.3 1.3 3.3 3.3 0 1.5-.8 2.6-2.1 3l2.3 4.7h-2.7zm-.5-9h-1.8v3.5h1.8c1 0 1.5-.7 1.5-1.7 0-1.1-.5-1.8-1.5-1.8zm6 9h-2v-11h2v11zm7.8-4l3.2 4H38l-2.5-3.2-2.5 3.2h-2.5l3.2-4-3.2-4h2.5l2.5 3.2L38 10.5h2.5l-3.2 4z" fill="#fff"/>
+          <text x="24" y="15" textAnchor="middle" fill="#fff" fontFamily="'Arial Black', 'Helvetica Neue', Arial, sans-serif" fontWeight="900" fontSize="6" letterSpacing="0.3">AMERICAN</text>
+          <text x="24" y="23" textAnchor="middle" fill="#fff" fontFamily="'Arial Black', 'Helvetica Neue', Arial, sans-serif" fontWeight="900" fontSize="6" letterSpacing="0.3">EXPRESS</text>
         </svg>
       )
     case "paypal":
