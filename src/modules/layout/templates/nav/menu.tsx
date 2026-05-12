@@ -79,7 +79,7 @@ export const MobileNavMenu = ({
 
       <Dialog
         as="div"
-        className="relative z-20"
+        className="relative z-50"
         open={mobileOpen}
         onClose={setMobileOpen}
       >
