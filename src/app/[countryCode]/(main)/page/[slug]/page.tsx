@@ -18,6 +18,7 @@ const INFO_SLUGS = [
   "our-mission",
   "careers",
   "catch-weight-pricing",
+  "wholesale",
 ] as const
 type InfoSlug = (typeof INFO_SLUGS)[number]
 
@@ -28,6 +29,7 @@ const SECTION_BY_SLUG: Record<InfoSlug, string> = {
   "our-mission": "About",
   careers: "About",
   "catch-weight-pricing": "How it works",
+  wholesale: "Wholesale",
 }
 
 export async function generateStaticParams() {
@@ -82,7 +84,7 @@ export default async function StaticPage({ params }: Props) {
           </header>
 
           <div className="prose prose-Charcoal max-w-none font-maison-neue text-Charcoal/90 [&_h2]:font-gyst [&_h2]:text-Charcoal [&_h2]:mt-8 [&_h2]:mb-3 [&_h3]:font-gyst [&_h3]:text-Charcoal [&_a]:text-Gold [&_a:hover]:text-Gold/80">
-            <BlocksRenderer content={page.Content} />
+            <BlocksRenderer content={page.Content || []} />
           </div>
         </article>
       </div>
