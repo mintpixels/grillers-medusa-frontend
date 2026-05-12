@@ -55,6 +55,20 @@ const DEFAULT_ORG = {
   Email: "peter@grillerspride.com",
 }
 
+// Fallback social profiles mirroring the footer's DEFAULT_SOCIAL_LINKS so
+// Google's Knowledge Panel always has at least the canonical three even
+// before Strapi Global → Organization → SocialProfiles is filled in. #45.
+const DEFAULT_SAME_AS = [
+  "https://www.facebook.com/GrillersPride",
+  "https://www.instagram.com/grillerspride/",
+  "https://x.com/kosher_meat",
+]
+
+// Relative path of the brand logo bundled in /public. Combined with the
+// resolved base URL at render time to produce an absolute logo URL for the
+// Organization JSON-LD until Strapi Global → OrganizationLogo is set. #45.
+const DEFAULT_LOGO_PATH = "/images/logos/logo-horizontal.svg"
+
 /**
  * Generates Organization JSON-LD schema from Strapi Global data, with
  * sensible defaults so the homepage always emits a valid Organization
@@ -104,7 +118,7 @@ export function generateOrganizationJsonLd(
         : "Griller's Pride",
     description: global?.siteDescription,
     url: baseUrl,
-    logo: global?.OrganizationLogo?.url,
+    logo: global?.OrganizationLogo?.url ?? `${baseUrl}${DEFAULT_LOGO_PATH}`,
     ...(address && { address }),
     ...(org.Phone && {
       telephone: org.Phone,
@@ -116,7 +130,7 @@ export function generateOrganizationJsonLd(
       },
     }),
     ...(org.Email && { email: org.Email }),
-    ...(sameAs && sameAs.length > 0 && { sameAs }),
+    sameAs: sameAs && sameAs.length > 0 ? sameAs : DEFAULT_SAME_AS,
   }
 }
 
