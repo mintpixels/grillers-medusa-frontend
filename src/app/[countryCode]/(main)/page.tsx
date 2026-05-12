@@ -10,11 +10,13 @@ import ShopCollectionsSection from "@modules/home/components/shop-collections"
 import TestimonialSection from "@modules/home/components/testimonial"
 import FollowUsSection from "@modules/home/components/follow-us"
 import BlogExploreSection from "@modules/home/components/blog-explore"
+import ReorderRow from "@modules/home/components/reorder-row"
 import LazySection from "@modules/common/components/lazy-section"
 import { listCollections } from "@lib/data/collections"
 import { getRegion } from "@lib/data/regions"
 import { retrieveCustomer } from "@lib/data/customer"
-import { listOrders } from "@lib/data/orders"
+import { listOrders, listPurchaseHistory } from "@lib/data/orders"
+import { getProductsByMedusaIds, type StrapiCollectionProduct } from "@lib/data/strapi/collections"
 import strapiClient from "@lib/strapi"
 import { GetHomePageQuery, type HomePageData } from "@lib/data/strapi/home"
 import {
@@ -114,6 +116,32 @@ export default async function Home(props: {
   const isLoggedIn = !!customer
   const hasOrders = (orders?.length || 0) > 0
 
+  // Reorder-row data: only fetch purchase history (and the Strapi enrichment
+  // for product images / clean titles) for logged-in customers with orders.
+  // Guests + zero-order accounts skip both calls so the homepage RSC stays
+  // fast for them. (#53)
+  const purchaseHistory = isLoggedIn && hasOrders
+    ? await listPurchaseHistory().catch(() => [])
+    : []
+  const reorderStrapiMap: Record<string, StrapiCollectionProduct> = {}
+  if (purchaseHistory.length > 0) {
+    const ids = Array.from(
+      new Set(purchaseHistory.map((h) => h.productId).filter(Boolean))
+    )
+    if (ids.length > 0) {
+      try {
+        const strapiProducts = await getProductsByMedusaIds(ids, strapiClient)
+        for (const sp of strapiProducts) {
+          if (sp.MedusaProduct?.ProductId) {
+            reorderStrapiMap[sp.MedusaProduct.ProductId] = sp
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching reorder strapi enrichment:", error)
+      }
+    }
+  }
+
   const strapiData = await strapiClient.request<HomePageData>(GetHomePageQuery)
   
   // Fetch global data for Organization JSON-LD
@@ -155,12 +183,25 @@ export default async function Home(props: {
               </React.Fragment>
             )
           case "ComponentHomeBestsellers":
+            // Returning customers (logged-in + at least one order) get a
+            // personalized "Reorder your favorites" row rendered right
+            // before Bestsellers — Bestsellers stays as the fallback /
+            // discovery path for everyone else. (#53)
             return (
-              <BestsellersSection
-                key={section.__typename}
-                data={section}
-                countryCode={countryCode}
-              />
+              <React.Fragment key={section.__typename}>
+                {isLoggedIn && hasOrders && purchaseHistory.length > 0 && (
+                  <ReorderRow
+                    history={purchaseHistory}
+                    strapiMap={reorderStrapiMap}
+                    firstName={customer?.first_name}
+                    countryCode={countryCode}
+                  />
+                )}
+                <BestsellersSection
+                  data={section}
+                  countryCode={countryCode}
+                />
+              </React.Fragment>
             )
           case "ComponentHomeKosherPromise":
             return (
