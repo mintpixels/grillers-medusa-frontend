@@ -8,6 +8,7 @@ import {
   LEGAL_SLUGS,
 } from "@lib/data/strapi/legal"
 import InfoPageTemplate from "@modules/info/templates/info-page"
+import WholesaleLeadForm from "../../../../../components/wholesale-lead-form"
 
 type Props = {
   params: Promise<{ countryCode: string; slug: string }>
@@ -94,10 +95,17 @@ export default async function StaticPage({ params }: Props) {
   const page = await getInfoPage(slug)
   if (!page) notFound()
   return (
-    <InfoPageTemplate
-      page={page}
-      section={SECTION_BY_SLUG[slug as InfoSlug]}
-    />
+    <>
+      <InfoPageTemplate
+        page={page}
+        section={SECTION_BY_SLUG[slug as InfoSlug]}
+      />
+      {slug === "wholesale" && (
+        <section className="content-container py-12 md:py-20">
+          <WholesaleLeadForm />
+        </section>
+      )}
+    </>
   )
 }
 
