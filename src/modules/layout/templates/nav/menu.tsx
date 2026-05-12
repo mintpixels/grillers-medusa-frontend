@@ -22,9 +22,17 @@ const iconMap = {
 // label. `null` means we couldn't compute a count for that URL (unknown
 // shape, or Strapi was unreachable when the page rendered) — render nothing
 // rather than a misleading 0.
+//
+// Gated behind NEXT_PUBLIC_SHOW_NAV_COUNTS so the counts stay off in
+// production while remaining a one-flag toggle for catalog QA. The PLP
+// filter sidebar lives in a different code path and continues to show
+// counts unconditionally — that's the correct surface for them.
 type NavCounts = Record<string, number | null>
 
+const SHOW_NAV_COUNTS = process.env.NEXT_PUBLIC_SHOW_NAV_COUNTS === "true"
+
 const formatCount = (n: number | null | undefined): string | null => {
+  if (!SHOW_NAV_COUNTS) return null
   if (n == null) return null
   return `(${n.toLocaleString("en-US")})`
 }
