@@ -13,7 +13,7 @@ const WholesaleBand: React.FC = () => {
           <p className="text-p-md font-maison-neue text-Scroll/85">
             Catering, restaurant, or congregation?{" "}
             <LocalizedClientLink
-              href="/contact#wholesale"
+              href="/page/wholesale"
               className="text-Gold font-semibold underline-offset-4 hover:underline"
             >
               Wholesale pricing →
@@ -43,7 +43,7 @@ const WholesaleBand: React.FC = () => {
 
           <div className="lg:col-span-5 flex justify-start lg:justify-end">
             <LocalizedClientLink
-              href="/contact#wholesale"
+              href="/page/wholesale"
               className="inline-flex items-center gap-3 px-8 py-4 bg-Gold text-Charcoal font-rexton text-h6 font-bold uppercase tracking-wide hover:bg-Gold/90 transition-colors rounded-[5px]"
             >
               Get wholesale pricing
