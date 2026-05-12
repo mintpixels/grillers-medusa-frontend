@@ -55,8 +55,9 @@ const nextConfig = {
     ],
   },
   // Permanent redirects for legacy paths from the old grillerspride.com URL
-  // structure. Skipped /us/wholesale and /us/passover — destinations don't
-  // exist yet (no wholesale info-page slug, no passover holidays slug). (#79)
+  // structure. Skipped /us/passover — destination doesn't exist yet (no
+  // passover holidays slug). Wholesale destination shipped in #94 so the
+  // /us/wholesale legacy alias now redirects. (#79, #94)
   async redirects() {
     return [
       { source: "/us/about", destination: "/us/page/about-us", permanent: true },
@@ -67,6 +68,7 @@ const nextConfig = {
       { source: "/us/terms", destination: "/us/page/terms-of-use", permanent: true },
       { source: "/us/terms-of-sale", destination: "/us/page/terms-of-sale", permanent: true },
       { source: "/us/terms-of-use", destination: "/us/page/terms-of-use", permanent: true },
+      { source: "/us/wholesale", destination: "/us/page/wholesale", permanent: true },
     ]
   },
 }

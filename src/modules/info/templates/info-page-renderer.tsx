@@ -12,8 +12,18 @@ import type {
 const richProse =
   "font-maison-neue text-Charcoal/90 [&_h2]:font-gyst [&_h2]:text-Charcoal [&_h2]:mt-10 [&_h2]:mb-4 [&_h2]:text-h3-mobile md:[&_h2]:text-h3 [&_h2]:text-balance [&_h3]:font-gyst [&_h3]:text-Charcoal [&_h3]:mt-6 [&_h3]:mb-2 [&_h3]:text-balance [&_a]:text-Gold [&_a:hover]:text-Gold/80 [&_strong]:text-Charcoal [&_blockquote]:border-l-4 [&_blockquote]:border-Gold/30 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-Charcoal/70 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_li]:my-1 [&_p]:my-5 [&_p]:leading-[1.7] [&_p]:text-pretty"
 
-function isInternal(url: string) {
+function isInternalPath(url: string) {
   return url.startsWith("/")
+}
+
+// In-page (#anchor) or protocol links (mailto:, tel:, sms:, callto:) should
+// render as plain anchors with no target="_blank" — opening a new browser
+// window before the OS protocol-handler kicks in produces an empty stub
+// tab and confuses screen readers about navigation context. (See #94 +
+// Codex adversarial review.)
+function isSameContextLink(url: string) {
+  if (url.startsWith("#")) return true
+  return /^(mailto:|tel:|sms:|callto:)/i.test(url)
 }
 
 function CtaButton({
@@ -30,11 +40,18 @@ function CtaButton({
       ? `${base} bg-Gold text-white hover:bg-Gold/90`
       : `${base} border border-Charcoal/20 text-Charcoal hover:bg-Charcoal/5`
 
-  if (isInternal(link.Url)) {
+  if (isInternalPath(link.Url)) {
     return (
       <LocalizedClientLink href={link.Url} className={styles}>
         {link.Text}
       </LocalizedClientLink>
+    )
+  }
+  if (isSameContextLink(link.Url)) {
+    return (
+      <a href={link.Url} className={styles}>
+        {link.Text}
+      </a>
     )
   }
   return (

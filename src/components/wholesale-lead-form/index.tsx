@@ -178,7 +178,7 @@ export default function WholesaleLeadForm() {
 
           <div>
             <label htmlFor={`${formId}-phone`} className={labelClass}>
-              Phone <span className="text-Charcoal/40">(optional)</span>
+              Phone
             </label>
             <input
               id={`${formId}-phone`}
@@ -231,8 +231,7 @@ export default function WholesaleLeadForm() {
 
           <div>
             <label htmlFor={`${formId}-vol`} className={labelClass}>
-              Estimated monthly volume{" "}
-              <span className="text-Charcoal/40">(optional)</span>
+              Monthly volume
             </label>
             <select
               id={`${formId}-vol`}
@@ -251,8 +250,7 @@ export default function WholesaleLeadForm() {
 
           <div className="md:col-span-2">
             <label htmlFor={`${formId}-msg`} className={labelClass}>
-              What are you looking for?{" "}
-              <span className="text-Charcoal/40">(optional)</span>
+              What are you looking for?
             </label>
             <textarea
               id={`${formId}-msg`}
