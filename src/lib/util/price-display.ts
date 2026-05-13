@@ -181,7 +181,8 @@ export function resolvePricingMode(
   const fromMetadata = (metadata as { PricingMode?: PriceDisplayMode } | null | undefined)
     ?.PricingMode
   if (fromMetadata === "per_lb" || fromMetadata === "fixed_price") return fromMetadata
-  if (sku && SKU_PRICING_MODE_MAP[sku]) return SKU_PRICING_MODE_MAP[sku]
+  const fromMap = sku ? SKU_PRICING_MODE_MAP[sku] : undefined
+  if (fromMap === "per_lb" || fromMap === "fixed_price") return fromMap
   if (parsedWeight && parsedWeight.avg >= 0.95) return "per_lb"
   return "fixed_price"
 }
