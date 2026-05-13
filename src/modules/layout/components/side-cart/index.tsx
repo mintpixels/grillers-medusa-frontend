@@ -117,7 +117,7 @@ const QuantitySelector = ({
         type="button"
         onClick={() => handleQuantityChange(optimisticQuantity - 1)}
         disabled={isUpdating || optimisticQuantity <= 1}
-        className="w-8 h-8 flex items-center justify-center text-Charcoal hover:bg-Charcoal/5 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+        className="min-w-[44px] min-h-[44px] flex items-center justify-center text-Charcoal hover:bg-Charcoal/5 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
         aria-label="Decrease quantity"
       >
         <span className="text-sm font-maison-neue">−</span>
@@ -129,7 +129,7 @@ const QuantitySelector = ({
         type="button"
         onClick={() => handleQuantityChange(optimisticQuantity + 1)}
         disabled={isUpdating}
-        className="w-8 h-8 flex items-center justify-center text-Charcoal hover:bg-Charcoal/5 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+        className="min-w-[44px] min-h-[44px] flex items-center justify-center text-Charcoal hover:bg-Charcoal/5 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
         aria-label="Increase quantity"
       >
         <span className="text-sm font-maison-neue">+</span>
@@ -254,7 +254,7 @@ export default function SideCart({ cart }: SideCartProps) {
                         <button
                           type="button"
                           onClick={closeCart}
-                          className="p-1.5 text-Charcoal/40 hover:text-Charcoal transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold rounded"
+                          className="min-w-[44px] min-h-[44px] inline-flex items-center justify-center text-Charcoal/40 hover:text-Charcoal transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold rounded"
                           aria-label="Close cart"
                         >
                           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

@@ -85,10 +85,12 @@ export default function SocialShare({
 
   const platforms: SharePlatform[] = ["pinterest", "facebook", "twitter", "copy"]
 
+  // 44×44 minimum hit area in both variants; compact uses smaller padding
+  // so the icon is closer to the edge, but the click target stays WCAG-safe.
   const buttonBaseClass =
     variant === "compact"
-      ? "p-2 rounded-full transition-colors"
-      : "p-3 rounded-full transition-colors"
+      ? "min-w-[44px] min-h-[44px] p-2 inline-flex items-center justify-center rounded-full transition-colors"
+      : "min-w-[44px] min-h-[44px] p-3 inline-flex items-center justify-center rounded-full transition-colors"
 
   return (
     <div className="flex items-center gap-2">

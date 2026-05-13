@@ -14,7 +14,7 @@ export default function CartTrigger({ totalItems }: CartTriggerProps) {
     <button
       type="button"
       onClick={openCart}
-      className="hover:text-ui-fg-base inline-flex gap-1 items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold rounded"
+      className="min-h-[44px] hover:text-ui-fg-base inline-flex gap-1 items-center justify-center px-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold rounded"
       aria-label={`Shopping cart with ${totalItems} item${totalItems !== 1 ? "s" : ""}`}
       data-testid="nav-cart-link"
     >

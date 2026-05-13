@@ -126,7 +126,7 @@ export default function ProductCardCarousel({
         <button
           type="button"
           onClick={handlePrev}
-          className="h-7 w-7 bg-white/85 rounded-full flex items-center justify-center hover:bg-white transition focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold focus-visible:ring-offset-1"
+          className="h-11 w-11 bg-white/85 rounded-full flex items-center justify-center hover:bg-white transition focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold focus-visible:ring-offset-1"
           aria-label="Previous image"
         >
           <Image
@@ -140,7 +140,7 @@ export default function ProductCardCarousel({
         <button
           type="button"
           onClick={handleNext}
-          className="h-7 w-7 bg-white/85 rounded-full flex items-center justify-center hover:bg-white transition focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold focus-visible:ring-offset-1"
+          className="h-11 w-11 bg-white/85 rounded-full flex items-center justify-center hover:bg-white transition focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold focus-visible:ring-offset-1"
           aria-label="Next image"
         >
           <Image

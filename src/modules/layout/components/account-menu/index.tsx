@@ -35,7 +35,7 @@ export default function AccountMenu({ initials, firstName }: AccountMenuProps) {
     <div className="relative" ref={menuRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold rounded-full transition-transform active:scale-95"
+        className="min-w-[44px] min-h-[44px] inline-flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold rounded-full transition-transform active:scale-95"
         aria-label="My account"
         aria-expanded={isOpen}
       >

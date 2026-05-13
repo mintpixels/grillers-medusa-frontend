@@ -79,7 +79,7 @@ const Header = ({ navLinks, regions, phoneNumber, customer, navCounts }: HeaderP
             {phoneNumber && (
               <a
                 href={`tel:${phoneNumber.replace(/\D/g, "")}`}
-                className="md:hidden text-Charcoal hover:text-Gold focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold rounded"
+                className="md:hidden min-w-[44px] min-h-[44px] inline-flex items-center justify-center text-Charcoal hover:text-Gold focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold rounded"
                 aria-label={`Call Griller's Pride at ${phoneNumber}`}
               >
                 <svg
@@ -100,7 +100,7 @@ const Header = ({ navLinks, regions, phoneNumber, customer, navCounts }: HeaderP
                 <AccountMenu initials={initials} firstName={customer?.first_name || ""} />
               ) : (
                 <LocalizedClientLink
-                  className="hover:text-ui-fg-base focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold rounded"
+                  className="min-w-[44px] min-h-[44px] inline-flex items-center justify-center hover:text-ui-fg-base focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold rounded"
                   href="/account"
                   data-testid="nav-account-link"
                   aria-label="My account"
@@ -118,7 +118,7 @@ const Header = ({ navLinks, regions, phoneNumber, customer, navCounts }: HeaderP
             <Suspense
               fallback={
                 <LocalizedClientLink
-                  className="hover:text-ui-fg-base flex gap-2"
+                  className="min-w-[44px] min-h-[44px] inline-flex items-center justify-center hover:text-ui-fg-base"
                   href="/cart"
                   data-testid="nav-cart-link"
                   aria-label="Shopping cart"

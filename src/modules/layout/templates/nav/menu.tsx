@@ -62,7 +62,7 @@ export const MobileNavMenu = ({
     <>
       <button
         type="button"
-        className="md:hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold focus-visible:ring-offset-2 rounded"
+        className="md:hidden min-w-[44px] min-h-[44px] inline-flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold focus-visible:ring-offset-2 rounded"
         aria-label="Open navigation menu"
         aria-expanded={mobileOpen}
         aria-controls="mobile-menu"
@@ -106,7 +106,7 @@ export const MobileNavMenu = ({
             </h2>
             <button
               onClick={() => setMobileOpen(false)}
-              className="p-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold rounded"
+              className="min-w-[44px] min-h-[44px] inline-flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold rounded"
               aria-label="Close navigation menu"
             >
               <svg

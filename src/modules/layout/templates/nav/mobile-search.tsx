@@ -279,7 +279,7 @@ export default function MobileSearch() {
       {/* Mobile search trigger button */}
       <button
         onClick={handleOpen}
-        className="md:hidden p-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold rounded"
+        className="md:hidden min-w-[44px] min-h-[44px] inline-flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold rounded"
         aria-label="Open search"
       >
         <Image
