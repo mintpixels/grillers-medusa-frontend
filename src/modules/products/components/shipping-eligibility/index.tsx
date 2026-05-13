@@ -29,7 +29,7 @@ export default function ShippingEligibility({
     },
     {
       label: "Atlanta home delivery",
-      sub: "ZIPs starting with 30 in the 7-state Southeast pickup region — selectable at checkout, free over $250.",
+      sub: "ZIPs starting with 30 in the 7-state Southeast pickup region. Selectable at checkout, free over $250.",
     },
     {
       label: "Southeast Pickup",

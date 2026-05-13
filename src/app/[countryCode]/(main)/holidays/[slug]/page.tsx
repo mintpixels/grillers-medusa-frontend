@@ -25,7 +25,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: `${page?.Title || "Holiday"} | Grillers Pride`,
     description:
       page?.SEO?.metaDescription ||
-      `${page?.Title} — holiday timelines and Passover ordering from Grillers Pride.`,
+      `${page?.Title} | holiday timelines and Passover ordering from Grillers Pride.`,
   }
 }
 

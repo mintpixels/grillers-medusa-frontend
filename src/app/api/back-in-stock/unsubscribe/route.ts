@@ -98,12 +98,12 @@ function renderConfirmationHtml(opts: {
     ? `<p>You'll no longer receive the back-in-stock email for ${
         opts.productTitle ? `<strong>${escapeHtml(opts.productTitle)}</strong>` : "this product"
       }.</p><p>You can re-subscribe any time from the product page.</p>`
-    : `<p>We couldn't find a matching subscription — the link may have already been used. If you keep getting unwanted emails, reply to one and we'll take you off the list manually.</p>`
+    : `<p>We couldn't find a matching subscription. The link may have already been used. If you keep getting unwanted emails, reply to one and we'll take you off the list manually.</p>`
   return `<!DOCTYPE html>
 <html lang="en"><head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>${title} — Grillers Pride</title>
+<title>${title} · Grillers Pride</title>
 <style>
   body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 540px; margin: 4rem auto; padding: 0 1.25rem; color: #222; line-height: 1.5; }
   h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }

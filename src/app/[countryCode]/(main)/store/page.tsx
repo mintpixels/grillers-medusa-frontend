@@ -18,7 +18,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   return {
     title: "Shop All Products | Grillers Pride",
     description:
-      "Browse our full kosher catalog — beef, poultry, lamb, veal, prepared and provisions. Filter by cooking state, sourcing, and certification.",
+      "Browse our full kosher catalog: beef, poultry, lamb, veal, prepared and provisions. Filter by cooking state, sourcing, and certification.",
     alternates,
   }
 }

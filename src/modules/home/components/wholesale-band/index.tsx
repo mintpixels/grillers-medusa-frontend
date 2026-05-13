@@ -31,9 +31,9 @@ const WholesaleBand: React.FC = () => {
               Volume orders, standing accounts, custom packaging.
             </h2>
             <p className="text-p-md font-maison-neue text-Scroll/85 leading-relaxed mb-3 max-w-[600px]">
-              If you order in volume — Friday-night dinners for a synagogue,
-              weekly catering, restaurant supply, school lunch programs,
-              simchas — we'd love to talk.
+              If you order in volume, like Friday-night dinners for a synagogue,
+              weekly catering, restaurant supply, school lunch programs, or
+              simchas, we'd love to talk.
             </p>
             <p className="text-p-md font-maison-neue text-Scroll/70 max-w-[600px]">
               Volume pricing &middot; Standing orders &middot; Net-30 terms

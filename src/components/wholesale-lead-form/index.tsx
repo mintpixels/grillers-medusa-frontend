@@ -61,7 +61,7 @@ export default function WholesaleLeadForm() {
           operationType,
           organization,
         })
-        toast.success("Thanks — we'll be in touch within 1 business day.", {
+        toast.success("Thanks. We'll be in touch within 1 business day.", {
           description: "Peter will reply directly from peter@grillerspride.com.",
         })
         setSubmitted(true)
@@ -89,7 +89,7 @@ export default function WholesaleLeadForm() {
         aria-live="polite"
       >
         <h3 className="font-gyst text-h3 text-Charcoal mb-4">
-          Thanks — your inquiry is in.
+          Thanks. Your inquiry is in.
         </h3>
         <p className="text-p-md font-maison-neue text-Charcoal/80 max-w-prose mx-auto">
           Peter will reply within one business day from{" "}
@@ -133,7 +133,7 @@ export default function WholesaleLeadForm() {
         </h3>
         <p className="text-p-md font-maison-neue text-Charcoal/70 mb-8">
           Tell us a little about your operation. Peter will reply within one
-          business day with a tailored proposal — or just call{" "}
+          business day with a tailored proposal, or just call{" "}
           <a
             href="tel:+17704548108"
             className="text-Gold font-semibold underline-offset-4 hover:underline whitespace-nowrap"

@@ -31,7 +31,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: `${page?.Title || "Shipping"} | Grillers Pride`,
     description:
       page?.SEO?.metaDescription ||
-      `${page?.Title} — shipping, delivery, and pickup details from Grillers Pride.`,
+      `${page?.Title} | shipping, delivery, and pickup details from Grillers Pride.`,
   }
 }
 

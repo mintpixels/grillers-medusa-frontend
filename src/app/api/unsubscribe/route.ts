@@ -73,7 +73,7 @@ function renderHtml(opts: { ok: boolean; type: string }): string {
 <html lang="en"><head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>${title} — Grillers Pride</title>
+<title>${title} · Grillers Pride</title>
 <style>
   body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 540px; margin: 4rem auto; padding: 0 1.25rem; color: #222; line-height: 1.5; }
   h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }

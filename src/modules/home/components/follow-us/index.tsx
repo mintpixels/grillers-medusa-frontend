@@ -34,7 +34,7 @@ export default function FollowUsSection({
                 >
                   <Image
                     src={img.url}
-                    alt={`${data.FollowUsTitle || "Griller's Pride on Instagram"} — photo ${index + 1}`}
+                    alt={`${data.FollowUsTitle || "Griller's Pride on Instagram"} photo ${index + 1}`}
                     fill
                     className="object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04]"
                   />

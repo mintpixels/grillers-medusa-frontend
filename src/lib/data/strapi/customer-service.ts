@@ -41,7 +41,7 @@ export const GetCustomerServiceQuery = gql`
 const PLACEHOLDER: CustomerServiceData = {
   Title: "Customer Service",
   Intro:
-    "We're a family-run Atlanta butcher counter — when you have a question, a real person picks up. Use the channels below or scan the FAQ for the fastest answer.",
+    "We're a family-run Atlanta butcher counter. When you have a question, a real person picks up. Use the channels below or scan the FAQ for the fastest answer.",
   ContactEmail: "peter@grillerspride.com",
   ContactPhone: "(770) 454-8108",
   ContactHours:
@@ -75,7 +75,7 @@ const PLACEHOLDER: CustomerServiceData = {
     {
       Question: "Do you offer wholesale or B2B accounts?",
       Answer:
-        "Yes — we work with restaurants, caterers, and institutional buyers. Email us with your business details and we'll set you up with an account and pricing.",
+        "Yes. We work with restaurants, caterers, and institutional buyers. Email us with your business details and we'll set you up with an account and pricing.",
     },
     {
       Question: "Where are you located?",
@@ -85,7 +85,7 @@ const PLACEHOLDER: CustomerServiceData = {
     {
       Question: "What if I have a special-occasion order?",
       Answer:
-        "Holidays (Pesach, Rosh Hashanah, Sukkot, Shabbos) and large gatherings — give us a call directly. We'll walk through quantities and timing so nothing gets cut close.",
+        "Holidays (Pesach, Rosh Hashanah, Sukkot, Shabbos) and large gatherings, give us a call directly. We'll walk through quantities and timing so nothing gets cut close.",
     },
   ],
 }

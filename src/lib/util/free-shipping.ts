@@ -191,7 +191,7 @@ export function freeShippingPlainText(input: {
 
   if (s.isPlantPickup) {
     return s.pickupBonusEarned
-      ? `Pickup is always free — you've earned a $${PICKUP_BONUS_AMOUNT.toFixed(
+      ? `Pickup is always free. You've earned a $${PICKUP_BONUS_AMOUNT.toFixed(
           2
         )} pickup credit.`
       : `Pickup is always free. ${fmt(s.pickupBonusRemaining)} away from a $${PICKUP_BONUS_AMOUNT.toFixed(2)} credit.`

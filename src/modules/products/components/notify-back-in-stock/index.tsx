@@ -81,11 +81,11 @@ export default function NotifyBackInStockForm({
         id="notify-back-in-stock-heading"
         className="text-p-sm-mono font-maison-neue font-bold uppercase text-Charcoal mb-2"
       >
-        Out of stock — get notified
+        Out of stock. Get notified.
       </h3>
       <p className="text-p-sm font-maison-neue text-Charcoal/70 mb-3">
         Drop your email and we&apos;ll let you know the moment this is
-        back. No marketing list — one email per restock, then we stop.
+        back. No marketing list. One email per restock, then we stop.
       </p>
       <div className="flex flex-col sm:flex-row gap-2">
         <label htmlFor="back-in-stock-email" className="sr-only">

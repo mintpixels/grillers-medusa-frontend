@@ -112,7 +112,7 @@ export default function TrustBand({ customer, phoneNumber }: TrustBandProps) {
             }
           >
             <span>
-              <strong>{phoneDisplay}</strong> — we still answer
+              <strong>{phoneDisplay}</strong> · we still answer
             </span>
           </Pill>
         </div>

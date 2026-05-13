@@ -226,7 +226,7 @@ export function formatProductPriceDisplay(
       mode: "fixed_price",
       primary: dollars(packPrice),
       primaryLabel: "",
-      secondary: "Each — fixed price",
+      secondary: "Each, fixed price",
       estimatedPackPrice: packPrice,
     }
   }
