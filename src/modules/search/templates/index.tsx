@@ -11,6 +11,7 @@ import { enrichStrapiProductsWithMedusaPrices } from "@lib/data/products"
 import StrapiProductGrid from "@modules/collections/components/strapi-product-grid"
 import CollectionFilters, {
   type ActiveFilters,
+  getActiveFilterCount,
   getEmptyFilters,
   hasActiveFilters,
   filterProducts,
@@ -117,6 +118,23 @@ function SearchBody({ initialQuery, countryCode }: { initialQuery: string; count
 
   const [activeFilters, setActiveFilters] = useState<ActiveFilters>(getEmptyFilters())
   const [currentPage, setCurrentPage] = useState(1)
+  // Mobile filter drawer — collapsed by default so products are the first
+  // thing visible. Same pattern as the collection page (#119).
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
+
+  useEffect(() => {
+    if (!mobileFiltersOpen) return
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMobileFiltersOpen(false)
+    }
+    document.addEventListener("keydown", onKey)
+    return () => {
+      document.body.style.overflow = prevOverflow
+      document.removeEventListener("keydown", onKey)
+    }
+  }, [mobileFiltersOpen])
 
   // Reset page on new query or filter change.
   const filtered = useMemo(
@@ -194,19 +212,53 @@ function SearchBody({ initialQuery, countryCode }: { initialQuery: string; count
 
       <div className={`gap-8 grid grid-cols-1 ${showFilters ? "lg:grid-cols-[0.25fr_1fr]" : ""}`}>
         {showFilters && (
-          <CollectionFilters
-            products={allProducts}
-            activeFilters={activeFilters}
-            onFilterChange={handleFilterChange}
-          />
+          <div className="hidden lg:block">
+            <CollectionFilters
+              products={allProducts}
+              activeFilters={activeFilters}
+              onFilterChange={handleFilterChange}
+            />
+          </div>
         )}
 
         <main className="flex-1">
-          {hasActiveFilters(activeFilters) && (
-            <p className="text-sm text-gray-600 mb-4">
-              Showing {filtered.length} of {allProducts.length}
-            </p>
-          )}
+          <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
+            {hasActiveFilters(activeFilters) ? (
+              <p className="text-sm text-gray-600">
+                Showing {filtered.length} of {allProducts.length}
+              </p>
+            ) : <span />}
+            {showFilters && (
+              <button
+                type="button"
+                onClick={() => setMobileFiltersOpen(true)}
+                className="lg:hidden inline-flex items-center gap-2 h-[44px] px-4 border border-gray-300 rounded-lg bg-white text-Charcoal text-sm font-maison-neue hover:border-Charcoal focus:outline-none focus:ring-1 focus:ring-Gold"
+                aria-label={`Open filters${
+                  getActiveFilterCount(activeFilters) > 0
+                    ? `, ${getActiveFilterCount(activeFilters)} active`
+                    : ""
+                }`}
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  aria-hidden="true"
+                >
+                  <path d="M2 4h12M4 8h8M6 12h4" strokeLinecap="round" />
+                </svg>
+                <span>Filters</span>
+                {getActiveFilterCount(activeFilters) > 0 && (
+                  <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-Charcoal text-white text-xs font-maison-neue-mono">
+                    {getActiveFilterCount(activeFilters)}
+                  </span>
+                )}
+              </button>
+            )}
+          </div>
 
           <StrapiProductGrid
             products={pricedProducts}
@@ -225,6 +277,73 @@ function SearchBody({ initialQuery, countryCode }: { initialQuery: string; count
           )}
         </main>
       </div>
+
+      {/* Mobile filter drawer — hidden ≥ lg (desktop uses the sidebar). */}
+      {showFilters && (
+        <div
+          className={`lg:hidden fixed inset-0 z-40 ${
+            mobileFiltersOpen ? "" : "pointer-events-none"
+          }`}
+          aria-hidden={!mobileFiltersOpen}
+        >
+          <div
+            onClick={() => setMobileFiltersOpen(false)}
+            className={`absolute inset-0 bg-black/40 transition-opacity duration-300 ${
+              mobileFiltersOpen ? "opacity-100" : "opacity-0"
+            }`}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Product filters"
+            className={`absolute right-0 top-0 bottom-0 w-[85%] max-w-md bg-white shadow-xl flex flex-col transition-transform duration-300 ease-out ${
+              mobileFiltersOpen ? "translate-x-0" : "translate-x-full"
+            }`}
+          >
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 shrink-0">
+              <h2 className="text-h4 font-gyst font-bold text-Charcoal">
+                Filters
+              </h2>
+              <button
+                type="button"
+                onClick={() => setMobileFiltersOpen(false)}
+                className="w-10 h-10 -mr-2 flex items-center justify-center text-Charcoal hover:bg-Charcoal/5 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold"
+                aria-label="Close filters"
+              >
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  aria-hidden="true"
+                >
+                  <path d="M18 6L6 18M6 6l12 12" strokeLinecap="round" />
+                </svg>
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-5 py-4">
+              <CollectionFilters
+                products={allProducts}
+                activeFilters={activeFilters}
+                onFilterChange={handleFilterChange}
+                hideHeader
+              />
+            </div>
+            <div className="px-5 py-4 border-t border-gray-200 shrink-0">
+              <button
+                type="button"
+                onClick={() => setMobileFiltersOpen(false)}
+                className="w-full h-12 bg-Charcoal text-white font-maison-neue font-bold text-sm uppercase tracking-wide rounded-md hover:bg-Charcoal/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold"
+              >
+                Show {filtered.length}{" "}
+                {filtered.length === 1 ? "result" : "results"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }
