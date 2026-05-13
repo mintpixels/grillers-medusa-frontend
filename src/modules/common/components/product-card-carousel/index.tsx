@@ -106,7 +106,7 @@ export default function ProductCardCarousel({
               {shouldRender && (
                 <Image
                   src={url}
-                  alt={`${alt} — image ${index + 1} of ${total}`}
+                  alt={`${alt}, image ${index + 1} of ${total}`}
                   fill
                   className="object-cover"
                   sizes={sizes}
