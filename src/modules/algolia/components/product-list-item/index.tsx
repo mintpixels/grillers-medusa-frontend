@@ -143,7 +143,7 @@ const ProductListItem = ({ hit }: { hit: StrapiProductData }) => {
           {/* View Details Link */}
           <LocalizedClientLink
             href={`/products/${hit?.MedusaProduct?.Handle}`}
-            className="inline-flex gap-2 items-center text-sm font-medium text-Charcoal hover:text-VibrantRed transition-colors"
+            className="min-h-[44px] inline-flex gap-2 items-center text-sm font-medium text-Charcoal hover:text-VibrantRed focus-visible:text-VibrantRed focus-visible:underline transition-colors py-2"
           >
             View Details
             <Image

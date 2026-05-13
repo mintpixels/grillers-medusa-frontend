@@ -183,7 +183,7 @@ const ProductCard = ({ hit }: { hit: StrapiProductData }) => {
       <div className="flex items-center justify-between pt-4">
         <LocalizedClientLink
           href={`/products/${hit?.MedusaProduct?.Handle}`}
-          className="inline-flex gap-3 items-center hover:opacity-70 transition-opacity"
+          className="min-h-[44px] inline-flex gap-3 items-center hover:opacity-70 focus-visible:opacity-100 focus-visible:underline transition-opacity py-2"
         >
           <span className="text-Charcoal font-rexton text-h6 font-bold uppercase">
             View Details

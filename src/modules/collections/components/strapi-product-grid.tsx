@@ -249,7 +249,7 @@ export function ProductCard({ product, countryCode, viewMode = "grid" }: { produ
           <div className="flex flex-col items-end gap-3">
             <LocalizedClientLink
               href={`/products/${product?.MedusaProduct?.Handle}`}
-              className="inline-flex gap-2 items-center justify-center hover:opacity-70 transition-opacity w-full"
+              className="min-h-[44px] inline-flex gap-2 items-center justify-center hover:opacity-70 focus-visible:opacity-100 focus-visible:underline transition-opacity w-full"
             >
               <span className="text-Charcoal font-rexton text-[10px] font-bold uppercase whitespace-nowrap">View Details</span>
               <Image src="/images/icons/arrow-right.svg" width={16} height={10} alt="view details" />
@@ -402,7 +402,7 @@ export function ProductCard({ product, countryCode, viewMode = "grid" }: { produ
 
         <LocalizedClientLink
           href={`/products/${product?.MedusaProduct?.Handle}`}
-          className="inline-flex gap-2 items-center hover:opacity-70 transition-opacity shrink-0"
+          className="min-h-[44px] inline-flex gap-2 items-center hover:opacity-70 focus-visible:opacity-100 focus-visible:underline transition-opacity shrink-0 py-2"
         >
           <span className="text-Charcoal font-rexton text-[10px] font-bold uppercase whitespace-nowrap">
             View Details
