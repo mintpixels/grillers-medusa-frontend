@@ -237,7 +237,7 @@ export function ProductCard({ product, countryCode, viewMode = "grid" }: { produ
             <button
               onClick={handleAddToCart}
               disabled={isAdding || !product?.MedusaProduct?.Variants?.[0]?.VariantId}
-              className="w-full px-6 py-2.5 rounded-[5px] border border-Charcoal bg-Gold text-Charcoal font-rexton text-xs font-bold uppercase transition-opacity hover:opacity-95 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap text-center"
+              className="w-full min-h-[44px] px-6 py-2.5 rounded-[5px] border border-Charcoal bg-Gold text-Charcoal font-rexton text-xs font-bold uppercase transition-opacity hover:opacity-95 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap text-center"
             >
               {isAdding ? "Adding..." : "Add to Cart"}
             </button>
@@ -368,7 +368,7 @@ export function ProductCard({ product, countryCode, viewMode = "grid" }: { produ
         <button
           onClick={handleAddToCart}
           disabled={isAdding || !product?.MedusaProduct?.Variants?.[0]?.VariantId}
-          className="px-4 py-2 rounded-[5px] border border-Charcoal bg-Gold text-Charcoal font-rexton text-xs font-bold uppercase transition-opacity hover:opacity-95 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+          className="min-h-[44px] px-4 py-2 rounded-[5px] border border-Charcoal bg-Gold text-Charcoal font-rexton text-xs font-bold uppercase transition-opacity hover:opacity-95 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
         >
           {isAdding ? "Adding..." : "Add to Cart"}
         </button>
