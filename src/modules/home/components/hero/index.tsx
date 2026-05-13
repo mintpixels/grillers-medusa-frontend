@@ -21,18 +21,29 @@ type HeroProps = {
 const Hero = ({ data, countryCode = "us", isLoggedIn, hasOrders }: HeroProps) => {
   // Strapi-managed CTA wins when set; otherwise pick a state-conditional
   // default so every visitor has a clear next action.
-  const fallbackCta = (() => {
-    if (!isLoggedIn) {
-      return { text: "Shop the Counter", href: `/${countryCode}/store` }
-    }
-    if (hasOrders) {
-      return {
-        text: "Reorder your favorites",
-        href: `/${countryCode}/account/reorder`,
-      }
-    }
-    return { text: "Browse Bestsellers", href: "#bestsellers" }
-  })()
+  //
+  // Two-state split — same destination on web + mobile so there's no
+  // platform inconsistency:
+  //   1. Returning customer (logged-in AND has orders) → /account/reorder
+  //      ("Reorder your favorites"). They know what they want; surface
+  //      their last cart in one tap.
+  //   2. Everyone else (new visitor OR logged-in-no-orders) → a curated
+  //      category, NOT /store. /store dumps users on the everything-page
+  //      with every filter expanded — half a dozen scrolls before any
+  //      product is visible. Kosher Beef is the highest-revenue lane
+  //      (per QBD margin leaderboard) and a clean editorial landing.
+  //      "Browse Bestsellers" → #bestsellers wasn't helping either —
+  //      the bestsellers row sits one section below the hero already.
+  const fallbackCta =
+    isLoggedIn && hasOrders
+      ? {
+          text: "Reorder your favorites",
+          href: `/${countryCode}/account/reorder`,
+        }
+      : {
+          text: "Shop Kosher Beef",
+          href: `/${countryCode}/collections/kosher-beef`,
+        }
   const ctaText = data?.CTAButton?.Text || fallbackCta.text
   const ctaHref = data?.CTAButton?.Url || fallbackCta.href
 
