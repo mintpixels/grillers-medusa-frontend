@@ -1,8 +1,7 @@
-import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import strapiClient from "@lib/strapi"
 import { getProductsByHandles } from "@lib/data/strapi/collections"
 import { enrichStrapiProductsWithMedusaPrices } from "@lib/data/products"
-import { ProductCard } from "@modules/collections/components/strapi-product-grid"
+import SpecialtySwiper from "./swiper"
 
 /**
  * "Specialty cuts you can't get from your supermarket" — homepage row for
@@ -10,11 +9,10 @@ import { ProductCard } from "@modules/collections/components/strapi-product-grid
  * eventually move to a Strapi ComponentHomeSpecialty section so editors can
  * rotate without a code deploy.
  *
- * Cards reuse the canonical `ProductCard` from the collection grid so
- * Specialty visually matches Bestsellers — same image carousel, price
- * format, gluten-free / uncooked badges, View Details + Add to Cart. A
- * tag overlay (e.g. "South African") sits on the image to surface what
- * makes the cut specialty.
+ * Visually mirrors the Bestsellers row above — same Swiper carousel, same
+ * ProductCard markup, same prev/next + see-all top-right pattern. The only
+ * delta is a small Charcoal "tag" overlay on each card image (e.g. "South
+ * African", "100% Grass-Fed") to surface what makes the cut specialty.
  */
 const SPECIALTY_PRODUCT_IDS = [
   10888, // Kosher Beef Biltong Slices, Regular · 3 oz
@@ -79,9 +77,6 @@ export default async function SpecialtyRow({
   const handlesById = await fetchHandlesById()
   if (handlesById.size === 0) return null
 
-  // Keep curated order (handlesById preserves insertion order of the source
-  // array because we populate it from SPECIALTY_PRODUCT_IDS iteration; rely
-  // on getProductsByHandles to sort by the input handles array).
   const handles = SPECIALTY_PRODUCT_IDS.map((id) => handlesById.get(id)).filter(
     (h): h is string => !!h
   )
@@ -93,7 +88,6 @@ export default async function SpecialtyRow({
   )
   if (!products.length) return null
 
-  // Tag lookup by handle so we can attach the right overlay to each card.
   const tagByHandle: Record<string, string> = {}
   for (const id of SPECIALTY_PRODUCT_IDS) {
     const h = handlesById.get(id)
@@ -104,66 +98,13 @@ export default async function SpecialtyRow({
   return (
     <section
       aria-labelledby="specialty-row-heading"
-      className="bg-Scroll py-10 md:py-20 overflow-hidden"
+      className="py-10 md:py-20 bg-Scroll overflow-hidden scroll-mt-[120px]"
     >
-      <div className="content-container">
-        <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-8 md:mb-12">
-          <div className="max-w-2xl">
-            <p className="text-p-sm-mono font-maison-neue-mono uppercase tracking-widest text-RichGold mb-3">
-              Specialty · Hard to Find
-            </p>
-            <h2
-              id="specialty-row-heading"
-              className="text-h2-mobile md:text-h2 font-gyst text-Charcoal text-balance leading-tight"
-            >
-              Cuts you can't get from your supermarket.
-            </h2>
-            <p className="text-p-md font-maison-neue text-Charcoal/70 mt-4 leading-relaxed">
-              Biltong, boerewors, grass-fed beef, house-smoked salmon, kishke.
-              Twenty-three years of sourcing kosher specialty cuts you only
-              find here.
-            </p>
-          </div>
-          <LocalizedClientLink
-            href="/page/specialty"
-            className="shrink-0 inline-flex items-center gap-2 text-p-sm-mono font-maison-neue-mono uppercase tracking-widest text-Charcoal hover:text-RichGold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold focus-visible:ring-offset-2 rounded"
-          >
-            Shop all specialty
-            <svg
-              width="16"
-              height="12"
-              viewBox="0 0 16 12"
-              fill="none"
-              aria-hidden="true"
-            >
-              <path
-                d="M10 1l5 5-5 5M15 6H0"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </LocalizedClientLink>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-0">
-          {products.map((product) => {
-            const handle = product?.MedusaProduct?.Handle || ""
-            const tag = tagByHandle[handle]
-            return (
-              <div key={product.documentId} className="relative">
-                {tag && (
-                  <span className="absolute top-3 left-3 z-10 inline-block bg-Charcoal text-Scroll text-p-ex-sm-mono font-maison-neue-mono uppercase tracking-widest px-2.5 py-1 rounded-sm pointer-events-none">
-                    {tag}
-                  </span>
-                )}
-                <ProductCard product={product} countryCode={countryCode} />
-              </div>
-            )
-          })}
-        </div>
-      </div>
+      <SpecialtySwiper
+        products={products}
+        countryCode={countryCode}
+        tagByHandle={tagByHandle}
+      />
     </section>
   )
 }
