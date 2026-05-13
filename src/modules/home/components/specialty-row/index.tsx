@@ -5,68 +5,44 @@ import SpecialtySwiper from "./swiper"
 
 /**
  * "Specialty cuts you can't get from your supermarket" — homepage row for
- * #98. Manually curated product IDs in Strapi; refresh seasonally. Should
- * eventually move to a Strapi ComponentHomeSpecialty section so editors can
- * rotate without a code deploy.
+ * #98. Manually curated; refresh seasonally. Should eventually move to a
+ * Strapi ComponentHomeSpecialty section so editors can rotate without a
+ * code deploy.
  *
- * Visually mirrors the Bestsellers row above — same Swiper carousel, same
- * ProductCard markup, same prev/next + see-all top-right pattern. The only
- * delta is a small Charcoal "tag" overlay on each card image (e.g. "South
- * African", "100% Grass-Fed") to surface what makes the cut specialty.
+ * Stable identifier: Medusa handle. Earlier this was indexed by Strapi
+ * entry `id` (an auto-increment integer), but Strapi 5 assigns a new id
+ * to each new published revision — so after any backfill / re-publish
+ * operation, the integer ids in code can fall out of sync with the
+ * live entries. Handles come from Medusa, are stable across Strapi
+ * revisions, and are what the rest of the storefront uses anyway.
  */
-const SPECIALTY_PRODUCT_IDS = [
-  10888, // Kosher Beef Biltong Slices, Regular · 3 oz
-  11118, // Kosher KosherBoeries Classic Beef Boerewors (6×4 oz)
-  11263, // Kosher Grass-Fed Boneless Prime Ribeye Roast · 3.5 lb
-  11260, // Kosher Grass-Fed Boneless London Broil Signature Cut · 1.75 lb
-  11524, // Kosher Classic In-House Roasted Smoked Salmon · 1 lb
-  10723, // Kosher Beef Kishke · 16 oz
+const SPECIALTY_PRODUCT_HANDLES = [
+  // Kosher Beef Biltong Slices, Regular · 3 oz
+  "beef-biltong-slices-regular-south-african-beef-jerky-3-oz-not-kosher-for-passover",
+  // Kosher KosherBoeries Classic Beef Boerewors (6×4 oz)
+  "kosherboeries-authentic-south-african-beef-grilling-sausages-no-nitrates-classic-6-pcs-24-oz",
+  // Kosher Grass-Fed Boneless Prime Ribeye Roast · 3.5 lb
+  "prime-ribeye-roast-boneless-100-grass-fed-all-natural-no-hormones-no-antibiotics-35-lb-uncooked-kosher-for-passover-2699lb",
+  // Kosher Grass-Fed Boneless London Broil Signature Cut · 1.75 lb
+  "london-broil-signature-cut-boneless-100-grass-fed-all-natural-no-hormones-no-antibiotics-175-lb-uncooked-kosher-for-passover-1899lb",
+  // Kosher Classic In-House Roasted Smoked Salmon · 1 lb
+  "classic-roasted-smoked-salmon-1-lb-in-house-smoked-and-vacuum-packed-not-kosher-for-passover-2249lb",
+  // Kosher Beef Kishke · 16 oz
+  "kishke-16-oz-not-pareve-uncooked-not-kosher-for-passover",
 ] as const
 
-const PRODUCT_TAGS: Record<number, string> = {
-  10888: "South African",
-  11118: "South African",
-  11263: "100% Grass-Fed",
-  11260: "100% Grass-Fed",
-  11524: "House-Smoked",
-  10723: "Made In-House",
-}
-
-async function fetchHandlesById(): Promise<Map<number, string>> {
-  const endpoint = process.env.STRAPI_ENDPOINT
-  const token = process.env.STRAPI_API_TOKEN
-  if (!endpoint || !token) return new Map()
-
-  const params = new URLSearchParams()
-  params.set("populate[MedusaProduct][fields][0]", "Handle")
-  params.set("fields[0]", "id")
-  SPECIALTY_PRODUCT_IDS.forEach((id, i) => {
-    params.set(`filters[id][$in][${i}]`, String(id))
-  })
-  params.set("pagination[pageSize]", String(SPECIALTY_PRODUCT_IDS.length))
-
-  try {
-    const res = await fetch(`${endpoint}/api/products?${params.toString()}`, {
-      headers: { Authorization: `Bearer ${token}` },
-      next: { revalidate: 300 },
-    })
-    if (!res.ok) {
-      console.error("specialty-row: handle lookup failed", res.status)
-      return new Map()
-    }
-    const json = (await res.json()) as {
-      data?: Array<{ id: number; MedusaProduct?: { Handle?: string | null } }>
-    }
-    const map = new Map<number, string>()
-    for (const p of json?.data || []) {
-      const handle = p?.MedusaProduct?.Handle
-      if (p?.id != null && handle) map.set(p.id, handle)
-    }
-    return map
-  } catch (error) {
-    console.error("specialty-row: handle lookup error:", error)
-    return new Map()
-  }
+const PRODUCT_TAGS: Record<string, string> = {
+  "beef-biltong-slices-regular-south-african-beef-jerky-3-oz-not-kosher-for-passover":
+    "South African",
+  "kosherboeries-authentic-south-african-beef-grilling-sausages-no-nitrates-classic-6-pcs-24-oz":
+    "South African",
+  "prime-ribeye-roast-boneless-100-grass-fed-all-natural-no-hormones-no-antibiotics-35-lb-uncooked-kosher-for-passover-2699lb":
+    "100% Grass-Fed",
+  "london-broil-signature-cut-boneless-100-grass-fed-all-natural-no-hormones-no-antibiotics-175-lb-uncooked-kosher-for-passover-1899lb":
+    "100% Grass-Fed",
+  "classic-roasted-smoked-salmon-1-lb-in-house-smoked-and-vacuum-packed-not-kosher-for-passover-2249lb":
+    "House-Smoked",
+  "kishke-16-oz-not-pareve-uncooked-not-kosher-for-passover": "Made In-House",
 }
 
 export default async function SpecialtyRow({
@@ -74,26 +50,13 @@ export default async function SpecialtyRow({
 }: {
   countryCode?: string
 }) {
-  const handlesById = await fetchHandlesById()
-  if (handlesById.size === 0) return null
-
-  const handles = SPECIALTY_PRODUCT_IDS.map((id) => handlesById.get(id)).filter(
-    (h): h is string => !!h
-  )
-
+  const handles = [...SPECIALTY_PRODUCT_HANDLES]
   const strapiProducts = await getProductsByHandles(handles, strapiClient)
   const products = await enrichStrapiProductsWithMedusaPrices(
     strapiProducts,
     countryCode
   )
   if (!products.length) return null
-
-  const tagByHandle: Record<string, string> = {}
-  for (const id of SPECIALTY_PRODUCT_IDS) {
-    const h = handlesById.get(id)
-    const tag = PRODUCT_TAGS[id]
-    if (h && tag) tagByHandle[h] = tag
-  }
 
   return (
     <section
@@ -103,7 +66,7 @@ export default async function SpecialtyRow({
       <SpecialtySwiper
         products={products}
         countryCode={countryCode}
-        tagByHandle={tagByHandle}
+        tagByHandle={PRODUCT_TAGS}
       />
     </section>
   )
