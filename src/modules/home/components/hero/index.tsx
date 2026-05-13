@@ -61,7 +61,7 @@ const Hero = ({ data, countryCode = "us", isLoggedIn, hasOrders }: HeroProps) =>
 
       <div className="text-center px-6 small:p-32 gap-6 flex flex-col items-center relative z-10">
         <div className="max-w-[820px]">
-          <h1 className="text-white font-gyst text-h1-mobile md:text-h1 drop-shadow-lg">
+          <h1 className="text-white font-gyst text-[28px] sm:text-h1-mobile md:text-h1 leading-[1.1] text-balance drop-shadow-lg">
             {data?.HeroTitle}
           </h1>
         </div>

@@ -40,7 +40,9 @@ export default function Breadcrumb({ items, currentPage }: BreadcrumbProps) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
-      {/* Visual Breadcrumb Navigation */}
+      {/* Visual Breadcrumb Navigation.
+          At narrow viewports the last segment can exceed the line; truncate
+          it instead of running off-screen. Intermediate items wrap normally. */}
       <nav aria-label="Breadcrumb" className="py-4">
         <ol className="flex flex-wrap items-center gap-x-2 text-p-sm font-maison-neue">
           {items.map((item, index) => (
@@ -56,8 +58,12 @@ export default function Breadcrumb({ items, currentPage }: BreadcrumbProps) {
               </span>
             </li>
           ))}
-          <li>
-            <span className="text-Charcoal font-medium" aria-current="page">
+          <li className="min-w-0 max-w-[60vw] sm:max-w-none">
+            <span
+              className="block truncate text-Charcoal font-medium"
+              aria-current="page"
+              title={currentPage}
+            >
               {currentPage}
             </span>
           </li>
