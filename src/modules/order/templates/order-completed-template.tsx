@@ -1,6 +1,7 @@
 import { cookies as nextCookies } from "next/headers"
 import { HttpTypes } from "@medusajs/types"
 import { convertToLocale } from "@lib/util/money"
+import { formatPhone, stripPhone } from "@lib/util/format-phone"
 
 import OnboardingCta from "@modules/order/components/onboarding-cta"
 import OrderItems from "@modules/order/components/items"
@@ -108,7 +109,7 @@ export default async function OrderCompletedTemplate({
             {(order.shipping_address?.phone || order.email) && (
               <div className="mt-4 pt-4 border-t border-Charcoal/10 space-y-1 text-sm font-maison-neue text-Charcoal/70">
                 {order.shipping_address?.phone && (
-                  <p>{order.shipping_address.phone}</p>
+                  <p>{formatPhone(stripPhone(order.shipping_address.phone))}</p>
                 )}
                 <p>{order.email}</p>
               </div>

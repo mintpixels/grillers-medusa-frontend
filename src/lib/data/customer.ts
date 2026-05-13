@@ -3,6 +3,7 @@
 import { sdk } from "@lib/config"
 import medusaError from "@lib/util/medusa-error"
 import { isSameAddressKey } from "@lib/util/compare-addresses"
+import { isValidUSPhone, stripPhone } from "@lib/util/format-phone"
 import { HttpTypes } from "@medusajs/types"
 import { revalidateTag } from "next/cache"
 import { redirect } from "next/navigation"
@@ -66,7 +67,9 @@ async function saveCartAddressesToAccount(): Promise<void> {
           postal_code: shipping.postal_code || "",
           province: shipping.province || "",
           country_code: shipping.country_code || "",
-          phone: shipping.phone || "",
+          // Persist digits-only — the cart may carry already-formatted
+          // legacy data; normalize at the boundary (#68).
+          phone: shipping.phone ? stripPhone(shipping.phone) : "",
           is_default_shipping: isFirstAddress,
           is_default_billing: isFirstAddress,
         },
@@ -92,7 +95,7 @@ async function saveCartAddressesToAccount(): Promise<void> {
           postal_code: billing.postal_code || "",
           province: billing.province || "",
           country_code: billing.country_code || "",
-          phone: billing.phone || "",
+          phone: billing.phone ? stripPhone(billing.phone) : "",
         },
         {},
         headers
@@ -278,11 +281,15 @@ export const updateCustomer = async (body: HttpTypes.StoreUpdateCustomer) => {
 
 export async function signup(_currentState: unknown, formData: FormData) {
   const password = formData.get("password") as string
+  const rawPhone = (formData.get("phone") as string) || ""
   const customerForm = {
     email: formData.get("email") as string,
     first_name: formData.get("first_name") as string,
     last_name: formData.get("last_name") as string,
-    phone: formData.get("phone") as string,
+    // Normalize phone to digits-only so the display layer is the single
+    // source of formatting (#68). Empty string is preserved when no phone
+    // was provided.
+    phone: rawPhone ? stripPhone(rawPhone) : "",
   }
 
   try {
@@ -458,6 +465,13 @@ export const addCustomerAddress = async (
   const isDefaultShipping =
     formDefaultShipping || (currentState.isDefaultShipping as boolean) || false
 
+  const rawPhone = (formData.get("phone") as string) || ""
+  if (!isValidUSPhone(rawPhone)) {
+    return {
+      success: false,
+      error: "Phone number must be a 10-digit US number.",
+    }
+  }
   const address = {
     first_name: formData.get("first_name") as string,
     last_name: formData.get("last_name") as string,
@@ -468,7 +482,10 @@ export const addCustomerAddress = async (
     postal_code: formData.get("postal_code") as string,
     province: formData.get("province") as string,
     country_code: (formData.get("country_code") as string) || "us",
-    phone: formData.get("phone") as string,
+    // Persist digits-only so the display layer is the single source of
+    // formatting (#68). Customers may paste "(404) 643-1567" or "404-643-1567";
+    // we normalize at the boundary; validation above caught malformed input.
+    phone: rawPhone ? stripPhone(rawPhone) : "",
     is_default_billing: isDefaultBilling,
     is_default_shipping: isDefaultShipping,
   }
@@ -518,7 +535,9 @@ export async function saveAddressToProfileAndCart(input: {
     province: input.province,
     postal_code: input.postal_code,
     country_code: country,
-    phone: input.phone,
+    // Single normalization point used for both address-book + cart writes
+    // below — phones save as canonical digits regardless of input shape (#68).
+    phone: input.phone ? stripPhone(input.phone) : "",
   }
 
   try {
@@ -611,10 +630,16 @@ export const updateCustomerAddress = async (
     country_code: (formData.get("country_code") as string) || "us",
   } as HttpTypes.StoreUpdateCustomerAddress
 
+  // Persist digits-only on update for the same reason as add-address (#68).
   const phone = formData.get("phone") as string
-
+  if (!isValidUSPhone(phone)) {
+    return {
+      success: false,
+      error: "Phone number must be a 10-digit US number.",
+    }
+  }
   if (phone) {
-    address.phone = phone
+    address.phone = stripPhone(phone)
   }
 
   // Default-flag checkboxes (#49) — only sent when checked.

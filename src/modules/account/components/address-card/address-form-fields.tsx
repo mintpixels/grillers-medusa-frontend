@@ -8,6 +8,7 @@ import USStateSelect, {
 import AddressAutocomplete from "@modules/checkout/components/address-autocomplete"
 import { HttpTypes } from "@medusajs/types"
 import { unscrambleAddress } from "@lib/util/format-address"
+import { formatPhone, stripPhone } from "@lib/util/format-phone"
 
 type AddressFormFieldsProps = {
   defaults?: Partial<HttpTypes.StoreCustomerAddress> | null
@@ -127,11 +128,17 @@ const AddressFormFields: React.FC<AddressFormFieldsProps> = ({
       />
       {/* Country is locked to US — GP only ships to the continental US. */}
       <input type="hidden" name="country_code" value="us" />
+      {/* Phone pre-fills in the canonical `(XXX) XXX-XXXX` form even when
+          the saved value in Medusa is raw digits — the server action
+          normalizes back to 10 digits on save (#68). */}
       <Input
         label="Phone"
         name="phone"
-        autoComplete="phone"
-        defaultValue={fixed?.phone || undefined}
+        type="tel"
+        autoComplete="tel"
+        defaultValue={
+          fixed?.phone ? formatPhone(stripPhone(fixed.phone)) : undefined
+        }
         data-testid="phone-input"
       />
 

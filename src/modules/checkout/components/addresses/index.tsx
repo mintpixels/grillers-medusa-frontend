@@ -3,6 +3,7 @@
 import { setAddresses, setOrderNotes } from "@lib/data/cart"
 import type { FulfillmentType } from "@lib/data/cart"
 import compareAddresses from "@lib/util/compare-addresses"
+import { formatPhone, stripPhone } from "@lib/util/format-phone"
 import { trackBeginCheckout } from "@lib/gtm"
 import { jitsuTrack } from "@lib/jitsu"
 import { useCartTitleMap } from "@lib/hooks/use-cart-title-map"
@@ -217,7 +218,13 @@ const Addresses = ({
                   </p>
                   <p className="text-sm text-gray-600">{cart.email}</p>
                   <p className="text-sm text-gray-600">
-                    {cart.shipping_address?.phone || cart.billing_address?.phone}
+                    {formatPhone(
+                      stripPhone(
+                        cart.shipping_address?.phone ||
+                          cart.billing_address?.phone ||
+                          ""
+                      )
+                    )}
                   </p>
                 </div>
 
@@ -359,7 +366,9 @@ const Addresses = ({
               <div data-testid="shipping-contact-summary">
                 <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Contact</p>
                 <p className="text-sm text-gray-600">{cart.email}</p>
-                <p className="text-sm text-gray-600">{cart.shipping_address.phone}</p>
+                <p className="text-sm text-gray-600">
+                  {formatPhone(stripPhone(cart.shipping_address.phone || ""))}
+                </p>
               </div>
 
               <div data-testid="billing-address-summary">

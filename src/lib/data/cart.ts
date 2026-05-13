@@ -3,6 +3,7 @@
 import { sdk } from "@lib/config"
 import { isSameAddressKey } from "@lib/util/compare-addresses"
 import medusaError from "@lib/util/medusa-error"
+import { stripPhone } from "@lib/util/format-phone"
 import { HttpTypes } from "@medusajs/types"
 import { revalidateTag } from "next/cache"
 import { redirect } from "next/navigation"
@@ -522,6 +523,8 @@ export async function setAddresses(currentState: unknown, formData: FormData) {
       throw new Error("No existing cart found when setting addresses")
     }
 
+    const shippingPhone = (formData.get("shipping_address.phone") as string) || ""
+    const billingPhone = (formData.get("billing_address.phone") as string) || ""
     const data = {
       shipping_address: {
         first_name: formData.get("shipping_address.first_name"),
@@ -533,7 +536,9 @@ export async function setAddresses(currentState: unknown, formData: FormData) {
         city: formData.get("shipping_address.city"),
         country_code: formData.get("shipping_address.country_code"),
         province: formData.get("shipping_address.province"),
-        phone: formData.get("shipping_address.phone"),
+        // Persist digits-only so the cart phone matches the customer address
+        // book and downstream order summaries (#68).
+        phone: shippingPhone ? stripPhone(shippingPhone) : "",
       },
       email: formData.get("email"),
     } as any
@@ -552,7 +557,7 @@ export async function setAddresses(currentState: unknown, formData: FormData) {
         city: formData.get("billing_address.city"),
         country_code: formData.get("billing_address.country_code"),
         province: formData.get("billing_address.province"),
-        phone: formData.get("billing_address.phone"),
+        phone: billingPhone ? stripPhone(billingPhone) : "",
       }
 
     // Validate address matches the selected fulfillment type
@@ -595,7 +600,12 @@ export async function setAddresses(currentState: unknown, formData: FormData) {
               postal_code: data.shipping_address.postal_code as string,
               province: (data.shipping_address.province as string) || "",
               country_code: data.shipping_address.country_code as string,
-              phone: (data.shipping_address.phone as string) || "",
+              // data.shipping_address.phone is already digits-only above; the
+              // explicit stripPhone here is belt-and-suspenders in case this
+              // path ever inherits a different shape.
+              phone: data.shipping_address.phone
+                ? stripPhone(data.shipping_address.phone as string)
+                : "",
               is_default_shipping: existingAddresses.length === 0,
               is_default_billing: existingAddresses.length === 0,
             },

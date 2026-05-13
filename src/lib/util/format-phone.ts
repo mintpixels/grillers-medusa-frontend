@@ -1,5 +1,27 @@
+/**
+ * Reduce a possibly-formatted phone to the canonical 10-digit US form.
+ * Mirrors formatPhone's handling so the round-trip is stable:
+ *   formatPhone(stripPhone(x)) === formatPhone(x)
+ *
+ * Drops a leading country-code `1` on 11-digit inputs so
+ * `stripPhone("1 (404) 643-1567") === "4046431567"` instead of corrupting
+ * to `1404643156` (silently losing the trailing 7).
+ */
 export function stripPhone(value: string): string {
-  return value.replace(/\D/g, "").slice(0, 10)
+  const cleaned = value.replace(/\D/g, "")
+  const digits =
+    cleaned.length === 11 && cleaned.startsWith("1") ? cleaned.slice(1) : cleaned
+  return digits.slice(0, 10)
+}
+
+/**
+ * True when `value` is empty (treat unset as valid for optional fields)
+ * OR a parseable US phone that strips down to exactly 10 digits. Use this
+ * in server actions before persisting so we never write a half-digit phone.
+ */
+export function isValidUSPhone(value: string | null | undefined): boolean {
+  if (!value) return true
+  return stripPhone(value).length === 10
 }
 
 /**
