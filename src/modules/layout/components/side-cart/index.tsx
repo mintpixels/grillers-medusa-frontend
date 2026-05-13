@@ -14,7 +14,9 @@ import { convertToLocale } from "@lib/util/money"
 import DeleteButton from "@modules/common/components/delete-button"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import { useProductFeaturedImageSrc } from "@lib/hooks/use-product-featured-image"
+import { useProductMetadata } from "@lib/hooks/use-product-metadata"
 import { useProductTitle } from "@lib/hooks/use-product-title"
+import { formatProductPriceDisplay } from "@lib/util/price-display"
 import { useCart } from "./cart-context"
 import { updateLineItem } from "@lib/data/cart"
 import { jitsuTrack } from "@lib/jitsu"
@@ -40,6 +42,47 @@ const CartItemImage = ({ item }: { item: HttpTypes.StoreCartLineItem }) => {
         fill
         className="object-cover"
       />
+    </div>
+  )
+}
+
+/**
+ * Side-cart line item price. Renders per-lb vs per-pack with the same
+ * decision logic as PLP / PDP (#31 / #104). Falls back to the legacy
+ * "$X.XX/lb" display until the Strapi metadata SWR call resolves so
+ * the cart never shows a blank price block.
+ */
+const CartItemPrice = ({
+  item,
+  currencyCode,
+}: {
+  item: HttpTypes.StoreCartLineItem
+  currencyCode: string
+}) => {
+  const productId = item.product_id || item.product?.id
+  const metadata = useProductMetadata(productId)
+  const unit = item.unit_price ?? 0
+  const display = formatProductPriceDisplay(
+    unit,
+    metadata?.AvgPackWeight ?? null
+  )
+  return (
+    <div>
+      <p className="mt-1 text-p-sm font-maison-neue font-semibold text-Charcoal">
+        <span>
+          {convertToLocale({ amount: unit, currency_code: currencyCode })}
+        </span>
+        {display.primaryLabel && (
+          <span className="text-xs font-maison-neue text-Charcoal/40 ml-0.5">
+            {display.primaryLabel}
+          </span>
+        )}
+      </p>
+      {display.secondary && (
+        <p className="text-xs font-maison-neue text-Charcoal/60 mt-0.5">
+          {display.secondary}
+        </p>
+      )}
     </div>
   )
 }
@@ -288,16 +331,13 @@ export default function SideCart({ cart }: SideCartProps) {
                                       <div className="flex-1 min-w-0 flex flex-col justify-between">
                                         <div>
                                           <CartItemTitle item={item} closeCart={closeCart} />
-                                          {/* Price */}
-                                          <p className="mt-1 text-p-sm font-maison-neue font-semibold text-Charcoal">
-                                            {convertToLocale({
-                                              amount: item.unit_price,
-                                              currency_code: cart.currency_code,
-                                            })}
-                                            <span className="text-xs font-maison-neue text-Charcoal/40 ml-0.5">
-                                              /lb
-                                            </span>
-                                          </p>
+                                          {/* Price — per-lb vs per-pack
+                                              decided by the same helper
+                                              used on PLP + PDP (#31 / #104). */}
+                                          <CartItemPrice
+                                            item={item}
+                                            currencyCode={cart.currency_code}
+                                          />
                                           <CatchWeightBadge className="mt-1.5" />
                                         </div>
 

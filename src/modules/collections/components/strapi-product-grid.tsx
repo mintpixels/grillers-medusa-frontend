@@ -7,6 +7,7 @@ import LocalizedClientLink from "@modules/common/components/localized-client-lin
 import FormattedPrice from "@modules/common/components/formatted-price"
 import ProductCardCarousel from "@modules/common/components/product-card-carousel"
 import { addToCart } from "@lib/data/cart"
+import { formatProductPriceDisplay } from "@lib/util/price-display"
 import type { StrapiCollectionProduct } from "@lib/data/strapi/collections"
 
 // Find every card title in the document, group them by visible row (Y top),
@@ -112,6 +113,16 @@ export function ProductCard({ product, countryCode, viewMode = "grid" }: { produ
 
   const price = product?.MedusaProduct?.Variants?.[0]?.Price?.CalculatedPriceNumber
 
+  // Per-lb vs per-pack decision (#31 / #104). Driven entirely by the
+  // Strapi `Metadata.AvgPackWeight` shape: ranges → catch-weight,
+  // single-lb → /lb, oz/count → /pack.
+  const priceDisplay = price
+    ? formatProductPriceDisplay(
+        Number(price),
+        product?.Metadata?.AvgPackWeight
+      )
+    : null
+
   const galleryImages = [
     product?.FeaturedImage?.url,
     ...(product?.GalleryImages?.map((g) => g?.url) ?? []),
@@ -214,14 +225,24 @@ export function ProductCard({ product, countryCode, viewMode = "grid" }: { produ
         {/* Col 3: Price & Actions */}
         <div className="flex flex-col items-end justify-between py-1 h-full self-stretch">
           <div className="flex flex-col items-end gap-1 whitespace-nowrap">
-            {price && (
-              <p className="text-Charcoal">
-                <FormattedPrice
-                  value={`$${Number(price).toFixed(2)}`}
-                  className="text-h4 font-gyst"
-                />{" "}
-                <span className="text-p-sm-mono font-maison-neue-mono uppercase ml-1">per lb</span>
-              </p>
+            {priceDisplay && (
+              <div className="text-Charcoal text-right">
+                <p className="leading-tight">
+                  <span className="text-h4 font-gyst">
+                    {priceDisplay.primary}
+                  </span>
+                  {priceDisplay.primaryLabel && (
+                    <span className="text-p-sm-mono font-maison-neue-mono uppercase ml-1">
+                      {priceDisplay.primaryLabel}
+                    </span>
+                  )}
+                </p>
+                {priceDisplay.secondary && (
+                  <p className="text-xs font-maison-neue text-Charcoal/60 mt-0.5">
+                    {priceDisplay.secondary}
+                  </p>
+                )}
+              </div>
             )}
           </div>
 
@@ -273,16 +294,22 @@ export function ProductCard({ product, countryCode, viewMode = "grid" }: { produ
 
       {/* Row 2: Price (left) + SKU (right) */}
       <div className="mt-6 flex items-baseline justify-between gap-3">
-        {price ? (
-          <p className="text-Charcoal leading-none">
-            <FormattedPrice
-              value={`$${Number(price).toFixed(2)}`}
-              className="text-h4 font-gyst"
-            />{" "}
-            <span className="text-p-sm-mono font-maison-neue-mono uppercase ml-1">
-              per lb
-            </span>
-          </p>
+        {priceDisplay ? (
+          <div className="text-Charcoal">
+            <p className="leading-none">
+              <span className="text-h4 font-gyst">{priceDisplay.primary}</span>
+              {priceDisplay.primaryLabel && (
+                <span className="text-p-sm-mono font-maison-neue-mono uppercase ml-1">
+                  {priceDisplay.primaryLabel}
+                </span>
+              )}
+            </p>
+            {priceDisplay.secondary && (
+              <p className="text-xs font-maison-neue text-Charcoal/60 mt-1">
+                {priceDisplay.secondary}
+              </p>
+            )}
+          </div>
         ) : <span />}
       </div>
 

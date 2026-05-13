@@ -7,6 +7,7 @@ import LocalizedClientLink from "@modules/common/components/localized-client-lin
 import { addToCart } from "@lib/data/cart"
 import { trackAddToCart } from "@lib/gtm"
 import { jitsuTrack } from "@lib/jitsu"
+import { formatProductPriceDisplay } from "@lib/util/price-display"
 import type { StrapiProductData } from "types/strapi"
 
 const ProductCard = ({ hit }: { hit: StrapiProductData }) => {
@@ -28,7 +29,7 @@ const ProductCard = ({ hit }: { hit: StrapiProductData }) => {
       toast.success("Added to cart", { description: hit.Title })
 
       const price = hit?.MedusaProduct?.Variants?.[0]?.Price?.CalculatedPriceNumber
-      const itemId = hit?.MedusaProduct?.Id || hit.objectID
+      const itemId = hit?.MedusaProduct?.ProductId || hit.objectID
       trackAddToCart({ id: itemId, title: hit.Title, price }, 1)
       jitsuTrack("product_added_to_cart", {
         item_id: itemId,
@@ -50,7 +51,7 @@ const ProductCard = ({ hit }: { hit: StrapiProductData }) => {
 
   const handleProductClick = () => {
     jitsuTrack("product_selected_from_list", {
-      item_id: hit?.MedusaProduct?.Id || hit.objectID,
+      item_id: hit?.MedusaProduct?.ProductId || hit.objectID,
       item_name: hit.Title,
       price: hit?.MedusaProduct?.Variants?.[0]?.Price?.CalculatedPriceNumber,
     })
@@ -86,16 +87,32 @@ const ProductCard = ({ hit }: { hit: StrapiProductData }) => {
         </h4>
       </LocalizedClientLink>
       
-      {hit?.MedusaProduct?.Variants?.[0]?.Price?.CalculatedPriceNumber && (
-        <p className="text-Charcoal py-7 border-b border-Charcoal">
-          <span className="text-h3 font-gyst">
-            ${hit.MedusaProduct.Variants[0].Price.CalculatedPriceNumber}
-          </span>{" "}
-          <span className="text-p-sm-mono font-maison-neue-mono uppercase ml-2">
-            per lb
-          </span>
-        </p>
-      )}
+      {hit?.MedusaProduct?.Variants?.[0]?.Price?.CalculatedPriceNumber && (() => {
+        // Branch on AvgPackWeight: catch-weight items render `$/lb` with
+        // est-pack sub-line; per-pack items (lamb chops, prepared foods)
+        // drop the `/lb` suffix entirely (#31 / #104).
+        const display = formatProductPriceDisplay(
+          hit.MedusaProduct.Variants[0].Price.CalculatedPriceNumber,
+          hit?.Metadata?.AvgPackWeight
+        )
+        return (
+          <div className="text-Charcoal py-7 border-b border-Charcoal">
+            <div className="inline-flex items-baseline gap-2">
+              <span className="text-h3 font-gyst">{display.primary}</span>
+              {display.primaryLabel && (
+                <span className="text-p-sm-mono font-maison-neue-mono uppercase">
+                  {display.primaryLabel}
+                </span>
+              )}
+            </div>
+            {display.secondary && (
+              <p className="text-p-sm font-maison-neue text-Charcoal/60 mt-1">
+                {display.secondary}
+              </p>
+            )}
+          </div>
+        )
+      })()}
 
       {/* Enhanced Product Metadata */}
       <div className="py-6 space-y-4">

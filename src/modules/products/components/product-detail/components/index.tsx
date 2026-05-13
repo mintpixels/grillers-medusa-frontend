@@ -274,8 +274,14 @@ export default function ProductDetail({
 
           {/* Price & pack info */}
           <div className="grid grid-cols-1 sm:grid-cols-2 border-t border-b border-Charcoal mb-6">
-            {/* price per lb */}
-            <ProductPrice product={product} variant={selectedVariant} />
+            {/* Price block — branches on AvgPackWeight to render $/lb for
+                catch-weight cuts vs $/pack for prepared / count-based
+                items (#31 / #104). */}
+            <ProductPrice
+              product={product}
+              variant={selectedVariant}
+              avgPackWeight={strapiProductData?.Metadata?.AvgPackWeight}
+            />
 
             {/* avg pack info */}
             <div className="flex flex-col justify-center sm:pl-8 py-6">
