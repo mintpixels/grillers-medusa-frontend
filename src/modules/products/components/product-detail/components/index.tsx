@@ -11,6 +11,7 @@ import ProductVariantPicker from "./product-variant-picker"
 import Breadcrumb, { buildProductBreadcrumbs } from "@modules/common/components/breadcrumb"
 import SocialShare from "@modules/common/components/social-share"
 import KashruthBadges from "@modules/products/components/kashruth-badges"
+import NotifyBackInStockForm from "@modules/products/components/notify-back-in-stock"
 import ShippingEligibility from "@modules/products/components/shipping-eligibility"
 
 import type { StrapiProductData } from "types/strapi"
@@ -328,6 +329,21 @@ export default function ProductDetail({
             decrement={decrement}
             handleAddToCart={handleAddToCart}
           />
+
+          {/* Notify-me-when-back-in-stock — only shown when the
+              selected variant is OOS. Drops the customer's email
+              into a Strapi `back-in-stock-request` collection and
+              fires a Postmark confirmation. Restock trigger lives
+              outside this surface (Medusa inventory webhook). #102. */}
+          {!inStock && (
+            <div className="mb-6">
+              <NotifyBackInStockForm
+                medusaProductId={product.id || ""}
+                productHandle={product.handle || ""}
+                productTitle={strapiProductData?.Title || product.title || "this product"}
+              />
+            </div>
+          )}
 
           {/* Key product facts */}
           <div className="flex flex-wrap items-center gap-x-6 gap-y-3 mb-6 border-y border-Charcoal py-5">
