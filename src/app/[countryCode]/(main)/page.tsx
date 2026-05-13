@@ -11,6 +11,7 @@ import TestimonialSection from "@modules/home/components/testimonial"
 import FollowUsSection from "@modules/home/components/follow-us"
 import BlogExploreSection from "@modules/home/components/blog-explore"
 import ReorderRow from "@modules/home/components/reorder-row"
+import HolidayBanner from "@modules/home/components/holiday-banner"
 import LazySection from "@modules/common/components/lazy-section"
 import { listCollections } from "@lib/data/collections"
 import { getRegion } from "@lib/data/regions"
@@ -171,6 +172,9 @@ export default async function Home(props: {
           case "ComponentHomeHero":
             // Hero always renders immediately. TrustBand sits directly under
             // it so the value props are visible above the fold (#58).
+            // HolidayBanner renders below TrustBand when a holiday is inside
+            // its lead-time window — gated by date so most of the year it
+            // returns null. (#59)
             return (
               <React.Fragment key={section.__typename}>
                 <Hero
@@ -180,6 +184,7 @@ export default async function Home(props: {
                   hasOrders={hasOrders}
                 />
                 <TrustBand customer={customer} phoneNumber={null} />
+                <HolidayBanner />
               </React.Fragment>
             )
           case "ComponentHomeBestsellers":
