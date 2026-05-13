@@ -28,6 +28,11 @@ interface SearchResultsProps {
 // CollectionFilters / StrapiProductGrid expect. The indexer has shipped
 // both shapes over time — `MedusaProduct.Id` and `MedusaProduct.ProductId` —
 // so we normalize ProductId so price hydration always finds the id.
+//
+// GalleryImages is forwarded so the ProductCardCarousel renders chevrons /
+// N-of-N indicators on search-result cards, same as Bestsellers / PLP (#116).
+// On older index records GalleryImages may be missing — falls back to
+// FeaturedImage only and the carousel is a no-op for that card.
 function hitToProduct(hit: any): StrapiCollectionProduct {
   const mp = hit.MedusaProduct
   const normalizedMp = mp
@@ -41,6 +46,7 @@ function hitToProduct(hit: any): StrapiCollectionProduct {
     documentId: hit.documentId || String(hit.objectID || ""),
     Title: hit.Title || "",
     FeaturedImage: hit.FeaturedImage,
+    GalleryImages: Array.isArray(hit.GalleryImages) ? hit.GalleryImages : [],
     Metadata: hit.Metadata,
     Categorization: hit.Categorization,
     MedusaProduct: normalizedMp,
