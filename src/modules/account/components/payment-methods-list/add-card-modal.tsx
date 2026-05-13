@@ -6,11 +6,23 @@ import { Fragment } from "react"
 import { Elements, useStripe, useElements, PaymentElement } from "@stripe/react-stripe-js"
 import { loadStripe, Stripe, StripeElementsOptions } from "@stripe/stripe-js"
 import { createPaymentMethodSetupIntent } from "@lib/data/payment"
+import {
+  getStripePublishableKey,
+  getStripeKeyMismatchWarning,
+} from "@lib/util/stripe-key"
 
-const stripeKey = process.env.NEXT_PUBLIC_STRIPE_KEY
+// Resolve the key the same way the checkout wrapper does so saved-cards
+// always run in the same Stripe mode as the cart they will later be
+// used in. See src/lib/util/stripe-key.ts for the convention (#63).
+const stripeKey = getStripePublishableKey()
 const stripePromise: Promise<Stripe | null> | null = stripeKey
   ? loadStripe(stripeKey)
   : null
+const stripeMismatchWarning = getStripeKeyMismatchWarning(stripeKey)
+if (stripeMismatchWarning && typeof window !== "undefined") {
+  // eslint-disable-next-line no-console
+  console.warn(stripeMismatchWarning)
+}
 
 const AddCardForm: React.FC<{
   onClose: () => void
