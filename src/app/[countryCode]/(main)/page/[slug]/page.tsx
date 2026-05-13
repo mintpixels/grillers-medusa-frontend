@@ -20,6 +20,7 @@ const INFO_SLUGS = [
   "careers",
   "catch-weight-pricing",
   "wholesale",
+  "specialty",
 ] as const
 type InfoSlug = (typeof INFO_SLUGS)[number]
 
@@ -31,6 +32,7 @@ const SECTION_BY_SLUG: Record<InfoSlug, string> = {
   careers: "About",
   "catch-weight-pricing": "How it works",
   wholesale: "Wholesale",
+  specialty: "Specialty",
 }
 
 export async function generateStaticParams() {

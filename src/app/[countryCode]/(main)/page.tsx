@@ -12,6 +12,7 @@ import FollowUsSection from "@modules/home/components/follow-us"
 import BlogExploreSection from "@modules/home/components/blog-explore"
 import ReorderRow from "@modules/home/components/reorder-row"
 import HolidayBanner from "@modules/home/components/holiday-banner"
+import SpecialtyRow from "@modules/home/components/specialty-row"
 import LazySection from "@modules/common/components/lazy-section"
 import { listCollections } from "@lib/data/collections"
 import { getRegion } from "@lib/data/regions"
@@ -192,6 +193,11 @@ export default async function Home(props: {
             // personalized "Reorder your favorites" row rendered right
             // before Bestsellers — Bestsellers stays as the fallback /
             // discovery path for everyone else. (#53)
+            // SpecialtyRow ("Cuts you can't get from your supermarket")
+            // renders immediately after Bestsellers — the
+            // hard-to-find category surface for #98 customers Yelp is
+            // already sending us from "Bison Meat in Atlanta" / "Grass-fed
+            // Beef Butchers in Atlanta" searches.
             return (
               <React.Fragment key={section.__typename}>
                 {isLoggedIn && hasOrders && purchaseHistory.length > 0 && (
@@ -206,6 +212,7 @@ export default async function Home(props: {
                   data={section}
                   countryCode={countryCode}
                 />
+                <SpecialtyRow />
               </React.Fragment>
             )
           case "ComponentHomeKosherPromise":
