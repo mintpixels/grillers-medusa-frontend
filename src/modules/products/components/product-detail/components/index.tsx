@@ -458,54 +458,11 @@ export default function ProductDetail({
             />
           </div>
 
-          {/* Details & Certifications */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 border-t border-Charcoal">
-            {/* Details - Dietary & Ingredient Information Only */}
-            <div className="sm:border-r border-Charcoal pt-4 pb-4 sm:pb-0 sm:pr-8">
-              <h3 className="text-p-sm-mono font-maison-neue font-bold uppercase text-Charcoal mb-4">
-                Details
-              </h3>
-              <div className="space-y-3">
-                {strapiProductData?.Metadata?.GlutenFree && (
-                  <div className="flex items-center gap-3">
-                    <Image
-                      src="/images/icons/icon-circle-check.svg"
-                      width={20}
-                      height={20}
-                      alt="Gluten Free"
-                      className="flex-shrink-0"
-                    />
-                    <span className="text-p-sm font-maison-neue text-Charcoal">
-                      Gluten Free
-                    </span>
-                  </div>
-                )}
-                {/* Note: MSG field does not exist in Strapi schema */}
-                {/* Add other dietary/ingredient fields here when added to Strapi */}
-                {!strapiProductData?.Metadata?.GlutenFree && (
-                  <p className="text-p-sm text-gray-500 italic">No dietary details available</p>
-                )}
-              </div>
-            </div>
-
-            {/* Certifications */}
-            <div className="pt-4 sm:pl-8 border-t sm:border-t-0 border-Charcoal flex flex-col items-center justify-center">
-              <h3 className="text-p-sm-mono font-maison-neue font-bold uppercase text-Charcoal mb-6 self-start">
-                Certifications
-              </h3>
-              <div className="flex flex-col items-center">
-                <Image
-                  src="/images/pages/pdp/CertifiedKosher.png"
-                  width={90}
-                  height={90}
-                  alt="Certified Kosher"
-                />
-                <span className="text-p-sm-mono font-maison-neue-mono text-Charcoal mt-3">
-                  Certified Kosher
-                </span>
-              </div>
-            </div>
-          </div>
+          {/* Legacy "Details & Certifications" grid removed in #126 —
+              the KashruthBadges chip row above renders the same Gluten
+              Free / sourcing flags as data-driven chips, and the
+              umbrella Certified Kosher graphic still hangs in the
+              hero badge area at the top of the page. */}
         </div>
       </div>
     </section>

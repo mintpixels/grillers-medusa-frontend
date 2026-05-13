@@ -76,7 +76,7 @@ export default function ShippingEligibility({
         Final options + costs are confirmed at checkout based on your
         address and basket. See our{" "}
         <LocalizedClientLink
-          href="/shipping"
+          href="/shipping/ups"
           className="underline underline-offset-2 hover:text-Gold"
         >
           full shipping policy
