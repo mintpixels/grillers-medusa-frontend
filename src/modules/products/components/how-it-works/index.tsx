@@ -6,7 +6,7 @@ import Image from "next/image"
 export default function HowItWorksSection({
   data,
 }: {
-  data: {
+  data?: {
     Title: string
     Description: string
     Cards: {
@@ -16,18 +16,24 @@ export default function HowItWorksSection({
         url: string
       }
     }[]
-  }
+  } | null
 }) {
+  // Bail when Strapi common-PDP data hasn't been populated rather than
+  // render an empty dark section with a hole where copy should be. #128.
+  if (!data || (!data.Title && !data.Description && !data.Cards?.length)) {
+    return null
+  }
+
   return (
     <section className="py-16 bg-Charcoal">
       <div className="mx-auto max-w-6xl px-4.5 grid grid-cols-1 md:grid-cols-[0.8fr_1fr_1fr] gap-8">
         <div className="flex flex-col justify-center">
-          {data?.Title && (
+          {data.Title && (
             <h3 className="text-h3 font-gyst text-Scroll mb-6 md:mb-14 max-w-[171px]">
               {data.Title}
             </h3>
           )}
-          {data?.Description && (
+          {data.Description && (
             <p className="text-p-md font-maison-neue text-Scroll max-w-[210px]">
               {data.Description}
             </p>
@@ -35,7 +41,7 @@ export default function HowItWorksSection({
         </div>
 
         <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-4">
-          {data?.Cards?.slice(0, 2)?.map((card) => (
+          {data.Cards?.slice(0, 2)?.map((card) => (
             <article key={card.id}>
               <Image
                 src={card?.Image?.url}

@@ -37,10 +37,9 @@ export default function HowItFitsSection({
             <h3 className="text-h2-mobile md:text-h2 font-gyst text-Charcoal mb-4 md:mb-8">
               How It Fits On Your Table
             </h3>
-            <p className="text-p-md font-maison-neue text-Charcoal max-w-[571px] k">
-              Etiam id nisi scelerisque, consequat diam eget, imperdiet urna.
-              Aliquam erat volutpat. Aliquam sed nisl at sem molestie
-              condimentum.
+            <p className="text-p-md font-maison-neue text-Charcoal max-w-[571px]">
+              Recipes from our kitchen, built around the kosher cuts our
+              customers cook most. Weeknight to Shabbos — start here.
             </p>
           </div>
 

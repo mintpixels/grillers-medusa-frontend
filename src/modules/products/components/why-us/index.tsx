@@ -3,25 +3,10 @@
 import React from "react"
 import Image from "next/image"
 
-const features = [
-  {
-    title: "You Keep The Trade Discount.",
-    desc: "Phasellus purus augue, rutrum et hendrerit ac, lacinia ac arcu. Ut in ante quis purus fringilla ultrices.",
-  },
-  {
-    title: "Proven Process.",
-    desc: "Phasellus purus augue, rutrum et hendrerit ac, lacinia ac arcu. Ut in ante quis purus fringilla ultrices.",
-  },
-  {
-    title: "Transparent Pricing.",
-    desc: "Phasellus purus augue, rutrum et hendrerit ac, lacinia ac arcu. Ut in ante quis purus fringilla ultrices.",
-  },
-]
-
 export default function WhyUsSection({
   data,
 }: {
-  data: {
+  data?: {
     Title: string
     Image: {
       url: string
@@ -31,17 +16,22 @@ export default function WhyUsSection({
       Title: string
       Description: string
     }[]
-  }
+  } | null
 }) {
+  // Strapi common-PDP `WhyUs` block is optional. Bail entirely when it
+  // isn't provided rather than render an empty heading or pass an
+  // undefined image src (which throws). #128 cleanup.
+  if (!data || !data.List?.length) return null
+
   return (
     <section className="py-10 md:py-20 bg-Scroll">
       <div className="mx-auto max-w-7xl px-4.5 grid grid-cols-1 md:grid-cols-[0.7fr_1.3fr] gap-8">
         <div className="flex flex-col justify-between py-4 max-w-[365px]">
           <h3 className="text-h2 font-gyst text-Charcoal mb-6">
-            {data?.Title}
+            {data.Title}
           </h3>
           <dl className="space-y-8 divide-y divide-Charcoal">
-            {data?.List?.slice(0, 3)?.map((item) => (
+            {data.List.slice(0, 3).map((item) => (
               <div key={item.id} className="pt-5 pb-3 border-t border-Charcoal">
                 <dt className="text-h4 font-gyst font-bold text-Charcoal pb-2 mb-2">
                   {item?.Title}
@@ -54,14 +44,16 @@ export default function WhyUsSection({
           </dl>
         </div>
 
-        <div className="relative w-full aspect-square overflow-hidden">
-          <Image
-            src={data?.Image?.url}
-            alt={data?.Title}
-            fill
-            className="object-cover"
-          />
-        </div>
+        {data.Image?.url && (
+          <div className="relative w-full aspect-square overflow-hidden">
+            <Image
+              src={data.Image.url}
+              alt={data.Title}
+              fill
+              className="object-cover"
+            />
+          </div>
+        )}
       </div>
     </section>
   )
