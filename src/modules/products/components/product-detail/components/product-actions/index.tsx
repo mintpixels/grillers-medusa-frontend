@@ -39,19 +39,19 @@ export default function ProductActions({
   return (
     <div className="flex flex-col md:flex-row items-center mb-6 gap-y-4 md:gap-y-0 md:gap-x-8">
       {/* qty selector */}
-      <div className="flex border border-Charcoal h-full font-maison-neue text-p-lg">
+      <div className="flex border border-Charcoal h-full min-h-[44px] font-maison-neue text-p-lg">
         <button
           onClick={decrement}
-          className="px-4 text-Charcoal hover:bg-SilverPlate transition w-[50px]"
+          className="px-4 text-Charcoal hover:bg-SilverPlate transition w-[50px] min-h-[44px]"
         >
           –
         </button>
-        <span className="inline-flex items-center justify-center px-4 border-x border-Charcoal text-Charcoal w-[50px]">
+        <span className="inline-flex items-center justify-center px-4 border-x border-Charcoal text-Charcoal w-[50px] min-h-[44px]">
           {quantity}
         </span>
         <button
           onClick={increment}
-          className="px-4 text-Charcoal hover:bg-SilverPlate transition w-[50px]"
+          className="px-4 text-Charcoal hover:bg-SilverPlate transition w-[50px] min-h-[44px]"
         >
           +
         </button>
