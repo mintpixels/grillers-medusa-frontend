@@ -193,11 +193,6 @@ export default async function Home(props: {
             // personalized "Reorder your favorites" row rendered right
             // before Bestsellers — Bestsellers stays as the fallback /
             // discovery path for everyone else. (#53)
-            // SpecialtyRow ("Cuts you can't get from your supermarket")
-            // renders immediately after Bestsellers — the
-            // hard-to-find category surface for #98 customers Yelp is
-            // already sending us from "Bison Meat in Atlanta" / "Grass-fed
-            // Beef Butchers in Atlanta" searches.
             return (
               <React.Fragment key={section.__typename}>
                 {isLoggedIn && hasOrders && purchaseHistory.length > 0 && (
@@ -212,13 +207,21 @@ export default async function Home(props: {
                   data={section}
                   countryCode={countryCode}
                 />
-                <SpecialtyRow />
               </React.Fragment>
             )
           case "ComponentHomeKosherPromise":
+            // SpecialtyRow ("Cuts you can't get from your supermarket")
+            // sits between KosherPromise (dark) and WholesaleBand (dark)
+            // so the homepage alternates cream/dark sections — gives the
+            // specialty row breathing room on a cream background while
+            // the dark slabs above and below frame it. The hard-to-find
+            // surface for #98 customers Yelp is already sending us from
+            // "Bison Meat in Atlanta" / "Grass-fed Beef Butchers in
+            // Atlanta" searches.
             return (
               <React.Fragment key={section.__typename}>
                 <KosherPromiseSection data={section} />
+                <SpecialtyRow countryCode={countryCode} />
                 <WholesaleBand />
               </React.Fragment>
             )
