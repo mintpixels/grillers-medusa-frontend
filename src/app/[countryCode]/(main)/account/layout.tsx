@@ -3,6 +3,15 @@ import { retrieveCustomer } from "@lib/data/customer"
 import { Toaster } from "@medusajs/ui"
 import AccountLayout from "@modules/account/templates/account-layout"
 
+// Force dynamic rendering for the entire /us/account/* subtree. The
+// parallel @dashboard slot calls notFound() when there's no signed-in
+// customer, and at build time (no cookies = no customer) Vercel's
+// prerender baked a 500 into every account route. /us/account/wishlist
+// already sets force-dynamic and was the only account route still
+// serving 200 in production — pulling the same setting up to the layout
+// fixes the whole subtree.
+export const dynamic = "force-dynamic"
+
 // /us/account renders @login or @dashboard via parallel routes. Each slot's
 // metadata is static, so without overriding here Next.js picks one slot's
 // title even after auth flips. Compute from session so the tab title
