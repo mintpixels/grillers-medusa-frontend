@@ -42,6 +42,7 @@
  */
 
 type DeployMode = "production" | "preview" | "development"
+type StripeMode = "live" | "test"
 
 function getDeployMode(): DeployMode {
   // Prefer the client-safe NEXT_PUBLIC_ alias. Fall back to the
@@ -57,6 +58,25 @@ function getDeployMode(): DeployMode {
   return "development"
 }
 
+/**
+ * Resolve the Stripe mode (live vs test) used for key selection.
+ *
+ * Default: production deploy → live, everything else → test.
+ *
+ * Override: `NEXT_PUBLIC_STRIPE_MODE_OVERRIDE = "live" | "test"` forces
+ * the resolved mode regardless of `VERCEL_ENV`. Use this for the
+ * pre-launch phase where the grillers-medusa-frontend.vercel.app
+ * production alias acts as a QA environment — Medusa is on `sk_test_*`,
+ * so the frontend needs to match. Once both flip together for launch,
+ * unset the override and the deploy-mode default kicks back in.
+ */
+function getStripeMode(): StripeMode {
+  const override = (process.env.NEXT_PUBLIC_STRIPE_MODE_OVERRIDE || "").toLowerCase()
+  if (override === "live") return "live"
+  if (override === "test") return "test"
+  return getDeployMode() === "production" ? "live" : "test"
+}
+
 function isLiveKey(key: string | undefined): key is string {
   return typeof key === "string" && key.startsWith("pk_live_")
 }
@@ -66,9 +86,9 @@ function isTestKey(key: string | undefined): key is string {
 }
 
 export function getStripePublishableKey(): string | undefined {
-  const mode = getDeployMode()
+  const mode = getStripeMode()
   const candidates =
-    mode === "production"
+    mode === "live"
       ? [
           process.env.NEXT_PUBLIC_STRIPE_KEY_LIVE,
           process.env.NEXT_PUBLIC_STRIPE_KEY,
@@ -82,11 +102,11 @@ export function getStripePublishableKey(): string | undefined {
     if (!key) continue
     // Reject mode-mismatched keys outright so a misconfig surfaces as
     // "Stripe not configured" rather than "PaymentIntent confirm
-    // failed". The legacy `NEXT_PUBLIC_STRIPE_KEY` may still be test
-    // even after `NEXT_PUBLIC_STRIPE_KEY_LIVE` is configured — this
-    // guard makes that transition safe.
-    if (mode === "production" && isTestKey(key)) continue
-    if (mode !== "production" && isLiveKey(key)) continue
+    // failed". The legacy `NEXT_PUBLIC_STRIPE_KEY` may still be the
+    // wrong mode for the resolved Stripe mode — this guard makes the
+    // transition safe.
+    if (mode === "live" && isTestKey(key)) continue
+    if (mode === "test" && isLiveKey(key)) continue
     return key
   }
   return undefined
@@ -106,38 +126,38 @@ export function getStripePublishableKey(): string | undefined {
 export function getStripeKeyMismatchWarning(
   key: string | undefined
 ): string | null {
-  const mode = getDeployMode()
-  // Missing-key case: the production fallback intentionally refuses
-  // a test key, so a "key is missing" state can also be a "test key
-  // in production" misconfig. Surface this case loudly.
+  const mode = getStripeMode()
+  // Missing-key case: the resolved mode intentionally refuses a key
+  // of the wrong mode, so a "key is missing" state can also be a
+  // "wrong-mode legacy key" misconfig. Surface this case loudly.
   if (!key) {
     const legacy = process.env.NEXT_PUBLIC_STRIPE_KEY
-    if (mode === "production" && isTestKey(legacy)) {
+    if (mode === "live" && isTestKey(legacy)) {
       return (
-        "[Stripe] Production deploy has a TEST publishable key in " +
-        "NEXT_PUBLIC_STRIPE_KEY — refusing it to prevent silent " +
-        "checkout failure. Set NEXT_PUBLIC_STRIPE_KEY_LIVE. (#63)"
+        "[Stripe] Live mode but NEXT_PUBLIC_STRIPE_KEY holds a TEST " +
+        "key — refusing it to prevent silent checkout failure. Set " +
+        "NEXT_PUBLIC_STRIPE_KEY_LIVE. (#63)"
       )
     }
-    if (mode !== "production" && isLiveKey(legacy)) {
+    if (mode === "test" && isLiveKey(legacy)) {
       return (
-        "[Stripe] Non-production deploy has a LIVE publishable key in " +
-        "NEXT_PUBLIC_STRIPE_KEY — refusing it so test cards work. " +
-        "Set NEXT_PUBLIC_STRIPE_KEY_TEST. (#63)"
+        "[Stripe] Test mode but NEXT_PUBLIC_STRIPE_KEY holds a LIVE " +
+        "key — refusing it so test cards work. Set " +
+        "NEXT_PUBLIC_STRIPE_KEY_TEST. (#63)"
       )
     }
     return null
   }
-  if (mode === "production" && isTestKey(key)) {
+  if (mode === "live" && isTestKey(key)) {
     return (
-      "[Stripe] Production deploy is using a TEST publishable key — " +
+      "[Stripe] Live mode resolved a TEST publishable key — " +
       "orders will fail at PaymentIntent confirmation. Set " +
       "NEXT_PUBLIC_STRIPE_KEY_LIVE. (#63)"
     )
   }
-  if (mode !== "production" && isLiveKey(key)) {
+  if (mode === "test" && isLiveKey(key)) {
     return (
-      "[Stripe] Non-production deploy is using a LIVE publishable key — " +
+      "[Stripe] Test mode resolved a LIVE publishable key — " +
       "Stripe test cards will not work. Set " +
       "NEXT_PUBLIC_STRIPE_KEY_TEST. (#63)"
     )
