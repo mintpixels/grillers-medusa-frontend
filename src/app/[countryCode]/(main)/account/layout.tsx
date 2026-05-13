@@ -3,19 +3,13 @@ import { retrieveCustomer } from "@lib/data/customer"
 import { Toaster } from "@medusajs/ui"
 import AccountLayout from "@modules/account/templates/account-layout"
 
-// Force dynamic rendering for the entire /us/account/* subtree. The
-// parallel @dashboard slot calls notFound() when there's no signed-in
-// customer, and at build time (no cookies = no customer) Vercel's
-// prerender baked a 500 into every account route. /us/account/wishlist
-// already sets force-dynamic and was the only account route still
-// serving 200 in production — pulling the same setting up to the layout
-// fixes the whole subtree.
+// Force dynamic — every /us/account/* route depends on session cookies
+// and was never suitable for prerender. (Parallel-routes setup used to
+// live here; converted to a single page.tsx + nested children since
+// Next.js 15's parallel-routes-in-dynamic-segment bug emits broken
+// manifests that 500 the whole subtree in production.)
 export const dynamic = "force-dynamic"
 
-// /us/account renders @login or @dashboard via parallel routes. Each slot's
-// metadata is static, so without overriding here Next.js picks one slot's
-// title even after auth flips. Compute from session so the tab title
-// matches what the customer is actually seeing.
 export async function generateMetadata(): Promise<Metadata> {
   const customer = await retrieveCustomer().catch(() => null)
   return customer
@@ -30,17 +24,15 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function AccountPageLayout({
-  dashboard,
-  login,
+  children,
 }: {
-  dashboard?: React.ReactNode
-  login?: React.ReactNode
+  children: React.ReactNode
 }) {
   const customer = await retrieveCustomer().catch(() => null)
 
   return (
     <AccountLayout customer={customer}>
-      {customer ? dashboard : login}
+      {children}
       <Toaster />
     </AccountLayout>
   )
