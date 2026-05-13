@@ -322,7 +322,7 @@ export default async function Footer() {
                       href={social.Url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-Pewter hover:text-Gold transition-colors p-2 -m-2"
+                      className="min-w-[44px] min-h-[44px] inline-flex items-center justify-center text-Pewter hover:text-Gold transition-colors -m-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold rounded"
                       aria-label={`Follow us on ${social.Platform}`}
                     >
                       <SocialIcon platform={social.Platform} />

@@ -61,7 +61,7 @@ export default function WishlistButton({
       <button
         onClick={handleToggle}
         disabled={isPending}
-        className={`inline-flex items-center gap-2 px-4 py-2 border border-Charcoal/20 rounded-[5px] text-p-sm font-maison-neue text-Charcoal hover:bg-Charcoal/5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold disabled:opacity-50 ${className}`}
+        className={`min-h-[44px] inline-flex items-center gap-2 px-4 py-2 border border-Charcoal/20 rounded-[5px] text-p-sm font-maison-neue text-Charcoal hover:bg-Charcoal/5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold disabled:opacity-50 ${className}`}
         aria-label={isWishlisted ? `Remove ${title} from wishlist` : `Add ${title} to wishlist`}
         aria-pressed={isWishlisted}
       >
@@ -75,7 +75,7 @@ export default function WishlistButton({
     <button
       onClick={handleToggle}
       disabled={isPending}
-      className={`p-2 rounded-full hover:bg-Charcoal/5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold disabled:opacity-50 ${className}`}
+      className={`min-w-[44px] min-h-[44px] inline-flex items-center justify-center p-2 rounded-full hover:bg-Charcoal/5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold disabled:opacity-50 ${className}`}
       aria-label={isWishlisted ? `Remove ${title} from wishlist` : `Add ${title} to wishlist`}
       aria-pressed={isWishlisted}
     >

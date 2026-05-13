@@ -45,7 +45,7 @@ export default function CollectionPagination({
       <button
         onClick={() => onPageChange(currentPage - 1)}
         disabled={currentPage === 1}
-        className="px-3 py-2 text-sm font-maison-neue text-Charcoal border border-Charcoal/20 rounded hover:bg-Charcoal/5 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+        className="min-w-[44px] min-h-[44px] inline-flex items-center justify-center px-3 py-2 text-sm font-maison-neue text-Charcoal border border-Charcoal/20 rounded hover:bg-Charcoal/5 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
         aria-label="Previous page"
       >
         Prev
@@ -63,7 +63,7 @@ export default function CollectionPagination({
           <button
             key={page}
             onClick={() => onPageChange(page)}
-            className={`px-3 py-2 text-sm font-maison-neue rounded border transition-colors ${
+            className={`min-w-[44px] min-h-[44px] inline-flex items-center justify-center px-3 py-2 text-sm font-maison-neue rounded border transition-colors ${
               page === currentPage
                 ? "bg-Charcoal text-white border-Charcoal"
                 : "text-Charcoal border-Charcoal/20 hover:bg-Charcoal/5"
@@ -79,7 +79,7 @@ export default function CollectionPagination({
       <button
         onClick={() => onPageChange(currentPage + 1)}
         disabled={currentPage === totalPages}
-        className="px-3 py-2 text-sm font-maison-neue text-Charcoal border border-Charcoal/20 rounded hover:bg-Charcoal/5 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+        className="min-w-[44px] min-h-[44px] inline-flex items-center justify-center px-3 py-2 text-sm font-maison-neue text-Charcoal border border-Charcoal/20 rounded hover:bg-Charcoal/5 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
         aria-label="Next page"
       >
         Next
