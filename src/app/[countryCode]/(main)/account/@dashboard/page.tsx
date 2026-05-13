@@ -1,5 +1,4 @@
 import Overview from "@modules/account/components/overview"
-import { notFound } from "next/navigation"
 import { retrieveCustomer } from "@lib/data/customer"
 import { listOrders } from "@lib/data/orders"
 
@@ -11,8 +10,13 @@ export default async function OverviewTemplate() {
   const customer = await retrieveCustomer().catch(() => null)
   const orders = (await listOrders().catch(() => null)) || null
 
+  // The parent layout picks @dashboard vs @login based on `customer`, so
+  // when we're logged out this slot is never rendered. Return null here
+  // instead of notFound() — notFound() in a parallel slot bubbles up to
+  // the parent and 500s the whole /us/account route on Vercel, taking
+  // sign-in down with it.
   if (!customer) {
-    notFound()
+    return null
   }
 
   return <Overview customer={customer} orders={orders} />
