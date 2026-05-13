@@ -69,6 +69,7 @@ const nextConfig = {
       { source: "/us/terms-of-sale", destination: "/us/page/terms-of-sale", permanent: true },
       { source: "/us/terms-of-use", destination: "/us/page/terms-of-use", permanent: true },
       { source: "/us/wholesale", destination: "/us/page/wholesale", permanent: true },
+      { source: "/us/specialty", destination: "/us/page/specialty", permanent: true },
     ]
   },
 }
