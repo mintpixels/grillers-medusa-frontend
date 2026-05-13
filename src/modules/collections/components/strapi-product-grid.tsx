@@ -439,9 +439,9 @@ export default function StrapiProductGrid({ products, countryCode, viewMode = "g
       <div
         className={
           viewMode === "grid"
-            ? `grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 ${
+            ? `grid grid-cols-2 lg:grid-cols-3 ${
                 wide ? "xl:grid-cols-4" : "xl:grid-cols-3"
-              } gap-x-6 gap-y-0`
+              } gap-x-4 sm:gap-x-6 gap-y-0`
             : "flex flex-col space-y-8"
         }
       >

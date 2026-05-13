@@ -250,7 +250,10 @@ export default function ProductDetail({
 
         {/* Right: product info */}
         <div className="flex flex-col pt-4 relative">
-          {/* Certification icon - absolutely positioned */}
+          {/* Certification icon - absolutely positioned. The 72px right
+              padding on the SKU + h1 below keeps the title text out from
+              under the badge on mobile (badge is 63px wide; 72px gives a
+              small breathing margin). */}
           <div className="absolute top-0 right-0">
             <Image
               src="/images/pages/pdp/CertifiedKosher.png"
@@ -267,11 +270,11 @@ export default function ProductDetail({
             </span>
           </div>
           {(selectedVariant?.sku || strapiProductData?.MedusaProduct?.Variants?.[0]?.Sku) && (
-            <p className="text-xs font-maison-neue-mono uppercase tracking-wider text-Charcoal/40 mb-2">
+            <p className="text-xs font-maison-neue-mono uppercase tracking-wider text-Charcoal/40 mb-2 pr-[72px] sm:pr-0">
               SKU: {selectedVariant?.sku || strapiProductData?.MedusaProduct?.Variants?.[0]?.Sku}
             </p>
           )}
-          <h1 className="text-h3 font-gyst text-Charcoal mb-7 text-balance">
+          <h1 className="text-h3 font-gyst text-Charcoal mb-7 text-balance pr-[72px] sm:pr-0">
             {strapiProductData?.Title || product.title}
           </h1>
 
