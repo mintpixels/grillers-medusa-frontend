@@ -77,7 +77,10 @@ export default function BestsellersSwiper({
           swiperRef.current = s
         }}
         spaceBetween={28}
-        slidesPerView={1}
+        // Mobile: show 1.15 slides so a sliver of the next card peeks at
+        // the right edge — visual cue that the row is swipable. ≥520 we
+        // already show 2+ slides so the cue is implicit.
+        slidesPerView={1.15}
         breakpoints={{
           520: { slidesPerView: 2 },
           900: { slidesPerView: 3 },
