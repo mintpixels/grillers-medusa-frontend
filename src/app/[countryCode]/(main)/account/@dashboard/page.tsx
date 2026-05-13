@@ -6,6 +6,11 @@ import { listOrders } from "@lib/data/orders"
 // Static metadata here would override the layout and break auth-aware
 // tab titles for parallel-route slots.
 
+// force-dynamic on the parent layout doesn't propagate to parallel
+// slot pages — without it here, Vercel prerenders this slot at build
+// time and the whole /us/account subtree was serving a static 500.
+export const dynamic = "force-dynamic"
+
 export default async function OverviewTemplate() {
   const customer = await retrieveCustomer().catch(() => null)
   const orders = (await listOrders().catch(() => null)) || null

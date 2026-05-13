@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic"
+
 import AddressBook from "@modules/account/components/address-book"
 import { notFound } from "next/navigation"
 import { retrieveCustomer } from "@lib/data/customer"

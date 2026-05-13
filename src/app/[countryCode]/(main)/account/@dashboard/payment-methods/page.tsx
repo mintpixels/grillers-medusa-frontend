@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic"
+
 import { Metadata } from "next"
 import { getSavedPaymentMethods } from "@lib/data/payment"
 import PaymentMethodsList from "@modules/account/components/payment-methods-list"

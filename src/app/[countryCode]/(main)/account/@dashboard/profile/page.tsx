@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic"
+
 import ProfileName from "@modules/account/components/profile-name"
 import ProfileEmail from "@modules/account/components/profile-email"
 import ProfilePhone from "@modules/account/components/profile-phone"

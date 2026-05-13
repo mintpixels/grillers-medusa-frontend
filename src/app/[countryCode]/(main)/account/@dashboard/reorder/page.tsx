@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic"
+
 import { Metadata } from "next"
 import { listPurchaseHistory } from "@lib/data/orders"
 import { getProductsByMedusaIds, type StrapiCollectionProduct } from "@lib/data/strapi/collections"

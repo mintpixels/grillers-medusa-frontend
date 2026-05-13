@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic"
+
 import { Metadata } from "next"
 import { listOrders } from "@lib/data/orders"
 import { notFound } from "next/navigation"
