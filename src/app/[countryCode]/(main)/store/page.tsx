@@ -66,7 +66,12 @@ async function browseAlgoliaCatalog(): Promise<StrapiCollectionProduct[]> {
     if (!res.ok) return []
     const data = (await res.json()) as { hits?: unknown[] }
     if (!Array.isArray(data.hits)) return []
-    return data.hits.map((h: unknown) => hitToProduct(h))
+    // hitToProduct returns null for stub hits the upstream plugin writes
+    // when its transformer returns null/async (#115). Drop them so the
+    // grid doesn't render ghost cards.
+    return data.hits
+      .map((h: unknown) => hitToProduct(h))
+      .filter((p): p is StrapiCollectionProduct => p !== null)
   } catch {
     return []
   }

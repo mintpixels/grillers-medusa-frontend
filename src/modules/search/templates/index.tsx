@@ -86,7 +86,16 @@ function EmptyResults({
 function SearchBody({ initialQuery, countryCode }: { initialQuery: string; countryCode: string }) {
   const { items } = useHits<any>()
   const { query: liveQuery } = useSearchBox()
-  const allProducts = useMemo(() => items.map(hitToProduct), [items])
+  // hitToProduct returns null for stub hits the upstream plugin writes when
+  // its transformer returns null/async (#115). Filter them so the grid
+  // doesn't render ghost cards.
+  const allProducts = useMemo(
+    () =>
+      items
+        .map(hitToProduct)
+        .filter((p): p is StrapiCollectionProduct => p !== null),
+    [items]
+  )
 
   const [activeFilters, setActiveFilters] = useState<ActiveFilters>(getEmptyFilters())
   const [currentPage, setCurrentPage] = useState(1)
