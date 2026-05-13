@@ -1,28 +1,25 @@
 import React from "react"
 import { convertToLocale } from "@lib/util/money"
+import {
+  IN_REGION_STATES,
+  IN_REGION_THRESHOLD,
+  NATIONAL_THRESHOLD,
+  PICKUP_BONUS_AMOUNT,
+  PICKUP_BONUS_THRESHOLD,
+  getFreeShippingState,
+  type FulfillmentType,
+} from "@lib/util/free-shipping"
 
-export const IN_REGION_STATES = [
-  "GA",
-  "TN",
-  "TX",
-  "NC",
-  "FL",
-  "SC",
-  "AL",
-] as const
-export const IN_REGION_THRESHOLD = 250
-export const NATIONAL_THRESHOLD = 500
-export const PICKUP_BONUS_THRESHOLD = 150
-export const PICKUP_BONUS_AMOUNT = 7.5
-
-type FulfillmentType =
-  | "ups_shipping"
-  | "atlanta_delivery"
-  | "southeast_pickup"
-  | "plant_pickup"
-  | string
-  | null
-  | undefined
+// Re-export so existing call sites (`from "@modules/common/components/cart-helpers"`)
+// keep working without touching imports. New code should import from
+// `@lib/util/free-shipping` directly.
+export {
+  IN_REGION_STATES,
+  IN_REGION_THRESHOLD,
+  NATIONAL_THRESHOLD,
+  PICKUP_BONUS_AMOUNT,
+  PICKUP_BONUS_THRESHOLD,
+} from "@lib/util/free-shipping"
 
 type FreeShippingHelperProps = {
   subtotal?: number | null
@@ -32,9 +29,6 @@ type FreeShippingHelperProps = {
   className?: string
   variant?: "light" | "dark"
 }
-
-const isInRegion = (st?: string | null) =>
-  !!st && (IN_REGION_STATES as readonly string[]).includes(st.toUpperCase())
 
 export const FreeShippingHelper: React.FC<FreeShippingHelperProps> = ({
   subtotal,
@@ -47,81 +41,65 @@ export const FreeShippingHelper: React.FC<FreeShippingHelperProps> = ({
   const sub = subtotal ?? 0
   if (sub <= 0) return null
 
-  let message: React.ReactNode = null
-  let qualified = false
+  const state = getFreeShippingState({ subtotal: sub, fulfillmentType, shipState })
+  const { qualified, isPlantPickup } = state
 
-  if (fulfillmentType === "plant_pickup") {
-    if (sub >= PICKUP_BONUS_THRESHOLD) {
-      qualified = true
-      message = (
-        <>
-          Pickup is always free —{" "}
-          <strong>
-            you've earned a $
-            {PICKUP_BONUS_AMOUNT.toFixed(2)} pickup credit
-          </strong>
-          .
-        </>
+  let message: React.ReactNode = null
+
+  if (isPlantPickup) {
+    message = state.pickupBonusEarned ? (
+      <>
+        Pickup is always free —{" "}
+        <strong>
+          you've earned a ${PICKUP_BONUS_AMOUNT.toFixed(2)} pickup credit
+        </strong>
+        .
+      </>
+    ) : (
+      <>
+        Pickup is always free. You're{" "}
+        <strong>
+          {convertToLocale({
+            amount: state.pickupBonusRemaining,
+            currency_code: currencyCode,
+          })}
+        </strong>{" "}
+        away from a ${PICKUP_BONUS_AMOUNT.toFixed(2)} pickup credit.
+      </>
+    )
+  } else if (state.kind === "overnight") {
+    message = <>UPS Overnight is charged at the carrier rate.</>
+  } else if (qualified) {
+    message =
+      state.kind === "national_ups" ? (
+        <>Your order ships free.</>
+      ) : (
+        <>Your order qualifies for free delivery.</>
       )
-    } else {
-      const remaining = PICKUP_BONUS_THRESHOLD - sub
-      message = (
-        <>
-          Pickup is always free. You're{" "}
-          <strong>
-            {convertToLocale({
-              amount: remaining,
-              currency_code: currencyCode,
-            })}
-          </strong>{" "}
-          away from a $
-          {PICKUP_BONUS_AMOUNT.toFixed(2)} pickup credit.
-        </>
-      )
-    }
-  } else if (isInRegion(shipState)) {
-    if (sub >= IN_REGION_THRESHOLD) {
-      qualified = true
-      message = <>Your order qualifies for free delivery.</>
-    } else {
-      const remaining = IN_REGION_THRESHOLD - sub
-      message = (
-        <>
-          You're{" "}
-          <strong>
-            {convertToLocale({
-              amount: remaining,
-              currency_code: currencyCode,
-            })}
-          </strong>{" "}
-          away from <strong>free delivery</strong>.
-        </>
-      )
-    }
-  } else if (shipState) {
-    if (sub >= NATIONAL_THRESHOLD) {
-      qualified = true
-      message = <>Your order ships free.</>
-    } else {
-      const remaining = NATIONAL_THRESHOLD - sub
-      message = (
-        <>
-          You're{" "}
-          <strong>
-            {convertToLocale({
-              amount: remaining,
-              currency_code: currencyCode,
-            })}
-          </strong>{" "}
-          away from <strong>free shipping</strong>.
-        </>
-      )
-    }
-  } else {
+  } else if (state.kind === "ambiguous") {
     message = (
       <>
         Free delivery on orders over $250 in our home region · Free shipping
         over $500 nationwide.
+      </>
+    )
+  } else {
+    const label =
+      state.kind === "national_ups" ? (
+        <strong>free shipping</strong>
+      ) : (
+        <strong>free delivery</strong>
+      )
+    message = (
+      <>
+        You're{" "}
+        <strong>
+          {convertToLocale({
+            amount: state.remaining,
+            currency_code: currencyCode,
+          })}
+        </strong>{" "}
+        away from {label}.
       </>
     )
   }
