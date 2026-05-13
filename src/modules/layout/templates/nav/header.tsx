@@ -31,7 +31,7 @@ const Header = ({ navLinks, regions, phoneNumber, customer, navCounts }: HeaderP
       >
         Skip to main content
       </a>
-      <nav className="flex items-center justify-between w-full h-[106px] px-4 lg:px-8">
+      <nav className="flex items-center justify-between w-full h-[106px] px-3 lg:px-8 gap-2">
         <MobileNavMenu navLinks={navLinks} navCounts={navCounts} />
 
         <div className="flex items-center gap-4">
@@ -74,7 +74,7 @@ const Header = ({ navLinks, regions, phoneNumber, customer, navCounts }: HeaderP
             </a>
           )}
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-1 sm:gap-4">
             {/* Mobile Phone (tap-to-call) */}
             {phoneNumber && (
               <a

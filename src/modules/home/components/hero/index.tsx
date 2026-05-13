@@ -59,7 +59,7 @@ const Hero = ({ data, countryCode = "us", isLoggedIn, hasOrders }: HeroProps) =>
       {/* Dark overlay for text contrast - ensures WCAG AA compliance */}
       <div className="absolute inset-0 bg-black/30" aria-hidden="true" />
 
-      <div className="text-center small:p-32 gap-6 flex flex-col items-center relative z-10">
+      <div className="text-center px-6 small:p-32 gap-6 flex flex-col items-center relative z-10">
         <div className="max-w-[820px]">
           <h1 className="text-white font-gyst text-h1-mobile md:text-h1 drop-shadow-lg">
             {data?.HeroTitle}

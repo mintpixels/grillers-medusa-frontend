@@ -164,7 +164,7 @@ export default function CollectionTemplate({
             )}
 
             {/* Product count, active filters, sort, and view toggle */}
-            <div className="flex items-center justify-between mb-6 gap-4">
+            <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
               <div className="flex items-center flex-wrap gap-2">
                 <p className="text-sm text-gray-600 whitespace-nowrap mr-2">
                   Showing {filteredProducts.length}{" "}
