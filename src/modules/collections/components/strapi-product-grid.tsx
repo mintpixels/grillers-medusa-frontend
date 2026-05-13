@@ -114,14 +114,15 @@ export function ProductCard({ product, countryCode, viewMode = "grid" }: { produ
   const price = product?.MedusaProduct?.Variants?.[0]?.Price?.CalculatedPriceNumber
 
   // Per-lb vs fixed-price decision sourced from (in order)
-  //   1. Strapi Metadata.PricingMode (QB-driven, eventually)
-  //   2. bundled SKU→mode map (CSV-derived)
+  //   1. Strapi MedusaProduct.PricingMode / Metadata.PricingMode (QB-driven)
+  //   2. bundled SKU→mode map (QB-derived, 1726 entries)
   //   3. weight heuristic
   const priceDisplay = price
     ? formatProductPriceDisplay(
         Number(price),
         product?.Metadata,
-        product?.MedusaProduct?.Variants?.[0]?.Sku
+        product?.MedusaProduct?.Variants?.[0]?.Sku,
+        (product?.MedusaProduct as { PricingMode?: "per_lb" | "fixed_price" } | undefined)?.PricingMode
       )
     : null
 

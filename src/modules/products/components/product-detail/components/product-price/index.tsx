@@ -16,10 +16,12 @@ export default function ProductPrice({
   product,
   variant,
   metadata,
+  explicitMode,
 }: {
   product: HttpTypes.StoreProduct
   variant?: HttpTypes.StoreProductVariant
   metadata?: Metadata | null
+  explicitMode?: "per_lb" | "fixed_price" | null
 }) {
   const { cheapestPrice, variantPrice } = getProductPrice({
     product,
@@ -35,7 +37,8 @@ export default function ProductPrice({
   const display = formatProductPriceDisplay(
     selectedPrice.calculated_price_number ?? 0,
     metadata,
-    variant?.sku
+    variant?.sku,
+    explicitMode
   )
 
   return (

@@ -89,11 +89,13 @@ const ProductCard = ({ hit }: { hit: StrapiProductData }) => {
       
       {hit?.MedusaProduct?.Variants?.[0]?.Price?.CalculatedPriceNumber && (() => {
         // Per-lb vs fixed-price decision sourced from Strapi
-        // Metadata.PricingMode (when present) → SKU map → weight heuristic.
+        // MedusaProduct.PricingMode → Metadata.PricingMode → bundled
+        // QB-derived SKU map → weight heuristic.
         const display = formatProductPriceDisplay(
           hit.MedusaProduct.Variants[0].Price.CalculatedPriceNumber,
           hit?.Metadata,
-          hit?.MedusaProduct?.Variants?.[0]?.Sku
+          hit?.MedusaProduct?.Variants?.[0]?.Sku,
+          (hit?.MedusaProduct as { PricingMode?: "per_lb" | "fixed_price" } | undefined)?.PricingMode
         )
         return (
           <div className="text-Charcoal py-7 border-b border-Charcoal">

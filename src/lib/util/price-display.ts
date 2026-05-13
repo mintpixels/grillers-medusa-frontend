@@ -147,18 +147,23 @@ const SKU_PRICING_MODE_MAP = skuPricingModeMap as Record<string, PriceDisplayMod
 /**
  * Resolve `per_lb` vs `fixed_price` for a SKU.
  *
- * 1. Strapi `Metadata.PricingMode` wins when set (eventually QB-driven).
- * 2. Otherwise look up the SKU in the bundled CSV-derived map.
+ * 1. Explicit Strapi field (either `Metadata.PricingMode` or
+ *    `MedusaProduct.PricingMode` — both are honored so backfills can
+ *    land on either component without breaking the resolver).
+ * 2. Otherwise look up the SKU in the bundled QB-derived map
+ *    (`pricing-mode-by-sku.json`).
  * 3. Otherwise heuristic by weight (≥0.95 lb → per_lb).
  */
 export function resolvePricingMode(
   metadata: PriceDisplayMetadata | null | undefined,
   sku: string | null | undefined,
-  parsedWeight: ParsedWeight | null
+  parsedWeight: ParsedWeight | null,
+  explicitMode?: PriceDisplayMode | null
 ): PriceDisplayMode {
-  const explicit = (metadata as { PricingMode?: PriceDisplayMode } | null | undefined)
+  if (explicitMode === "per_lb" || explicitMode === "fixed_price") return explicitMode
+  const fromMetadata = (metadata as { PricingMode?: PriceDisplayMode } | null | undefined)
     ?.PricingMode
-  if (explicit === "per_lb" || explicit === "fixed_price") return explicit
+  if (fromMetadata === "per_lb" || fromMetadata === "fixed_price") return fromMetadata
   if (sku && SKU_PRICING_MODE_MAP[sku]) return SKU_PRICING_MODE_MAP[sku]
   if (parsedWeight && parsedWeight.avg >= 0.95) return "per_lb"
   return "fixed_price"
@@ -167,17 +172,22 @@ export function resolvePricingMode(
 /**
  * Compute the display block for a product price.
  *
- * @param packPrice - the Medusa pack price (dollars). For per_lb items
- *                    this is the est. pack total ($/lb × midpoint
- *                    weight, sourced from QB).
- * @param metadata  - Strapi `Metadata` (looks at `AvgPackWeight` and
- *                    `PricingMode` when present).
- * @param sku       - the SKU code (used for the static map fallback).
+ * @param packPrice    - the Medusa pack price (dollars). For per_lb items
+ *                       this is the est. pack total ($/lb × midpoint
+ *                       weight, sourced from QB).
+ * @param metadata     - Strapi `Metadata` (looks at `AvgPackWeight` and
+ *                       `PricingMode` when present).
+ * @param sku          - the SKU code (used for the static map fallback).
+ * @param explicitMode - explicit `MedusaProduct.PricingMode` from Strapi
+ *                       when the caller has it. Takes priority over
+ *                       `metadata.PricingMode` so backfills on either
+ *                       component just work.
  */
 export function formatProductPriceDisplay(
   packPrice: number,
   metadata: PriceDisplayMetadata | null | undefined,
-  sku?: string | null
+  sku?: string | null,
+  explicitMode?: PriceDisplayMode | null
 ): PriceDisplay {
   if (!Number.isFinite(packPrice) || packPrice <= 0) {
     return {
@@ -190,7 +200,7 @@ export function formatProductPriceDisplay(
   }
 
   const weight = parseAvgPackWeight(metadata?.AvgPackWeight)
-  const mode = resolvePricingMode(metadata, sku, weight)
+  const mode = resolvePricingMode(metadata, sku, weight, explicitMode)
 
   // Fixed-price treatment: pack price as headline, no math.
   if (mode === "fixed_price") {

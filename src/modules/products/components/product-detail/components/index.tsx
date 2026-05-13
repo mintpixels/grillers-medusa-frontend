@@ -285,6 +285,7 @@ export default function ProductDetail({
               product={product}
               variant={selectedVariant}
               metadata={strapiProductData?.Metadata}
+              explicitMode={(strapiProductData?.MedusaProduct as { PricingMode?: "per_lb" | "fixed_price" } | undefined)?.PricingMode}
             />
           </div>
 
