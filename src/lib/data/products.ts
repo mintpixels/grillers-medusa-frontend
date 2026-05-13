@@ -157,19 +157,32 @@ export const enrichStrapiProductsWithMedusaPrices = async <T extends StrapiColle
   )
   if (productIds.length === 0) return products
 
-  let medusaProducts: HttpTypes.StoreProduct[] = []
-  try {
-    const { response } = await listProducts({
-      countryCode,
-      queryParams: {
-        id: productIds,
-        limit: productIds.length,
-      } as HttpTypes.FindParams & HttpTypes.StoreProductParams,
-    })
-    medusaProducts = response.products
-  } catch (err) {
-    console.error("enrichStrapiProductsWithMedusaPrices: Medusa fetch failed", err)
-    return products
+  // Medusa V2's /store/products has a default page-size cap; large id[]
+  // arrays come back without `calculated_price` populated on every variant.
+  // Chunk the fetch so each request stays well within the cap, then merge.
+  // Empirically the /us/store path (≈ 400 ids) was silently returning
+  // variants without prices on a single bulk call — chunked, all return
+  // priced.
+  const CHUNK_SIZE = 50
+  const medusaProducts: HttpTypes.StoreProduct[] = []
+  for (let i = 0; i < productIds.length; i += CHUNK_SIZE) {
+    const chunk = productIds.slice(i, i + CHUNK_SIZE)
+    try {
+      const { response } = await listProducts({
+        countryCode,
+        queryParams: {
+          id: chunk,
+          limit: chunk.length,
+        } as HttpTypes.FindParams & HttpTypes.StoreProductParams,
+      })
+      medusaProducts.push(...response.products)
+    } catch (err) {
+      console.error(
+        `enrichStrapiProductsWithMedusaPrices: Medusa fetch chunk ${i}-${i + chunk.length} failed`,
+        err
+      )
+      // Continue with other chunks rather than dropping every product's price.
+    }
   }
 
   const priceByVariantId = new Map<string, number>()
