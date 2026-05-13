@@ -398,6 +398,24 @@ export default function ProductDetail({
                 </span>
               </div>
             )}
+            {/* AvgPackSize chip — restored after the AVG PACK WEIGHT
+                box dropped in 4e77641. Holds descriptive shape info
+                ("28 oz container", "vacuum-sealed pouch", "case of 6")
+                that complements the catch-weight math line above. #129. */}
+            {strapiProductData?.Metadata?.AvgPackSize && (
+              <div className="inline-flex items-center gap-2">
+                <Image
+                  src="/images/icons/icon-circle-check.svg"
+                  width={20}
+                  height={20}
+                  alt=""
+                  className="flex-shrink-0"
+                />
+                <span className="text-p-sm-mono font-maison-neue-mono uppercase text-Charcoal">
+                  Pack size: {strapiProductData.Metadata.AvgPackSize}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Description */}
