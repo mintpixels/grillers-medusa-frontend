@@ -133,7 +133,7 @@ export const MobileNavMenu = ({
                     setExpandedIndex(expandedIndex === idx ? null : idx)
                   }
                   onKeyDown={(e) => handleKeyDown(e, idx)}
-                  className="px-4 py-2 w-full flex items-center justify-between text-p-sm-mono font-maison-neue-mono uppercase focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold rounded"
+                  className="px-4 py-2 min-h-[44px] w-full flex items-center justify-between text-p-sm-mono font-maison-neue-mono uppercase focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold rounded"
                   aria-expanded={expandedIndex === idx}
                   aria-controls={`submenu-${idx}`}
                 >
@@ -174,7 +174,7 @@ export const MobileNavMenu = ({
                                 : `${idx}-${sectionIdx}`
                             )
                           }
-                          className="w-full text-left px-4 py-1 text-xs font-semibold text-gray-700 flex items-center justify-between"
+                          className="w-full min-h-[44px] text-left px-4 py-1 text-xs font-semibold text-gray-700 flex items-center justify-between"
                         >
                           <span className="flex items-baseline gap-2">
                             <span>{section.title}</span>
@@ -208,7 +208,7 @@ export const MobileNavMenu = ({
                                 <LocalizedClientLink
                                   key={itemIdx}
                                   href={navItem.Url}
-                                  className="block px-6 py-1.5 text-xs text-gray-600 hover:bg-gray-100 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold"
+                                  className="block min-h-[44px] px-6 py-1.5 text-xs text-gray-600 hover:bg-gray-100 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold flex items-center"
                                   onClick={() => setMobileOpen(false)}
                                 >
                                   {navItem.Text}

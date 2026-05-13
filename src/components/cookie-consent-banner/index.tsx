@@ -117,21 +117,21 @@ export default function CookieConsentBanner({
             <div className="flex flex-wrap gap-3">
               <button
                 onClick={handleRejectAll}
-                className="px-6 py-2 text-sm font-semibold border rounded hover:opacity-80 transition"
+                className="px-6 py-2 min-h-[44px] text-sm font-semibold border rounded hover:opacity-80 transition"
                 style={{ borderColor: textColor, color: textColor }}
               >
                 {rejectText}
               </button>
               <button
                 onClick={() => setShowPreferences(true)}
-                className="px-6 py-2 text-sm font-semibold border rounded hover:opacity-80 transition"
+                className="px-6 py-2 min-h-[44px] text-sm font-semibold border rounded hover:opacity-80 transition"
                 style={{ borderColor: textColor, color: textColor }}
               >
                 {preferencesText}
               </button>
               <button
                 onClick={handleAcceptAll}
-                className="px-6 py-2 text-sm font-semibold rounded hover:opacity-90 transition"
+                className="px-6 py-2 min-h-[44px] text-sm font-semibold rounded hover:opacity-90 transition"
                 style={{
                   backgroundColor: textColor,
                   color: backgroundColor,
@@ -203,14 +203,14 @@ export default function CookieConsentBanner({
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => setShowPreferences(false)}
-                className="px-6 py-2 text-sm font-semibold border rounded hover:opacity-80 transition"
+                className="px-6 py-2 min-h-[44px] text-sm font-semibold border rounded hover:opacity-80 transition"
                 style={{ borderColor: textColor, color: textColor }}
               >
                 Cancel
               </button>
               <button
                 onClick={handleSavePreferences}
-                className="px-6 py-2 text-sm font-semibold rounded hover:opacity-90 transition"
+                className="px-6 py-2 min-h-[44px] text-sm font-semibold rounded hover:opacity-90 transition"
                 style={{
                   backgroundColor: textColor,
                   color: backgroundColor,

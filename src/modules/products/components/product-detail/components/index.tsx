@@ -124,7 +124,7 @@ const ProductImages = ({
       <div className="absolute bottom-4 right-4 flex space-x-2 z-[1]" role="group" aria-label="Gallery navigation">
         <button
           onClick={handlePrev}
-          className="h-10 w-10 bg-white/80 rounded-full flex items-center justify-center hover:bg-white transition focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold focus-visible:ring-offset-2"
+          className="h-11 w-11 bg-white/80 rounded-full flex items-center justify-center hover:bg-white transition focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold focus-visible:ring-offset-2"
           aria-label="Previous image"
         >
           <Image
@@ -137,7 +137,7 @@ const ProductImages = ({
         </button>
         <button
           onClick={handleNext}
-          className="h-10 w-10 bg-white/80 rounded-full flex items-center justify-center hover:bg-white transition focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold focus-visible:ring-offset-2"
+          className="h-11 w-11 bg-white/80 rounded-full flex items-center justify-center hover:bg-white transition focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold focus-visible:ring-offset-2"
           aria-label="Next image"
         >
           <Image
