@@ -147,6 +147,9 @@ interface CollectionFiltersProps {
   // Used to hide the L2 parent that *is* the current scope — checking it
   // would filter to a tag the user is already viewing.
   currentSlug?: string
+  // Hide the internal "Filters" + Clear All header. Useful when the
+  // mobile drawer provides its own header so we don't double-stack it.
+  hideHeader?: boolean
 }
 
 export function getEmptyFilters(): ActiveFilters {
@@ -383,6 +386,7 @@ export default function CollectionFilters({
   activeFilters,
   onFilterChange,
   currentSlug,
+  hideHeader = false,
 }: CollectionFiltersProps) {
   // Data-driven facet groups built from new Metadata fields.
   const facetGroups = useMemo(() => buildFacetGroups(products), [products])
@@ -561,9 +565,22 @@ export default function CollectionFilters({
 
   return (
     <aside className="w-full lg:sticky lg:top-[72px] lg:self-start lg:max-h-[calc(100vh-88px)] lg:flex lg:flex-col" aria-label="Product filters">
-      <div className="flex items-center justify-between pb-4">
-        <h2 className="text-h4 font-gyst font-bold text-Charcoal">Filters</h2>
-        {totalFilterCount > 0 && (
+      {!hideHeader && (
+        <div className="flex items-center justify-between pb-4">
+          <h2 className="text-h4 font-gyst font-bold text-Charcoal">Filters</h2>
+          {totalFilterCount > 0 && (
+            <button
+              onClick={clearAll}
+              className="text-p-sm font-maison-neue text-VibrantRed hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold rounded"
+              aria-label="Clear all filters"
+            >
+              Clear All ({totalFilterCount})
+            </button>
+          )}
+        </div>
+      )}
+      {hideHeader && totalFilterCount > 0 && (
+        <div className="flex justify-end pb-3">
           <button
             onClick={clearAll}
             className="text-p-sm font-maison-neue text-VibrantRed hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold rounded"
@@ -571,8 +588,8 @@ export default function CollectionFilters({
           >
             Clear All ({totalFilterCount})
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       <div className="lg:overflow-y-auto lg:pb-6 space-y-6 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' } as React.CSSProperties}>
       {/* Hierarchical Category filters: L2 parents with L3 children */}
