@@ -112,6 +112,23 @@ export function parseAvgPackWeight(
     if (v > 0) return { lo: v, hi: v, avg: v, ozOrCount: false }
   }
 
+  // Oz range: "11-13 oz", "14-16 oz."
+  const ozHyphenRange = cleaned.match(
+    /(\d+\.?\d*)\s*-\s*(\d+\.?\d*)\s*oz/
+  )
+  if (ozHyphenRange) {
+    const loOz = parseFloat(ozHyphenRange[1])
+    const hiOz = parseFloat(ozHyphenRange[2])
+    if (loOz > 0 && hiOz > 0) {
+      return {
+        lo: loOz / 16,
+        hi: hiOz / 16,
+        avg: (loOz + hiOz) / 2 / 16,
+        ozOrCount: true,
+      }
+    }
+  }
+
   // Oz / count-based: "28 oz", "2x ~7 oz"
   const ozRange = cleaned.match(/(\d+\.?\d*)\s*x\s*(\d+\.?\d*)\s*oz/)
   if (ozRange) {

@@ -34,10 +34,16 @@ export default function ProductPrice({
     return <div className="block w-32 h-9 bg-gray-100 animate-pulse" />
   }
 
+  // Fall back to the first variant's SKU on SSR (before a variant is
+  // picked) so the bundled SKU→mode map can still resolve per-lb vs
+  // fixed-price. Without this, sub-lb packs would route to the weight
+  // heuristic and incorrectly render as fixed-price.
+  const resolvedSku = variant?.sku ?? product.variants?.[0]?.sku ?? null
+
   const display = formatProductPriceDisplay(
     selectedPrice.calculated_price_number ?? 0,
     metadata,
-    variant?.sku,
+    resolvedSku,
     explicitMode
   )
 

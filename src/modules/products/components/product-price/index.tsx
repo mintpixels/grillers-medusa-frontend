@@ -32,10 +32,15 @@ export default function ProductPrice({
     return <div className="block w-32 h-9 bg-gray-100 animate-pulse" />
   }
 
+  // Fall back to the first variant's SKU on SSR (before a variant is
+  // picked) so the bundled SKU→mode map can resolve correctly. See
+  // PDP product-detail/product-price for the same pattern.
+  const resolvedSku = variant?.sku ?? product.variants?.[0]?.sku ?? null
+
   const display = formatProductPriceDisplay(
     selectedPrice.calculated_price_number ?? 0,
     metadata,
-    variant?.sku
+    resolvedSku
   )
 
   return (
