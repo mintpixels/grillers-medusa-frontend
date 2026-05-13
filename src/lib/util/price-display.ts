@@ -1,50 +1,68 @@
+import skuPricingModeMap from "@lib/data/pricing-mode-by-sku.json"
+
 /**
- * Price-display helper that turns a Medusa pack price + Strapi
- * `AvgPackWeight` string into a two-line product price block.
+ * Price-display helper for product cards and PDPs.
  *
- * Catch-weight catalog rules (per #31 + #104, grounded in
- * `analysis/gp-price-list-final-2026-04-27.csv`):
+ * Two pricing modes per SKU, sourced from QuickBooks via the Conductor
+ * sync (custom field on each item). Until that sync populates Strapi's
+ * `MedusaProduct.PricingMode` field, we fall back to a hand-derived
+ * SKU→mode map (`pricing-mode-by-sku.json`) built from the v2 price
+ * list (heuristic: empty `$/lb` column = fixed_price).
  *
- *   1. Items with a WEIGHT RANGE in `AvgPackWeight` (e.g. "14-17 lb.")
- *      are catch-weight: the customer pays $/lb × actual weight at
- *      packing. Pack price is the est-pack subtotal. We render the
- *      $/lb rate as the HEADLINE and the est. pack price as the
- *      SECONDARY line, so the customer never reads "$227 per lb" on
- *      a 15-20 lb brisket.
+ *   - **`per_lb`** (variable / catch-weight) — customer pays $/lb ×
+ *     actual pack weight at packing. PDP shows:
  *
- *   2. Items with a SINGLE lb weight (e.g. "1 lb.", "1.75 lb.") are
- *      per-pound priced too — Pack Price equals $/lb in the CSV. Same
- *      headline ($/lb) but no redundant pack-price secondary.
+ *       $3.98 / LB
+ *       Estimated $4.78 for a ~1.2 lb pack
  *
- *   3. Items with an OZ-only or count-based weight (e.g. "28 oz.",
- *      "2x ~7 oz.") are per-pack priced — the pack price IS the
- *      checkout price; per-lb math is meaningless on a 0.4 lb
- *      lamb-chop two-pack. Render headline as the pack price with NO
- *      "/lb" label, and the weight summary as the secondary line.
- *      (This is exactly the case Mike Salguero caught — lamb chops
- *      `3-01-14-1` showing `$22.74 per lb` instead of `$22.74 per
- *      pack`.)
+ *       [ ADD TO CART — $4.78 ]
  *
- *   4. Items with no `AvgPackWeight` fall back to rule #3 — pack
- *      price only, no `/lb`.
+ *     Add-to-Cart shows the estimated pack total; Final billed price
+ *     reflects the actual weight (see CatchWeightBadge).
  *
- * The helper returns a normalized shape so PLP cards, the PDP price
- * block, search results, and cart line items all render the same
- * decision. Anything that wants more compact rendering can drop the
- * `secondary` line on its own; the *labels* and the math don't move.
+ *   - **`fixed_price`** — customer pays the pack price as printed.
+ *     No multiplication. PDP shows:
+ *
+ *       $25.00
+ *       Each — fixed price
+ *
+ *       [ ADD TO CART — $25.00 ]
+ *
+ * Resolution order:
+ *
+ *   1. Explicit `Metadata.PricingMode` (Strapi, eventually QB-driven).
+ *   2. SKU lookup in `pricing-mode-by-sku.json` (CSV-derived map).
+ *   3. Weight-based heuristic: if the parsed weight is ≥ 0.95 lb,
+ *      assume `per_lb`; otherwise `fixed_price`. This handles the
+ *      "16 oz pack = 1 lb" case (#31 / #104 follow-up) — those used
+ *      to render as fixed_price because the weight string was in
+ *      oz, but the catalog actually prices them per pound.
  */
 
-export type PriceDisplayMode = "per-lb" | "per-pack"
+export type PriceDisplayMode = "per_lb" | "fixed_price"
+
+/**
+ * Minimal shape `formatProductPriceDisplay` actually reads. Lets both
+ * the full Strapi `Metadata` (types/strapi.ts) and the narrower
+ * `ProductMetadata` from the SWR hook satisfy the param without
+ * casting at the call site.
+ */
+type PriceDisplayMetadata = {
+  AvgPackWeight?: string | null
+  PricingMode?: PriceDisplayMode
+}
 
 export type PriceDisplay = {
-  /** Mode the helper resolved the item into. */
+  /** Resolved mode (per-lb or fixed). */
   mode: PriceDisplayMode
-  /** Headline price string, formatted with $ sign and two decimals. */
+  /** Headline price text (e.g. `$3.98` or `$25.00`). */
   primary: string
-  /** Headline label — "/ lb" for per-lb mode, "" for per-pack. */
+  /** Optional label following the headline (e.g. `/ LB`). Empty for fixed. */
   primaryLabel: string
-  /** Secondary line — empty string when there's no useful sub-line. */
+  /** Sub-line — context + math. Empty when there's nothing to say. */
   secondary: string
+  /** Estimated pack total in dollars (per-lb mode) — Add-to-Cart shows this. */
+  estimatedPackPrice: number
 }
 
 type ParsedWeight = {
@@ -52,29 +70,30 @@ type ParsedWeight = {
   lo: number
   /** Upper bound in pounds. */
   hi: number
-  /** Midpoint in pounds — used for $/lb calc on catch-weight items. */
+  /** Midpoint in pounds — used for $/lb math on catch-weight items. */
   avg: number
   /** True when the original weight was expressed in oz / count, not lb. */
   ozOrCount: boolean
 }
 
 /**
- * Parse `AvgPackWeight` strings the Strapi catalog ships.
- *
- * Matches we care about, with examples from the v2 price list:
+ * Parse `AvgPackWeight` strings the Strapi catalog ships. Examples:
  *   "14-17 lb."         → range of lb
- *   "5-6 lb"            → range of lb (no trailing period)
+ *   "5-6 lb"            → range of lb
  *   "1 lb."             → single lb
  *   "1.75 lb."          → single lb (fractional)
- *   "28 oz."            → single oz → returns oz-mode
- *   "2x ~7 oz."         → multi-pack of oz → oz-mode (counts the oz value)
+ *   "28 oz."            → single oz
+ *   "16 oz."            → single oz (== 1 lb)
+ *   "2x ~7 oz."         → multi-pack of oz
  *   "3.5-5.5 lb."       → fractional range
  */
-export function parseAvgPackWeight(input: string | null | undefined): ParsedWeight | null {
+export function parseAvgPackWeight(
+  input: string | null | undefined
+): ParsedWeight | null {
   if (!input) return null
   const cleaned = input.trim().toLowerCase().replace(/[~]/g, "")
 
-  // Range of lb: "14-17 lb", "3.5-5.5 lb."
+  // Range of lb: "14-17 lb"
   const lbRange = cleaned.match(
     /(\d+\.?\d*)\s*-\s*(\d+\.?\d*)\s*(lb|lbs|pound|pounds)/
   )
@@ -93,8 +112,7 @@ export function parseAvgPackWeight(input: string | null | undefined): ParsedWeig
     if (v > 0) return { lo: v, hi: v, avg: v, ozOrCount: false }
   }
 
-  // Oz or count-based: "28 oz", "2x ~7 oz" — convert to lb for math but
-  // mark `ozOrCount` so the renderer knows the item is per-pack, not /lb.
+  // Oz / count-based: "28 oz", "2x ~7 oz"
   const ozRange = cleaned.match(/(\d+\.?\d*)\s*x\s*(\d+\.?\d*)\s*oz/)
   if (ozRange) {
     const count = parseFloat(ozRange[1])
@@ -115,72 +133,115 @@ export function parseAvgPackWeight(input: string | null | undefined): ParsedWeig
   return null
 }
 
-/** Format a number into a `$X.XX` string. Tolerates negative / NaN by returning $0.00. */
 function dollars(n: number): string {
   if (!Number.isFinite(n) || n < 0) return "$0.00"
   return `$${n.toFixed(2)}`
 }
 
-/** Normalize the AvgPackWeight string for display ("1.75 lb." → "1.75 lb"). */
 function tidyWeight(raw: string): string {
   return raw.trim().replace(/\.\s*$/, "")
 }
 
+const SKU_PRICING_MODE_MAP = skuPricingModeMap as Record<string, PriceDisplayMode>
+
 /**
- * Compute the canonical display block for a product price.
+ * Resolve `per_lb` vs `fixed_price` for a SKU.
  *
- * @param packPrice - the Medusa pack price (e.g. 227.33 for a brisket)
- * @param avgPackWeight - the Strapi `Metadata.AvgPackWeight` string
- *                        (e.g. "15-20 lb.", "1 lb.", "28 oz.")
+ * 1. Strapi `Metadata.PricingMode` wins when set (eventually QB-driven).
+ * 2. Otherwise look up the SKU in the bundled CSV-derived map.
+ * 3. Otherwise heuristic by weight (≥0.95 lb → per_lb).
+ */
+export function resolvePricingMode(
+  metadata: PriceDisplayMetadata | null | undefined,
+  sku: string | null | undefined,
+  parsedWeight: ParsedWeight | null
+): PriceDisplayMode {
+  const explicit = (metadata as { PricingMode?: PriceDisplayMode } | null | undefined)
+    ?.PricingMode
+  if (explicit === "per_lb" || explicit === "fixed_price") return explicit
+  if (sku && SKU_PRICING_MODE_MAP[sku]) return SKU_PRICING_MODE_MAP[sku]
+  if (parsedWeight && parsedWeight.avg >= 0.95) return "per_lb"
+  return "fixed_price"
+}
+
+/**
+ * Compute the display block for a product price.
+ *
+ * @param packPrice - the Medusa pack price (dollars). For per_lb items
+ *                    this is the est. pack total ($/lb × midpoint
+ *                    weight, sourced from QB).
+ * @param metadata  - Strapi `Metadata` (looks at `AvgPackWeight` and
+ *                    `PricingMode` when present).
+ * @param sku       - the SKU code (used for the static map fallback).
  */
 export function formatProductPriceDisplay(
   packPrice: number,
-  avgPackWeight: string | null | undefined
+  metadata: PriceDisplayMetadata | null | undefined,
+  sku?: string | null
 ): PriceDisplay {
   if (!Number.isFinite(packPrice) || packPrice <= 0) {
-    return { mode: "per-pack", primary: "$0.00", primaryLabel: "", secondary: "" }
-  }
-  const weight = parseAvgPackWeight(avgPackWeight)
-
-  // No usable weight info → fall through to per-pack display.
-  if (!weight) {
     return {
-      mode: "per-pack",
-      primary: dollars(packPrice),
+      mode: "fixed_price",
+      primary: "$0.00",
       primaryLabel: "",
       secondary: "",
+      estimatedPackPrice: 0,
     }
   }
 
-  const tidy = tidyWeight(avgPackWeight as string)
+  const weight = parseAvgPackWeight(metadata?.AvgPackWeight)
+  const mode = resolvePricingMode(metadata, sku, weight)
 
-  // Oz / count-based items → per-pack display, no /lb misread.
-  if (weight.ozOrCount) {
+  // Fixed-price treatment: pack price as headline, no math.
+  if (mode === "fixed_price") {
     return {
-      mode: "per-pack",
+      mode: "fixed_price",
       primary: dollars(packPrice),
       primaryLabel: "",
-      secondary: `${tidy} pack`,
+      secondary: "Each — fixed price",
+      estimatedPackPrice: packPrice,
+    }
+  }
+
+  // Per-lb treatment. If we don't have a usable weight, we can't show
+  // the math, so degrade to a simple `$X.XX / LB` headline.
+  if (!weight) {
+    return {
+      mode: "per_lb",
+      primary: dollars(packPrice),
+      primaryLabel: "/ LB",
+      secondary: "",
+      estimatedPackPrice: packPrice,
     }
   }
 
   const perLb = packPrice / weight.avg
+  const tidyRange = tidyWeight(metadata?.AvgPackWeight as string)
 
-  // Catch-weight range (lo < hi) → $/lb headline + est. pack secondary.
-  if (weight.hi > weight.lo + 1e-6) {
-    return {
-      mode: "per-lb",
-      primary: dollars(perLb),
-      primaryLabel: "/ lb",
-      secondary: `est. ${dollars(packPrice)} / pack · ${tidy}`,
-    }
-  }
+  // Format the weight summary for the "Estimated $X for a … pack" line.
+  //   range:           "14-17 lb"            (no ~ — the range itself
+  //                                           communicates approx)
+  //   single (lb):     "~1.2 lb"             (~ because the actual pack
+  //                                           weight varies a bit)
+  //   single (oz≥1lb): "~1.00 lb"            (rounded equivalent)
+  //   sub-lb oz:       falls back to the     ("~7 oz", etc.)
+  //                    raw oz-shaped string
+  const lbDisplay = (() => {
+    if (weight.hi > weight.lo + 1e-6) return tidyRange
+    if (weight.ozOrCount && weight.avg < 0.95) return tidyRange
+    // Strip trailing zeros on the single-weight figure so `1.2 lb` doesn't
+    // render as `1.20 lb`.
+    const n = weight.avg
+    const decimals = n >= 10 ? 0 : 1
+    const rounded = n.toFixed(decimals).replace(/\.0$/, "")
+    return `~${rounded} lb`
+  })()
 
-  // Single-lb item → $/lb headline; no redundant secondary because pack == /lb.
   return {
-    mode: "per-lb",
+    mode: "per_lb",
     primary: dollars(perLb),
-    primaryLabel: "/ lb",
-    secondary: "",
+    primaryLabel: "/ LB",
+    secondary: `Estimated ${dollars(packPrice)} for a ${lbDisplay} pack`,
+    estimatedPackPrice: packPrice,
   }
 }

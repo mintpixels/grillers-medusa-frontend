@@ -2,23 +2,25 @@ import { clx } from "@medusajs/ui"
 import FormattedPrice from "@modules/common/components/formatted-price"
 import { formatProductPriceDisplay } from "@lib/util/price-display"
 import { VariantPrice } from "types/global"
+import type { Metadata } from "types/strapi"
 
 /**
  * Preview-card price (used by Bestsellers / Specialty / related rows
  * when the product comes through the Medusa-only path). Renders the
- * same per-lb vs per-pack decision used by the PDP and PLP (#31 / #104),
- * driven by an optional `avgPackWeight` string from Strapi metadata.
+ * same per-lb vs fixed-price decision used by the PDP / PLP, driven
+ * by an optional Strapi `Metadata` blob + the variant SKU.
  *
- * Callers without an avgPackWeight fall through to per-pack display
- * (no `/lb` label) — strictly safer than the previous unconditional
- * "per lb" suffix, which mislabeled every catch-weight brisket.
+ * Callers without metadata fall through to the SKU map + weight
+ * heuristic in `formatProductPriceDisplay`.
  */
 export default async function PreviewPrice({
   price,
-  avgPackWeight,
+  metadata,
+  sku,
 }: {
   price: VariantPrice
-  avgPackWeight?: string | null
+  metadata?: Metadata | null
+  sku?: string | null
 }) {
   if (!price) {
     return null
@@ -26,7 +28,8 @@ export default async function PreviewPrice({
 
   const display = formatProductPriceDisplay(
     price.calculated_price_number ?? 0,
-    avgPackWeight
+    metadata,
+    sku
   )
 
   return (

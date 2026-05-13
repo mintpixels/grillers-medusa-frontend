@@ -3,10 +3,11 @@ import { clx } from "@medusajs/ui"
 import { getProductPrice } from "@lib/util/get-product-price"
 import { formatProductPriceDisplay } from "@lib/util/price-display"
 import { HttpTypes } from "@medusajs/types"
+import type { Metadata } from "types/strapi"
 
 /**
  * Used by the PDP mobile sticky actions and the in-cart sticky action.
- * Shares the per-lb vs per-pack decision logic from
+ * Shares the per-lb vs fixed-price decision logic from
  * `formatProductPriceDisplay` so the sticky never shows `$227` next to
  * a cart line that the catch-weight-aware blocks elsewhere already
  * show as `$15.99/lb · est. $227/pack` (#31 / #104).
@@ -14,11 +15,11 @@ import { HttpTypes } from "@medusajs/types"
 export default function ProductPrice({
   product,
   variant,
-  avgPackWeight,
+  metadata,
 }: {
   product: HttpTypes.StoreProduct
   variant?: HttpTypes.StoreProductVariant
-  avgPackWeight?: string | null
+  metadata?: Metadata | null
 }) {
   const { cheapestPrice, variantPrice } = getProductPrice({
     product,
@@ -33,7 +34,8 @@ export default function ProductPrice({
 
   const display = formatProductPriceDisplay(
     selectedPrice.calculated_price_number ?? 0,
-    avgPackWeight
+    metadata,
+    variant?.sku
   )
 
   return (

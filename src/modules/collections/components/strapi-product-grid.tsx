@@ -113,13 +113,15 @@ export function ProductCard({ product, countryCode, viewMode = "grid" }: { produ
 
   const price = product?.MedusaProduct?.Variants?.[0]?.Price?.CalculatedPriceNumber
 
-  // Per-lb vs per-pack decision (#31 / #104). Driven entirely by the
-  // Strapi `Metadata.AvgPackWeight` shape: ranges → catch-weight,
-  // single-lb → /lb, oz/count → /pack.
+  // Per-lb vs fixed-price decision sourced from (in order)
+  //   1. Strapi Metadata.PricingMode (QB-driven, eventually)
+  //   2. bundled SKU→mode map (CSV-derived)
+  //   3. weight heuristic
   const priceDisplay = price
     ? formatProductPriceDisplay(
         Number(price),
-        product?.Metadata?.AvgPackWeight
+        product?.Metadata,
+        product?.MedusaProduct?.Variants?.[0]?.Sku
       )
     : null
 

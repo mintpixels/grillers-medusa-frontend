@@ -64,7 +64,8 @@ const CartItemPrice = ({
   const unit = item.unit_price ?? 0
   const display = formatProductPriceDisplay(
     unit,
-    metadata?.AvgPackWeight ?? null
+    metadata,
+    item.variant?.sku ?? null
   )
   return (
     <div>

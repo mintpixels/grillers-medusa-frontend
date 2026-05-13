@@ -88,12 +88,12 @@ const ProductCard = ({ hit }: { hit: StrapiProductData }) => {
       </LocalizedClientLink>
       
       {hit?.MedusaProduct?.Variants?.[0]?.Price?.CalculatedPriceNumber && (() => {
-        // Branch on AvgPackWeight: catch-weight items render `$/lb` with
-        // est-pack sub-line; per-pack items (lamb chops, prepared foods)
-        // drop the `/lb` suffix entirely (#31 / #104).
+        // Per-lb vs fixed-price decision sourced from Strapi
+        // Metadata.PricingMode (when present) → SKU map → weight heuristic.
         const display = formatProductPriceDisplay(
           hit.MedusaProduct.Variants[0].Price.CalculatedPriceNumber,
-          hit?.Metadata?.AvgPackWeight
+          hit?.Metadata,
+          hit?.MedusaProduct?.Variants?.[0]?.Sku
         )
         return (
           <div className="text-Charcoal py-7 border-b border-Charcoal">

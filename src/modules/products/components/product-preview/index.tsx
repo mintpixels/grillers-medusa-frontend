@@ -48,7 +48,14 @@ export default async function ProductPreview({
           </h3>
           {cheapestPrice && (
             <div className="flex items-baseline gap-2">
-              <PreviewPrice price={cheapestPrice} />
+              {/* PreviewPrice resolves per-lb vs fixed-price by SKU
+                  lookup (in the bundled map). Strapi `Metadata.PricingMode`
+                  + AvgPackWeight aren't fetched on this Medusa-only path,
+                  so the SKU map covers it. */}
+              <PreviewPrice
+                price={cheapestPrice}
+                sku={product.variants?.[0]?.sku}
+              />
             </div>
           )}
         </div>

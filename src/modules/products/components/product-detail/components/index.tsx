@@ -275,40 +275,17 @@ export default function ProductDetail({
             {strapiProductData?.Title || product.title}
           </h1>
 
-          {/* Price & pack info */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 border-t border-b border-Charcoal mb-6">
-            {/* Price block — branches on AvgPackWeight to render $/lb for
-                catch-weight cuts vs $/pack for prepared / count-based
-                items (#31 / #104). */}
+          {/* Price block. Headline + math-on-one-line sub for catch-weight
+              items, `Each — fixed price` for items flagged as such in QB.
+              AVG PACK WEIGHT box dropped — the math line now carries the
+              same info (`Estimated $4.78 for a ~1.2 lb pack`) without
+              forcing the customer to multiply. */}
+          <div className="border-t border-b border-Charcoal mb-6">
             <ProductPrice
               product={product}
               variant={selectedVariant}
-              avgPackWeight={strapiProductData?.Metadata?.AvgPackWeight}
+              metadata={strapiProductData?.Metadata}
             />
-
-            {/* avg pack info */}
-            <div className="flex flex-col justify-center sm:pl-8 py-6">
-              {strapiProductData?.Metadata?.AvgPackSize && (
-                <div className="mb-2">
-                  <span className="text-p-sm-mono font-maison-neue-mono uppercase text-Charcoal block">
-                    avg pack size:
-                  </span>
-                  <span className="text-p-sm-bold font-maison-neue text-Charcoal font-bold">
-                    {strapiProductData.Metadata.AvgPackSize}
-                  </span>
-                </div>
-              )}
-              {strapiProductData?.Metadata?.AvgPackWeight && (
-                <div>
-                  <span className="text-p-sm-mono font-maison-neue-mono uppercase text-Charcoal block">
-                    avg pack weight:
-                  </span>
-                  <span className="text-p-sm-bold font-maison-neue text-Charcoal font-bold">
-                    {strapiProductData.Metadata.AvgPackWeight}
-                  </span>
-                </div>
-              )}
-            </div>
           </div>
 
           <ProductVariantPicker
