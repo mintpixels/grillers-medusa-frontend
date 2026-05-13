@@ -7,6 +7,11 @@ import LocalizedClientLink from "@modules/common/components/localized-client-lin
  * eventually move to a Strapi ComponentHomeSpecialty section so editors can
  * rotate without a code deploy, but for launch this is the lighter-touch
  * fix.
+ *
+ * Visual treatment intentionally light + serif to match the Bestsellers /
+ * Shop Collections rows above and below — keeping the section lightweight
+ * here avoids the dark-on-dark "one big slab" effect when it sits next to
+ * the KosherPromise section.
  */
 const SPECIALTY_PRODUCT_IDS = [
   10888, // Kosher Beef Biltong Slices, Regular · 3 oz
@@ -16,6 +21,18 @@ const SPECIALTY_PRODUCT_IDS = [
   11524, // Kosher Classic In-House Roasted Smoked Salmon · 1 lb
   10723, // Kosher Beef Kishke · 16 oz
 ] as const
+
+// Small "tag" copy per product so each card surfaces what makes the cut
+// specialty. Keyed by Strapi product id so the same product always carries
+// the same tag regardless of how the row is shuffled.
+const PRODUCT_TAGS: Record<number, string> = {
+  10888: "South African",
+  11118: "South African",
+  11263: "100% Grass-Fed",
+  11260: "100% Grass-Fed",
+  11524: "House-Smoked",
+  10723: "Made In-House",
+}
 
 type SpecialtyProduct = {
   id: number
@@ -53,7 +70,6 @@ async function fetchSpecialtyProducts(): Promise<SpecialtyProduct[]> {
     }
     const json = (await res.json()) as { data?: SpecialtyProduct[] }
     const fetched = json?.data || []
-    // Preserve the curated order; Strapi returns by id ASC.
     const byId = new Map<number, SpecialtyProduct>()
     for (const p of fetched) {
       if (p?.id != null) byId.set(p.id, p)
@@ -74,33 +90,31 @@ export default async function SpecialtyRow() {
   return (
     <section
       aria-labelledby="specialty-row-heading"
-      className="bg-Charcoal text-Scroll py-12 md:py-20"
+      className="bg-Scroll py-14 md:py-24 overflow-hidden"
     >
       <div className="content-container">
-        <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-10 md:mb-12">
-          <div className="max-w-3xl">
-            <p className="text-p-sm-mono font-maison-neue-mono uppercase tracking-widest text-Gold mb-4">
+        <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-10 md:mb-14">
+          <div className="max-w-2xl">
+            <p className="text-p-sm-mono font-maison-neue-mono uppercase tracking-widest text-RichGold mb-3">
               Specialty · Hard to Find
             </p>
             <h2
               id="specialty-row-heading"
-              className="font-rexton text-h2-mobile md:text-h2 text-Scroll uppercase leading-tight mb-4"
+              className="text-h2-mobile md:text-h2 font-gyst text-Charcoal text-balance leading-tight"
             >
-              Cuts you can't get
-              <br />
-              from your supermarket.
+              Cuts you can't get from your supermarket.
             </h2>
-            <p className="text-p-md font-maison-neue text-Scroll/80">
-              Biltong &middot; Boerewors &middot; Grass-fed &middot; Smoked
-              salmon &middot; Custom-cut. Twenty-three years of sourcing kosher
-              specialty cuts you only find here.
+            <p className="text-p-md font-maison-neue text-Charcoal/70 mt-4 leading-relaxed">
+              Biltong, boerewors, grass-fed beef, house-smoked salmon, kishke.
+              Twenty-three years of sourcing kosher specialty cuts you only
+              find here.
             </p>
           </div>
           <LocalizedClientLink
             href="/page/specialty"
-            className="self-start md:self-end inline-flex items-center gap-2 text-p-sm-mono font-maison-neue-mono uppercase tracking-widest text-Gold hover:text-Gold/80 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold rounded"
+            className="shrink-0 inline-flex items-center gap-2 text-p-sm-mono font-maison-neue-mono uppercase tracking-widest text-Charcoal hover:text-RichGold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold focus-visible:ring-offset-2 rounded"
           >
-            Shop all specialty cuts
+            Shop all specialty
             <svg
               width="16"
               height="12"
@@ -120,7 +134,7 @@ export default async function SpecialtyRow() {
         </div>
 
         <ul
-          className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 md:gap-6"
+          className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 md:gap-5"
           role="list"
         >
           {products.map((p) => {
@@ -128,31 +142,60 @@ export default async function SpecialtyRow() {
             const title =
               p.Title || p.MedusaProduct?.Title || "Specialty cut"
             const image = p.FeaturedImage?.url
+            const tag = PRODUCT_TAGS[p.id]
             const href = handle ? `/products/${handle}` : "/page/specialty"
             return (
               <li key={p.id}>
                 <LocalizedClientLink
                   href={href}
-                  className="group block focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold focus-visible:ring-offset-4 focus-visible:ring-offset-Charcoal rounded-sm"
+                  className="group block focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold focus-visible:ring-offset-2 rounded-sm"
                 >
-                  <div className="relative w-full aspect-square overflow-hidden bg-Charcoal/40 border border-white/5">
-                    {image ? (
-                      <Image
-                        src={image}
-                        alt={title}
-                        fill
-                        sizes="(min-width: 1024px) 16vw, (min-width: 768px) 33vw, 50vw"
-                        className="object-cover transition-transform duration-500 ease-out group-hover:scale-[1.03]"
-                      />
-                    ) : (
-                      <div className="absolute inset-0 flex items-center justify-center text-Scroll/30 text-p-sm-mono font-maison-neue-mono uppercase tracking-widest">
-                        Specialty
-                      </div>
-                    )}
-                  </div>
-                  <p className="mt-3 text-p-sm font-maison-neue font-semibold text-Scroll line-clamp-2 group-hover:text-Gold transition-colors">
-                    {title}
-                  </p>
+                  <article className="bg-white shadow-sm group-hover:shadow-md transition-shadow overflow-hidden">
+                    <div className="relative w-full aspect-square overflow-hidden bg-Charcoal/5">
+                      {image ? (
+                        <Image
+                          src={image}
+                          alt={title}
+                          fill
+                          sizes="(min-width: 1024px) 16vw, (min-width: 768px) 33vw, 50vw"
+                          className="object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04]"
+                        />
+                      ) : (
+                        <div className="absolute inset-0 flex items-center justify-center text-Charcoal/30 text-p-sm-mono font-maison-neue-mono uppercase tracking-widest">
+                          Specialty
+                        </div>
+                      )}
+                      {tag && (
+                        <span className="absolute top-3 left-3 inline-block bg-Charcoal text-Scroll text-p-ex-sm-mono font-maison-neue-mono uppercase tracking-widest px-2.5 py-1 rounded-sm">
+                          {tag}
+                        </span>
+                      )}
+                    </div>
+                    <div className="p-4 md:p-5">
+                      <h3 className="text-p-sm md:text-p-md font-maison-neue font-semibold text-Charcoal line-clamp-2 leading-snug min-h-[2.6em]">
+                        {title}
+                      </h3>
+                      <p className="mt-3 inline-flex items-center gap-1.5 text-p-ex-sm-mono font-maison-neue-mono uppercase tracking-widest text-RichGold group-hover:text-Gold transition-colors">
+                        View details
+                        <svg
+                          width="12"
+                          height="10"
+                          viewBox="0 0 16 12"
+                          fill="none"
+                          aria-hidden="true"
+                          className="transition-transform group-hover:translate-x-0.5"
+                        >
+                          <path
+                            d="M10 1l5 5-5 5M15 6H0"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      </p>
+                    </div>
+                  </article>
                 </LocalizedClientLink>
               </li>
             )
