@@ -102,7 +102,7 @@ function HeroBlock({ hero }: { hero: InfoHero }) {
         </div>
         {hasImage && hero.Image && (
           <figure className="m-0">
-            <div className="relative aspect-[4/3] md:aspect-[5/4] rounded-2xl overflow-hidden bg-Charcoal/5">
+            <div className="relative aspect-[4/3] rounded-2xl overflow-hidden bg-Charcoal/5">
               <Image
                 src={hero.Image.url}
                 alt={hero.ImageAlt || hero.Headline}
