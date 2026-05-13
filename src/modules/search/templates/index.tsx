@@ -6,6 +6,7 @@ import Link from "next/link"
 import { InstantSearch, Configure, useHits, useSearchBox, useStats } from "react-instantsearch"
 import { searchLiteClient } from "@lib/algolia"
 import { PRODUCT_INDEX } from "@lib/algolia/indexes"
+import { hitToProduct } from "@lib/algolia/hit-to-product"
 import type { StrapiCollectionProduct } from "@lib/data/strapi/collections"
 import { enrichStrapiProductsWithMedusaPrices } from "@lib/data/products"
 import StrapiProductGrid from "@modules/collections/components/strapi-product-grid"
@@ -23,35 +24,6 @@ const RESULTS_PER_PAGE = 51
 
 interface SearchResultsProps {
   initialQuery: string
-}
-
-// Adapt an Algolia hit to the StrapiCollectionProduct shape that
-// CollectionFilters / StrapiProductGrid expect. The indexer has shipped
-// both shapes over time — `MedusaProduct.Id` and `MedusaProduct.ProductId` —
-// so we normalize ProductId so price hydration always finds the id.
-//
-// GalleryImages is forwarded so the ProductCardCarousel renders chevrons /
-// N-of-N indicators on search-result cards, same as Bestsellers / PLP (#116).
-// On older index records GalleryImages may be missing — falls back to
-// FeaturedImage only and the carousel is a no-op for that card.
-function hitToProduct(hit: any): StrapiCollectionProduct {
-  const mp = hit.MedusaProduct
-  const normalizedMp = mp
-    ? {
-        ...mp,
-        ProductId: mp.ProductId || mp.Id || "",
-        Handle: mp.Handle || "",
-      }
-    : undefined
-  return {
-    documentId: hit.documentId || String(hit.objectID || ""),
-    Title: hit.Title || "",
-    FeaturedImage: hit.FeaturedImage,
-    GalleryImages: Array.isArray(hit.GalleryImages) ? hit.GalleryImages : [],
-    Metadata: hit.Metadata,
-    Categorization: hit.Categorization,
-    MedusaProduct: normalizedMp,
-  } as StrapiCollectionProduct
 }
 
 // Force the InstantSearch query to match the URL ?q= on mount.

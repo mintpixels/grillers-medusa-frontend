@@ -1,13 +1,11 @@
 import { Metadata } from "next"
-import strapiClient from "@lib/strapi"
 
-import {
-  GetProductsWithImagesQuery,
-  type StrapiCollectionProduct,
-} from "@lib/data/strapi/collections"
-import { enrichStrapiProductsWithMedusaPrices } from "@lib/data/products"
-import CollectionTemplate from "@modules/collections/templates"
 import { generateAlternates } from "@lib/util/seo"
+import { hitToProduct } from "@lib/algolia/hit-to-product"
+import { PRODUCT_INDEX } from "@lib/algolia/indexes"
+import { enrichStrapiProductsWithMedusaPrices } from "@lib/data/products"
+import type { StrapiCollectionProduct } from "@lib/data/strapi/collections"
+import CollectionTemplate from "@modules/collections/templates"
 
 type Params = {
   params: Promise<{ countryCode: string }>
@@ -25,30 +23,64 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   }
 }
 
-const PAGE_SIZE = 100
+/**
+ * /us/store browse. Previously paginated 767 products from Strapi GraphQL
+ * on every render and reliably hit Vercel's function timeout → 504 (#120).
+ *
+ * Now fetches the full catalog from Algolia (the same index that powers
+ * /us/search) in a single round trip, then hands off to the existing
+ * `CollectionTemplate` for filter / sort / view-toggle / pagination /
+ * mobile drawer. SSR'd HTML includes all product links so crawlers and
+ * social previews see the full grid; client-side state (selected filters,
+ * pagination, etc.) hydrates over it.
+ *
+ * Pricing is enriched from Medusa before the page renders — Algolia is a
+ * Strapi snapshot, not a price-of-truth, and `enrichStrapiProductsWithMedusaPrices`
+ * already batches the IDs into one Medusa call.
+ */
+async function browseAlgoliaCatalog(): Promise<StrapiCollectionProduct[]> {
+  const appId = process.env.ALGOLIA_APPLICATION_ID
+  const searchKey = process.env.ALGOLIA_SEARCH_API_KEY
+  if (!appId || !searchKey) return []
 
-async function getAllStoreProducts(): Promise<StrapiCollectionProduct[]> {
-  const all: StrapiCollectionProduct[] = []
-  let start = 0
-  while (true) {
-    const result = await strapiClient.request<{
-      products: StrapiCollectionProduct[]
-    }>(GetProductsWithImagesQuery, { limit: PAGE_SIZE, start })
-    const batch = result.products || []
-    all.push(...batch)
-    if (batch.length < PAGE_SIZE) break
-    start += PAGE_SIZE
+  try {
+    const res = await fetch(
+      `https://${appId}-dsn.algolia.net/1/indexes/${encodeURIComponent(PRODUCT_INDEX)}/query`,
+      {
+        method: "POST",
+        headers: {
+          "X-Algolia-API-Key": searchKey,
+          "X-Algolia-Application-Id": appId,
+          "Content-Type": "application/json",
+        },
+        // Empty `query` browses the index. 1000 is Algolia's per-request
+        // cap and is well above the current catalog (~400-500 records).
+        // If/when the catalog crosses that, swap to a paginated browse.
+        body: JSON.stringify({ query: "", hitsPerPage: 1000 }),
+        // ISR: catalog doesn't change in real-time, so cache the Algolia
+        // response for 5 min. Medusa prices are re-enriched on each render
+        // by the helper below, which has its own Next.js Data Cache layer.
+        next: { revalidate: 300, tags: ["strapi"] },
+      }
+    )
+    if (!res.ok) return []
+    const data = (await res.json()) as { hits?: unknown[] }
+    if (!Array.isArray(data.hits)) return []
+    return data.hits.map((h: unknown) => hitToProduct(h))
+  } catch {
+    return []
   }
-  // Cards collapse without an image, so require FeaturedImage at minimum.
-  return all.filter((p) => p.FeaturedImage?.url)
 }
 
 export default async function StorePage(props: Params) {
   const { countryCode } = await props.params
 
-  const rawProducts = await getAllStoreProducts()
+  const rawProducts = await browseAlgoliaCatalog()
+  // Cards collapse without an image, so require FeaturedImage at minimum
+  // (matches the prior Strapi-fetched implementation's filter).
+  const visibleProducts = rawProducts.filter((p) => p.FeaturedImage?.url)
   const products = await enrichStrapiProductsWithMedusaPrices(
-    rawProducts,
+    visibleProducts,
     countryCode
   )
 
@@ -61,5 +93,3 @@ export default async function StorePage(props: Params) {
     />
   )
 }
-
-export const dynamic = "force-dynamic"
