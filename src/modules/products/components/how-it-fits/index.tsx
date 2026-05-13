@@ -38,8 +38,8 @@ export default function HowItFitsSection({
               How It Fits On Your Table
             </h3>
             <p className="text-p-md font-maison-neue text-Charcoal max-w-[571px]">
-              Recipes from our kitchen, built around the kosher cuts our
-              customers cook most. Weeknight to Shabbos — start here.
+              Recipes built around the cuts our customers cook most.
+              From a Tuesday weeknight to Friday Shabbos.
             </p>
           </div>
 

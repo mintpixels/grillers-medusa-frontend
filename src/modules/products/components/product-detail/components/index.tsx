@@ -12,6 +12,7 @@ import Breadcrumb, { buildProductBreadcrumbs } from "@modules/common/components/
 import SocialShare from "@modules/common/components/social-share"
 import KashruthBadges from "@modules/products/components/kashruth-badges"
 import NotifyBackInStockForm from "@modules/products/components/notify-back-in-stock"
+import ShippingEligibility from "@modules/products/components/shipping-eligibility"
 
 import type { StrapiProductData } from "types/strapi"
 
@@ -438,12 +439,12 @@ export default function ProductDetail({
             countryCode={countryCode}
           />
 
-          {/* Shipping eligibility callout moved out of the buybox to
-              its own section between ProductDetail and HowItWorks (see
-              templates/index.tsx). This decongests the buybox column
-              and puts the trust-building content in the natural
-              "how-it-works / why-us" trust zone — Avi's call on
-              #128 part 2. */}
+          {/* Shipping eligibility callout. Lives in the buybox column
+              right above SocialShare — that placement was tried in the
+              How-It-Works trust zone (#128 attempt) and the rendered
+              page looked off (small chip-style card stretching a wide
+              gap), so we reverted to buybox-inline per Peter's call. */}
+          <ShippingEligibility countryCode={countryCode} />
 
           {/* Social Share */}
           <div className="mb-8">
