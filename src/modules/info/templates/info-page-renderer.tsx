@@ -101,16 +101,27 @@ function HeroBlock({ hero }: { hero: InfoHero }) {
           )}
         </div>
         {hasImage && hero.Image && (
-          <div className="relative aspect-[4/3] md:aspect-[5/4] rounded-2xl overflow-hidden bg-Charcoal/5">
-            <Image
-              src={hero.Image.url}
-              alt={hero.ImageAlt || hero.Headline}
-              fill
-              priority
-              sizes="(min-width: 768px) 50vw, 100vw"
-              className="object-cover"
-            />
-          </div>
+          <figure className="m-0">
+            <div className="relative aspect-[4/3] md:aspect-[5/4] rounded-2xl overflow-hidden bg-Charcoal/5">
+              <Image
+                src={hero.Image.url}
+                alt={hero.ImageAlt || hero.Headline}
+                fill
+                priority
+                sizes="(min-width: 768px) 50vw, 100vw"
+                className="object-cover"
+              />
+            </div>
+            {/* Visible caption when the editor has set a distinct
+                ImageAlt (i.e. different from the Headline). Repeating the
+                headline below the image would just be noise, so we only
+                surface a figcaption when there's something new to say. */}
+            {hero.ImageAlt && hero.ImageAlt.trim() !== hero.Headline.trim() && (
+              <figcaption className="mt-3 text-p-sm font-maison-neue text-Charcoal/60 italic leading-snug">
+                {hero.ImageAlt}
+              </figcaption>
+            )}
+          </figure>
         )}
       </div>
     </section>
