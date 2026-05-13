@@ -21,6 +21,7 @@ import { searchLiteClient } from "@lib/algolia"
 import { PRODUCT_INDEX } from "@lib/algolia/indexes"
 import { trackSearch } from "@lib/gtm"
 import { jitsuTrack } from "@lib/jitsu"
+import { formatProductPriceDisplay } from "@lib/util/price-display"
 
 type Product = {
   objectID: string
@@ -28,12 +29,15 @@ type Product = {
   FeaturedImage?: { url: string }
   MedusaProduct?: {
     Handle: string
+    PricingMode?: "per_lb" | "fixed_price"
     Variants?: Array<{
+      Sku?: string
       Price?: { CalculatedPriceNumber: number }
     }>
   }
   Metadata?: {
     AvgPackWeight?: string
+    PricingMode?: "per_lb" | "fixed_price"
   }
   [key: string]: any
 }
@@ -169,8 +173,18 @@ function InstantComboboxOptions({
           <>
             {items.map((item) => {
               const price = item.MedusaProduct?.Variants?.[0]?.Price?.CalculatedPriceNumber
-              const formattedPrice = formatPrice(price)
-              const weight = item.Metadata?.AvgPackWeight
+              // Resolve per-lb vs fixed-price the same way PDP/PLP do so
+              // search dropdown never shows `$packPrice per lb` for a
+              // fixed-price item, or `$packPrice` for a catch-weight one.
+              // Codex review follow-up to #104/#31.
+              const priceDisplay = price
+                ? formatProductPriceDisplay(
+                    price,
+                    item.Metadata,
+                    item.MedusaProduct?.Variants?.[0]?.Sku,
+                    (item.MedusaProduct as { PricingMode?: "per_lb" | "fixed_price" } | undefined)?.PricingMode
+                  )
+                : null
               const imageUrl = item.FeaturedImage?.url
               const handle = item.MedusaProduct?.Handle
               const href = handle ? `/${countryCode}/products/${handle}` : "#"
@@ -211,11 +225,11 @@ function InstantComboboxOptions({
                           {item.Title}
                         </p>
                         <p className="text-sm text-Charcoal/70 mt-0.5">
-                          {formattedPrice ? (
+                          {priceDisplay ? (
                             <>
-                              <span className="font-semibold text-Charcoal">{formattedPrice}</span>
-                              {weight && (
-                                <span className="text-xs text-Charcoal/50 ml-1">per lb</span>
+                              <span className="font-semibold text-Charcoal">{priceDisplay.primary}</span>
+                              {priceDisplay.primaryLabel && (
+                                <span className="text-xs text-Charcoal/50 ml-1">{priceDisplay.primaryLabel}</span>
                               )}
                             </>
                           ) : (

@@ -23,7 +23,12 @@ export default function ProductPrice({
   metadata?: Metadata | null
   explicitMode?: "per_lb" | "fixed_price" | null
 }) {
-  const { cheapestPrice, variantPrice } = getProductPrice({
+  const {
+    cheapestPrice,
+    variantPrice,
+    cheapestVariantSku,
+    selectedVariantSku,
+  } = getProductPrice({
     product,
     variantId: variant?.id,
   })
@@ -34,11 +39,20 @@ export default function ProductPrice({
     return <div className="block w-32 h-9 bg-gray-100 animate-pulse" />
   }
 
-  // Fall back to the first variant's SKU on SSR (before a variant is
-  // picked) so the bundled SKU→mode map can still resolve per-lb vs
-  // fixed-price. Without this, sub-lb packs would route to the weight
-  // heuristic and incorrectly render as fixed-price.
-  const resolvedSku = variant?.sku ?? product.variants?.[0]?.sku ?? null
+  // Resolve mode against the SKU that OWNS the displayed price.
+  //
+  // On SSR (no variant picked yet), the displayed price is the
+  // cheapest variant's price — so we resolve the SKU map against
+  // that same variant's SKU, not product.variants[0]. Codex review
+  // flagged that for products like 8-01-11-1 (fixed_price) /
+  // 8-01-11-1P (per_lb), cheapest can be either, and resolving
+  // against [0] silently rendered the wrong format.
+  const resolvedSku =
+    variant?.sku ??
+    selectedVariantSku ??
+    cheapestVariantSku ??
+    product.variants?.[0]?.sku ??
+    null
 
   const display = formatProductPriceDisplay(
     selectedPrice.calculated_price_number ?? 0,

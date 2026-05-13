@@ -54,7 +54,6 @@ const CartItemImage = ({ item }: { item: HttpTypes.StoreCartLineItem }) => {
  */
 const CartItemPrice = ({
   item,
-  currencyCode,
 }: {
   item: HttpTypes.StoreCartLineItem
   currencyCode: string
@@ -62,6 +61,11 @@ const CartItemPrice = ({
   const productId = item.product_id || item.product?.id
   const metadata = useProductMetadata(productId)
   const unit = item.unit_price ?? 0
+  // formatProductPriceDisplay already does the per-lb math (pack price
+  // ÷ avg weight) and returns the headline, so render `display.primary`
+  // instead of the raw `unit`. Previously this surface bypassed the
+  // resolver and rendered $packPrice / LB for catch-weight items, which
+  // is exactly the bug we fixed on PDP/PLP (#31/#104). Codex review.
   const display = formatProductPriceDisplay(
     unit,
     metadata,
@@ -70,9 +74,7 @@ const CartItemPrice = ({
   return (
     <div>
       <p className="mt-1 text-p-sm font-maison-neue font-semibold text-Charcoal">
-        <span>
-          {convertToLocale({ amount: unit, currency_code: currencyCode })}
-        </span>
+        <span>{display.primary}</span>
         {display.primaryLabel && (
           <span className="text-xs font-maison-neue text-Charcoal/40 ml-0.5">
             {display.primaryLabel}

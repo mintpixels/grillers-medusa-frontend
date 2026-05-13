@@ -21,7 +21,12 @@ export default function ProductPrice({
   variant?: HttpTypes.StoreProductVariant
   metadata?: Metadata | null
 }) {
-  const { cheapestPrice, variantPrice } = getProductPrice({
+  const {
+    cheapestPrice,
+    variantPrice,
+    cheapestVariantSku,
+    selectedVariantSku,
+  } = getProductPrice({
     product,
     variantId: variant?.id,
   })
@@ -32,10 +37,14 @@ export default function ProductPrice({
     return <div className="block w-32 h-9 bg-gray-100 animate-pulse" />
   }
 
-  // Fall back to the first variant's SKU on SSR (before a variant is
-  // picked) so the bundled SKU→mode map can resolve correctly. See
-  // PDP product-detail/product-price for the same pattern.
-  const resolvedSku = variant?.sku ?? product.variants?.[0]?.sku ?? null
+  // Resolve mode against the SKU that owns the displayed price. See
+  // product-detail/components/product-price/index.tsx for the rationale.
+  const resolvedSku =
+    variant?.sku ??
+    selectedVariantSku ??
+    cheapestVariantSku ??
+    product.variants?.[0]?.sku ??
+    null
 
   const display = formatProductPriceDisplay(
     selectedPrice.calculated_price_number ?? 0,

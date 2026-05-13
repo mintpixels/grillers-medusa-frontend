@@ -38,42 +38,43 @@ export function getProductPrice({
     throw new Error("No product provided")
   }
 
-  const cheapestPrice = () => {
+  const cheapestVariant = (() => {
     if (!product || !product.variants?.length) {
       return null
     }
+    return (
+      (product.variants
+        .filter((v: any) => !!v.calculated_price)
+        .sort((a: any, b: any) => {
+          return (
+            a.calculated_price.calculated_amount -
+            b.calculated_price.calculated_amount
+          )
+        })[0] as any) || null
+    )
+  })()
 
-    const cheapestVariant: any = product.variants
-      .filter((v: any) => !!v.calculated_price)
-      .sort((a: any, b: any) => {
-        return (
-          a.calculated_price.calculated_amount -
-          b.calculated_price.calculated_amount
-        )
-      })[0]
-
-    return getPricesForVariant(cheapestVariant)
-  }
-
-  const variantPrice = () => {
+  const selectedVariant = (() => {
     if (!product || !variantId) {
       return null
     }
-
-    const variant: any = product.variants?.find(
-      (v) => v.id === variantId || v.sku === variantId
+    return (
+      (product.variants?.find(
+        (v) => v.id === variantId || v.sku === variantId
+      ) as any) || null
     )
-
-    if (!variant) {
-      return null
-    }
-
-    return getPricesForVariant(variant)
-  }
+  })()
 
   return {
     product,
-    cheapestPrice: cheapestPrice(),
-    variantPrice: variantPrice(),
+    cheapestPrice: cheapestVariant ? getPricesForVariant(cheapestVariant) : null,
+    variantPrice: selectedVariant ? getPricesForVariant(selectedVariant) : null,
+    // Identity of the variant that owns each price. Lets price-display
+    // surfaces resolve per-lb vs fixed-price against the SAME SKU that
+    // produced the headline number, not against product.variants[0]
+    // (which can have a different pricing mode — e.g. 8-01-11-1
+    // fixed_price vs 8-01-11-1P per_lb). Codex review follow-up.
+    cheapestVariantSku: (cheapestVariant?.sku ?? null) as string | null,
+    selectedVariantSku: (selectedVariant?.sku ?? null) as string | null,
   }
 }

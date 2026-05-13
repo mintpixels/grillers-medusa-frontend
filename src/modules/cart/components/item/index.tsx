@@ -11,6 +11,10 @@ import LineItemOptions from "@modules/common/components/line-item-options"
 import LineItemPrice from "@modules/common/components/line-item-price"
 import LineItemUnitPrice from "@modules/common/components/line-item-unit-price"
 import NetWeightPricing, { NetWeightBadge } from "@modules/common/components/net-weight-pricing"
+import {
+  parseAvgPackWeight,
+  resolvePricingMode,
+} from "@lib/util/price-display"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import Spinner from "@modules/common/icons/spinner"
 import Thumbnail from "@modules/products/components/thumbnail"
@@ -65,7 +69,20 @@ const Item = ({ item, type = "full", currencyCode }: ItemProps) => {
 
   // Fetch product metadata for net-weight pricing
   const metadata = useProductMetadata(productId)
-  const isNetWeight = Boolean(metadata?.AvgPackWeight)
+  // Gate NetWeightPricing on the actual resolved pricing mode, not just
+  // on whether `AvgPackWeight` is present. A fixed-price item that
+  // happens to carry an `AvgPackWeight` (e.g. 10-08-22-1 prepared food
+  // at "4.6 lb") was previously routed through the per-lb divide and
+  // rendered $5.43/lb — exactly the bug Peter flagged. The resolver
+  // honors QB-driven PricingMode → bundled SKU map → weight heuristic.
+  // Codex review follow-up to #104/#31.
+  const parsedWeight = parseAvgPackWeight(metadata?.AvgPackWeight)
+  const pricingMode = resolvePricingMode(
+    metadata,
+    item.variant?.sku ?? null,
+    parsedWeight
+  )
+  const isNetWeight = pricingMode === "per_lb" && Boolean(metadata?.AvgPackWeight)
 
   return (
     <Table.Row className="w-full" data-testid="product-row">
