@@ -10,6 +10,8 @@ import ProductPrice from "./product-price"
 import ProductVariantPicker from "./product-variant-picker"
 import Breadcrumb, { buildProductBreadcrumbs } from "@modules/common/components/breadcrumb"
 import SocialShare from "@modules/common/components/social-share"
+import KashruthBadges from "@modules/products/components/kashruth-badges"
+import ShippingEligibility from "@modules/products/components/shipping-eligibility"
 
 import type { StrapiProductData } from "types/strapi"
 
@@ -412,6 +414,23 @@ export default function ProductDetail({
               </p>
             </>
           )}
+
+          {/* Kashruth + sourcing chips — only renders flags that come
+              from Strapi metadata; always shows the "kashruth policy"
+              link so customers who filter on a specific hechsher can
+              read GP's umbrella supervision details (#39). */}
+          <KashruthBadges
+            metadata={strapiProductData?.Metadata}
+            countryCode={countryCode}
+          />
+
+          {/* Shipping eligibility callout. Soft copy that defers to
+              checkout for the actual option matrix — Atlanta delivery
+              is gated by ZIP, some SKUs are pickup-only, frozen items
+              carry dry-ice constraints (#39 follow-up will accept
+              per-SKU overrides when the Strapi schema grows the
+              field). */}
+          <ShippingEligibility countryCode={countryCode} />
 
           {/* Social Share */}
           <div className="mb-8">

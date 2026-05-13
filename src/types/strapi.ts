@@ -68,19 +68,73 @@ export interface StrapiFooterData {
 }
 
 // Product Types
+//
+// Mirrors the Strapi `api::product.product` `Metadata` shape. Most of
+// the boolean flags ride along on every product but only a subset
+// applies to a given SKU; the PDP renders chips conditionally.
 export interface Metadata {
+  // Sizing / pack semantics.
   AvgPackSize?: string
   AvgPackWeight?: string
   Serves?: string
+  PiecesPerPack?: number
+
+  // Prep state.
   Uncooked?: boolean
   Cooked?: boolean
-  PiecesPerPack?: number
+  HeatAndServe?: boolean
+
+  // Dietary / ingredient flags.
   GlutenFree?: boolean
+  MSG?: boolean         // historical: `true` means "NO MSG" per existing card UI
+  Pareve?: boolean
+  Meat?: boolean
+  Dairy?: boolean
+  CholovYisroel?: boolean
+
+  // Kashruth.
+  KosherForPassover?: boolean
+
+  // Sourcing.
+  Source?: string
+  Brand?: string
+  Origin?: string
+  Angus?: boolean
+  GrassFed?: boolean
+  Organic?: boolean
+  FreeRange?: boolean
+  AntibioticFree?: boolean
+  HormoneFree?: boolean
+  NoSteroids?: boolean
+  NoNitrites?: boolean
+  NoNitrates?: boolean
+  SouthAmerican?: boolean
+
+  // Cut characteristics.
+  BoneIn?: boolean
+  Boneless?: boolean
+  SkinOn?: boolean
+  Skinless?: boolean
+  Trimmed?: boolean
+  Untrimmed?: boolean
+
+  // Preparation styles.
+  Smoked?: boolean
+  Pickled?: boolean
+  Cured?: boolean
+  Marinated?: boolean
+  CharGrilled?: boolean
+  Sliced?: boolean
+  Ground?: boolean
+  VacuumPacked?: boolean
 }
 
 export interface MedusaProductVariant {
   VariantId: string
   Title: string
+  // GP internal SKU code (e.g. "1-03-15-1"). Used by the PDP for the
+  // phone-order workflow (#110) and by Algolia indexing.
+  Sku?: string | null
   Price?: {
     CalculatedPriceNumber: number
     OriginalPriceNumber: number
