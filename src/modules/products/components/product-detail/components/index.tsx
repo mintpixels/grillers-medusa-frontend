@@ -12,7 +12,6 @@ import Breadcrumb, { buildProductBreadcrumbs } from "@modules/common/components/
 import SocialShare from "@modules/common/components/social-share"
 import KashruthBadges from "@modules/products/components/kashruth-badges"
 import NotifyBackInStockForm from "@modules/products/components/notify-back-in-stock"
-import ShippingEligibility from "@modules/products/components/shipping-eligibility"
 
 import type { StrapiProductData } from "types/strapi"
 
@@ -439,13 +438,12 @@ export default function ProductDetail({
             countryCode={countryCode}
           />
 
-          {/* Shipping eligibility callout. Soft copy that defers to
-              checkout for the actual option matrix — Atlanta delivery
-              is gated by ZIP, some SKUs are pickup-only, frozen items
-              carry dry-ice constraints (#39 follow-up will accept
-              per-SKU overrides when the Strapi schema grows the
-              field). */}
-          <ShippingEligibility countryCode={countryCode} />
+          {/* Shipping eligibility callout moved out of the buybox to
+              its own section between ProductDetail and HowItWorks (see
+              templates/index.tsx). This decongests the buybox column
+              and puts the trust-building content in the natural
+              "how-it-works / why-us" trust zone — Avi's call on
+              #128 part 2. */}
 
           {/* Social Share */}
           <div className="mb-8">
