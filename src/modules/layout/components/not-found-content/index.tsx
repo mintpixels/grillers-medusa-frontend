@@ -107,7 +107,7 @@ export default function NotFoundContent({ countryCode = "us" }: Props) {
               We can&apos;t find that cut.
             </h1>
             <p className="text-p-md md:text-p-lg text-white/75 mb-10 max-w-xl mx-auto leading-relaxed">
-              The page or product you&apos;re after isn&apos;t here — it may
+              The page or product you&apos;re after isn&apos;t here. It may
               have moved, sold out, or never existed. Try a search, or jump
               into one of the counters below.
             </p>
@@ -275,7 +275,7 @@ export default function NotFoundContent({ countryCode = "us" }: Props) {
               </h2>
               <p className="text-p-md text-white/75 mb-8 leading-relaxed">
                 When something&apos;s off, our team picks up the phone. No
-                tickets, no chatbots — just call or email and we&apos;ll find
+                tickets, no chatbots. Just call or email and we&apos;ll find
                 what you need.
               </p>
               <div className="space-y-4 mb-8">
