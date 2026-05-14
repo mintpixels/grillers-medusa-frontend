@@ -85,29 +85,17 @@ type ProductCategory = {
 export function buildProductBreadcrumbs(
   collection?: { title: string; handle: string } | null,
   countryCode?: string,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   categories?: ProductCategory[] | null
 ): BreadcrumbItem[] {
   const prefix = countryCode ? `/${countryCode}` : ""
   const items: BreadcrumbItem[] = [{ name: "Home", href: prefix || "/" }]
 
-  // Prefer category trail (most specific) when available — walk parents up
-  // and reverse so the root appears first.
-  if (categories && categories.length > 0) {
-    const trail: BreadcrumbItem[] = []
-    let node: ProductCategory | null | undefined = categories[0]
-    const seen = new Set<string>()
-    while (node && !seen.has(node.handle)) {
-      seen.add(node.handle)
-      trail.unshift({
-        name: node.name,
-        href: `${prefix}/categories/${node.handle}`,
-      })
-      node = node.parent_category
-    }
-    items.push(...trail)
-    return items
-  }
-
+  // We previously preferred the Medusa category trail here, but the
+  // /categories/[handle] route doesn't exist — every category link 404d.
+  // Use the resolved collection (Strapi or Medusa) instead; its handle
+  // resolves to /collections/[handle], which is the canonical PLP URL
+  // used by the nav menu and 404 helper links.
   if (collection) {
     items.push({
       name: collection.title,
