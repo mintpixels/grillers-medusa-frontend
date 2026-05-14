@@ -76,6 +76,12 @@ function useTitleAlignToRow(deps: any[]) {
   }, deps)
 }
 
+function compactSecondaryPrice(value: string) {
+  const match = value.match(/^Estimated\s+(.+?)\s+for a\s+(.+?)\s+pack$/)
+  if (!match) return value
+  return `Est. ${match[1]} / ${match[2]}`
+}
+
 type StrapiProductGridProps = {
   products: StrapiCollectionProduct[]
   countryCode: string
@@ -133,28 +139,28 @@ export function ProductCard({ product, countryCode, viewMode = "grid" }: { produ
 
   if (viewMode === "list") {
     return (
-      <article className="grid grid-cols-[180px_1fr_auto] gap-6 border-b border-gray-200 pb-6 items-stretch">
+      <article className="grid min-w-0 grid-cols-1 gap-4 border-b border-gray-200 pb-6 items-stretch sm:grid-cols-[180px_minmax(0,1fr)_auto] sm:gap-6">
         {/* Col 1: Image */}
         <LocalizedClientLink
           href={`/products/${product?.MedusaProduct?.Handle}`}
-          className="block shrink-0"
+          className="block min-w-0 sm:shrink-0"
         >
-          <figure className="relative w-[180px] aspect-square bg-gray-50 overflow-hidden">
+          <figure className="relative w-full max-w-[220px] aspect-square bg-gray-50 overflow-hidden sm:w-[180px] sm:max-w-none">
             <ProductCardCarousel
               images={galleryImages}
               alt={product.Title}
-              sizes="180px"
+              sizes="(max-width: 639px) 220px, 180px"
             />
           </figure>
         </LocalizedClientLink>
 
         {/* Col 2: Details */}
-        <div className="min-w-0 pr-12">
+        <div className="min-w-0 sm:pr-12">
           <LocalizedClientLink
             href={`/products/${product?.MedusaProduct?.Handle}`}
             className="block mb-2"
           >
-            <h2 className="text-h4 font-gyst font-bold text-Charcoal hover:text-VibrantRed transition-colors text-balance">
+            <h2 className="text-h4 font-gyst font-bold text-Charcoal hover:text-VibrantRed transition-colors text-balance break-words">
               {product.Title}
             </h2>
           </LocalizedClientLink>
@@ -226,10 +232,10 @@ export function ProductCard({ product, countryCode, viewMode = "grid" }: { produ
         </div>
 
         {/* Col 3: Price & Actions */}
-        <div className="flex flex-col items-end justify-between py-1 h-full self-stretch">
-          <div className="flex flex-col items-end gap-1 whitespace-nowrap">
+        <div className="flex min-w-0 flex-col items-stretch justify-between gap-4 py-1 h-full self-stretch sm:items-end">
+          <div className="flex min-w-0 flex-col items-start gap-1 sm:items-end sm:whitespace-nowrap">
             {priceDisplay && (
-              <div className="text-Charcoal text-right">
+              <div className="min-w-0 text-Charcoal text-left sm:text-right">
                 <p className="leading-tight">
                   <span className="text-h4 font-gyst">
                     {priceDisplay.primary}
@@ -241,18 +247,18 @@ export function ProductCard({ product, countryCode, viewMode = "grid" }: { produ
                   )}
                 </p>
                 {priceDisplay.secondary && (
-                  <p className="text-xs font-maison-neue text-Charcoal/60 mt-0.5">
-                    {priceDisplay.secondary}
+                  <p className="text-xs font-maison-neue text-Charcoal/60 mt-0.5 break-words sm:break-normal">
+                    {compactSecondaryPrice(priceDisplay.secondary)}
                   </p>
                 )}
               </div>
             )}
           </div>
 
-          <div className="flex flex-col items-end gap-3">
+          <div className="flex min-w-0 flex-row items-stretch gap-3 sm:flex-col sm:items-end">
             <LocalizedClientLink
               href={`/products/${product?.MedusaProduct?.Handle}`}
-              className="min-h-[44px] inline-flex gap-2 items-center justify-center hover:opacity-70 focus-visible:opacity-100 focus-visible:underline transition-opacity w-full"
+              className="min-h-[44px] min-w-0 flex-1 inline-flex gap-2 items-center justify-center hover:opacity-70 focus-visible:opacity-100 focus-visible:underline transition-opacity sm:w-full"
             >
               <span className="text-Charcoal font-rexton text-[10px] font-bold uppercase whitespace-nowrap">View Details</span>
               <Image src="/images/icons/arrow-right.svg" width={16} height={10} alt="view details" />
@@ -261,7 +267,7 @@ export function ProductCard({ product, countryCode, viewMode = "grid" }: { produ
             <button
               onClick={handleAddToCart}
               disabled={isAdding || !product?.MedusaProduct?.Variants?.[0]?.VariantId}
-              className="w-full min-h-[44px] px-6 py-2.5 rounded-[5px] border border-Charcoal bg-Gold text-Charcoal font-rexton text-xs font-bold uppercase transition-opacity hover:opacity-95 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap text-center"
+              className="min-h-[44px] min-w-0 flex-1 px-4 py-2.5 rounded-[5px] border border-Charcoal bg-Gold text-Charcoal font-rexton text-xs font-bold uppercase transition-opacity hover:opacity-95 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap text-center sm:w-full sm:px-6"
             >
               {isAdding ? "Adding..." : "Add to Cart"}
             </button>
@@ -278,7 +284,7 @@ export function ProductCard({ product, countryCode, viewMode = "grid" }: { produ
     // auto-sizes to the longest title in that row, etc. — no fixed
     // line-clamp needed. Falls back to a regular grid container when
     // the parent isn't a CSS grid (e.g. the PDP swiper).
-    <article className="grid grid-rows-subgrid row-span-6 gap-y-0 pb-8">
+    <article className="grid min-w-0 grid-rows-subgrid row-span-6 gap-y-0 pb-8">
       <LocalizedClientLink
         href={`/products/${product?.MedusaProduct?.Handle}`}
         className="block"
@@ -296,9 +302,9 @@ export function ProductCard({ product, countryCode, viewMode = "grid" }: { produ
       </LocalizedClientLink>
 
       {/* Row 2: Price (left) + SKU (right) */}
-      <div className="mt-6 flex items-baseline justify-between gap-3">
+      <div className="mt-6 flex min-w-0 items-baseline justify-between gap-3">
         {priceDisplay ? (
-          <div className="text-Charcoal">
+          <div className="min-w-0 text-Charcoal">
             <p className="leading-none">
               <span className="text-h4 font-gyst">{priceDisplay.primary}</span>
               {priceDisplay.primaryLabel && (
@@ -308,8 +314,8 @@ export function ProductCard({ product, countryCode, viewMode = "grid" }: { produ
               )}
             </p>
             {priceDisplay.secondary && (
-              <p className="text-xs font-maison-neue text-Charcoal/60 mt-1">
-                {priceDisplay.secondary}
+              <p className="text-xs font-maison-neue text-Charcoal/60 mt-1 break-words sm:break-normal">
+                {compactSecondaryPrice(priceDisplay.secondary)}
               </p>
             )}
           </div>
@@ -325,7 +331,7 @@ export function ProductCard({ product, countryCode, viewMode = "grid" }: { produ
       >
         <h2
           data-card-title
-          className="text-h4 font-gyst font-bold text-Charcoal hover:text-VibrantRed transition-colors sm:line-clamp-3 pr-6 text-balance"
+          className="text-h4 font-gyst font-bold text-Charcoal hover:text-VibrantRed transition-colors sm:line-clamp-3 pr-6 text-balance break-words"
         >
           {product.Title}
         </h2>
