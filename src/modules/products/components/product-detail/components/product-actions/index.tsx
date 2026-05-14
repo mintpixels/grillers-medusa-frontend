@@ -44,7 +44,7 @@ export default function ProductActions({
           onClick={decrement}
           className="px-4 text-Charcoal hover:bg-SilverPlate transition w-[50px] min-h-[44px]"
         >
-          –
+          -
         </button>
         <span className="inline-flex items-center justify-center px-4 border-x border-Charcoal text-Charcoal w-[50px] min-h-[44px]">
           {quantity}
@@ -59,15 +59,22 @@ export default function ProductActions({
 
       {/* add to cart */}
       <Button
-        className="flex-1 btn-primary"
+        className="w-full min-w-0 whitespace-normal px-5 leading-tight sm:px-[42px] md:flex-1 btn-primary"
         type="button"
         disabled={!inStock || !variant || isAdding || !isValidVariant}
         onClick={handleAddToCart}
         isLoading={isAdding}
         data-testid="add-product-button"
       >
-        Add to Cart – $
-        {(selectedPrice.calculated_price_number * quantity).toFixed(2)}
+        <span className="flex flex-col items-center justify-center gap-1 sm:flex-row sm:gap-[9px]">
+          <span>Add to Cart</span>
+          <span className="sm:hidden">
+            ${(selectedPrice.calculated_price_number * quantity).toFixed(2)}
+          </span>
+          <span className="hidden sm:inline">
+            ${(selectedPrice.calculated_price_number * quantity).toFixed(2)}
+          </span>
+        </span>
       </Button>
     </div>
   )
