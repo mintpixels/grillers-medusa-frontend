@@ -121,8 +121,7 @@ export function ProductCard({ product, countryCode, viewMode = "grid" }: { produ
 
   // Per-lb vs fixed-price decision sourced from (in order)
   //   1. Strapi MedusaProduct.PricingMode / Metadata.PricingMode (QB-driven)
-  //   2. bundled SKU→mode map (QB-derived, 1726 entries)
-  //   3. weight heuristic
+  //   2. weight heuristic
   const priceDisplay = price
     ? formatProductPriceDisplay(
         Number(price),
@@ -287,7 +286,7 @@ export function ProductCard({ product, countryCode, viewMode = "grid" }: { produ
     <article className="grid min-w-0 grid-rows-subgrid row-span-6 gap-y-0 pb-8">
       <LocalizedClientLink
         href={`/products/${product?.MedusaProduct?.Handle}`}
-        className="block"
+        className="block min-w-0"
       >
         <figure className="relative w-full bg-gray-50 overflow-hidden">
           <div aria-hidden className="block pb-[100%]" />
