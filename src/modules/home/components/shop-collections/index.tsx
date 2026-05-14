@@ -46,7 +46,7 @@ export default function ShopCollectionsSection({
         {/* Slider */}
         <Swiper
           spaceBetween={24}
-          slidesPerView={1}
+          slidesPerView={1.15}
           breakpoints={{
             480: { slidesPerView: 2 },
             768: { slidesPerView: 3 },
