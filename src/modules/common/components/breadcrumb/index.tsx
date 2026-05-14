@@ -82,53 +82,36 @@ type ProductCategory = {
 // Helper function to build breadcrumb items for product pages.
 // Walks up the deepest category's parent chain when categories are present,
 // then falls back to the collection if no categories.
-// L2 product tags come in as `L2: Beef`, `L2: Franks & Dogs`, etc. The
-// PDP fallback computes their handle as `encodeURIComponent(Name)`,
-// which produces `L2%3A%20Beef` — and no Strapi collection lives at
-// that slug. Detect those handles and rewrite them to the same
-// `kosher-<slug>` form the nav menu / 404 helper uses, so the resulting
-// /collections/<handle> URL actually resolves to a PLP for most L2 tags.
-// A few L2 names (e.g. "Poultry", "Prepared") still won't have a
-// matching Strapi collection until that data gap is filled.
-function normalizeCollectionHandle(handle: string): string {
-  let decoded: string
-  try {
-    decoded = decodeURIComponent(handle)
-  } catch {
-    decoded = handle
-  }
-  if (!/^L2:/i.test(decoded)) {
-    return handle
-  }
-  return (
-    "kosher-" +
-    decoded
-      .replace(/^L2:\s*/i, "")
-      .toLowerCase()
-      .replace(/&/g, " ")
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "")
-  )
-}
-
 export function buildProductBreadcrumbs(
   collection?: { title: string; handle: string } | null,
   countryCode?: string,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   categories?: ProductCategory[] | null
 ): BreadcrumbItem[] {
   const prefix = countryCode ? `/${countryCode}` : ""
   const items: BreadcrumbItem[] = [{ name: "Home", href: prefix || "/" }]
 
-  // We previously preferred the Medusa category trail here, but the
-  // /categories/[handle] route doesn't exist — every category link 404d.
-  // Use the resolved collection (Strapi or Medusa) instead; its handle
-  // resolves to /collections/[handle], which is the canonical PLP URL
-  // used by the nav menu and 404 helper links.
+  // Prefer category trail (most specific) when available — walk parents up
+  // and reverse so the root appears first.
+  if (categories && categories.length > 0) {
+    const trail: BreadcrumbItem[] = []
+    let node: ProductCategory | null | undefined = categories[0]
+    const seen = new Set<string>()
+    while (node && !seen.has(node.handle)) {
+      seen.add(node.handle)
+      trail.unshift({
+        name: node.name,
+        href: `${prefix}/categories/${node.handle}`,
+      })
+      node = node.parent_category
+    }
+    items.push(...trail)
+    return items
+  }
+
   if (collection) {
     items.push({
       name: collection.title,
-      href: `${prefix}/collections/${normalizeCollectionHandle(collection.handle)}`,
+      href: `${prefix}/collections/${collection.handle}`,
     })
   }
 

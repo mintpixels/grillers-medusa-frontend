@@ -2,16 +2,6 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## ⚠️ Read the wiki first
-
-Before touching code, read [`wiki/index.md`](./wiki/index.md) — the catalog of the agent wiki. Each wiki page is a synthesis with pointers to:
-- Global rules in `~/.claude/rules/` (production-breaking traps with diagnostic + fix)
-- Project memory in `~/.claude/projects/-Users-aviswerdlow-coding-grillerspride/memory/` (credentials, URLs, prior decisions)
-
-**The cardinal rules and the lane map live in [`AGENTS.md`](./AGENTS.md)** at repo root — also read that. It's a single page; takes ~90 seconds.
-
-The wiki tells you *where to look*; this CLAUDE.md tells you *how the repo is laid out*; the code is the *source of truth*. Read in that order.
-
 ## Project Overview
 
 This is a Next.js 15 e-commerce storefront for Grillers, built with the Medusa.js v2 backend. It integrates with Strapi CMS for content management and Algolia for search functionality.

@@ -109,7 +109,7 @@ export default function KashruthBadges({
       <p className="text-p-sm font-maison-neue text-Charcoal/70">
         Hechsher and supervision details for every cut →{" "}
         <LocalizedClientLink
-          href="/kashruth/hechsherim"
+          href="/kashruth"
           className="underline underline-offset-2 text-Charcoal hover:text-Gold focus-visible:text-Gold"
         >
           our kashruth policy

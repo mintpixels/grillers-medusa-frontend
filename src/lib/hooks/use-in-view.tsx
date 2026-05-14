@@ -15,17 +15,14 @@ export const useIntersection = (
 
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting) {
-          setState(true)
-          observer.disconnect()
-        }
+        setState(entry.isIntersecting)
       },
       { rootMargin }
     )
 
     observer.observe(el)
 
-    return () => observer.disconnect()
+    return () => observer.unobserve(el)
   }, [element, rootMargin])
 
   return isVisible
