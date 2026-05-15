@@ -1,5 +1,6 @@
 import { retrieveCart } from "@lib/data/cart"
 import { retrieveCustomer } from "@lib/data/customer"
+import { getDeliveryZipCookie } from "@lib/data/delivery-zip"
 import CartTemplate from "@modules/cart/templates"
 import { Metadata } from "next"
 import { notFound } from "next/navigation"
@@ -27,6 +28,7 @@ export default async function Cart() {
   })
 
   const customer = await retrieveCustomer()
+  const deliveryZip = await getDeliveryZipCookie()
 
-  return <CartTemplate cart={cart} customer={customer} />
+  return <CartTemplate cart={cart} customer={customer} deliveryZip={deliveryZip} />
 }

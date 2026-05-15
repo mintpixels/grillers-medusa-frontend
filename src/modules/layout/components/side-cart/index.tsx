@@ -22,10 +22,14 @@ import { updateLineItem } from "@lib/data/cart"
 import { jitsuTrack } from "@lib/jitsu"
 import Spinner from "@modules/common/icons/spinner"
 import {
-  CartLevelEstimateNote,
   CatchWeightBadge,
-  FreeShippingHelper,
 } from "@modules/common/components/cart-helpers"
+import FulfillmentProgress from "@modules/common/components/fulfillment-progress"
+import {
+  DELIVERY_ZIP_EVENT,
+  getStoredDeliveryZip,
+  normalizeDeliveryZip,
+} from "@lib/util/delivery-zip"
 
 // Cart item image with Strapi fallback
 const CartItemImage = ({ item }: { item: HttpTypes.StoreCartLineItem }) => {
@@ -86,6 +90,7 @@ const CartItemPrice = ({
           {display.secondary}
         </p>
       )}
+      {display.mode === "per_lb" && <CatchWeightBadge className="mt-1.5" />}
     </div>
   )
 }
@@ -194,6 +199,7 @@ export default function SideCart({ cart }: SideCartProps) {
   const previousItemCount = useRef<number | null>(null)
   const isInitialMount = useRef(true)
   const [optimisticDelta, setOptimisticDelta] = useState(0)
+  const [deliveryZip, setDeliveryZip] = useState("")
   const prevCartRef = useRef(cart?.subtotal)
 
   // Reset optimistic delta when server data arrives
@@ -211,8 +217,22 @@ export default function SideCart({ cart }: SideCartProps) {
   const totalItems =
     cart?.items?.reduce((acc, item) => acc + item.quantity, 0) || 0
   const subtotal = (cart?.subtotal ?? 0) + optimisticDelta
+  const postalCode = cart?.shipping_address?.postal_code || deliveryZip
 
   const checkoutUrl = "/checkout"
+
+  useEffect(() => {
+    setDeliveryZip(getStoredDeliveryZip())
+
+    const handleDeliveryZipUpdate = (event: Event) => {
+      const nextZip = (event as CustomEvent<{ zip?: string }>).detail?.zip
+      setDeliveryZip(normalizeDeliveryZip(nextZip) || getStoredDeliveryZip())
+    }
+
+    window.addEventListener(DELIVERY_ZIP_EVENT, handleDeliveryZipUpdate)
+    return () =>
+      window.removeEventListener(DELIVERY_ZIP_EVENT, handleDeliveryZipUpdate)
+  }, [])
 
   // Track cart_viewed when side cart opens
   useEffect(() => {
@@ -341,7 +361,6 @@ export default function SideCart({ cart }: SideCartProps) {
                                             item={item}
                                             currencyCode={cart.currency_code}
                                           />
-                                          <CatchWeightBadge className="mt-1.5" />
                                         </div>
 
                                         {/* Quantity + Remove */}
@@ -385,7 +404,7 @@ export default function SideCart({ cart }: SideCartProps) {
                               </span>
                             </div>
 
-                            <FreeShippingHelper
+                            <FulfillmentProgress
                               subtotal={subtotal}
                               currencyCode={cart.currency_code}
                               shipState={cart.shipping_address?.province}
@@ -393,10 +412,10 @@ export default function SideCart({ cart }: SideCartProps) {
                                 (cart.metadata as Record<string, any> | null)
                                   ?.fulfillmentType
                               }
+                              postalCode={postalCode}
+                              context="cart"
                               className="mb-3"
                             />
-
-                            <CartLevelEstimateNote className="mb-3" />
 
                             <p className="text-xs font-maison-neue text-Charcoal/40 mb-4">
                               Shipping and taxes calculated at checkout.

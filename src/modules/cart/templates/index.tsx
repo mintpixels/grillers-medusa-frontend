@@ -8,9 +8,11 @@ import Summary from "./summary"
 const CartTemplate = ({
   cart,
   customer,
+  deliveryZip,
 }: {
   cart: HttpTypes.StoreCart | null
   customer: HttpTypes.StoreCustomer | null
+  deliveryZip?: string | null
 }) => {
   return (
     <div className="py-12">
@@ -31,7 +33,7 @@ const CartTemplate = ({
                 {cart && cart.region && (
                   <>
                     <div className="bg-white py-6">
-                      <Summary cart={cart as any} />
+                      <Summary cart={cart as any} deliveryZip={deliveryZip} />
                     </div>
                   </>
                 )}

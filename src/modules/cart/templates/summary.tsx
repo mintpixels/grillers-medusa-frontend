@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { Button, Heading } from "@medusajs/ui"
 
 import CartTotals from "@modules/common/components/cart-totals"
+import FulfillmentProgress from "@modules/common/components/fulfillment-progress"
 import Divider from "@modules/common/components/divider"
 import DiscountCode from "@modules/checkout/components/discount-code"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
@@ -15,6 +16,7 @@ type SummaryProps = {
   cart: HttpTypes.StoreCart & {
     promotions: HttpTypes.StorePromotion[]
   }
+  deliveryZip?: string | null
 }
 
 /**
@@ -30,7 +32,7 @@ function formatFulfillmentType(type: FulfillmentType): string {
   return labels[type] || type
 }
 
-const Summary = ({ cart }: SummaryProps) => {
+const Summary = ({ cart, deliveryZip }: SummaryProps) => {
   const router = useRouter()
   const [isChanging, setIsChanging] = useState(false)
   
@@ -79,6 +81,14 @@ const Summary = ({ cart }: SummaryProps) => {
       )}
 
       <DiscountCode cart={cart} />
+      <FulfillmentProgress
+        subtotal={cart.subtotal}
+        currencyCode={cart.currency_code}
+        fulfillmentType={fulfillmentType}
+        shipState={cart.shipping_address?.province}
+        postalCode={cart.shipping_address?.postal_code || deliveryZip}
+        context="cart"
+      />
       <Divider />
       <CartTotals
         totals={cart}

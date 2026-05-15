@@ -1,13 +1,14 @@
 import { gql } from "graphql-request"
 import type { StrapiSEO } from "./seo"
-import type { AtlantaZipDayConfig } from "@lib/util/eligible-arrival-dates"
+export { ATLANTA_DELIVERY_ZIP_DAYS } from "@lib/util/atlanta-delivery-zips"
 
 // ============================================
 // Atlanta Delivery zip → weekday + cutoff
 // ============================================
 //
-// TODO: move to Strapi when the schema lands. For now this is a hardcoded TS map
-// so the calendar eligibility logic (#36, #72) can ship without a Strapi migration.
+// TODO: move to Strapi when the schema lands. For now this is re-exported
+// from a client-safe TS map so the calendar eligibility logic (#36, #72)
+// and PDP/cart progress can ship without a Strapi migration.
 //
 // Weekdays: 0 = Sun, 1 = Mon, 2 = Tue, 3 = Wed, 4 = Thu, 5 = Fri, 6 = Sat.
 // cutoffHour is 24-hour EST on the day BEFORE delivery (default = 12 = noon).
@@ -16,30 +17,6 @@ import type { AtlantaZipDayConfig } from "@lib/util/eligible-arrival-dates"
 // Source: Atlanta zip-rate policy + footer-pages-copy-2026-04-27.md.
 // If a zip isn't listed here, the calendar falls back to Tue/Wed/Thu @ noon-prior cutoff.
 //
-export const ATLANTA_DELIVERY_ZIP_DAYS: Record<string, AtlantaZipDayConfig> = {
-  // Sandy Springs / Dunwoody / North Atlanta — Tuesday route
-  "30328": { weekdays: [2], cutoffHour: 12 },
-  "30338": { weekdays: [2], cutoffHour: 12 },
-  "30342": { weekdays: [2], cutoffHour: 12 },
-  "30350": { weekdays: [2], cutoffHour: 12 },
-  "30319": { weekdays: [2], cutoffHour: 12 },
-  "30327": { weekdays: [2], cutoffHour: 12 },
-  // Toco Hills / Decatur / Druid Hills — Wednesday route
-  "30329": { weekdays: [3], cutoffHour: 12 },
-  "30033": { weekdays: [3], cutoffHour: 12 },
-  "30030": { weekdays: [3], cutoffHour: 12 },
-  "30306": { weekdays: [3], cutoffHour: 12 },
-  "30307": { weekdays: [3], cutoffHour: 12 },
-  "30324": { weekdays: [3], cutoffHour: 12 },
-  // Buckhead / Brookhaven — Wednesday route
-  "30305": { weekdays: [3], cutoffHour: 12 },
-  "30326": { weekdays: [3], cutoffHour: 12 },
-  // Marietta / East Cobb — Thursday route
-  "30062": { weekdays: [4], cutoffHour: 12 },
-  "30068": { weekdays: [4], cutoffHour: 12 },
-  "30067": { weekdays: [4], cutoffHour: 12 },
-}
-
 // ============================================
 // Fulfillment Configuration Types
 // ============================================
