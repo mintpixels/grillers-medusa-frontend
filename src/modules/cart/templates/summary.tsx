@@ -92,8 +92,6 @@ const Summary = ({ cart, deliveryZip }: SummaryProps) => {
       <Divider />
       <CartTotals
         totals={cart}
-        shipState={cart.shipping_address?.province}
-        fulfillmentType={fulfillmentType}
       />
       <LocalizedClientLink
         href="/checkout"
