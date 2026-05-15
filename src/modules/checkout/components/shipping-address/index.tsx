@@ -317,7 +317,6 @@ const ShippingAddress = ({
           autoComplete="tel"
           value={formatPhone(formData["shipping_address.phone"])}
           onChange={handleChange}
-          placeholder="(555) 555-5555"
           data-testid="shipping-phone-input"
         />
       </div>

@@ -89,6 +89,16 @@ function getPreferredAddress(customer: HttpTypes.StoreCustomer | null) {
   )
 }
 
+function friendlyFulfillmentError(message?: string) {
+  if (!message) {
+    return "We could not save that fulfillment method. Please try another option."
+  }
+  if (/server components render|digest|failed to fetch|unknown error/i.test(message)) {
+    return "We could not save that fulfillment method for this address. Please try another option or update your address."
+  }
+  return message
+}
+
 export default function FulfillmentStep({ cart, customer, config, availableFulfillmentTypes, pickupCreditConfig }: FulfillmentStepProps) {
   const router = useRouter()
   const { setIsEditingFulfillment } = useFulfillmentEdit()
@@ -339,7 +349,7 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
       setSubStep("select")
       router.refresh()
     } catch (err: any) {
-      setError(err.message || "Failed to set fulfillment")
+      setError(friendlyFulfillmentError(err.message))
     } finally {
       setIsSubmitting(false)
     }
@@ -365,7 +375,7 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
       setSubStep("select")
       router.refresh()
     } catch (err: any) {
-      setError(err.message || "Failed to set fulfillment")
+      setError(friendlyFulfillmentError(err.message))
     } finally {
       setIsSubmitting(false)
     }
@@ -392,7 +402,7 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
       setSubStep("select")
       router.refresh()
     } catch (err: any) {
-      setError(err.message || "Failed to set fulfillment")
+      setError(friendlyFulfillmentError(err.message))
     } finally {
       setIsSubmitting(false)
     }
