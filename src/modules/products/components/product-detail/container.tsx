@@ -59,7 +59,7 @@ export default function ProductDetailContainer({
         price,
         currency: region?.currency_code?.toUpperCase() || 'USD',
         category: product.collection?.title,
-        variant: selectedVariant?.title,
+        variant: selectedVariant?.title || undefined,
       })
 
       jitsuTrack("product_viewed", {
@@ -120,6 +120,8 @@ export default function ProductDetailContainer({
       increment={increment}
       decrement={decrement}
       handleAddToCart={handleAddToCart}
+      actionsRef={actionsRef}
+      showMobileActions={!inView}
     />
   )
 }

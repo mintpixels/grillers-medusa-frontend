@@ -164,8 +164,8 @@ export default function CollectionTemplate({
             )}
 
             {/* Product count, active filters, sort, and view toggle */}
-            <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
-              <div className="flex items-center flex-wrap gap-2">
+            <div className="flex min-w-0 items-center justify-between mb-6 gap-4 flex-wrap">
+              <div className="flex min-w-0 items-center flex-wrap gap-2">
                 <p className="text-sm text-gray-600 whitespace-nowrap mr-2">
                   Showing {filteredProducts.length}{" "}
                   {filteredProducts.length === 1 ? "product" : "products"}
@@ -221,14 +221,14 @@ export default function CollectionTemplate({
                   )
                 }
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex w-full min-w-0 items-center gap-3 sm:w-auto">
                 {/* Mobile-only Filters trigger. Desktop has the sidebar
                     so this button stays hidden ≥ lg. */}
                 {showFilters && (
                   <button
                     type="button"
                     onClick={() => setMobileFiltersOpen(true)}
-                    className="lg:hidden inline-flex items-center gap-2 h-[44px] px-4 border border-gray-300 rounded-lg bg-white text-Charcoal text-sm font-maison-neue hover:border-Charcoal focus:outline-none focus:ring-1 focus:ring-Gold"
+                    className="lg:hidden inline-flex shrink-0 items-center gap-2 h-[44px] px-4 border border-gray-300 rounded-lg bg-white text-Charcoal text-sm font-maison-neue hover:border-Charcoal focus:outline-none focus:ring-1 focus:ring-Gold"
                     aria-label={`Open filters${getActiveFilterCount(activeFilters) > 0 ? `, ${getActiveFilterCount(activeFilters)} active` : ""}`}
                   >
                     <svg
@@ -256,7 +256,7 @@ export default function CollectionTemplate({
                     setSortBy(e.target.value)
                     setCurrentPage(1)
                   }}
-                  className="text-sm border border-gray-300 rounded-lg h-[44px] px-3 pr-8 bg-white text-Charcoal font-maison-neue focus:outline-none focus:ring-1 focus:ring-Gold cursor-pointer appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%228%22%20viewBox%3D%220%200%2012%208%22%3E%3Cpath%20d%3D%22M1%201l5%205%205-5%22%20stroke%3D%22%23333%22%20stroke-width%3D%221.5%22%20fill%3D%22none%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[right_0.75rem_center]"
+                  className="min-w-0 flex-1 text-sm border border-gray-300 rounded-lg h-[44px] px-3 pr-8 bg-white text-Charcoal font-maison-neue focus:outline-none focus:ring-1 focus:ring-Gold cursor-pointer appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%228%22%20viewBox%3D%220%200%2012%208%22%3E%3Cpath%20d%3D%22M1%201l5%205%205-5%22%20stroke%3D%22%23333%22%20stroke-width%3D%221.5%22%20fill%3D%22none%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[right_0.75rem_center] sm:flex-none"
                   aria-label="Sort products"
                 >
                   <option value="default">Sort by</option>
@@ -269,7 +269,9 @@ export default function CollectionTemplate({
                   <option value="weight-asc">Weight: Low to High</option>
                   <option value="weight-desc">Weight: High to Low</option>
                 </select>
-                <ViewToggle viewMode={viewMode} onViewModeChange={setViewMode} />
+                <div className="shrink-0">
+                  <ViewToggle viewMode={viewMode} onViewModeChange={setViewMode} />
+                </div>
               </div>
             </div>
 

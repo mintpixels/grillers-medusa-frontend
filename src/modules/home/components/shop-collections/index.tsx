@@ -46,7 +46,9 @@ export default function ShopCollectionsSection({
         {/* Slider */}
         <Swiper
           spaceBetween={24}
-          slidesPerView={1}
+          // Match Shop Bestsellers: the next card peeks on mobile so the
+          // row advertises horizontal swiping.
+          slidesPerView={1.15}
           breakpoints={{
             480: { slidesPerView: 2 },
             768: { slidesPerView: 3 },

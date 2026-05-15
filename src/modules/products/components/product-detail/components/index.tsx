@@ -4,6 +4,7 @@ import { Swiper, SwiperSlide } from "swiper/react"
 import type { Swiper as SwiperType } from "swiper"
 import "swiper/css"
 import { HttpTypes } from "@medusajs/types"
+import { getProductPrice } from "@lib/util/get-product-price"
 
 import ProductActions from "./product-actions"
 import ProductPrice from "./product-price"
@@ -31,6 +32,8 @@ type ProductTemplateProps = {
   increment: () => void
   decrement: () => void
   handleAddToCart: () => void
+  actionsRef?: React.RefObject<HTMLDivElement | null>
+  showMobileActions?: boolean
 }
 
 const ProductImages = ({
@@ -176,6 +179,8 @@ export default function ProductDetail({
   isAdding,
   isValidVariant,
   handleAddToCart,
+  actionsRef,
+  showMobileActions = false,
 }: ProductTemplateProps) {
   const mockedProduct = {
     tag: "Kosher for Passover",
@@ -206,30 +211,48 @@ export default function ProductDetail({
   ].filter((image) => image?.url)
 
   // Build breadcrumb items.
-  // Order of preference: Medusa product.categories (Medusa-managed category
-  // tree) → Medusa product.collection → Strapi ProductCollections (the
-  // collections used in the storefront's nav, now nested under
-  // Categorization) → Strapi L2 product tag.
+  // Prefer Strapi storefront collections because their slugs match the
+  // /collections/[handle] routes used by the nav. Medusa category trails
+  // are passed through for compatibility but are ignored by the breadcrumb
+  // helper because /categories/[handle] is not built.
   const strapiData = strapiProductData as any
   const strapiCollection = strapiData?.Categorization?.ProductCollections?.[0]
   const strapiL2Tag = strapiData?.Categorization?.ProductTags?.find(
     (t: { Name: string }) => t.Name?.startsWith("L2:")
   )
   const fallbackCollection =
-    product.collection ||
-    (strapiCollection
+    strapiCollection
       ? { title: strapiCollection.Name, handle: strapiCollection.Slug }
-      : strapiL2Tag
-        ? {
-            title: strapiL2Tag.Name.replace(/^L2:\s*/, ""),
-            handle: encodeURIComponent(strapiL2Tag.Name),
-          }
-        : null)
+      : product.collection ||
+        (strapiL2Tag
+          ? {
+              title: strapiL2Tag.Name.replace(/^L2:\s*/, ""),
+              handle: encodeURIComponent(strapiL2Tag.Name),
+            }
+          : null)
 
   const breadcrumbItems = buildProductBreadcrumbs(
     fallbackCollection,
     countryCode,
     (product as any).categories
+  )
+  const selectedPrice = getProductPrice({
+    product,
+    variantId: selectedVariant?.id,
+  })
+  const stickyPrice =
+    selectedPrice?.variantPrice || selectedPrice?.cheapestPrice || null
+  const optionSummary =
+    Object.values(options).filter(Boolean).join(" / ") || "Select Options"
+  const isSingleVariant = (product.variants?.length ?? 0) <= 1
+  const setActionsNode = useCallback(
+    (node: HTMLDivElement | null) => {
+      if (!actionsRef) return
+      const mutableRef =
+        actionsRef as React.MutableRefObject<HTMLDivElement | null>
+      mutableRef.current = node
+    },
+    [actionsRef]
   )
 
   return (
@@ -299,17 +322,19 @@ export default function ProductDetail({
           />
 
           {/* Quantity + Add to Cart */}
-          <ProductActions
-            product={product}
-            variant={selectedVariant}
-            inStock={inStock}
-            isAdding={isAdding}
-            isValidVariant={isValidVariant}
-            quantity={quantity}
-            increment={increment}
-            decrement={decrement}
-            handleAddToCart={handleAddToCart}
-          />
+          <div ref={setActionsNode}>
+            <ProductActions
+              product={product}
+              variant={selectedVariant}
+              inStock={inStock}
+              isAdding={isAdding}
+              isValidVariant={isValidVariant}
+              quantity={quantity}
+              increment={increment}
+              decrement={decrement}
+              handleAddToCart={handleAddToCart}
+            />
+          </div>
 
           {/* Notify-me-when-back-in-stock — only shown when the
               selected variant is OOS. Drops the customer's email
@@ -461,6 +486,68 @@ export default function ProductDetail({
               Free / sourcing flags as data-driven chips, and the
               umbrella Certified Kosher graphic still hangs in the
               hero badge area at the top of the page. */}
+        </div>
+      </div>
+
+      <div
+        className={`fixed inset-x-0 bottom-0 z-50 bg-white transition-opacity duration-200 lg:hidden ${
+          showMobileActions
+            ? "opacity-100"
+            : "pointer-events-none opacity-0"
+        }`}
+      >
+        <div
+          className="flex w-full flex-col items-center gap-y-3 border-t border-gray-200 bg-white p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]"
+          data-testid="mobile-actions"
+        >
+          <div className="flex w-full min-w-0 items-center justify-center gap-x-2 text-center text-sm text-Charcoal">
+            <span className="min-w-0 truncate" data-testid="mobile-title">
+              {strapiProductData?.Title || product.title}
+            </span>
+            <span aria-hidden="true">-</span>
+            <span className="shrink-0">{stickyPrice?.calculated_price}</span>
+          </div>
+          <div
+            className={`grid w-full min-w-0 gap-x-4 ${
+              isSingleVariant ? "grid-cols-1" : "grid-cols-2"
+            }`}
+          >
+            {!isSingleVariant && (
+              <button
+                type="button"
+                onClick={() =>
+                  actionsRef?.current?.scrollIntoView({
+                    behavior: "smooth",
+                    block: "center",
+                  })
+                }
+                className="min-h-[44px] min-w-0 rounded-[5px] border border-Charcoal bg-white px-3 py-2 text-center font-rexton text-xs font-bold uppercase text-Charcoal"
+                data-testid="mobile-actions-button"
+              >
+                <span className="block truncate">{optionSummary}</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={handleAddToCart}
+              disabled={
+                !inStock ||
+                !selectedVariant ||
+                isAdding ||
+                !isValidVariant
+              }
+              className="min-h-[44px] min-w-0 rounded-[5px] border border-Charcoal bg-Gold px-3 py-2 text-center font-rexton text-xs font-bold uppercase text-Charcoal transition-opacity disabled:cursor-not-allowed disabled:opacity-50"
+              data-testid="mobile-cart-button"
+            >
+              {!selectedVariant
+                ? "Select variant"
+                : !inStock || !isValidVariant
+                  ? "Out of stock"
+                  : isAdding
+                    ? "Adding..."
+                    : "Add to cart"}
+            </button>
+          </div>
         </div>
       </div>
     </section>

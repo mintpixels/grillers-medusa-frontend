@@ -69,7 +69,9 @@ export default function RelatedProductsSwiper({
           swiperRef.current = swiper
         }}
         spaceBetween={28}
-        slidesPerView={1}
+        // Match the home bestsellers mobile affordance: a sliver of the
+        // next card stays visible so the row reads as swipeable.
+        slidesPerView={1.15}
         breakpoints={{
           520: { slidesPerView: 2 },
           900: { slidesPerView: 3 },

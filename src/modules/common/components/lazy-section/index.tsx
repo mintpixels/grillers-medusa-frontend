@@ -1,7 +1,7 @@
 "use client"
 
 import { useRef, ReactNode } from "react"
-import { useIntersection } from "@lib/hooks/use-in-view"
+import { useIntersectionOnce } from "@lib/hooks/use-in-view"
 
 type LazySectionProps = {
   children: ReactNode
@@ -12,8 +12,8 @@ type LazySectionProps = {
 }
 
 /**
- * Lazy loading wrapper for below-the-fold sections
- * Uses Intersection Observer to defer rendering until section is near viewport
+ * Lazy loading wrapper for below-the-fold sections. Once visible, keep
+ * children mounted so page height cannot collapse while the user scrolls.
  */
 export default function LazySection({
   children,
@@ -23,7 +23,7 @@ export default function LazySection({
   minHeight = "400px",
 }: LazySectionProps) {
   const ref = useRef<HTMLDivElement>(null)
-  const isVisible = useIntersection(ref, rootMargin)
+  const isVisible = useIntersectionOnce(ref, rootMargin)
 
   return (
     <div ref={ref} className={className}>

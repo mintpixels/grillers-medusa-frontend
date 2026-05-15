@@ -80,42 +80,73 @@ type ProductCategory = {
 }
 
 // Helper function to build breadcrumb items for product pages.
-// Walks up the deepest category's parent chain when categories are present,
-// then falls back to the collection if no categories.
+// Use storefront collection URLs only. The app has no /categories/[handle]
+// route, so Medusa category trails must not be emitted as clickable crumbs.
+const COLLECTION_HANDLE_OVERRIDES: Record<string, string> = {
+  beef: "kosher-beef",
+  chicken: "kosher-chicken",
+  poultry: "kosher-chicken",
+  lamb: "kosher-lamb",
+  turkey: "kosher-turkey",
+  duck: "kosher-duck",
+  veal: "kosher-veal",
+  prepared: "prepared-and-provisions",
+  "prepared-foods": "prepared-and-provisions",
+  "prepared-and-provisions": "prepared-and-provisions",
+}
+
+function slugifyCollectionName(value: string): string {
+  return value
+    .replace(/^L2:\s*/i, "")
+    .toLowerCase()
+    .replace(/&/g, " ")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+}
+
+export function normalizeCollectionHandle(handle: string): string {
+  let decoded: string
+  try {
+    decoded = decodeURIComponent(handle)
+  } catch {
+    decoded = handle
+  }
+
+  const slug = slugifyCollectionName(decoded)
+
+  if (COLLECTION_HANDLE_OVERRIDES[slug]) {
+    return COLLECTION_HANDLE_OVERRIDES[slug]
+  }
+
+  if (slug.startsWith("kosher-")) {
+    return slug
+  }
+
+  if (/^L2:/i.test(decoded)) {
+    return `kosher-${slug}`
+  }
+
+  return handle
+}
+
 export function buildProductBreadcrumbs(
   collection?: { title: string; handle: string } | null,
   countryCode?: string,
+  // Kept for call-site compatibility. Categories are intentionally ignored
+  // until the storefront has a real /categories/[handle] route.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   categories?: ProductCategory[] | null
 ): BreadcrumbItem[] {
   const prefix = countryCode ? `/${countryCode}` : ""
   const items: BreadcrumbItem[] = [{ name: "Home", href: prefix || "/" }]
 
-  // Prefer category trail (most specific) when available — walk parents up
-  // and reverse so the root appears first.
-  if (categories && categories.length > 0) {
-    const trail: BreadcrumbItem[] = []
-    let node: ProductCategory | null | undefined = categories[0]
-    const seen = new Set<string>()
-    while (node && !seen.has(node.handle)) {
-      seen.add(node.handle)
-      trail.unshift({
-        name: node.name,
-        href: `${prefix}/categories/${node.handle}`,
-      })
-      node = node.parent_category
-    }
-    items.push(...trail)
-    return items
-  }
-
   if (collection) {
     items.push({
       name: collection.title,
-      href: `${prefix}/collections/${collection.handle}`,
+      href: `${prefix}/collections/${normalizeCollectionHandle(collection.handle)}`,
     })
   }
 
   return items
 }
-
 

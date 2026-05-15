@@ -57,7 +57,7 @@ const MobileActions: React.FC<MobileActionsProps> = ({
   return (
     <>
       <div
-        className={clx("lg:hidden inset-x-0 bottom-0 fixed", {
+        className={clx("lg:hidden inset-x-0 bottom-0 fixed z-50 bg-white", {
           "pointer-events-none": !show,
         })}
       >
@@ -72,14 +72,16 @@ const MobileActions: React.FC<MobileActionsProps> = ({
           leaveTo="opacity-0"
         >
           <div
-            className="bg-white flex flex-col gap-y-3 justify-center items-center text-large-regular p-4 h-full w-full border-t border-gray-200"
+            className="bg-white flex flex-col gap-y-3 justify-center items-center text-large-regular p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] h-full w-full border-t border-gray-200"
             data-testid="mobile-actions"
           >
-            <div className="flex items-center gap-x-2">
-              <span data-testid="mobile-title">{displayTitle}</span>
-              <span>—</span>
+            <div className="flex w-full min-w-0 items-center justify-center gap-x-2 text-center">
+              <span className="min-w-0 truncate" data-testid="mobile-title">
+                {displayTitle}
+              </span>
+              <span aria-hidden="true">-</span>
               {selectedPrice ? (
-                <div className="flex items-end gap-x-2 text-ui-fg-base">
+                <div className="flex shrink-0 items-end gap-x-2 text-ui-fg-base">
                   {selectedPrice.price_type === "sale" && (
                     <p>
                       <span className="line-through text-small-regular">
@@ -100,17 +102,17 @@ const MobileActions: React.FC<MobileActionsProps> = ({
                 <div></div>
               )}
             </div>
-            <div className={clx("grid grid-cols-2 w-full gap-x-4", {
+            <div className={clx("grid grid-cols-2 w-full min-w-0 gap-x-4", {
               "!grid-cols-1": isSimple
             })}>
               {!isSimple && <Button
                 onClick={open}
                 variant="secondary"
-                className="w-full"
+                className="w-full min-w-0"
                 data-testid="mobile-actions-button"
               >
-                <div className="flex items-center justify-between w-full">
-                  <span>
+                <div className="flex min-w-0 items-center justify-between w-full">
+                  <span className="min-w-0 truncate">
                     {variant
                       ? Object.values(options).join(" / ")
                       : "Select Options"}
@@ -121,7 +123,7 @@ const MobileActions: React.FC<MobileActionsProps> = ({
               <Button
                 onClick={handleAddToCart}
                 disabled={!inStock || !variant}
-                className="w-full"
+                className="w-full min-w-0"
                 isLoading={isAdding}
                 data-testid="mobile-cart-button"
               >

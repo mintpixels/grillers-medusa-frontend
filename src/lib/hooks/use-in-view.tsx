@@ -27,3 +27,34 @@ export const useIntersection = (
 
   return isVisible
 }
+
+export const useIntersectionOnce = (
+  element: RefObject<HTMLDivElement | null>,
+  rootMargin: string
+) => {
+  const [isVisible, setState] = useState(false)
+
+  useEffect(() => {
+    if (!element.current || isVisible) {
+      return
+    }
+
+    const el = element.current
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setState(true)
+          observer.disconnect()
+        }
+      },
+      { rootMargin }
+    )
+
+    observer.observe(el)
+
+    return () => observer.disconnect()
+  }, [element, rootMargin, isVisible])
+
+  return isVisible
+}
