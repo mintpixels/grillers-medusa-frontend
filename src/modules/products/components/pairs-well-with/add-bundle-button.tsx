@@ -17,11 +17,13 @@ export default function AddBundleButton({
   countryCode,
   bundleId,
   bundleTitle,
+  bundleSlug,
 }: {
   items: BundleItem[]
   countryCode: string
   bundleId: string
   bundleTitle: string
+  bundleSlug?: string
 }) {
   const [isAdding, setIsAdding] = useState(false)
   const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0)
@@ -39,20 +41,25 @@ export default function AddBundleButton({
           metadata: {
             bundle_id: bundleId,
             bundle_title: bundleTitle,
+            curated_collection_id: bundleId,
+            curated_collection_title: bundleTitle,
+            curated_collection_slug: bundleSlug,
             bundle_quantity: item.quantity,
           },
         })
         addedQuantity += item.quantity
       }
       dispatchCartUpdated({ action: "bundle-add", quantity: addedQuantity })
-      toast.success("Bundle added", {
+      toast.success("Collection added", {
         description: `${totalQuantity} items added to cart.`,
       })
-      jitsuTrack("bundle_added_to_cart", {
-        bundle_id: bundleId,
-        bundle_title: bundleTitle,
+      jitsuTrack("add_collection_to_cart", {
+        collection_id: bundleId,
+        collection_slug: bundleSlug,
+        collection_title: bundleTitle,
         line_count: items.length,
         item_count: totalQuantity,
+        sku_count_added: items.length,
         items: items.map((item) => ({
           title: item.title,
           quantity: item.quantity,
@@ -63,7 +70,7 @@ export default function AddBundleButton({
         dispatchCartUpdated({ action: "bundle-add", quantity: addedQuantity })
       }
       console.error("Failed to add bundle:", error)
-      toast.error("Couldn't add bundle", {
+      toast.error("Couldn't add collection", {
         description: "Please try again in a moment.",
       })
     } finally {

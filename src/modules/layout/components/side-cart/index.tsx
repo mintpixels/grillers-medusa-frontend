@@ -226,6 +226,12 @@ export default function SideCart({ cart }: SideCartProps) {
   const postalCode = cart?.shipping_address?.postal_code || deliveryZip
 
   const checkoutUrl = "/checkout"
+  const sortedItems =
+    cart?.items
+      ?.slice()
+      .sort((a, b) =>
+        (a.created_at ?? "") > (b.created_at ?? "") ? -1 : 1
+      ) || []
 
   useEffect(() => {
     setDeliveryZip(getStoredDeliveryZip())
@@ -340,12 +346,30 @@ export default function SideCart({ cart }: SideCartProps) {
                           {/* Items */}
                           <div className="flex-1 overflow-y-auto">
                             <ul>
-                              {cart.items
-                                .sort((a, b) =>
-                                  (a.created_at ?? "") > (b.created_at ?? "") ? -1 : 1
-                                )
-                                .map((item) => (
-                                  <li key={item.id} className="border-b border-Charcoal/5">
+                              {sortedItems.map((item, index) => {
+                                const metadata = (item.metadata || {}) as Record<string, any>
+                                const collectionTitle =
+                                  metadata.curated_collection_title ||
+                                  metadata.bundle_title
+                                const previousMetadata =
+                                  (sortedItems[index - 1]?.metadata || {}) as Record<string, any>
+                                const previousCollectionTitle =
+                                  previousMetadata.curated_collection_title ||
+                                  previousMetadata.bundle_title
+                                const showCollectionHeader =
+                                  collectionTitle &&
+                                  collectionTitle !== previousCollectionTitle
+
+                                return (
+                                  <Fragment key={item.id}>
+                                    {showCollectionHeader && (
+                                      <li className="border-b border-Charcoal/5 bg-Scroll px-6 py-2">
+                                        <p className="font-maison-neue-mono text-[10px] font-bold uppercase tracking-wide text-Charcoal/60">
+                                          Added from: {collectionTitle}
+                                        </p>
+                                      </li>
+                                    )}
+                                    <li className="border-b border-Charcoal/5">
                                     <div className="flex gap-4 px-6 py-5">
                                       {/* Image */}
                                       <LocalizedClientLink
@@ -360,6 +384,11 @@ export default function SideCart({ cart }: SideCartProps) {
                                       <div className="flex-1 min-w-0 flex flex-col justify-between">
                                         <div>
                                           <CartItemTitle item={item} closeCart={closeCart} />
+                                          {collectionTitle && (
+                                            <p className="mt-1 font-maison-neue-mono text-[10px] font-bold uppercase tracking-wide text-VibrantRed">
+                                              Collection item
+                                            </p>
+                                          )}
                                           {/* Price — per-lb vs per-pack
                                               decided by the same helper
                                               used on PLP + PDP (#31 / #104). */}
@@ -390,7 +419,9 @@ export default function SideCart({ cart }: SideCartProps) {
                                       </div>
                                     </div>
                                   </li>
-                                ))}
+                                  </Fragment>
+                                )
+                              })}
                             </ul>
                           </div>
 

@@ -13,9 +13,14 @@ import {
 } from "@lib/data/strapi/collections"
 import { enrichStrapiProductsWithMedusaPrices } from "@lib/data/products"
 import CollectionTemplate from "@modules/collections/templates"
+import CuratedCollectionTemplate from "@modules/collections/templates/curated-collection"
 import { getBaseURL } from "@lib/util/env"
 import { retrieveCustomer } from "@lib/data/customer"
 import { listPurchaseHistory } from "@lib/data/orders"
+import {
+  getCuratedCollectionBySlug,
+  type CuratedCollection,
+} from "@lib/data/strapi/curated-collections"
 
 interface GetProductCollectionResponse {
   productCollections: ProductCollectionData[]
@@ -31,6 +36,60 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
 
   if (!handle) {
     notFound()
+  }
+
+  const curated = await getCuratedCollectionBySlug(handle, countryCode)
+  if (curated) {
+    const baseUrl = getBaseURL()
+    const canonicalUrl = `${baseUrl}/${countryCode}/collections/${handle}`
+    const seo = curated.SEO
+    const socialMeta = curated.SocialMeta
+    const title = seo?.metaTitle || `${curated.Name} | Grillers Pride`
+    const description = seo?.metaDescription || curated.ShortDescription
+
+    return {
+      title,
+      description,
+      alternates: { canonical: canonicalUrl },
+      openGraph: {
+        title: socialMeta?.ogTitle || title,
+        description: socialMeta?.ogDescription || description,
+        type: (socialMeta?.ogType as any) || "website",
+        url: canonicalUrl,
+        siteName: "Grillers Pride",
+        images: socialMeta?.ogImage?.url
+          ? [
+              {
+                url: socialMeta.ogImage.url,
+                alt: socialMeta.ogImageAlt || curated.Name,
+              },
+            ]
+          : curated.HeroImage?.url
+            ? [
+                {
+                  url: curated.HeroImage.url,
+                  alt: curated.HeroImageAlt || curated.Name,
+                },
+              ]
+            : undefined,
+      },
+      twitter: {
+        card: (socialMeta?.twitterCard as any) || "summary_large_image",
+        title: socialMeta?.twitterTitle || title,
+        description: socialMeta?.twitterDescription || description,
+        images: socialMeta?.twitterImage?.url
+          ? [socialMeta.twitterImage.url]
+          : curated.HeroImage?.url
+            ? [curated.HeroImage.url]
+            : undefined,
+        site: socialMeta?.twitterSite,
+        creator: socialMeta?.twitterCreator,
+      },
+      robots: {
+        index: true,
+        follow: true,
+      },
+    }
   }
 
   const res = await strapiClient.request<GetProductCollectionResponse>(
@@ -158,12 +217,68 @@ function generateCollectionJsonLd(
   }
 }
 
+function generateCuratedCollectionJsonLd(
+  collection: CuratedCollection,
+  countryCode: string
+) {
+  const baseUrl = getBaseURL()
+  const canonicalUrl = `${baseUrl}/${countryCode}/collections/${collection.Slug}`
+
+  return {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    name: collection.Name,
+    description: collection.SEO?.metaDescription || collection.ShortDescription,
+    url: canonicalUrl,
+    breadcrumb: {
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        {
+          "@type": "ListItem",
+          position: 1,
+          name: "Home",
+          item: `${baseUrl}/${countryCode}`,
+        },
+        {
+          "@type": "ListItem",
+          position: 2,
+          name: "Collections",
+          item: `${baseUrl}/${countryCode}/collections`,
+        },
+        {
+          "@type": "ListItem",
+          position: 3,
+          name: collection.Name,
+          item: canonicalUrl,
+        },
+      ],
+    },
+  }
+}
+
 export default async function CollectionPage(props: Props) {
   const params = await props.params
   const { countryCode, handle } = params
 
   if (!handle || handle.length === 0) {
     return notFound()
+  }
+
+  const curated = await getCuratedCollectionBySlug(handle, countryCode)
+  if (curated) {
+    const jsonLd = generateCuratedCollectionJsonLd(curated, countryCode)
+    return (
+      <>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+        <CuratedCollectionTemplate
+          collection={curated}
+          countryCode={countryCode}
+        />
+      </>
+    )
   }
 
   // First, try to get as a ProductCollection

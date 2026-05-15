@@ -20,6 +20,7 @@ import { getRegion } from "@lib/data/regions"
 import { retrieveCustomer } from "@lib/data/customer"
 import { listOrders, listPurchaseHistory } from "@lib/data/orders"
 import { getProductsByMedusaIds, type StrapiCollectionProduct } from "@lib/data/strapi/collections"
+import { getCuratedCollections } from "@lib/data/strapi/curated-collections"
 import strapiClient from "@lib/strapi"
 import { GetHomePageQuery, type HomePageData } from "@lib/data/strapi/home"
 import {
@@ -151,6 +152,12 @@ export default async function Home(props: {
   }
 
   const strapiData = await strapiClient.request<HomePageData>(GetHomePageQuery)
+  const homeCuratedCollections = await getCuratedCollections({
+    countryCode,
+    surface: "homepage",
+    customerState: hasOrders ? "returning" : "guest_or_no_orders",
+    limit: 50,
+  }).then((collections) => collections.slice(0, 8))
   
   // Fetch global data for Organization JSON-LD
   let globalData: GlobalData | null = null
@@ -238,7 +245,11 @@ export default async function Home(props: {
             )
           case "ComponentHomeShopCollections":
             return (
-              <ShopCollectionsSection key={section.__typename} data={section} />
+              <ShopCollectionsSection
+                key={section.__typename}
+                data={section}
+                collections={homeCuratedCollections}
+              />
             )
           case "ComponentHomeTestimonial":
             // Lazy load testimonial section (typically below fold)
