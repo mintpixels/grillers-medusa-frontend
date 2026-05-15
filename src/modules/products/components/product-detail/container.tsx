@@ -10,6 +10,7 @@ import {
   getCartConversionState,
   type CartConversionState,
 } from "@lib/data/conversion"
+import { CART_UPDATED_EVENT } from "@lib/util/cart-events"
 import type { PurchaseHistoryItem } from "@lib/data/orders"
 
 import ProductDetail from "./components"
@@ -64,6 +65,12 @@ export default function ProductDetailContainer({
 
   useEffect(() => {
     refreshCartConversion()
+  }, [refreshCartConversion])
+
+  useEffect(() => {
+    window.addEventListener(CART_UPDATED_EVENT, refreshCartConversion)
+    return () =>
+      window.removeEventListener(CART_UPDATED_EVENT, refreshCartConversion)
   }, [refreshCartConversion])
 
   const handleAddToCartAndRefresh = useCallback(async () => {

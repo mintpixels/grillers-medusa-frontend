@@ -8,6 +8,7 @@ import { addToCart } from "@lib/data/cart"
 import { trackAddToCart } from "@lib/gtm"
 import { jitsuTrack } from "@lib/jitsu"
 import { useProductTitle } from "@lib/hooks/use-product-title"
+import { dispatchCartUpdated } from "@lib/util/cart-events"
 
 /**
  * Maps an array of variant options to a key/value object
@@ -117,6 +118,11 @@ export function useAddToCart(
         metadata: strapiTitle && strapiTitle !== product.title
           ? { strapi_title: strapiTitle }
           : undefined,
+      })
+      dispatchCartUpdated({
+        action: "add",
+        variantId: selectedVariant.id,
+        quantity,
       })
 
       const displayTitle = strapiTitle || product.title

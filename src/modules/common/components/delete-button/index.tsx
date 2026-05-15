@@ -5,6 +5,7 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { trackRemoveFromCart } from "@lib/gtm"
 import { jitsuTrack } from "@lib/jitsu"
+import { dispatchCartUpdated } from "@lib/util/cart-events"
 
 type ProductInfo = {
   id: string
@@ -19,11 +20,13 @@ const DeleteButton = ({
   children,
   className,
   productInfo,
+  onDeleted,
 }: {
   id: string
   children?: React.ReactNode
   className?: string
   productInfo?: ProductInfo
+  onDeleted?: () => void
 }) => {
   const router = useRouter()
   const [isDeleting, setIsDeleting] = useState(false)
@@ -51,6 +54,8 @@ const DeleteButton = ({
     
     await deleteLineItem(id)
       .then(() => {
+        onDeleted?.()
+        dispatchCartUpdated({ action: "remove", lineId: id })
         // Refresh to get updated cart data from server
         router.refresh()
       })

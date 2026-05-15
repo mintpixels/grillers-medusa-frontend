@@ -9,6 +9,7 @@ import ProductCardCarousel from "@modules/common/components/product-card-carouse
 import { addToCart } from "@lib/data/cart"
 import { formatProductPriceDisplay } from "@lib/util/price-display"
 import { sanitizeProductCopy } from "@lib/util/product-claims"
+import { dispatchCartUpdated } from "@lib/util/cart-events"
 import type { StrapiCollectionProduct } from "@lib/data/strapi/collections"
 
 type StrapiProductGridProps = {
@@ -45,6 +46,7 @@ export function ProductCard({
         quantity: 1,
         countryCode,
       })
+      dispatchCartUpdated({ action: "add", variantId, quantity: 1 })
       toast.success("Added to cart", { description: product.Title })
     } catch (error) {
       console.error("Failed to add to cart:", error)

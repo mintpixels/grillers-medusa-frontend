@@ -4,6 +4,7 @@ import { useState } from "react"
 import { toast } from "@medusajs/ui"
 import { addToCart } from "@lib/data/cart"
 import { jitsuTrack } from "@lib/jitsu"
+import { dispatchCartUpdated } from "@lib/util/cart-events"
 
 type BundleItem = {
   variantId: string
@@ -28,6 +29,7 @@ export default function AddBundleButton({
   const addBundle = async () => {
     if (items.length === 0) return
     setIsAdding(true)
+    let addedQuantity = 0
     try {
       for (const item of items) {
         await addToCart({
@@ -40,7 +42,9 @@ export default function AddBundleButton({
             bundle_quantity: item.quantity,
           },
         })
+        addedQuantity += item.quantity
       }
+      dispatchCartUpdated({ action: "bundle-add", quantity: addedQuantity })
       toast.success("Bundle added", {
         description: `${totalQuantity} items added to cart.`,
       })
@@ -55,6 +59,9 @@ export default function AddBundleButton({
         })),
       })
     } catch (error) {
+      if (addedQuantity > 0) {
+        dispatchCartUpdated({ action: "bundle-add", quantity: addedQuantity })
+      }
       console.error("Failed to add bundle:", error)
       toast.error("Couldn't add bundle", {
         description: "Please try again in a moment.",

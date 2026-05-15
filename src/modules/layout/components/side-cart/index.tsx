@@ -30,6 +30,7 @@ import {
   getStoredDeliveryZip,
   normalizeDeliveryZip,
 } from "@lib/util/delivery-zip"
+import { dispatchCartUpdated } from "@lib/util/cart-events"
 
 // Cart item image with Strapi fallback
 const CartItemImage = ({ item }: { item: HttpTypes.StoreCartLineItem }) => {
@@ -146,6 +147,11 @@ const QuantitySelector = ({
 
     try {
       await updateLineItem({ lineId: item.id, quantity: newQuantity })
+      dispatchCartUpdated({
+        action: "quantity",
+        lineId: item.id,
+        quantity: newQuantity,
+      })
       jitsuTrack("cart_updated", {
         item_id: item.product_id || item.id,
         item_name: item.product_title || item.title,
@@ -366,7 +372,18 @@ export default function SideCart({ cart }: SideCartProps) {
                                         {/* Quantity + Remove */}
                                         <div className="flex items-center justify-between mt-3">
                                           <QuantitySelector item={item} onOptimisticDelta={handleOptimisticDelta} />
-                                          <DeleteButton id={item.id}>
+                                          <DeleteButton
+                                            id={item.id}
+                                            onDeleted={() =>
+                                              handleOptimisticDelta(
+                                                -(
+                                                  item.subtotal ??
+                                                  (item.unit_price ?? 0) *
+                                                    item.quantity
+                                                )
+                                              )
+                                            }
+                                          >
                                             <span className="text-xs font-maison-neue underline">Remove</span>
                                           </DeleteButton>
                                         </div>

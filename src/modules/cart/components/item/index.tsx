@@ -22,6 +22,7 @@ import { useState } from "react"
 import { useProductFeaturedImageSrc } from "@lib/hooks/use-product-featured-image"
 import { useProductMetadata } from "@lib/hooks/use-product-metadata"
 import { useProductTitle } from "@lib/hooks/use-product-title"
+import { dispatchCartUpdated } from "@lib/util/cart-events"
 
 type ItemProps = {
   item: HttpTypes.StoreCartLineItem
@@ -43,6 +44,11 @@ const Item = ({ item, type = "full", currencyCode }: ItemProps) => {
       quantity,
     })
       .then(() => {
+        dispatchCartUpdated({
+          action: "cart-page-quantity",
+          lineId: item.id,
+          quantity,
+        })
         // Refresh to get updated cart data from server
         router.refresh()
       })
