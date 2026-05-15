@@ -1,8 +1,10 @@
 import React, { useRef, useState, useCallback } from "react"
 import Image from "next/image"
 import { Swiper, SwiperSlide } from "swiper/react"
+import { Zoom } from "swiper/modules"
 import type { Swiper as SwiperType } from "swiper"
 import "swiper/css"
+import "swiper/css/zoom"
 import { HttpTypes } from "@medusajs/types"
 import { getProductPrice } from "@lib/util/get-product-price"
 
@@ -90,6 +92,7 @@ const ProductImages = ({
       </div>
 
       <Swiper
+        modules={[Zoom]}
         spaceBetween={24}
         slidesPerView={1}
         className="h-full"
@@ -98,6 +101,10 @@ const ProductImages = ({
         }}
         onSlideChange={handleSlideChange}
         loop={true}
+        zoom={{
+          maxRatio: 3,
+          minRatio: 1,
+        }}
         a11y={{
           enabled: true,
           prevSlideMessage: "Previous image",
@@ -113,12 +120,15 @@ const ProductImages = ({
             aria-roledescription="slide"
             aria-label={`${index + 1} of ${totalImages}`}
           >
-            <Image
-              src={image.url}
-              alt={`${product.title} - Image ${index + 1} of ${totalImages}`}
-              fill
-              className="object-cover border border-gray-300"
-            />
+            <div className="swiper-zoom-container relative h-full w-full">
+              <Image
+                src={image.url}
+                alt={`${product.title} - Image ${index + 1} of ${totalImages}`}
+                fill
+                className="object-cover border border-gray-300"
+                data-swiper-zoom="3"
+              />
+            </div>
           </SwiperSlide>
         ))}
       </Swiper>
