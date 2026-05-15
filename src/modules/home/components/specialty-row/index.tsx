@@ -1,6 +1,7 @@
 import strapiClient from "@lib/strapi"
 import { getProductsByHandles } from "@lib/data/strapi/collections"
 import { enrichStrapiProductsWithMedusaPrices } from "@lib/data/products"
+import { suppressInvalidProductTag } from "@lib/util/product-claims"
 import SpecialtySwiper from "./swiper"
 
 /**
@@ -42,7 +43,7 @@ const PRODUCT_TAGS: Record<string, string> = {
     "100% Grass-Fed",
   "classic-roasted-smoked-salmon-1-lb-in-house-smoked-and-vacuum-packed-not-kosher-for-passover-2249lb":
     "House-Smoked",
-  "kishke-16-oz-not-pareve-uncooked-not-kosher-for-passover": "Made In-House",
+  "kishke-16-oz-not-pareve-uncooked-not-kosher-for-passover": "Traditional",
 }
 
 export default async function SpecialtyRow({
@@ -58,6 +59,13 @@ export default async function SpecialtyRow({
   )
   if (!products.length) return null
 
+  const tagByHandle = Object.fromEntries(
+    Object.entries(PRODUCT_TAGS).flatMap(([handle, tag]) => {
+      const safeTag = suppressInvalidProductTag(tag, { handle })
+      return safeTag ? [[handle, safeTag]] : []
+    })
+  )
+
   return (
     <section
       aria-labelledby="specialty-row-heading"
@@ -66,7 +74,7 @@ export default async function SpecialtyRow({
       <SpecialtySwiper
         products={products}
         countryCode={countryCode}
-        tagByHandle={PRODUCT_TAGS}
+        tagByHandle={tagByHandle}
       />
     </section>
   )

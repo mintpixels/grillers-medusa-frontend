@@ -16,6 +16,7 @@ import SocialShare from "@modules/common/components/social-share"
 import KashruthBadges from "@modules/products/components/kashruth-badges"
 import NotifyBackInStockForm from "@modules/products/components/notify-back-in-stock"
 import ShippingEligibility from "@modules/products/components/shipping-eligibility"
+import { sanitizeProductCopy } from "@lib/util/product-claims"
 
 import type { StrapiProductData } from "types/strapi"
 
@@ -192,28 +193,9 @@ export default function ProductDetail({
   actionsRef,
   showMobileActions = false,
 }: ProductTemplateProps) {
-  const mockedProduct = {
-    tag: "Kosher for Passover",
-    title: "Kosher Organic Chicken Breasts",
-    pricePerLb: 6.08,
-    avgPackPrice: 6.69,
-    avgPackWeight: 1.1,
-    inStock: true,
-    serves: "5–8",
-    uncooked: true,
-    piecesPerPack: 8,
-    description:
-      "Indulge in the richness of our Organic, Kosher Chicken Breasts, perfect for an unforgettable Shabbat dinner or Jewish festivities. Expertly pack weighing approximately 1.1 lb, each chicken breast is kosher, uncooked, and ready to be transformed into a mouth‑watering dish. Taste the kosher goodness of our premium chicken breasts now!",
-    details: [
-      { icon: "/images/icons/gluten-free.svg", label: "Gluten Free" },
-      { icon: "/images/icons/lorem-ipsum.svg", label: "Lorem Ipsum" },
-    ],
-    certifications: [
-      { icon: "/images/icons/dolor.svg", label: "Dolor" },
-      { icon: "/images/icons/consectitur.svg", label: "Consectitur" },
-    ],
-    imageUrl: "https://placehold.co/750x750/png",
-  }
+  const heroTag = strapiProductData?.Metadata?.KosherForPassover
+    ? "Kosher for Passover"
+    : "Certified Kosher"
 
   const images = [
     strapiProductData?.FeaturedImage,
@@ -226,6 +208,14 @@ export default function ProductDetail({
   // are passed through for compatibility but are ignored by the breadcrumb
   // helper because /categories/[handle] is not built.
   const strapiData = strapiProductData as any
+  const productIdentity = {
+    handle: strapiProductData?.MedusaProduct?.Handle || product.handle,
+    title: strapiProductData?.Title || product.title,
+  }
+  const productDescription = sanitizeProductCopy(
+    strapiProductData?.MedusaProduct?.Description,
+    productIdentity
+  )
   const strapiCollection = strapiData?.Categorization?.ProductCollections?.[0]
   const strapiL2Tag = strapiData?.Categorization?.ProductTags?.find(
     (t: { Name: string }) => t.Name?.startsWith("L2:")
@@ -299,7 +289,7 @@ export default function ProductDetail({
           {/* Tag + Title */}
           <div className="mb-6">
             <span className="bg-Black text-White font-maison-neue-mono leading-none text-p-sm px-4 pt-2 pb-1.5 rounded-full uppercase tracking-wide">
-              {mockedProduct.tag}
+              {heroTag}
             </span>
           </div>
           {(selectedVariant?.sku || strapiProductData?.MedusaProduct?.Variants?.[0]?.Sku) && (
@@ -454,13 +444,13 @@ export default function ProductDetail({
           </div>
 
           {/* Description */}
-          {strapiProductData?.MedusaProduct?.Description && (
+          {productDescription && (
             <>
               <h2 className="text-p-sm-mono font-maison-neue font-bold uppercase text-Charcoal pb-2">
                 Description
               </h2>
               <p className="text-p-md font-maison-neue text-Charcoal mb-6 leading-relaxed">
-                {strapiProductData.MedusaProduct.Description}
+                {productDescription}
               </p>
             </>
           )}
@@ -486,7 +476,7 @@ export default function ProductDetail({
             <SocialShare
               url={typeof window !== "undefined" ? window.location.href : `/${countryCode}/products/${product.handle}`}
               title={product.title || ""}
-              description={strapiProductData?.MedusaProduct?.Description || product.description || ""}
+              description={productDescription || product.description || ""}
               imageUrl={strapiProductData?.FeaturedImage?.url || product.thumbnail || ""}
             />
           </div>

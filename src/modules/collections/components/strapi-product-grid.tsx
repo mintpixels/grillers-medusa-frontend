@@ -8,6 +8,7 @@ import FormattedPrice from "@modules/common/components/formatted-price"
 import ProductCardCarousel from "@modules/common/components/product-card-carousel"
 import { addToCart } from "@lib/data/cart"
 import { formatProductPriceDisplay } from "@lib/util/price-display"
+import { sanitizeProductCopy } from "@lib/util/product-claims"
 import type { StrapiCollectionProduct } from "@lib/data/strapi/collections"
 
 type StrapiProductGridProps = {
@@ -45,6 +46,14 @@ export function ProductCard({ product, countryCode, viewMode = "grid" }: { produ
   }
 
   const price = product?.MedusaProduct?.Variants?.[0]?.Price?.CalculatedPriceNumber
+  const productIdentity = {
+    handle: product?.MedusaProduct?.Handle,
+    title: product?.Title,
+  }
+  const shortDescription = sanitizeProductCopy(
+    product?.MedusaProduct?.ShortDescription,
+    productIdentity
+  )
 
   // Per-lb vs fixed-price decision sourced from (in order)
   //   1. Strapi MedusaProduct.PricingMode / Metadata.PricingMode (QB-driven)
@@ -97,9 +106,9 @@ export function ProductCard({ product, countryCode, viewMode = "grid" }: { produ
           </LocalizedClientLink>
 
           {/* Description */}
-          {product?.MedusaProduct?.ShortDescription && (
+          {shortDescription && (
             <p className="text-sm font-maison-neue text-gray-500 leading-snug mb-3 break-words text-balance">
-              {product.MedusaProduct.ShortDescription}
+              {shortDescription}
             </p>
           )}
 
@@ -330,7 +339,7 @@ export function ProductCard({ product, countryCode, viewMode = "grid" }: { produ
 
       {/* Row 5: Short Description (always rendered to keep subgrid alignment) */}
       <p className="text-sm font-maison-neue text-Charcoal/70 leading-snug sm:line-clamp-3 mt-3 break-words text-balance">
-        {product?.MedusaProduct?.ShortDescription ?? ""}
+        {shortDescription}
       </p>
 
       {/* Row 6: Actions */}
