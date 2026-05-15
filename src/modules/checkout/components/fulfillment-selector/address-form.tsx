@@ -2,6 +2,10 @@
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import { Button, clx } from "@medusajs/ui"
+import {
+  getStoredDeliveryZip,
+  storeDeliveryZip,
+} from "@lib/util/delivery-zip"
 
 export type DeliveryAddress = {
   firstName: string
@@ -149,6 +153,14 @@ export default function AddressForm({
   const [touched, setTouched] = useState<Record<string, boolean>>({})
   const [submitAttempted, setSubmitAttempted] = useState(false)
 
+  useEffect(() => {
+    if (initialAddress?.zip || address.zip) return
+    const savedZip = getStoredDeliveryZip()
+    if (savedZip) {
+      setAddress((prev) => ({ ...prev, zip: savedZip }))
+    }
+  }, [address.zip, initialAddress?.zip])
+
   // Google Places autocomplete state for the Street Address field.
   const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
@@ -219,6 +231,7 @@ export default function AddressForm({
     }
     if (field === "zip") {
       value = value.replace(/\D/g, "").slice(0, 5)
+      storeDeliveryZip(value)
     }
 
     setAddress((prev) => ({ ...prev, [field]: value }))

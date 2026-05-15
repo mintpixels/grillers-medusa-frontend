@@ -303,7 +303,7 @@ export function ProductCard({
 
       {/* Row 4: Icons — below the title */}
       <TooltipProvider delayDuration={100}>
-        <div className="flex min-w-0 flex-wrap items-center gap-3 sm:gap-4 mt-3 text-xs font-maison-neue-mono uppercase text-gray-500 justify-start">
+        <div className="mt-4 flex min-w-0 flex-wrap items-center gap-3 text-xs font-maison-neue-mono uppercase text-gray-500 justify-start sm:mt-5 sm:gap-4">
           {product?.Metadata?.GlutenFree && (
             <Tooltip content="Gluten Free" className="bg-Charcoal text-white">
               <span className="inline-flex items-center cursor-default">

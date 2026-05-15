@@ -9,6 +9,10 @@ import { formatPhone, stripPhone } from "@lib/util/format-phone"
 import { useFormPersistence } from "@lib/hooks/use-form-persistence"
 import AddressAutocomplete from "../address-autocomplete"
 import StateSelect from "../state-select"
+import {
+  getStoredDeliveryZip,
+  storeDeliveryZip,
+} from "@lib/util/delivery-zip"
 
 function getPreferredAddress(
   addresses?: HttpTypes.StoreCustomerAddress[] | null
@@ -57,6 +61,17 @@ const ShippingAddress = ({
     formData,
     setFormData
   )
+
+  useEffect(() => {
+    if (customer || cart?.shipping_address?.postal_code) return
+    const savedZip = getStoredDeliveryZip()
+    if (!savedZip) return
+    setFormData((prev: Record<string, any>) => {
+      if (prev["shipping_address.postal_code"]) return prev
+      return { ...prev, "shipping_address.postal_code": savedZip }
+    })
+    onPostalCodeChange?.(savedZip)
+  }, [cart?.shipping_address?.postal_code, customer, onPostalCodeChange])
 
   const countriesInRegion = useMemo(
     () => cart?.region?.countries?.map((c) => c.iso_2),
@@ -179,6 +194,9 @@ const ShippingAddress = ({
     if (name === "shipping_address.postal_code" && onPostalCodeChange) {
       onPostalCodeChange(value)
     }
+    if (name === "shipping_address.postal_code" && !customer) {
+      storeDeliveryZip(value)
+    }
   }
 
   const handleAddressSelect = (fields: {
@@ -199,6 +217,9 @@ const ShippingAddress = ({
 
     if (onPostalCodeChange && fields.postal_code) {
       onPostalCodeChange(fields.postal_code)
+    }
+    if (!customer && fields.postal_code) {
+      storeDeliveryZip(fields.postal_code)
     }
   }
 

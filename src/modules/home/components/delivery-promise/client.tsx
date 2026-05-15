@@ -7,6 +7,12 @@ import {
   IN_REGION_THRESHOLD,
   NATIONAL_THRESHOLD,
 } from "@lib/util/free-shipping"
+import {
+  clearStoredDeliveryZip,
+  getStoredDeliveryZip,
+  normalizeDeliveryZip,
+  storeDeliveryZip,
+} from "@lib/util/delivery-zip"
 import { jitsuTrack } from "@lib/jitsu"
 
 type PromiseKind = "empty" | "invalid" | "atlanta" | "ups"
@@ -21,23 +27,25 @@ type PromiseResult = {
   badge: string
 }
 
-const STORAGE_KEY = "gp_delivery_zip"
-
-function normalizeZip(value: string): string {
-  return value.replace(/\D/g, "").slice(0, 5)
-}
-
 function pluralizeDays(days: number): string {
   return days === 1 ? "1 business day" : `${days} business days`
 }
 
-function getPromise(zip: string, atlantaZipCodes: Set<string>): PromiseResult {
+function getPromise(
+  zip: string,
+  atlantaZipCodes: Set<string>,
+  isLoggedIn: boolean
+): PromiseResult {
   if (!zip) {
     return {
       kind: "empty",
       eyebrow: "Delivery check",
-      headline: "See your cold-chain options before you shop",
-      detail: `Atlanta delivery and regional pickup can unlock free delivery at $${IN_REGION_THRESHOLD}. UPS cold-chain shipping is free nationwide at $${NATIONAL_THRESHOLD}.`,
+      headline: isLoggedIn
+        ? "Add a ZIP to see your delivery options"
+        : "See your cold-chain options before you shop",
+      detail: isLoggedIn
+        ? "We will use your ZIP to estimate local delivery, regional pickup, or UPS cold-chain transit before checkout."
+        : `Atlanta delivery and regional pickup can unlock free delivery at $${IN_REGION_THRESHOLD}. UPS cold-chain shipping is free nationwide at $${NATIONAL_THRESHOLD}.`,
       ctaHref: "/collections/kosher-beef",
       ctaLabel: "Start with beef",
       badge: "ZIP ready",
@@ -83,50 +91,48 @@ function getPromise(zip: string, atlantaZipCodes: Set<string>): PromiseResult {
 export default function DeliveryPromiseClient({
   countryCode,
   atlantaZipCodes,
+  initialZip,
+  isLoggedIn = false,
 }: {
   countryCode: string
   atlantaZipCodes: string[]
+  initialZip?: string | null
+  isLoggedIn?: boolean
 }) {
-  const [zip, setZip] = useState("")
-  const [submittedZip, setSubmittedZip] = useState("")
+  const normalizedInitialZip = normalizeDeliveryZip(initialZip)
+  const [zip, setZip] = useState(normalizedInitialZip)
+  const [submittedZip, setSubmittedZip] = useState(normalizedInitialZip)
   const atlantaSet = useMemo(
-    () => new Set(atlantaZipCodes.map(normalizeZip).filter(Boolean)),
+    () => new Set(atlantaZipCodes.map(normalizeDeliveryZip).filter(Boolean)),
     [atlantaZipCodes]
   )
 
   useEffect(() => {
-    try {
-      const saved = window.localStorage.getItem(STORAGE_KEY)
-      if (saved) {
-        const normalized = normalizeZip(saved)
-        setZip(normalized)
-        setSubmittedZip(normalized)
-      }
-    } catch {
-      // Local storage is a convenience only.
-    }
-  }, [])
+    if (normalizedInitialZip) return
+    const saved = getStoredDeliveryZip()
+    if (!saved) return
+    setZip(saved)
+    setSubmittedZip(saved)
+  }, [normalizedInitialZip])
 
   const result = useMemo(
-    () => getPromise(submittedZip, atlantaSet),
-    [submittedZip, atlantaSet]
+    () => getPromise(submittedZip, atlantaSet, isLoggedIn),
+    [submittedZip, atlantaSet, isLoggedIn]
   )
 
   const submitZip = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    const normalized = normalizeZip(zip)
+    const normalized = normalizeDeliveryZip(zip)
     setZip(normalized)
     setSubmittedZip(normalized)
-    try {
-      if (normalized.length === 5) {
-        window.localStorage.setItem(STORAGE_KEY, normalized)
-      }
-    } catch {
-      // Ignore storage failures.
+    if (normalized.length === 5) {
+      storeDeliveryZip(normalized)
+    } else if (!normalized) {
+      clearStoredDeliveryZip()
     }
     jitsuTrack("delivery_zip_checked", {
       zip_prefix: normalized.slice(0, 3),
-      result_kind: getPromise(normalized, atlantaSet).kind,
+      result_kind: getPromise(normalized, atlantaSet, isLoggedIn).kind,
       country_code: countryCode,
     })
   }
@@ -158,7 +164,9 @@ export default function DeliveryPromiseClient({
                   inputMode="numeric"
                   autoComplete="postal-code"
                   value={zip}
-                  onChange={(event) => setZip(normalizeZip(event.target.value))}
+                  onChange={(event) =>
+                    setZip(normalizeDeliveryZip(event.target.value))
+                  }
                   placeholder="ZIP code"
                   className="h-12 w-full min-w-0 rounded-[5px] border border-Charcoal bg-white px-4 font-maison-neue text-p-md text-Charcoal outline-none transition-colors placeholder:text-Charcoal/40 focus:border-Gold focus:ring-2 focus:ring-Gold/30"
                   aria-label="Delivery ZIP code"
@@ -185,6 +193,13 @@ export default function DeliveryPromiseClient({
             </div>
           </div>
         </div>
+
+        {submittedZip.length === 5 && (
+          <p className="mt-4 font-maison-neue text-xs leading-snug text-Charcoal/55">
+            Using ZIP {submittedZip} for delivery estimates across this browser.
+            Change it any time.
+          </p>
+        )}
 
         <div className="mt-5 grid gap-3 border-t border-Charcoal/10 pt-5 sm:grid-cols-3">
           {[
