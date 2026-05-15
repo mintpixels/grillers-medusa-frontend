@@ -126,7 +126,7 @@ const pillarData: Pillar[] = [
     points: [
       "Beef, lamb, veal, poultry, and specialty families",
       "Texture, fat, cooking method, and serving guidance",
-      "Direct links into collections and product search",
+      "Direct links into full education pages",
     ],
   },
   {
@@ -149,30 +149,30 @@ const kosher101: LinkedGuide[] = [
   {
     title: "Start with the product page",
     body: "Each product should tell you whether it is raw or prepared, what its Passover status is, and which kosher details matter before checkout.",
-    href: "/store",
-    event: "learn_collection_click",
-    cta: "Browse products",
+    href: "/learn/kosher-meat-101#product-page",
+    event: "view_kashruth_guide",
+    cta: "Read the basics",
   },
   {
     title: "Single-ingredient cuts are simpler",
     body: "Raw beef, lamb, veal, and poultry are easier to understand than sausages, sauces, smoked items, or other multi-ingredient products.",
-    href: "/collections/kosher-beef",
-    event: "learn_collection_click",
-    cta: "Compare raw cuts",
+    href: "/learn/kosher-meat-101#raw-vs-prepared",
+    event: "view_kashruth_guide",
+    cta: "Learn the difference",
   },
   {
     title: "Meat guidance stays meat-compatible",
     body: "Cooking notes for meat products should never suggest dairy ingredients, dairy cooking steps, or dairy pairings.",
-    href: "#buying-guides",
-    event: "view_cut_guide",
-    cta: "See cooking guides",
+    href: "/learn/kosher-meat-101#meat-compatible",
+    event: "view_kashruth_guide",
+    cta: "Read the rule",
   },
   {
     title: "Ask when the label is not enough",
-    body: "If you need a specific hechsher, shchita standard, or Passover answer, call before ordering so the team can verify the item.",
-    href: "/customer-service",
-    event: "learn_contact_click",
-    cta: "Ask the counter",
+    body: "Learn which questions should be answered by the guide, which belong on the product label, and which still need direct verification.",
+    href: "/learn/kosher-meat-101#label-enough",
+    event: "view_kashruth_guide",
+    cta: "Know when to verify",
   },
 ]
 
@@ -207,7 +207,7 @@ const cutFamilies: CutFamily[] = [
     icon: Beef,
     cuts: ["Brisket first cut", "Deckel", "Flanken", "Oyster steak"],
     bestFor: "Braises, roasts, grill cuts, cholent, and holiday mains",
-    href: "/collections/kosher-beef",
+    href: "/learn/cuts/beef",
   },
   {
     title: "Lamb",
@@ -218,7 +218,7 @@ const cutFamilies: CutFamily[] = [
     icon: Flame,
     cuts: ["Rack", "Lollipop chops", "Shoulder", "Shanks"],
     bestFor: "Yom Tov centerpieces, weeknight chops, and slow-cooked meals",
-    href: "/collections/kosher-lamb",
+    href: "/learn/cuts/lamb",
   },
   {
     title: "Poultry",
@@ -229,7 +229,7 @@ const cutFamilies: CutFamily[] = [
     icon: Drumstick,
     cuts: ["Cutlets", "8-piece chicken", "Thighs", "Wings"],
     bestFor: "Shabbos trays, schnitzel, soup, roast chicken, and easy dinners",
-    href: "/collections/kosher-chicken",
+    href: "/learn/cuts/poultry",
   },
   {
     title: "Veal",
@@ -241,7 +241,7 @@ const cutFamilies: CutFamily[] = [
     cuts: ["Chops", "Scallopini", "Schnitzel", "Riblets"],
     bestFor:
       "Quick sears, gentle braises, small special dinners, and schnitzel",
-    href: "/search?q=veal",
+    href: "/learn/cuts/veal",
   },
   {
     title: "Prepared & Specialty",
@@ -253,7 +253,7 @@ const cutFamilies: CutFamily[] = [
     cuts: ["Boerewors", "Biltong", "Corned brisket", "Kugels"],
     bestFor:
       "Hard-to-find kosher staples, gifting, travel, and weekly reorders",
-    href: "/collections/prepared-and-provisions",
+    href: "/learn/cuts/prepared-specialty",
   },
 ]
 
@@ -262,56 +262,56 @@ const buyingGuides: LinkedGuide[] = [
     title: "How much meat should I buy?",
     body: "Portion guidance for adults, children, mixed menus, leftovers, and big Yom Tov tables.",
     icon: Utensils,
-    href: "/customer-service",
-    event: "learn_contact_click",
-    cta: "Ask for portions",
+    href: "/learn/guides/how-much-meat-per-person",
+    event: "view_cut_guide",
+    cta: "Read portion guide",
   },
   {
     title: "Brisket first cut, deckel, or whole?",
     body: "A practical comparison by fat, tenderness, slicing, cook time, and holiday fit.",
     icon: Beef,
-    href: "/collections/kosher-brisket",
-    event: "learn_collection_click",
+    href: "/learn/guides/brisket-first-cut-deckel-whole",
+    event: "view_cut_guide",
     cta: "Compare brisket",
   },
   {
     title: "Best cuts for slow cooking",
     body: "Cholent, braises, roasts, shanks, cheeks, ribs, and the cuts that reward patience.",
     icon: CookingPot,
-    href: "/collections/kosher-stew-braising",
-    event: "learn_collection_click",
-    cta: "Shop slow-cook cuts",
+    href: "/learn/guides/best-cuts-for-slow-cooking",
+    event: "view_cut_guide",
+    cta: "Read slow-cook guide",
   },
   {
     title: "Best cuts for grilling",
     body: "Steaks, chops, boerewors, skirt, hanger, burgers, and how to avoid overcooking lean kosher cuts.",
     icon: Flame,
-    href: "/collections/kosher-steaks",
-    event: "learn_collection_click",
-    cta: "Shop grill cuts",
+    href: "/learn/guides/best-cuts-for-grilling",
+    event: "view_cut_guide",
+    cta: "Read grill guide",
   },
   {
     title: "Frozen delivery and thawing",
     body: "What to do when a dry-ice shipment arrives, how to store it, and how to thaw safely.",
     icon: Snowflake,
-    href: "/shipping/ups",
-    event: "learn_collection_click",
-    cta: "Read shipping",
+    href: "/learn/guides/thawing-frozen-kosher-meat",
+    event: "view_cut_guide",
+    cta: "Read thawing guide",
   },
   {
     title: "Build a Shabbos order",
     body: "A balanced basket across protein, prepared sides, soup bones, deli, and easy reorders.",
     icon: PackageCheck,
-    href: "/store",
-    event: "learn_collection_click",
-    cta: "Start an order",
+    href: "/learn/guides/shabbos-meat-order",
+    event: "view_cut_guide",
+    cta: "Plan the basket",
   },
 ]
 
 const processSteps = [
   {
     title: "Choose with context",
-    body: "The guide points customers from a cut question into a collection, search result, or customer-service path.",
+    body: "The guide points customers from a cut question into a full article before it asks them to shop or contact the counter.",
     icon: Search,
   },
   {
@@ -703,7 +703,7 @@ export default function ButcherEducationHub({
                 <TrackedLink
                   key={family.title}
                   href={href}
-                  event="learn_collection_click"
+                  event="view_cut_guide"
                   label={family.title}
                   section="cut_library"
                   className="group flex min-h-full flex-col overflow-hidden rounded-[6px] border border-Charcoal/10 bg-Scroll transition-colors hover:border-Gold hover:bg-white"
@@ -758,7 +758,7 @@ export default function ButcherEducationHub({
                     </p>
 
                     <span className="mt-auto inline-flex min-h-[48px] items-center gap-2 pt-5 font-rexton text-h6 font-bold uppercase text-Charcoal transition-colors group-hover:text-VibrantRed">
-                      Shop and compare
+                      Learn the cuts
                       <ArrowRight
                         className="h-4 w-4 transition-transform group-hover:translate-x-1"
                         strokeWidth={2}
@@ -791,9 +791,9 @@ export default function ButcherEducationHub({
               </p>
               <div className="mt-7 flex flex-col gap-3 sm:flex-row">
                 <TrackedLink
-                  href={hrefFor(countryCode, "/collections/kosher-beef")}
-                  event="learn_collection_click"
-                  label="Start with beef"
+                  href={hrefFor(countryCode, "/learn/cuts/beef")}
+                  event="view_cut_guide"
+                  label="Start with beef guide"
                   section="buying_guides"
                   className="inline-flex min-h-[48px] items-center justify-center gap-3 rounded-[5px] bg-Charcoal px-6 py-3 font-rexton text-h6 font-bold uppercase text-Scroll transition-colors hover:bg-Charcoal/90"
                 >
@@ -801,21 +801,24 @@ export default function ButcherEducationHub({
                   <Beef className="h-4 w-4" strokeWidth={2} />
                 </TrackedLink>
                 <TrackedLink
-                  href={hrefFor(countryCode, "/customer-service")}
-                  event="learn_contact_click"
-                  label="Call for help building an order"
+                  href={hrefFor(
+                    countryCode,
+                    "/learn/guides/shabbos-meat-order"
+                  )}
+                  event="view_cut_guide"
+                  label="Plan a Shabbos order"
                   section="buying_guides"
                   className="inline-flex min-h-[48px] items-center justify-center gap-3 rounded-[5px] border border-Charcoal/25 px-6 py-3 font-rexton text-h6 font-bold uppercase text-Charcoal transition-colors hover:border-Charcoal hover:bg-white"
                 >
-                  Call for help
-                  <Phone className="h-4 w-4" strokeWidth={2} />
+                  Plan Shabbos
+                  <ArrowRight className="h-4 w-4" strokeWidth={2} />
                 </TrackedLink>
               </div>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">
               {buyingGuides.map((guide) => {
-                const Icon = guide.icon
+                const Icon = guide.icon || BookOpen
                 return (
                   <TrackedLink
                     key={guide.title}
@@ -906,37 +909,40 @@ export default function ButcherEducationHub({
         <div className="content-container py-14 md:py-20">
           <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
             <div>
-              <Eyebrow light>Need a human answer?</Eyebrow>
+              <Eyebrow light>Keep learning</Eyebrow>
               <h2 className="mt-4 max-w-[760px] font-gyst text-h2-mobile leading-tight md:text-h2">
-                If the guide does not answer it cleanly, ask the counter.
+                Use the guides first, then shop with context.
               </h2>
               <p className="mt-5 max-w-[700px] font-maison-neue text-p-md leading-[1.7] text-Scroll/75 md:text-p-lg">
-                Call for cut selection, hechsher questions, Passover status,
-                substitutions, or help building a first order. The hub should
-                reduce hesitation, not replace judgment when a specific family
-                standard matters.
+                The goal is to answer cut selection, portion planning, thawing,
+                Shabbos planning, and cooking method questions before the order
+                reaches the plant. Human help is still available for item-level
+                kashruth verification or unusual order needs.
               </p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row lg:flex-col">
               <TrackedLink
-                href={hrefFor(countryCode, "/customer-service")}
-                event="learn_contact_click"
-                label="Contact customer service"
+                href={hrefFor(countryCode, "/learn/guides/shabbos-meat-order")}
+                event="view_cut_guide"
+                label="Plan a Shabbos order"
                 section="footer_cta"
                 className="inline-flex min-h-[50px] items-center justify-center gap-3 rounded-[5px] bg-Gold px-6 py-3 font-rexton text-h6 font-bold uppercase text-Charcoal transition-colors hover:bg-Gold/90"
               >
-                Contact us
+                Plan Shabbos
                 <ArrowRight className="h-4 w-4" strokeWidth={2} />
               </TrackedLink>
               <TrackedLink
-                href={hrefFor(countryCode, "/store")}
-                event="learn_collection_click"
-                label="Shop the full counter"
+                href={hrefFor(
+                  countryCode,
+                  "/learn/guides/how-much-meat-per-person"
+                )}
+                event="view_cut_guide"
+                label="Read portion guide"
                 section="footer_cta"
                 className="inline-flex min-h-[50px] items-center justify-center gap-3 rounded-[5px] border border-Scroll/20 px-6 py-3 font-rexton text-h6 font-bold uppercase text-Scroll transition-colors hover:border-Gold hover:text-Gold"
               >
-                Shop the counter
-                <Store className="h-4 w-4" strokeWidth={2} />
+                Portion guide
+                <Utensils className="h-4 w-4" strokeWidth={2} />
               </TrackedLink>
             </div>
           </div>
