@@ -84,6 +84,11 @@ const DEFAULT_SOCIAL_LINKS = [
 
 const FOOTER_ASSURANCE_LINKS = [
   {
+    title: "The Butcher Guide",
+    description: "Cuts, cooking, and kosher meat education",
+    href: "/learn",
+  },
+  {
     title: "Kashruth you can verify",
     description: "Hechsher and supervision details",
     href: "/kashruth/hechsherim",
@@ -280,7 +285,7 @@ export default async function Footer() {
 
       <div className="border-b border-white/10">
         <div className="content-container py-5">
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
             {FOOTER_ASSURANCE_LINKS.map((item) => (
               <LocalizedClientLink
                 key={item.href}
