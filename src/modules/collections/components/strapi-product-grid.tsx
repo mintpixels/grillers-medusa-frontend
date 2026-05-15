@@ -8,6 +8,7 @@ import FormattedPrice from "@modules/common/components/formatted-price"
 import ProductCardCarousel from "@modules/common/components/product-card-carousel"
 import { addToCart } from "@lib/data/cart"
 import { formatProductPriceDisplay } from "@lib/util/price-display"
+import { sanitizeProductCopy } from "@lib/util/product-claims"
 import type { StrapiCollectionProduct } from "@lib/data/strapi/collections"
 
 type StrapiProductGridProps = {
@@ -17,9 +18,20 @@ type StrapiProductGridProps = {
   /** When the filter sidebar is hidden the products area is wider, so we
    * bump to 4 cols at xl. Default 3 cols matches the with-sidebar layout. */
   wide?: boolean
+  recentProductIds?: string[]
 }
 
-export function ProductCard({ product, countryCode, viewMode = "grid" }: { product: StrapiCollectionProduct; countryCode: string; viewMode?: "grid" | "list" }) {
+export function ProductCard({
+  product,
+  countryCode,
+  viewMode = "grid",
+  previouslyOrdered = false,
+}: {
+  product: StrapiCollectionProduct
+  countryCode: string
+  viewMode?: "grid" | "list"
+  previouslyOrdered?: boolean
+}) {
   const [isAdding, setIsAdding] = useState(false)
 
   const handleAddToCart = async () => {
@@ -45,6 +57,14 @@ export function ProductCard({ product, countryCode, viewMode = "grid" }: { produ
   }
 
   const price = product?.MedusaProduct?.Variants?.[0]?.Price?.CalculatedPriceNumber
+  const productIdentity = {
+    handle: product?.MedusaProduct?.Handle,
+    title: product?.Title,
+  }
+  const shortDescription = sanitizeProductCopy(
+    product?.MedusaProduct?.ShortDescription,
+    productIdentity
+  )
 
   // Per-lb vs fixed-price decision sourced from (in order)
   //   1. Strapi MedusaProduct.PricingMode / Metadata.PricingMode (QB-driven)
@@ -82,6 +102,11 @@ export function ProductCard({ product, countryCode, viewMode = "grid" }: { produ
               alt={product.Title}
               sizes="(max-width: 640px) 100vw, (max-width: 1024px) 160px, 180px"
             />
+            {previouslyOrdered && (
+              <span className="absolute left-2 top-2 rounded-full bg-white/95 px-2.5 py-1 font-maison-neue-mono text-[9px] font-bold uppercase tracking-wide text-Charcoal shadow-sm">
+                Ordered before
+              </span>
+            )}
           </figure>
         </LocalizedClientLink>
 
@@ -97,9 +122,9 @@ export function ProductCard({ product, countryCode, viewMode = "grid" }: { produ
           </LocalizedClientLink>
 
           {/* Description */}
-          {product?.MedusaProduct?.ShortDescription && (
+          {shortDescription && (
             <p className="text-sm font-maison-neue text-gray-500 leading-snug mb-3 break-words text-balance">
-              {product.MedusaProduct.ShortDescription}
+              {shortDescription}
             </p>
           )}
 
@@ -232,6 +257,11 @@ export function ProductCard({ product, countryCode, viewMode = "grid" }: { produ
               sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 33vw"
             />
           </div>
+          {previouslyOrdered && (
+            <span className="absolute left-2 top-2 rounded-full bg-white/95 px-2.5 py-1 font-maison-neue-mono text-[9px] font-bold uppercase tracking-wide text-Charcoal shadow-sm">
+              Ordered before
+            </span>
+          )}
         </figure>
       </LocalizedClientLink>
 
@@ -330,7 +360,7 @@ export function ProductCard({ product, countryCode, viewMode = "grid" }: { produ
 
       {/* Row 5: Short Description (always rendered to keep subgrid alignment) */}
       <p className="text-sm font-maison-neue text-Charcoal/70 leading-snug sm:line-clamp-3 mt-3 break-words text-balance">
-        {product?.MedusaProduct?.ShortDescription ?? ""}
+        {shortDescription}
       </p>
 
       {/* Row 6: Actions */}
@@ -362,7 +392,15 @@ export function ProductCard({ product, countryCode, viewMode = "grid" }: { produ
   )
 }
 
-export default function StrapiProductGrid({ products, countryCode, viewMode = "grid", wide = false }: StrapiProductGridProps) {
+export default function StrapiProductGrid({
+  products,
+  countryCode,
+  viewMode = "grid",
+  wide = false,
+  recentProductIds = [],
+}: StrapiProductGridProps) {
+  const recentSet = new Set(recentProductIds)
+
   if (products.length === 0) {
     return (
       <div className="text-center py-12">
@@ -391,6 +429,10 @@ export default function StrapiProductGrid({ products, countryCode, viewMode = "g
             product={product} 
             countryCode={countryCode}
             viewMode={viewMode}
+            previouslyOrdered={
+              !!product.MedusaProduct?.ProductId &&
+              recentSet.has(product.MedusaProduct.ProductId)
+            }
           />
         ))}
       </div>

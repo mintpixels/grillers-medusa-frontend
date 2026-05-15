@@ -131,6 +131,8 @@ const FACET_GROUPS: FacetGroupDef[] = [
 export type ActiveFilters = {
   metadata: Record<string, string[]> // group.id → array of field names
   tags: string[]
+  priceMax?: number | null
+  recentOnly?: boolean
 }
 
 type FilterOption = {
@@ -153,20 +155,24 @@ interface CollectionFiltersProps {
 }
 
 export function getEmptyFilters(): ActiveFilters {
-  return { metadata: {}, tags: [] }
+  return { metadata: {}, tags: [], priceMax: null, recentOnly: false }
 }
 
 export function hasActiveFilters(filters: ActiveFilters): boolean {
   return (
     filters.tags.length > 0 ||
-    Object.values(filters.metadata).some((arr) => arr.length > 0)
+    Object.values(filters.metadata).some((arr) => arr.length > 0) ||
+    !!filters.priceMax ||
+    !!filters.recentOnly
   )
 }
 
 export function getActiveFilterCount(filters: ActiveFilters): number {
   return (
     filters.tags.length +
-    Object.values(filters.metadata).reduce((sum, arr) => sum + arr.length, 0)
+    Object.values(filters.metadata).reduce((sum, arr) => sum + arr.length, 0) +
+    (filters.priceMax ? 1 : 0) +
+    (filters.recentOnly ? 1 : 0)
   )
 }
 
@@ -237,8 +243,10 @@ export function productsHaveFilters(products: StrapiCollectionProduct[]): boolea
 
 export function filterProducts(
   products: StrapiCollectionProduct[],
-  filters: ActiveFilters
+  filters: ActiveFilters,
+  options?: { recentProductIds?: string[] }
 ): StrapiCollectionProduct[] {
+  const recentSet = new Set(options?.recentProductIds || [])
   return products.filter((product) => {
     // Metadata facet groups: OR within a group, AND across groups.
     for (const [groupId, selectedFields] of Object.entries(filters.metadata)) {
@@ -257,6 +265,17 @@ export function filterProducts(
         productTagNames.includes(tag)
       )
       if (!matchesTags) return false
+    }
+
+    if (filters.priceMax) {
+      const price =
+        product.MedusaProduct?.Variants?.[0]?.Price?.CalculatedPriceNumber
+      if (typeof price !== "number" || price > filters.priceMax) return false
+    }
+
+    if (filters.recentOnly) {
+      const id = product.MedusaProduct?.ProductId
+      if (!id || !recentSet.has(id)) return false
     }
 
     return true

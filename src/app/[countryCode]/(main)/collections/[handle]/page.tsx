@@ -14,6 +14,8 @@ import {
 import { enrichStrapiProductsWithMedusaPrices } from "@lib/data/products"
 import CollectionTemplate from "@modules/collections/templates"
 import { getBaseURL } from "@lib/util/env"
+import { retrieveCustomer } from "@lib/data/customer"
+import { listPurchaseHistory } from "@lib/data/orders"
 
 interface GetProductCollectionResponse {
   productCollections: ProductCollectionData[]
@@ -199,6 +201,17 @@ export default async function CollectionPage(props: Props) {
   // current price regardless of Strapi sync state.
   products = await enrichStrapiProductsWithMedusaPrices(products, countryCode)
 
+  const customer = await retrieveCustomer().catch(() => null)
+  const recentProductIds = customer
+    ? Array.from(
+        new Set(
+          (await listPurchaseHistory().catch(() => []))
+            .map((item) => item.productId)
+            .filter((id): id is string => Boolean(id))
+        )
+      )
+    : []
+
   const jsonLd = generateCollectionJsonLd(collection, countryCode)
 
   return (
@@ -213,6 +226,7 @@ export default async function CollectionPage(props: Props) {
         countryCode={countryCode}
         collection={collection}
         products={products}
+        recentProductIds={recentProductIds}
       />
     </>
   )

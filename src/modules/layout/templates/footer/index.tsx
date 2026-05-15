@@ -82,6 +82,24 @@ const DEFAULT_SOCIAL_LINKS = [
   { id: "default-x", Platform: "x", Url: "https://x.com/kosher_meat" },
 ]
 
+const FOOTER_ASSURANCE_LINKS = [
+  {
+    title: "Kashruth you can verify",
+    description: "Hechsher and supervision details",
+    href: "/kashruth/hechsherim",
+  },
+  {
+    title: "Cold-chain delivery",
+    description: "Atlanta delivery, pickup, and UPS shipping",
+    href: "/shipping/ups",
+  },
+  {
+    title: "Need help ordering?",
+    description: "Call or email before checkout",
+    href: "/customer-service",
+  },
+]
+
 // Social media icons with built-in SVGs for common platforms
 const SocialIcon = ({ platform }: { platform: string }) => {
   const iconClass = "w-5 h-5 fill-current"
@@ -260,6 +278,35 @@ export default async function Footer() {
         </div>
       )}
 
+      <div className="border-b border-white/10">
+        <div className="content-container py-5">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+            {FOOTER_ASSURANCE_LINKS.map((item) => (
+              <LocalizedClientLink
+                key={item.href}
+                href={item.href}
+                className="group flex min-h-[64px] items-center justify-between gap-4 rounded-sm border border-white/10 bg-white/[0.03] px-4 py-3 text-left transition-colors hover:border-Gold/50 hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-Gold"
+              >
+                <span>
+                  <span className="block text-p-sm-mono font-maison-neue-mono uppercase tracking-widest text-Gold">
+                    {item.title}
+                  </span>
+                  <span className="mt-1 block text-p-sm text-Pewter">
+                    {item.description}
+                  </span>
+                </span>
+                <span
+                  aria-hidden="true"
+                  className="shrink-0 text-Gold transition-transform group-hover:translate-x-1"
+                >
+                  →
+                </span>
+              </LocalizedClientLink>
+            ))}
+          </div>
+        </div>
+      </div>
+
       {/* Main Footer Content */}
       <div className="content-container">
         <div className="py-12 lg:py-16">
@@ -276,6 +323,11 @@ export default async function Footer() {
                   className="brightness-0 invert"
                 />
               </Link>
+
+              <p className="max-w-sm text-p-sm text-Pewter leading-relaxed">
+                Kosher meats, prepared foods, and specialty provisions shipped
+                cold or ready for local pickup.
+              </p>
 
               {/* Contact Information */}
               {hasContactInfo && (
@@ -303,7 +355,7 @@ export default async function Footer() {
                     </a>
                   )}
                   {footer.ContactAddress && (
-                    <p className="text-p-sm text-Pewter/70 flex items-start gap-2">
+                    <p className="text-p-sm text-Pewter flex items-start gap-2">
                       <svg className="w-4 h-4 fill-current mt-0.5 shrink-0" viewBox="0 0 24 24">
                         <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
                       </svg>
@@ -409,7 +461,7 @@ export default async function Footer() {
                     <li key={link.id}>
                       <LocalizedClientLink
                         href={link.Url}
-                        className="min-h-[44px] inline-flex items-center text-p-ex-sm-mono text-Pewter/60 hover:text-Gold transition-colors"
+                        className="min-h-[44px] inline-flex items-center text-p-ex-sm-mono text-Pewter hover:text-Gold transition-colors"
                       >
                         {link.Text}
                       </LocalizedClientLink>
@@ -421,7 +473,7 @@ export default async function Footer() {
 
             {/* Copyright & Payment Methods - single row */}
             <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-              <Text className="text-p-ex-sm-mono text-Pewter/60 text-center sm:text-left">
+              <Text className="text-p-ex-sm-mono text-Pewter text-center sm:text-left">
                 {copyrightText}
               </Text>
               <div

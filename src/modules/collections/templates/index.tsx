@@ -15,6 +15,7 @@ import CollectionFilters, {
   productsHaveFilters,
 } from "@modules/collections/components/collection-filters"
 import CollectionPagination from "@modules/collections/components/collection-pagination"
+import QuickFilterBar from "@modules/collections/components/quick-filter-bar"
 
 const PRODUCTS_PER_PAGE = 48
 
@@ -31,6 +32,7 @@ interface CollectionTemplateProps {
   countryCode: string
   collection?: ProductCollectionData
   products: StrapiCollectionProduct[]
+  recentProductIds?: string[]
 }
 
 export default function CollectionTemplate({
@@ -39,6 +41,7 @@ export default function CollectionTemplate({
   countryCode,
   collection,
   products,
+  recentProductIds = [],
 }: CollectionTemplateProps) {
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     if (typeof window === "undefined") return "grid"
@@ -75,8 +78,8 @@ export default function CollectionTemplate({
 
   // Filter products
   const filteredProducts = useMemo(
-    () => filterProducts(products, activeFilters),
-    [products, activeFilters]
+    () => filterProducts(products, activeFilters, { recentProductIds }),
+    [products, activeFilters, recentProductIds]
   )
 
   // Sort products
@@ -163,6 +166,13 @@ export default function CollectionTemplate({
               </h1>
             )}
 
+            <QuickFilterBar
+              products={products}
+              activeFilters={activeFilters}
+              onFilterChange={handleFilterChange}
+              recentProductIds={recentProductIds}
+            />
+
             {/* Product count, active filters, sort, and view toggle */}
             <div className="flex min-w-0 items-center justify-between mb-6 gap-4 flex-wrap">
               <div className="flex min-w-0 items-center flex-wrap gap-2">
@@ -177,12 +187,33 @@ export default function CollectionTemplate({
                       fields.map((field) => ({ groupId, field, value: field }))
                     ),
                     ...activeFilters.tags.map((value) => ({ groupId: "tags" as const, field: value, value })),
+                    ...(activeFilters.priceMax
+                      ? [
+                          {
+                            groupId: "price" as const,
+                            field: String(activeFilters.priceMax),
+                            value: `Under $${activeFilters.priceMax}`,
+                          },
+                        ]
+                      : []),
+                    ...(activeFilters.recentOnly
+                      ? [
+                          {
+                            groupId: "recent" as const,
+                            field: "recent",
+                            value: "Ordered before",
+                          },
+                        ]
+                      : []),
                   ].map(({ groupId, field, value }) => {
-                      const label = value
-                        .replace(/^L[23]:\s*/, "")
-                        .replace(/([A-Z])/g, " $1")
-                        .trim()
-                        .replace(/^MSG$/, "No MSG")
+                      const label =
+                        groupId === "price" || groupId === "recent"
+                          ? value
+                          : value
+                              .replace(/^L[23]:\s*/, "")
+                              .replace(/([A-Z])/g, " $1")
+                              .trim()
+                              .replace(/^MSG$/, "No MSG")
 
                       return (
                         <button
@@ -192,6 +223,16 @@ export default function CollectionTemplate({
                               handleFilterChange({
                                 ...activeFilters,
                                 tags: activeFilters.tags.filter((v) => v !== value),
+                              })
+                            } else if (groupId === "price") {
+                              handleFilterChange({
+                                ...activeFilters,
+                                priceMax: null,
+                              })
+                            } else if (groupId === "recent") {
+                              handleFilterChange({
+                                ...activeFilters,
+                                recentOnly: false,
                               })
                             } else {
                               const nextMetadata = { ...activeFilters.metadata }
@@ -281,6 +322,7 @@ export default function CollectionTemplate({
               countryCode={countryCode}
               viewMode={viewMode}
               wide={!showFilters}
+              recentProductIds={recentProductIds}
             />
 
             {/* Pagination */}

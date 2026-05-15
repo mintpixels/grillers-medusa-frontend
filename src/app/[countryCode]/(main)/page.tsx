@@ -13,6 +13,7 @@ import BlogExploreSection from "@modules/home/components/blog-explore"
 import ReorderRow from "@modules/home/components/reorder-row"
 import HolidayBanner from "@modules/home/components/holiday-banner"
 import SpecialtyRow from "@modules/home/components/specialty-row"
+import DeliveryPromiseSection from "@modules/home/components/delivery-promise"
 import LazySection from "@modules/common/components/lazy-section"
 import { listCollections } from "@lib/data/collections"
 import { getRegion } from "@lib/data/regions"
@@ -184,6 +185,7 @@ export default async function Home(props: {
                   isLoggedIn={isLoggedIn}
                   hasOrders={hasOrders}
                 />
+                <DeliveryPromiseSection countryCode={countryCode} />
                 <TrustBand customer={customer} phoneNumber={null} />
                 <HolidayBanner />
               </React.Fragment>
