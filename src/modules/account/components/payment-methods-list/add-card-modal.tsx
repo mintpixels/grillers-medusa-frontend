@@ -5,7 +5,10 @@ import { Dialog, Transition } from "@headlessui/react"
 import { Fragment } from "react"
 import { Elements, useStripe, useElements, PaymentElement } from "@stripe/react-stripe-js"
 import { loadStripe, Stripe, StripeElementsOptions } from "@stripe/stripe-js"
-import { createPaymentMethodSetupIntent } from "@lib/data/payment"
+import {
+  createPaymentMethodSetupIntent,
+  setDefaultPaymentMethod,
+} from "@lib/data/payment"
 import {
   getStripePublishableKey,
   getStripeKeyMismatchWarning,
@@ -40,7 +43,7 @@ const AddCardForm: React.FC<{
     setSubmitting(true)
     setError(null)
     try {
-      const { error: setupError } = await stripe.confirmSetup({
+      const { error: setupError, setupIntent } = await stripe.confirmSetup({
         elements,
         confirmParams: {
           return_url:
@@ -53,6 +56,21 @@ const AddCardForm: React.FC<{
       if (setupError) {
         setError(setupError.message || "Could not save card.")
       } else {
+        const paymentMethodId =
+          typeof setupIntent?.payment_method === "string"
+            ? setupIntent.payment_method
+            : setupIntent?.payment_method?.id
+
+        if (makeDefault && paymentMethodId) {
+          const defaultResult = await setDefaultPaymentMethod(paymentMethodId)
+          if (!defaultResult.success) {
+            setError(
+              defaultResult.error ||
+                "Card saved, but we could not make it the default."
+            )
+            return
+          }
+        }
         onSuccess()
       }
     } catch (err: any) {
@@ -67,7 +85,7 @@ const AddCardForm: React.FC<{
       <PaymentElement
         options={{ layout: "tabs", fields: { billingDetails: { address: { country: "auto" } } } }}
       />
-      <label className="flex items-center gap-2 text-sm text-Charcoal/80">
+      <label className="flex min-h-[44px] items-center gap-2 text-sm text-Charcoal/80">
         <input
           type="checkbox"
           checked={makeDefault}
@@ -86,14 +104,14 @@ const AddCardForm: React.FC<{
           type="button"
           onClick={onClose}
           disabled={submitting}
-          className="px-4 py-2 text-sm font-semibold text-Charcoal/70 hover:text-Charcoal"
+          className="min-h-[44px] px-4 py-2 text-sm font-semibold text-Charcoal/70 hover:text-Charcoal"
         >
           Cancel
         </button>
         <button
           type="submit"
           disabled={!stripe || submitting}
-          className="px-5 py-2 rounded-md text-sm font-semibold text-white bg-Gold hover:bg-Gold/90 disabled:opacity-60"
+          className="min-h-[44px] px-5 py-2 rounded-md text-sm font-semibold text-white bg-Gold hover:bg-Gold/90 disabled:opacity-60"
         >
           {submitting ? "Saving..." : "Save card"}
         </button>

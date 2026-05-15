@@ -17,6 +17,16 @@ import ErrorMessage from "../error-message"
 import ShippingAddress from "../shipping-address"
 import { SubmitButton } from "../submit-button"
 
+function getPreferredAddress(customer: HttpTypes.StoreCustomer | null) {
+  const addresses = customer?.addresses || []
+  if (!addresses.length) return null
+  return (
+    addresses.find((address) => address.is_default_shipping) ||
+    addresses.find((address) => address.is_default_billing) ||
+    addresses[0]
+  )
+}
+
 const Addresses = ({
   cart,
   customer,
@@ -84,7 +94,10 @@ const Addresses = ({
   }, [cart, cartTitleMap])
 
   // Track postal code for real-time validation against fulfillment type
-  const [postalCode, setPostalCode] = useState(cart?.shipping_address?.postal_code || "")
+  const preferredAddress = getPreferredAddress(customer)
+  const [postalCode, setPostalCode] = useState(
+    cart?.shipping_address?.postal_code || preferredAddress?.postal_code || ""
+  )
 
   const handlePostalCodeChange = useCallback((value: string) => {
     setPostalCode(value)

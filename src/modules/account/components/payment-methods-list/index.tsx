@@ -61,14 +61,14 @@ const ConfirmDeleteModal: React.FC<{
                 <button
                   onClick={onCancel}
                   disabled={busy}
-                  className="px-4 py-2 text-sm font-semibold text-Charcoal/70 hover:text-Charcoal"
+                  className="min-h-[44px] px-4 py-2 text-sm font-semibold text-Charcoal/70 hover:text-Charcoal"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={onConfirm}
                   disabled={busy}
-                  className="px-5 py-2 rounded-md text-sm font-semibold text-white bg-VibrantRed hover:bg-VibrantRed/90 disabled:opacity-60"
+                  className="min-h-[44px] px-5 py-2 rounded-md text-sm font-semibold text-white bg-VibrantRed hover:bg-VibrantRed/90 disabled:opacity-60"
                 >
                   {busy ? "Removing..." : "Remove card"}
                 </button>
@@ -145,7 +145,7 @@ export default function PaymentMethodsList({
       </p>
       <button
         onClick={() => setShowAddModal(true)}
-        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-md text-sm font-semibold text-white bg-Gold hover:bg-Gold/90 transition-colors"
+        className="inline-flex min-h-[44px] items-center gap-2 px-5 py-2.5 rounded-md text-sm font-semibold text-white bg-Gold hover:bg-Gold/90 transition-colors"
       >
         <svg
           className="w-4 h-4"
@@ -185,7 +185,7 @@ export default function PaymentMethodsList({
           <div className="flex justify-end">
             <button
               onClick={() => setShowAddModal(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-semibold text-Charcoal border border-Charcoal/20 hover:border-Gold hover:text-Gold transition-colors"
+              className="inline-flex min-h-[44px] items-center gap-2 px-4 py-2 rounded-md text-sm font-semibold text-Charcoal border border-Charcoal/20 hover:border-Gold hover:text-Gold transition-colors"
             >
               <svg
                 className="w-4 h-4"
@@ -240,7 +240,7 @@ export default function PaymentMethodsList({
                     <button
                       onClick={() => handleSetDefault(method.id)}
                       disabled={busyDefaultId === method.id}
-                      className="text-xs font-maison-neue text-Charcoal/60 hover:text-Gold transition-colors disabled:opacity-50"
+                      className="min-h-[44px] px-2 text-xs font-maison-neue text-Charcoal/60 hover:text-Gold transition-colors disabled:opacity-50"
                     >
                       {busyDefaultId === method.id
                         ? "Setting..."
@@ -250,7 +250,7 @@ export default function PaymentMethodsList({
                   <button
                     onClick={() => setPendingDelete(method.id)}
                     disabled={busyDeleteId === method.id}
-                    className="text-xs font-maison-neue text-Charcoal/40 hover:text-VibrantRed transition-colors disabled:opacity-50"
+                    className="min-h-[44px] px-2 text-xs font-maison-neue text-Charcoal/40 hover:text-VibrantRed transition-colors disabled:opacity-50"
                   >
                     Remove
                   </button>

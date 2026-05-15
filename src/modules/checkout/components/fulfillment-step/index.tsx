@@ -79,6 +79,16 @@ const fulfillmentLabels: Record<FulfillmentType, { label: string; description: s
 
 type SubStep = "select" | "plant_date" | "southeast_pickup" | "save_address"
 
+function getPreferredAddress(customer: HttpTypes.StoreCustomer | null) {
+  const addresses = customer?.addresses || []
+  if (!addresses.length) return null
+  return (
+    addresses.find((address) => address.is_default_shipping) ||
+    addresses.find((address) => address.is_default_billing) ||
+    addresses[0]
+  )
+}
+
 export default function FulfillmentStep({ cart, customer, config, availableFulfillmentTypes, pickupCreditConfig }: FulfillmentStepProps) {
   const router = useRouter()
   const { setIsEditingFulfillment } = useFulfillmentEdit()
@@ -134,8 +144,10 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
     southeastPickup: normalizeMinimum(config?.MinimumOrderThresholds?.SoutheastPickup, 0),
   }), [config])
 
-  // Pull active shipping address from cart (preferred) then fall back to customer's default.
-  const activeAddress = cart.shipping_address ?? customer?.addresses?.[0] ?? null
+  // Pull active shipping address from cart, then fall back to the customer's
+  // default shipping address. This keeps Step 1 availability aligned with the
+  // address that Step 2 preselects.
+  const activeAddress = cart.shipping_address ?? getPreferredAddress(customer)
   const shipZip = (activeAddress?.postal_code || "").trim()
   const shipCity = (activeAddress?.city || "").trim()
 
@@ -317,7 +329,7 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
       await setFulfillmentDetails({
         cartId: cart.id,
         fulfillmentType: option,
-        fulfillmentZip: option === "atlanta_delivery" ? "" : "00000",
+        fulfillmentZip: option === "atlanta_delivery" ? shipZip : "00000",
         scheduledDate: today,
       })
 
