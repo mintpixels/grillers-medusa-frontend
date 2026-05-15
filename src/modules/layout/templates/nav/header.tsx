@@ -38,6 +38,7 @@ const Header = ({ navLinks, regions, phoneNumber, customer, navCounts }: HeaderP
           <LocalizedClientLink
             href="/"
             data-testid="nav-store-link"
+            aria-label="Griller's Pride home"
             className="min-h-[44px] flex items-center gap-2"
           >
             <Image

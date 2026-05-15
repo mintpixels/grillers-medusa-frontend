@@ -63,7 +63,8 @@ export default function RecipeFilters({ filterOptions }: RecipeFiltersProps) {
       {/* Mobile filter toggle */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="md:hidden flex items-center gap-2 text-Charcoal font-medium mb-4"
+        className="md:hidden min-h-[44px] inline-flex items-center gap-2 text-Charcoal font-medium mb-4"
+        aria-label={`${isOpen ? "Hide" : "Show"} recipe filters`}
       >
         <svg
           className="w-5 h-5"
@@ -206,5 +207,4 @@ export default function RecipeFilters({ filterOptions }: RecipeFiltersProps) {
 // extractFilterOptions / buildStrapiFilters live in
 // @modules/recipes/lib/filter-helpers so the server-side recipes route
 // can import them without crossing the "use client" boundary.
-
 

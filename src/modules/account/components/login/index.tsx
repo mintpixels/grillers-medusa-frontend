@@ -59,12 +59,12 @@ const Login = ({ setCurrentView }: Props) => {
           <button
             type="button"
             onClick={() => setCurrentView(LOGIN_VIEW.FORGOT_PASSWORD)}
-            className="text-small-regular text-ui-fg-base underline hover:text-Gold transition-colors"
+            className="min-h-[44px] inline-flex items-center text-small-regular text-ui-fg-base underline hover:text-Gold transition-colors"
           >
             Forgot password?
           </button>
         </div>
-        <SubmitButton data-testid="sign-in-button" className="w-full mt-4">
+        <SubmitButton data-testid="sign-in-button" className="w-full min-h-[44px] mt-4">
           Sign in
         </SubmitButton>
       </form>
@@ -72,7 +72,7 @@ const Login = ({ setCurrentView }: Props) => {
         Not a member?{" "}
         <button
           onClick={() => setCurrentView(LOGIN_VIEW.REGISTER)}
-          className="underline"
+          className="min-h-[44px] min-w-[44px] inline-flex items-center underline"
           data-testid="register-button"
         >
           Join us

@@ -22,6 +22,10 @@ const KosherPromise = ({
     }
   }
 }) => {
+  const linkText = data?.Link?.Text?.trim()
+  const needsContext =
+    linkText && /^(learn more|read more|view more)$/i.test(linkText)
+
   return (
     <section className="pt-[70px] pb-[145px] md:pt-[55px] md:pb-[65px] bg-Charcoal overflow-hidden">
       <div className="flex flex-col items-center text-center max-w-[650px] mx-auto relative">
@@ -73,16 +77,20 @@ const KosherPromise = ({
           )}
         </div>
 
-        {data?.Link?.Url && data?.Link?.Text && (
+        {data?.Link?.Url && linkText && (
           <LocalizedClientLink href={data.Link.Url} className="btn-primary">
             <span className="text-h6 font-rexton font-bold text-Charcoal uppercase">
-              {data.Link.Text}
+              {linkText}
+              {needsContext && (
+                <span className="sr-only"> about Griller&apos;s Pride</span>
+              )}
             </span>
             <Image
               src={"/images/icons/arrow-right.svg"}
               width={20}
               height={12}
-              alt={data.Link.Text}
+              alt=""
+              aria-hidden="true"
             />
           </LocalizedClientLink>
         )}

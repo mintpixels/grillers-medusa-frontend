@@ -178,7 +178,7 @@ export function ProductCard({ product, countryCode, viewMode = "grid" }: { produ
                   )}
                 </p>
                 {priceDisplay.secondary && (
-                  <p className="text-xs font-maison-neue text-Charcoal/60 mt-0.5 break-words">
+                  <p className="text-xs font-maison-neue text-Charcoal/70 mt-0.5 break-words">
                     <span className="sm:hidden">{compactSecondaryPrice}</span>
                     <span className="hidden sm:inline">
                       {priceDisplay.secondary}
@@ -248,7 +248,7 @@ export function ProductCard({ product, countryCode, viewMode = "grid" }: { produ
               )}
             </p>
             {priceDisplay.secondary && (
-              <p className="text-xs font-maison-neue text-Charcoal/60 mt-1 break-words">
+              <p className="text-xs font-maison-neue text-Charcoal/70 mt-1 break-words">
                 <span className="sm:hidden">{compactSecondaryPrice}</span>
                 <span className="hidden sm:inline">
                   {priceDisplay.secondary}
@@ -329,7 +329,7 @@ export function ProductCard({ product, countryCode, viewMode = "grid" }: { produ
       </TooltipProvider>
 
       {/* Row 5: Short Description (always rendered to keep subgrid alignment) */}
-      <p className="text-sm font-maison-neue text-gray-500 leading-snug sm:line-clamp-3 mt-3 break-words text-balance">
+      <p className="text-sm font-maison-neue text-Charcoal/70 leading-snug sm:line-clamp-3 mt-3 break-words text-balance">
         {product?.MedusaProduct?.ShortDescription ?? ""}
       </p>
 

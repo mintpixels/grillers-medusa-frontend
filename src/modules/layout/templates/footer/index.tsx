@@ -424,7 +424,11 @@ export default async function Footer() {
               <Text className="text-p-ex-sm-mono text-Pewter/60 text-center sm:text-left">
                 {copyrightText}
               </Text>
-              <div className="flex items-center gap-3" aria-label="Accepted payment methods">
+              <div
+                className="flex items-center gap-3"
+                role="img"
+                aria-label="Accepted payment methods"
+              >
                 {PAYMENT_METHODS.map((method) => (
                   <div key={method} className="opacity-80 hover:opacity-100 transition-opacity">
                     <PaymentIcon method={method} />
