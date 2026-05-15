@@ -2,8 +2,20 @@
 
 import { useRouter, useSearchParams, usePathname } from "next/navigation"
 import { useCallback, useState, useTransition, useEffect } from "react"
+import { Loader2, Search, X } from "lucide-react"
+import { trackRecipeFilterApply, trackSearch } from "@lib/gtm"
 
-export default function RecipeSearch() {
+type RecipeSearchProps = {
+  className?: string
+  placeholder?: string
+  variant?: "default" | "hero"
+}
+
+export default function RecipeSearch({
+  className = "",
+  placeholder = "Search recipes...",
+  variant = "default",
+}: RecipeSearchProps) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -21,21 +33,38 @@ export default function RecipeSearch() {
   const handleSearch = useCallback(
     (value: string) => {
       const params = new URLSearchParams(searchParams.toString())
+      const trimmedValue = value.trim()
       
-      if (value.trim()) {
-        params.set("q", value.trim())
+      if (trimmedValue) {
+        params.set("q", trimmedValue)
+        trackSearch(trimmedValue)
+        trackRecipeFilterApply({
+          filterType: "search",
+          filterValue: trimmedValue,
+          source: "recipe_search",
+        })
       } else {
         params.delete("q")
+        if (currentSearch) {
+          trackRecipeFilterApply({
+            filterType: "search",
+            filterValue: "",
+            source: "recipe_search_clear",
+          })
+        }
       }
       
       // Reset to page 1 when search changes
       params.delete("page")
 
       startTransition(() => {
-        router.push(`${pathname}?${params.toString()}`, { scroll: false })
+        const queryString = params.toString()
+        router.push(queryString ? `${pathname}?${queryString}` : pathname, {
+          scroll: false,
+        })
       })
     },
-    [searchParams, pathname, router]
+    [searchParams, pathname, router, currentSearch]
   )
 
   // Debounce input changes
@@ -54,69 +83,40 @@ export default function RecipeSearch() {
     handleSearch("")
   }
 
+  const inputClassName =
+    variant === "hero"
+      ? "h-14 md:h-16 text-p-md md:text-p-lg border-Charcoal bg-white shadow-sm pl-12 pr-12"
+      : "h-12 text-sm border-gray-300 bg-white pl-10 pr-10"
+
   return (
-    <div className="relative max-w-md mb-6">
+    <div className={`relative ${variant === "hero" ? "w-full" : "max-w-md"} ${className}`}>
       <div className="relative">
         <input
           type="text"
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
-          placeholder="Search recipes..."
-          className="w-full border border-gray-300 rounded-md pl-10 pr-10 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-Gold focus:border-transparent"
+          placeholder={placeholder}
+          className={`w-full border rounded-[5px] font-maison-neue text-Charcoal placeholder:text-Charcoal/45 focus:outline-none focus:ring-2 focus:ring-Gold focus:border-transparent ${inputClassName}`}
           aria-label="Search recipes"
         />
         
         {/* Search icon */}
         <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
-          <svg
-            className="w-5 h-5 text-gray-400"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-            />
-          </svg>
+          <Search className="w-5 h-5 text-Charcoal/45" aria-hidden="true" />
         </div>
 
         {/* Clear button or loading spinner */}
         {(inputValue || isPending) && (
           <div className="absolute right-3 top-1/2 -translate-y-1/2">
             {isPending ? (
-              <svg className="animate-spin h-4 w-4 text-gray-400" viewBox="0 0 24 24">
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                  fill="none"
-                />
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                />
-              </svg>
+              <Loader2 className="h-4 w-4 animate-spin text-Charcoal/45" aria-hidden="true" />
             ) : (
               <button
                 onClick={clearSearch}
-                className="text-gray-400 hover:text-gray-600"
+                className="min-h-[32px] min-w-[32px] inline-flex items-center justify-center text-Charcoal/45 hover:text-Charcoal focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold rounded-[5px]"
                 aria-label="Clear search"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
+                <X className="w-4 h-4" aria-hidden="true" />
               </button>
             )}
           </div>
@@ -125,12 +125,10 @@ export default function RecipeSearch() {
 
       {/* Search result indicator */}
       {currentSearch && !isPending && (
-        <p className="mt-2 text-sm text-gray-500">
+        <p className="mt-2 text-p-sm font-maison-neue text-Charcoal/60">
           Showing results for &quot;{currentSearch}&quot;
         </p>
       )}
     </div>
   )
 }
-
-

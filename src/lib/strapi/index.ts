@@ -27,7 +27,12 @@ const strapiClient = new GraphQLClient(
     fetch: (url, init) =>
       fetch(url as string, {
         ...(init as RequestInit),
-        next: { tags: ["strapi"] },
+        cache: (init as RequestInit | undefined)?.cache || "force-cache",
+        next: {
+          ...((init as RequestInit & { next?: Record<string, unknown> })
+            ?.next || {}),
+          tags: ["strapi"],
+        },
       }),
   }
 )

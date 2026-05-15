@@ -2,6 +2,8 @@
 
 import { useRouter, useSearchParams, usePathname } from "next/navigation"
 import { useCallback, useState, useTransition } from "react"
+import { Loader2, SlidersHorizontal, X } from "lucide-react"
+import { trackRecipeFilterApply } from "@lib/gtm"
 import {
   extractFilterOptions as _extract,
   buildStrapiFilters as _build,
@@ -14,6 +16,16 @@ export const buildStrapiFilters = _build
 
 type RecipeFiltersProps = {
   filterOptions: FilterOptions
+}
+
+const formatDifficulty = (difficulty: string) => {
+  const normalized = difficulty.toLowerCase()
+
+  if (normalized === "hard" || normalized === "advanced") return "Project"
+  if (normalized === "medium") return "Moderate"
+  if (normalized === "easy") return "Easy"
+
+  return difficulty.charAt(0).toUpperCase() + difficulty.slice(1)
 }
 
 export default function RecipeFilters({ filterOptions }: RecipeFiltersProps) {
@@ -45,54 +57,57 @@ export default function RecipeFilters({ filterOptions }: RecipeFiltersProps) {
       // Reset to page 1 when filters change
       params.delete("page")
 
+      trackRecipeFilterApply({
+        filterType: key,
+        filterValue: value,
+        source: "recipe_filters",
+      })
+
       startTransition(() => {
-        router.push(`${pathname}?${params.toString()}`, { scroll: false })
+        const queryString = params.toString()
+        router.push(queryString ? `${pathname}?${queryString}` : pathname, {
+          scroll: false,
+        })
       })
     },
     [searchParams, pathname, router]
   )
 
   const clearAllFilters = useCallback(() => {
+    trackRecipeFilterApply({
+      filterType: "all",
+      filterValue: "",
+      source: "recipe_filters_clear",
+    })
+
     startTransition(() => {
       router.push(pathname, { scroll: false })
     })
   }, [pathname, router])
 
   return (
-    <div className="mb-8">
+    <div className="w-full md:w-auto">
       {/* Mobile filter toggle */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="md:hidden min-h-[44px] inline-flex items-center gap-2 text-Charcoal font-medium mb-4"
+        className="md:hidden min-h-[44px] inline-flex items-center gap-2 rounded-[5px] border border-Charcoal/15 bg-white px-4 text-Charcoal font-maison-neue font-semibold mb-4"
         aria-label={`${isOpen ? "Hide" : "Show"} recipe filters`}
       >
-        <svg
-          className="w-5 h-5"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
-          />
-        </svg>
+        <SlidersHorizontal className="w-5 h-5" aria-hidden="true" />
         Filters {hasActiveFilters && <span className="text-Gold">({[currentCategory, currentMethod, currentDifficulty, currentDietary].filter(Boolean).length})</span>}
       </button>
 
       {/* Filter panel */}
       <div className={`${isOpen ? "block" : "hidden"} md:block`}>
-        <div className="flex flex-wrap gap-4 items-end">
+        <div className="flex flex-wrap gap-3 items-end">
           {/* Category filter */}
           {filterOptions.categories.length > 0 && (
             <div className="flex flex-col gap-1">
-              <label className="text-sm font-medium text-Charcoal">Category</label>
+              <label className="text-p-sm font-maison-neue font-semibold text-Charcoal">Category</label>
               <select
                 value={currentCategory}
                 onChange={(e) => updateFilter("category", e.target.value)}
-                className="border border-gray-300 rounded-md px-3 py-2 text-sm min-w-[140px] focus:outline-none focus:ring-2 focus:ring-Gold"
+                className="h-[44px] border border-Charcoal/20 rounded-[5px] bg-white px-3 text-p-sm font-maison-neue text-Charcoal min-w-[160px] focus:outline-none focus:ring-2 focus:ring-Gold"
                 disabled={isPending}
               >
                 <option value="">All Categories</option>
@@ -108,11 +123,11 @@ export default function RecipeFilters({ filterOptions }: RecipeFiltersProps) {
           {/* Cooking Method filter */}
           {filterOptions.cookingMethods.length > 0 && (
             <div className="flex flex-col gap-1">
-              <label className="text-sm font-medium text-Charcoal">Cooking Method</label>
+              <label className="text-p-sm font-maison-neue font-semibold text-Charcoal">Cooking Method</label>
               <select
                 value={currentMethod}
                 onChange={(e) => updateFilter("method", e.target.value)}
-                className="border border-gray-300 rounded-md px-3 py-2 text-sm min-w-[140px] focus:outline-none focus:ring-2 focus:ring-Gold"
+                className="h-[44px] border border-Charcoal/20 rounded-[5px] bg-white px-3 text-p-sm font-maison-neue text-Charcoal min-w-[160px] focus:outline-none focus:ring-2 focus:ring-Gold"
                 disabled={isPending}
               >
                 <option value="">All Methods</option>
@@ -128,17 +143,17 @@ export default function RecipeFilters({ filterOptions }: RecipeFiltersProps) {
           {/* Difficulty filter */}
           {filterOptions.difficulties.length > 0 && (
             <div className="flex flex-col gap-1">
-              <label className="text-sm font-medium text-Charcoal">Difficulty</label>
+              <label className="text-p-sm font-maison-neue font-semibold text-Charcoal">Effort</label>
               <select
                 value={currentDifficulty}
                 onChange={(e) => updateFilter("difficulty", e.target.value)}
-                className="border border-gray-300 rounded-md px-3 py-2 text-sm min-w-[120px] focus:outline-none focus:ring-2 focus:ring-Gold"
+                className="h-[44px] border border-Charcoal/20 rounded-[5px] bg-white px-3 text-p-sm font-maison-neue text-Charcoal min-w-[140px] focus:outline-none focus:ring-2 focus:ring-Gold"
                 disabled={isPending}
               >
-                <option value="">All Levels</option>
+                <option value="">Any Effort</option>
                 {filterOptions.difficulties.map((diff) => (
                   <option key={diff} value={diff}>
-                    {diff}
+                    {formatDifficulty(diff)}
                   </option>
                 ))}
               </select>
@@ -148,11 +163,11 @@ export default function RecipeFilters({ filterOptions }: RecipeFiltersProps) {
           {/* Dietary Tags filter */}
           {filterOptions.dietaryTags.length > 0 && (
             <div className="flex flex-col gap-1">
-              <label className="text-sm font-medium text-Charcoal">Dietary</label>
+              <label className="text-p-sm font-maison-neue font-semibold text-Charcoal">Dietary</label>
               <select
                 value={currentDietary}
                 onChange={(e) => updateFilter("dietary", e.target.value)}
-                className="border border-gray-300 rounded-md px-3 py-2 text-sm min-w-[140px] focus:outline-none focus:ring-2 focus:ring-Gold"
+                className="h-[44px] border border-Charcoal/20 rounded-[5px] bg-white px-3 text-p-sm font-maison-neue text-Charcoal min-w-[160px] focus:outline-none focus:ring-2 focus:ring-Gold"
                 disabled={isPending}
               >
                 <option value="">All Dietary</option>
@@ -169,32 +184,18 @@ export default function RecipeFilters({ filterOptions }: RecipeFiltersProps) {
           {hasActiveFilters && (
             <button
               onClick={clearAllFilters}
-              className="text-sm text-Gold hover:text-Gold/80 underline"
+              className="min-h-[44px] inline-flex items-center gap-2 rounded-[5px] border border-Charcoal/15 bg-white px-4 text-p-sm font-maison-neue font-semibold text-Charcoal hover:border-Gold"
               disabled={isPending}
             >
+              <X className="h-4 w-4" aria-hidden="true" />
               Clear all
             </button>
           )}
 
           {/* Loading indicator */}
           {isPending && (
-            <div className="flex items-center gap-2 text-sm text-gray-500">
-              <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                  fill="none"
-                />
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                />
-              </svg>
+            <div className="flex min-h-[44px] items-center gap-2 text-p-sm font-maison-neue text-Charcoal/60">
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
               Filtering...
             </div>
           )}
@@ -207,4 +208,3 @@ export default function RecipeFilters({ filterOptions }: RecipeFiltersProps) {
 // extractFilterOptions / buildStrapiFilters live in
 // @modules/recipes/lib/filter-helpers so the server-side recipes route
 // can import them without crossing the "use client" boundary.
-

@@ -1,33 +1,32 @@
 import { Metadata } from "next"
 import { notFound } from "next/navigation"
 
-import strapiClient from "@lib/strapi"
-import { 
-  GetPaginatedRecipesQuery, 
-  GetFilteredRecipesQuery,
-  GetRecipeFilterOptionsQuery,
-} from "@lib/data/strapi/recipes"
 import RecipesCollection from "@modules/recipes/templates/recipes-collection"
+import { extractFilterOptions } from "@modules/recipes/lib/filter-helpers"
+import recipeHubData from "@modules/recipes/data/recipe-bucket-audit.generated.json"
 import {
-  extractFilterOptions,
-  buildStrapiFilters,
-} from "@modules/recipes/lib/filter-helpers"
+  applyRecipeRuntimeFilters,
+  sortRecipesForBucket,
+} from "@modules/recipes/lib/recipe-taxonomy"
 import { generateAlternates } from "@lib/util/seo"
 import { getBaseURL } from "@lib/util/env"
 
 type PageProps = {
   params: Promise<{ countryCode: string }>
-  searchParams: Promise<{ 
+  searchParams: Promise<{
     page?: string
     category?: string
     method?: string
     difficulty?: string
     dietary?: string
     q?: string
+    bucket?: string
   }>
 }
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: PageProps): Promise<Metadata> {
   const { countryCode } = await params
   const baseUrl = getBaseURL()
   const alternates = await generateAlternates("/recipes", countryCode)
@@ -56,6 +55,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 const DEFAULT_PAGE_SIZE = 9
 
+async function getAllRecipeCards() {
+  return recipeHubData.recipeCards || []
+}
+
 export default async function RecipesPage(props: PageProps) {
   const { countryCode } = await props.params
   const searchParams = await props.searchParams
@@ -69,40 +72,29 @@ export default async function RecipesPage(props: PageProps) {
     difficulty: searchParams.difficulty,
     dietary: searchParams.dietary,
     search: searchParams.q,
+    bucket: searchParams.bucket,
   }
 
-  const hasFilters = Object.values(filterParams).some(Boolean)
+  const hubRecipes = await getAllRecipeCards()
 
-  // Build Strapi filters if any filters are active
-  const strapiFilters = hasFilters ? buildStrapiFilters(filterParams) : undefined
-
-  // Fetch recipes with or without filters
-  let recipes_connection
-  if (strapiFilters) {
-    const result = await strapiClient.request<any>(
-      GetFilteredRecipesQuery,
-      { page, pageSize, filters: strapiFilters }
-    )
-    recipes_connection = result.recipes_connection
-  } else {
-    const result = await strapiClient.request<any>(
-      GetPaginatedRecipesQuery,
-      { page, pageSize }
-    )
-    recipes_connection = result.recipes_connection
-  }
-
-  // Fetch all recipes to extract filter options (only unique values)
-  const { recipes: allRecipes } = await strapiClient.request<any>(
-    GetRecipeFilterOptionsQuery
-  )
-  const filterOptions = extractFilterOptions(allRecipes || [])
-
-  if (!recipes_connection) {
+  if (!hubRecipes.length) {
     return notFound()
   }
 
-  const { nodes: recipes, pageInfo } = recipes_connection
+  const filteredRecipes = sortRecipesForBucket(
+    applyRecipeRuntimeFilters(hubRecipes, filterParams),
+    filterParams.bucket
+  )
+  const total = filteredRecipes.length
+  const pageCount = Math.max(1, Math.ceil(total / pageSize))
+  const recipes = filteredRecipes.slice((page - 1) * pageSize, page * pageSize)
+  const pageInfo = {
+    page,
+    pageSize,
+    pageCount,
+    total,
+  }
+  const filterOptions = extractFilterOptions(hubRecipes)
 
   return (
     <RecipesCollection
@@ -112,6 +104,7 @@ export default async function RecipesPage(props: PageProps) {
       countryCode={countryCode}
       filterOptions={filterOptions}
       currentFilters={filterParams}
+      hubRecipes={hubRecipes}
     />
   )
 }

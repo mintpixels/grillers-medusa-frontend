@@ -5,6 +5,8 @@ import NextImage from "next/image"
 import SocialShare from "@modules/common/components/social-share"
 import FavoriteButton from "@modules/recipes/components/favorite-button"
 import VideoEmbed from "@modules/common/components/video-embed"
+import { RecipeDetailAnalytics } from "@modules/recipes/components/recipe-analytics"
+import { trackRecipePrintOrSave } from "@lib/gtm"
 
 type Recipe = {
   Title: string
@@ -19,6 +21,7 @@ type Recipe = {
   Ingredients: { id: number; ingredient: string }[]
   Steps: { id: number; instruction: string }[]
   VideoUrl?: string
+  RecipeCategories?: { Name: string; Slug: string }[]
 }
 
 type RecipeTemplateProps = {
@@ -27,8 +30,19 @@ type RecipeTemplateProps = {
   isFavorited?: boolean
 }
 
-const PrintButton = () => {
+const PrintButton = ({
+  recipeSlug,
+  recipeTitle,
+}: {
+  recipeSlug: string
+  recipeTitle: string
+}) => {
   const handlePrint = () => {
+    trackRecipePrintOrSave({
+      action: "print",
+      recipeSlug,
+      recipeTitle,
+    })
     window.print()
   }
 
@@ -74,6 +88,11 @@ const RecipeTemplate = ({ recipe, isLoggedIn = false, isFavorited = false }: Rec
 
   return (
     <section className="py-10 md:py-16 bg-white text-Charcoal">
+      <RecipeDetailAnalytics
+        recipeSlug={Slug}
+        recipeTitle={Title}
+        categories={recipe.RecipeCategories?.map((category) => category.Name)}
+      />
       <div className="mx-auto max-w-4xl px-4 recipe-print-container">
         <article className="space-y-12">
           {/* Header */}
@@ -88,7 +107,7 @@ const RecipeTemplate = ({ recipe, isLoggedIn = false, isFavorited = false }: Rec
                   isLoggedIn={isLoggedIn}
                   variant="button"
                 />
-                <PrintButton />
+                <PrintButton recipeSlug={Slug} recipeTitle={Title} />
               </div>
             </div>
             <p className="mt-1 text-p-md font-maison-neue text-Charcoal/80">

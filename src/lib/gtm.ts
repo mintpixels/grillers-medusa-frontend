@@ -12,8 +12,16 @@ export function getGTMScripts(config: GTMConfig) {
   // Initialize dataLayer
   const dataLayerScript = `
     window.dataLayer = window.dataLayer || [];
-    ${dataLayer.length > 0 ? `window.dataLayer.push(${JSON.stringify(dataLayer)});` : ''}
-    ${debug ? 'console.log("GTM Debug Mode: dataLayer initialized", window.dataLayer);' : ''}
+    ${
+      dataLayer.length > 0
+        ? `window.dataLayer.push(${JSON.stringify(dataLayer)});`
+        : ""
+    }
+    ${
+      debug
+        ? 'console.log("GTM Debug Mode: dataLayer initialized", window.dataLayer);'
+        : ""
+    }
   `
 
   // GTM Head Script
@@ -37,22 +45,26 @@ export function getGTMScripts(config: GTMConfig) {
 
 // GTM Event helpers for ecommerce tracking
 export function pushToDataLayer(event: Record<string, any>) {
-  if (typeof window !== 'undefined' && window.dataLayer) {
+  if (typeof window !== "undefined" && window.dataLayer) {
     window.dataLayer.push(event)
   }
 }
 
 export function trackPageView(url: string) {
   pushToDataLayer({
-    event: 'page_view',
+    event: "page_view",
     page_location: url,
     page_title: document.title,
   })
 }
 
-export function trackAddToCart(product: any, quantity: number, titleOverride?: string) {
+export function trackAddToCart(
+  product: any,
+  quantity: number,
+  titleOverride?: string
+) {
   pushToDataLayer({
-    event: 'add_to_cart',
+    event: "add_to_cart",
     ecommerce: {
       items: [
         {
@@ -68,14 +80,16 @@ export function trackAddToCart(product: any, quantity: number, titleOverride?: s
 
 export function trackPurchase(order: any, titleMap?: Record<string, string>) {
   pushToDataLayer({
-    event: 'purchase',
+    event: "purchase",
     ecommerce: {
       transaction_id: order.id,
       value: order.total,
       currency: order.currency_code,
       items: order.items?.map((item: any) => ({
         item_id: item.product_id,
-        item_name: (titleMap && item.product_id && titleMap[item.product_id]) || item.title,
+        item_name:
+          (titleMap && item.product_id && titleMap[item.product_id]) ||
+          item.title,
         price: item.unit_price,
         quantity: item.quantity,
       })),
@@ -94,9 +108,9 @@ export function trackViewItem(product: {
   titleOverride?: string
 }) {
   pushToDataLayer({
-    event: 'view_item',
+    event: "view_item",
     ecommerce: {
-      currency: product.currency || 'USD',
+      currency: product.currency || "USD",
       value: product.price || 0,
       items: [
         {
@@ -121,9 +135,9 @@ export function trackRemoveFromCart(product: {
   titleOverride?: string
 }) {
   pushToDataLayer({
-    event: 'remove_from_cart',
+    event: "remove_from_cart",
     ecommerce: {
-      currency: product.currency || 'USD',
+      currency: product.currency || "USD",
       value: (product.price || 0) * product.quantity,
       items: [
         {
@@ -151,9 +165,9 @@ export function trackBeginCheckout(cart: {
   titleMap?: Record<string, string>
 }) {
   pushToDataLayer({
-    event: 'begin_checkout',
+    event: "begin_checkout",
     ecommerce: {
-      currency: cart.currency || 'USD',
+      currency: cart.currency || "USD",
       value: cart.total,
       items: cart.items.map((item) => ({
         item_id: item.id,
@@ -179,9 +193,9 @@ export function trackAddShippingInfo(cart: {
   titleMap?: Record<string, string>
 }) {
   pushToDataLayer({
-    event: 'add_shipping_info',
+    event: "add_shipping_info",
     ecommerce: {
-      currency: cart.currency || 'USD',
+      currency: cart.currency || "USD",
       value: cart.total,
       shipping_tier: cart.shippingTier,
       items: cart.items.map((item) => ({
@@ -208,9 +222,9 @@ export function trackAddPaymentInfo(cart: {
   titleMap?: Record<string, string>
 }) {
   pushToDataLayer({
-    event: 'add_payment_info',
+    event: "add_payment_info",
     ecommerce: {
-      currency: cart.currency || 'USD',
+      currency: cart.currency || "USD",
       value: cart.total,
       payment_type: cart.paymentType,
       items: cart.items.map((item) => ({
@@ -226,8 +240,83 @@ export function trackAddPaymentInfo(cart: {
 // Track search event
 export function trackSearch(searchTerm: string) {
   pushToDataLayer({
-    event: 'search',
+    event: "search",
     search_term: searchTerm,
+  })
+}
+
+export function trackRecipeHubView(params: {
+  totalRecipes?: number
+  activeSearch?: string
+  activeCategory?: string
+  activeDifficulty?: string
+  activeBucket?: string
+}) {
+  pushToDataLayer({
+    event: "view_recipe_hub",
+    recipe_total: params.totalRecipes,
+    active_search: params.activeSearch,
+    active_category: params.activeCategory,
+    active_difficulty: params.activeDifficulty,
+    active_bucket: params.activeBucket,
+  })
+}
+
+export function trackRecipeView(params: {
+  recipeSlug: string
+  recipeTitle: string
+  categories?: string[]
+}) {
+  pushToDataLayer({
+    event: "view_recipe",
+    recipe_slug: params.recipeSlug,
+    recipe_title: params.recipeTitle,
+    recipe_categories: params.categories,
+  })
+}
+
+export function trackRecipeFilterApply(params: {
+  filterType: string
+  filterValue?: string
+  source?: string
+}) {
+  pushToDataLayer({
+    event: "recipe_filter_apply",
+    filter_type: params.filterType,
+    filter_value: params.filterValue,
+    source: params.source,
+  })
+}
+
+export function trackRecipeClick(params: {
+  listName: string
+  recipe: {
+    id?: string
+    slug: string
+    title: string
+    position?: number
+  }
+}) {
+  pushToDataLayer({
+    event: "select_recipe",
+    item_list_name: params.listName,
+    recipe_id: params.recipe.id,
+    recipe_slug: params.recipe.slug,
+    recipe_title: params.recipe.title,
+    index: params.recipe.position,
+  })
+}
+
+export function trackRecipePrintOrSave(params: {
+  action: "print" | "save"
+  recipeSlug: string
+  recipeTitle: string
+}) {
+  pushToDataLayer({
+    event: "recipe_print_or_save",
+    action: params.action,
+    recipe_slug: params.recipeSlug,
+    recipe_title: params.recipeTitle,
   })
 }
 
@@ -243,7 +332,7 @@ export function trackViewItemList(params: {
   }>
 }) {
   pushToDataLayer({
-    event: 'view_item_list',
+    event: "view_item_list",
     ecommerce: {
       item_list_id: params.listId,
       item_list_name: params.listName,
@@ -269,7 +358,7 @@ export function trackSelectItem(params: {
   }
 }) {
   pushToDataLayer({
-    event: 'select_item',
+    event: "select_item",
     ecommerce: {
       item_list_id: params.listId,
       item_list_name: params.listName,
@@ -291,7 +380,3 @@ declare global {
     dataLayer: Record<string, any>[]
   }
 }
-
-
-
-
