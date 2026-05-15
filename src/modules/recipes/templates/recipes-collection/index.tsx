@@ -327,11 +327,11 @@ const RecipesCollection = ({
                 {resultLabel}
               </h2>
               {activeBucket?.description && (
-                <p className="mt-2 max-w-2xl text-p-md font-maison-neue text-Charcoal/70">
+                <p className="mt-2 max-w-2xl text-p-md font-maison-neue leading-relaxed text-Charcoal/72">
                   {activeBucket.description}
                 </p>
               )}
-              <p className="mt-2 text-p-md font-maison-neue text-Charcoal/65">
+              <p className="mt-4 inline-flex min-h-[32px] items-center rounded-full bg-white px-3 font-maison-neue-mono text-[11px] font-bold uppercase tracking-wide text-Charcoal/60 ring-1 ring-Charcoal/10">
                 {hasActiveFilters
                   ? `${total} recipes match the current search and filters.`
                   : `${total} recipe ideas are ready to browse.`}
