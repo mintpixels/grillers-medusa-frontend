@@ -8,15 +8,23 @@ import {
 } from "@lib/data/strapi/collections"
 import { enrichStrapiProductsWithMedusaPrices } from "@lib/data/products"
 import { sanitizeProductCopy } from "@lib/util/product-claims"
-import { formatProductPriceDisplay } from "@lib/util/price-display"
+import {
+  formatProductPriceDisplay,
+  type PriceDisplay,
+} from "@lib/util/price-display"
 import type { HttpTypes } from "@medusajs/types"
+
+type BundleLineDef = {
+  handle: string
+  quantity: number
+}
 
 type BundleDef = {
   id: string
   eyebrow: string
   title: string
   copy: string
-  handles: string[]
+  lines: BundleLineDef[]
 }
 
 const BUNDLES: BundleDef[] = [
@@ -24,58 +32,104 @@ const BUNDLES: BundleDef[] = [
     id: "cholent",
     eyebrow: "For the pot",
     title: "Build a cholent basket",
-    copy: "Hearty freezer staples that make the Thursday-night prep list shorter.",
-    handles: [
-      "kishke-16-oz-not-pareve-uncooked-not-kosher-for-passover",
-      "1-lb-pack-ground-beef-8020-100-grass-fed-all-natural-no-hormones-no-antibiotics-uncooked-not-kosher-for-passover-1399pack",
-      "beef-fat-1-lb-500lb",
-      "boneless-shank-meat-ideal-for-cholent-or-soup-1-lb-american-angus-uncooked-kosher-for-passover-1249lb",
-      "meaty-bones-for-soupstew-or-cholent-12-15-piecespack-2-lb-american-angus-uncooked-kosher-for-passover-699lb",
+    copy: "Family-scale freezer staples for a proper Shabbos pot.",
+    lines: [
+      {
+        handle: "kishke-16-oz-not-pareve-uncooked-not-kosher-for-passover",
+        quantity: 2,
+      },
+      {
+        handle:
+          "1-lb-pack-ground-beef-8020-100-grass-fed-all-natural-no-hormones-no-antibiotics-uncooked-not-kosher-for-passover-1399pack",
+        quantity: 2,
+      },
+      { handle: "beef-fat-1-lb-500lb", quantity: 1 },
+      {
+        handle:
+          "boneless-shank-meat-ideal-for-cholent-or-soup-1-lb-american-angus-uncooked-kosher-for-passover-1249lb",
+        quantity: 2,
+      },
+      {
+        handle:
+          "meaty-bones-for-soupstew-or-cholent-12-15-piecespack-2-lb-american-angus-uncooked-kosher-for-passover-699lb",
+        quantity: 2,
+      },
     ],
   },
   {
     id: "shabbos",
     eyebrow: "For Shabbos",
     title: "Stock the Shabbos table",
-    copy: "Reliable mains and sides for a full table without a second shopping trip.",
-    handles: [
-      "organic-chicken-8-piece-cutup-3-lb-uncooked-kosher-for-passover-882lb",
-      "8-piece-cutup-chicken-antibiotic-free-hormone-free-3-lb-uncooked-kosher-for-passover-vacuum-packed-kosher-for-passover-615lb",
-      "chicken-wings-david-elliot-chk-supervision-vacuum-packed-17-lb-kosher-for-passover-328lb",
+    copy: "Reliable mains for a full table without a second shopping trip.",
+    lines: [
+      {
+        handle:
+          "organic-chicken-8-piece-cutup-3-lb-uncooked-kosher-for-passover-882lb",
+        quantity: 1,
+      },
+      {
+        handle:
+          "8-piece-cutup-chicken-antibiotic-free-hormone-free-3-lb-uncooked-kosher-for-passover-vacuum-packed-kosher-for-passover-615lb",
+        quantity: 2,
+      },
+      {
+        handle:
+          "chicken-wings-david-elliot-chk-supervision-vacuum-packed-17-lb-kosher-for-passover-328lb",
+        quantity: 2,
+      },
     ],
   },
   {
     id: "grill",
     eyebrow: "For the grill",
     title: "Fire up the grill",
-    copy: "Crowd-friendly cuts and snacks that move from freezer to flame cleanly.",
-    handles: [
-      "grillers-pride-gourmet-beef-burger-patties-individually-packed-1x6-oz-uncooked-not-kosher-for-passover",
-      "marinated-ribeye-steaks-boneless-rich-and-tangy-uncooked-8-oz-dry-weight-not-kosher-for-passover",
-      "kosherbratz-classic-beef-and-lamb-grilling-sausages-no-nitrates-6-pcs-net-wt-24-oz-uncooked-not-kosher-for-passover",
+    copy: "Family cookout quantities, not one-person sampler portions.",
+    lines: [
+      {
+        handle:
+          "grillers-pride-gourmet-beef-burger-patties-4x6-oz-uncooked-not-kosher-for-passover",
+        quantity: 2,
+      },
+      {
+        handle:
+          "marinated-ribeye-steaks-boneless-rich-and-tangy-uncooked-8-oz-dry-weight-not-kosher-for-passover",
+        quantity: 4,
+      },
+      {
+        handle:
+          "kosherbratz-classic-beef-and-lamb-grilling-sausages-no-nitrates-6-pcs-net-wt-24-oz-uncooked-not-kosher-for-passover",
+        quantity: 2,
+      },
     ],
   },
 ]
 
-function productPrice(product: StrapiCollectionProduct): string {
+function productPriceDisplay(
+  product: StrapiCollectionProduct
+): PriceDisplay | null {
   const variant = product.MedusaProduct?.Variants?.[0]
   const price = variant?.Price?.CalculatedPriceNumber
-  if (typeof price !== "number") return ""
+  if (typeof price !== "number") return null
   return formatProductPriceDisplay(
     price,
     product.Metadata,
     variant?.Sku,
-    (product.MedusaProduct as { PricingMode?: "per_lb" | "fixed_price" } | undefined)
-      ?.PricingMode
-  ).primary
+    (
+      product.MedusaProduct as
+        | { PricingMode?: "per_lb" | "fixed_price" }
+        | undefined
+    )?.PricingMode
+  )
 }
 
-function itemTotal(product: StrapiCollectionProduct): number {
-  return product.MedusaProduct?.Variants?.[0]?.Price?.CalculatedPriceNumber ?? 0
+function lineTotal(product: StrapiCollectionProduct, quantity: number): number {
+  return (productPriceDisplay(product)?.estimatedPackPrice ?? 0) * quantity
 }
 
 function pickBundles(currentProduct: HttpTypes.StoreProduct): BundleDef[] {
-  const title = `${currentProduct.title || ""} ${currentProduct.handle || ""}`.toLowerCase()
+  const title = `${currentProduct.title || ""} ${
+    currentProduct.handle || ""
+  }`.toLowerCase()
   if (title.includes("kishke") || title.includes("cholent")) {
     return BUNDLES
   }
@@ -87,7 +141,11 @@ function pickBundles(currentProduct: HttpTypes.StoreProduct): BundleDef[] {
   ) {
     return [BUNDLES[2], BUNDLES[0], BUNDLES[1]]
   }
-  if (title.includes("chicken") || title.includes("wing") || title.includes("cutup")) {
+  if (
+    title.includes("chicken") ||
+    title.includes("wing") ||
+    title.includes("cutup")
+  ) {
     return [BUNDLES[1], BUNDLES[0], BUNDLES[2]]
   }
   return BUNDLES
@@ -101,9 +159,14 @@ export default async function PairsWellWith({
   countryCode: string
 }) {
   const orderedBundles = pickBundles(product)
-  const handles = Array.from(new Set(orderedBundles.flatMap((b) => b.handles)))
+  const handles = Array.from(
+    new Set(orderedBundles.flatMap((b) => b.lines.map((line) => line.handle)))
+  )
   const fetched = await getProductsByHandles(handles, strapiClient)
-  const enriched = await enrichStrapiProductsWithMedusaPrices(fetched, countryCode)
+  const enriched = await enrichStrapiProductsWithMedusaPrices(
+    fetched,
+    countryCode
+  )
   const byHandle = new Map(
     enriched.map((item) => [item.MedusaProduct?.Handle || "", item])
   )
@@ -112,13 +175,20 @@ export default async function PairsWellWith({
   const bundles = orderedBundles
     .map((bundle) => ({
       ...bundle,
-      products: bundle.handles
-        .map((handle) => byHandle.get(handle))
+      products: bundle.lines
+        .map((line) => ({
+          product: byHandle.get(line.handle),
+          quantity: line.quantity,
+        }))
         .filter(
-          (item): item is StrapiCollectionProduct =>
-            !!item && item.MedusaProduct?.Handle !== currentHandle
-        )
-        .slice(0, 3),
+          (
+            line
+          ): line is { product: StrapiCollectionProduct; quantity: number } =>
+            Boolean(
+              line.product &&
+                line.product.MedusaProduct?.Handle !== currentHandle
+            )
+        ),
     }))
     .filter((bundle) => bundle.products.length >= 2)
     .slice(0, 3)
@@ -147,12 +217,14 @@ export default async function PairsWellWith({
           {bundles.map((bundle) => {
             const items = bundle.products
               .map((item) => ({
-                variantId: item.MedusaProduct?.Variants?.[0]?.VariantId || "",
-                title: item.Title,
+                variantId:
+                  item.product.MedusaProduct?.Variants?.[0]?.VariantId || "",
+                title: item.product.Title,
+                quantity: item.quantity,
               }))
               .filter((item) => item.variantId)
             const total = bundle.products.reduce(
-              (sum, item) => sum + itemTotal(item),
+              (sum, item) => sum + lineTotal(item.product, item.quantity),
               0
             )
 
@@ -174,9 +246,9 @@ export default async function PairsWellWith({
                 </div>
 
                 <div className="flex flex-1 flex-col divide-y divide-Charcoal/10">
-                  {bundle.products.map((item) => {
+                  {bundle.products.map(({ product: item, quantity }) => {
                     const imageUrl = item.FeaturedImage?.url
-                    const price = productPrice(item)
+                    const price = productPriceDisplay(item)
                     const description = sanitizeProductCopy(
                       item.MedusaProduct?.ShortDescription,
                       {
@@ -203,13 +275,21 @@ export default async function PairsWellWith({
                           )}
                         </div>
                         <div className="min-w-0">
-                          <p className="line-clamp-2 font-maison-neue text-sm font-semibold leading-snug text-Charcoal">
-                            {item.Title}
-                          </p>
+                          <div className="flex min-w-0 items-start gap-2">
+                            {quantity > 1 && (
+                              <span className="mt-0.5 shrink-0 rounded-full bg-Gold/20 px-2 py-0.5 font-maison-neue-mono text-[10px] font-bold uppercase text-Charcoal">
+                                {quantity}x
+                              </span>
+                            )}
+                            <p className="line-clamp-2 font-maison-neue text-sm font-semibold leading-snug text-Charcoal">
+                              {item.Title}
+                            </p>
+                          </div>
                           <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
                             {price && (
                               <span className="font-maison-neue-mono text-[11px] font-bold uppercase text-Charcoal/70">
-                                {price}
+                                {price.primary}
+                                {price.primaryLabel && ` ${price.primaryLabel}`}
                               </span>
                             )}
                             {description && (
@@ -227,7 +307,7 @@ export default async function PairsWellWith({
                 <div className="border-t border-Charcoal/10 p-5">
                   <div className="mb-3 flex items-center justify-between gap-4">
                     <span className="font-maison-neue text-sm text-Charcoal/60">
-                      Bundle estimate
+                      Family estimate
                     </span>
                     <span className="font-gyst text-h4 leading-none text-Charcoal">
                       ${total.toFixed(2)}
