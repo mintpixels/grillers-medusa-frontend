@@ -107,7 +107,7 @@ export default function CookieConsentBanner({
                       ? "/page/privacy-policy"
                       : privacyLink.Url
                   }
-                  className="text-sm underline hover:opacity-80 mt-2 inline-block"
+                  className="min-h-[44px] inline-flex items-center text-sm underline hover:opacity-80 mt-2"
                   style={{ color: textColor }}
                 >
                   {privacyLink.Text}
@@ -225,4 +225,3 @@ export default function CookieConsentBanner({
     </div>
   )
 }
-

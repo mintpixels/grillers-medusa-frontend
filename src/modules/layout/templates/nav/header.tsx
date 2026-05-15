@@ -35,7 +35,11 @@ const Header = ({ navLinks, regions, phoneNumber, customer, navCounts }: HeaderP
         <MobileNavMenu navLinks={navLinks} navCounts={navCounts} />
 
         <div className="flex items-center gap-4">
-          <LocalizedClientLink href="/" data-testid="nav-store-link" className="flex items-center gap-2">
+          <LocalizedClientLink
+            href="/"
+            data-testid="nav-store-link"
+            className="min-h-[44px] flex items-center gap-2"
+          >
             <Image
               src={"/images/logos/logo-mobile.svg"}
               alt=""

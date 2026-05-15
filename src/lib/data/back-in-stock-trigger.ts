@@ -239,7 +239,7 @@ async function sendRestockEmail(
   req: StrapiBackInStockRequest
 ): Promise<boolean> {
   const productUrl = `${SITE_URL}/us/products/${encodeURIComponent(req.ProductHandle)}`
-  const unsubscribeUrl = `${SITE_URL}/api/back-in-stock/unsubscribe?token=${encodeURIComponent(req.UnsubscribeToken)}`
+  const unsubscribeUrl = `${SITE_URL}/api/back-in-stock/unsubscribe?t=${encodeURIComponent(req.UnsubscribeToken)}`
 
   const result = await sendTemplatedEmail({
     to: req.Email,

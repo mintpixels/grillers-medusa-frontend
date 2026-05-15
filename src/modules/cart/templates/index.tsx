@@ -44,7 +44,7 @@ const CartTemplate = ({
         <div className="mt-12">
           <LocalizedClientLink
             href="/store"
-            className="text-Gold hover:text-Gold/80 font-medium"
+            className="min-h-[44px] inline-flex items-center text-Gold hover:text-Gold/80 font-medium"
           >
             ← Continue shopping
           </LocalizedClientLink>

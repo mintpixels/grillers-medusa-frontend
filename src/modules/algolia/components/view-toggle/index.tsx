@@ -15,7 +15,7 @@ const ViewToggle = ({ viewMode, onViewModeChange }: ViewToggleProps) => {
       <button
         onClick={() => onViewModeChange("grid")}
         className={clsx(
-          "flex items-center justify-center w-10 h-10 rounded-md transition-all",
+          "flex items-center justify-center w-11 h-11 rounded-md transition-all",
           viewMode === "grid"
             ? "bg-white text-Charcoal shadow-sm"
             : "text-gray-500 hover:text-Charcoal"
@@ -39,7 +39,7 @@ const ViewToggle = ({ viewMode, onViewModeChange }: ViewToggleProps) => {
       <button
         onClick={() => onViewModeChange("list")}
         className={clsx(
-          "flex items-center justify-center w-10 h-10 rounded-md transition-all",
+          "flex items-center justify-center w-11 h-11 rounded-md transition-all",
           viewMode === "list"
             ? "bg-white text-Charcoal shadow-sm"
             : "text-gray-500 hover:text-Charcoal"

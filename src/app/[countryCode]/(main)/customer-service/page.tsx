@@ -43,7 +43,7 @@ export default async function CustomerServicePage() {
               <dd>
                 <a
                   href={`tel:${phoneDigits}`}
-                  className="text-Charcoal font-semibold hover:text-Gold"
+                  className="min-h-[44px] inline-flex items-center text-Charcoal font-semibold hover:text-Gold"
                 >
                   {data.ContactPhone}
                 </a>
@@ -56,7 +56,7 @@ export default async function CustomerServicePage() {
               <dd>
                 <a
                   href={`mailto:${data.ContactEmail}`}
-                  className="text-Charcoal font-semibold hover:text-Gold break-all"
+                  className="min-h-[44px] inline-flex items-center text-Charcoal font-semibold hover:text-Gold break-all"
                 >
                   {data.ContactEmail}
                 </a>
@@ -117,7 +117,7 @@ export default async function CustomerServicePage() {
             <li>
               <LocalizedClientLink
                 href="/page/privacy-policy"
-                className="text-Gold hover:text-Gold/80 underline"
+                className="min-h-[44px] inline-flex items-center text-Gold hover:text-Gold/80 underline"
               >
                 Privacy Policy
               </LocalizedClientLink>
@@ -125,7 +125,7 @@ export default async function CustomerServicePage() {
             <li>
               <LocalizedClientLink
                 href="/page/terms-of-sale"
-                className="text-Gold hover:text-Gold/80 underline"
+                className="min-h-[44px] inline-flex items-center text-Gold hover:text-Gold/80 underline"
               >
                 Terms of Sale
               </LocalizedClientLink>
@@ -133,7 +133,7 @@ export default async function CustomerServicePage() {
             <li>
               <LocalizedClientLink
                 href="/page/terms-of-use"
-                className="text-Gold hover:text-Gold/80 underline"
+                className="min-h-[44px] inline-flex items-center text-Gold hover:text-Gold/80 underline"
               >
                 Terms of Use
               </LocalizedClientLink>

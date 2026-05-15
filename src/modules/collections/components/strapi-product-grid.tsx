@@ -335,7 +335,7 @@ export function ProductCard({ product, countryCode, viewMode = "grid" }: { produ
          height so all cards in the same row have aligned title blocks. */}
       <LocalizedClientLink
         href={`/products/${product?.MedusaProduct?.Handle}`}
-        className="block min-w-0 mt-3"
+        className="block min-w-0 min-h-[44px] mt-3"
       >
         <h2
           data-card-title

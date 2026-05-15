@@ -199,7 +199,7 @@ export default async function Footer() {
       <footer className="bg-Charcoal text-white w-full">
         <div className="content-container py-12">
           <div className="flex flex-col items-center gap-y-6">
-            <Link href="/" className="inline-block">
+            <Link href="/" className="inline-flex min-h-[44px] items-center">
               <Image
                 src="/images/logos/logo-horizontal.svg"
                 alt="Grillers Pride"
@@ -267,7 +267,7 @@ export default async function Footer() {
             {/* Logo, Contact & Social Column */}
             <div className="lg:col-span-4 flex flex-col gap-y-6">
               {/* Logo */}
-              <Link href="/" className="inline-block w-fit">
+              <Link href="/" className="inline-flex min-h-[44px] w-fit items-center">
                 <Image
                   src="/images/logos/logo-horizontal.svg"
                   alt="Grillers Pride"
@@ -283,7 +283,7 @@ export default async function Footer() {
                   {footer.ContactPhone && (
                     <a
                       href={`tel:${footer.ContactPhone.replace(/\D/g, "")}`}
-                      className="text-p-md text-Pewter hover:text-Gold transition-colors flex items-center gap-2"
+                      className="min-h-[44px] text-p-md text-Pewter hover:text-Gold transition-colors flex items-center gap-2"
                     >
                       <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
                         <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/>
@@ -294,7 +294,7 @@ export default async function Footer() {
                   {footer.ContactEmail && (
                     <a
                       href={`mailto:${footer.ContactEmail}`}
-                      className="text-p-md text-Pewter hover:text-Gold transition-colors flex items-center gap-2"
+                      className="min-h-[44px] text-p-md text-Pewter hover:text-Gold transition-colors flex items-center gap-2"
                     >
                       <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
                         <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
@@ -355,7 +355,7 @@ export default async function Footer() {
                             <li key={link.id}>
                               <LocalizedClientLink
                                 href={link.Url}
-                                className="text-p-sm text-Pewter hover:text-Gold transition-colors"
+                                className="min-h-[44px] inline-flex items-center text-p-sm text-Pewter hover:text-Gold transition-colors"
                               >
                                 {link.Text}
                               </LocalizedClientLink>
@@ -409,7 +409,7 @@ export default async function Footer() {
                     <li key={link.id}>
                       <LocalizedClientLink
                         href={link.Url}
-                        className="text-p-ex-sm-mono text-Pewter/60 hover:text-Gold transition-colors"
+                        className="min-h-[44px] inline-flex items-center text-p-ex-sm-mono text-Pewter/60 hover:text-Gold transition-colors"
                       >
                         {link.Text}
                       </LocalizedClientLink>

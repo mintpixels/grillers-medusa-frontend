@@ -1,54 +1,58 @@
 import { NextResponse } from "next/server"
-import { sendReviewAcquisitionEmail } from "@lib/data/review-acquisition"
+import {
+  type ReviewAskKind,
+  sendReviewAcquisitionEmail,
+} from "@lib/data/review-acquisition"
 
 /**
  * Daily cron for the review-acquisition flow (#96).
  *
- * Schedule: every day at 10:00 ET via `vercel.json` (or `vercel.ts`)
- * cron config. The handler walks recently-delivered orders in
- * Medusa, classifies the customer (first-time vs repeat,
- * Atlanta-area vs national), and fires the Postmark
- * `review-acquisition` template for each one that's both eligible
- * and not suppressed.
- *
- * Trigger windows (per `analysis/customer-reviews-synthesis-2026-05-06.md`):
- *   - First-time customer: 7 days after delivery
- *   - Repeat customer (2+ orders): 30 days after delivery
- *   - Atlanta-zip customer: extra Yelp ask 30 days after the
- *     Google ask
- *
- * Suppression (not asked):
- *   - Already left a Google review (deferred — needs GMB read)
- *   - Wholesale / B2B (Medusa customer.metadata.account_type)
- *   - On the manual block list (Strapi follow-up)
- *
- * Auth: gated by `CRON_SECRET` header (Vercel sets `Authorization:
- * Bearer ${CRON_SECRET}` on scheduled invocations). Manual triggers
- * must include the same header.
- *
- * This route is intentionally idempotent at the day-level: re-running
- * for the same day won't duplicate sends because the lookup window is
- * `delivered_at = today - {7|30} days` ± 1 hour. If the same order
- * crosses both the 7-day and 37-day boundaries on the same day,
- * suppression handles it.
+ * The route is intentionally conservative: it only sends when an
+ * order has a `metadata.delivered_at` timestamp and the customer has
+ * not already received the matching platform ask.
  */
 
 const CRON_SECRET = process.env.CRON_SECRET
-const MEDUSA_BACKEND_URL = process.env.MEDUSA_BACKEND_URL || ""
+const MEDUSA_BACKEND_URL = (process.env.MEDUSA_BACKEND_URL || "").replace(
+  /\/+$/,
+  ""
+)
 const ADMIN_TOKEN = process.env.MEDUSA_ADMIN_API_TOKEN
+const STRAPI_BASE = (process.env.STRAPI_ENDPOINT || "").replace(/\/+$/, "")
+const STRAPI_API_TOKEN = process.env.STRAPI_API_TOKEN
 
 const ATLANTA_ZIP_PREFIX = "30"
+const GOOGLE_FIRST_TIME_DAYS = 7
+const GOOGLE_REPEAT_DAYS = 30
+const YELP_FOLLOWUP_DAYS_AFTER_GOOGLE = 30
+
+type ReviewMetadata = Record<string, unknown> & {
+  account_type?: string
+  review_ask_sent_google_at?: string
+  review_ask_sent_yelp_at?: string
+  review_request_sent_at?: string
+  support_ticket_at?: string
+  refund_requested_at?: string
+  known_issue_at?: string
+}
 
 type DeliveredOrder = {
   id: string
   email?: string
   customer_id?: string
-  shipping_address?: { postal_code?: string; first_name?: string }
-  // Custom metadata set by the order-delivery workflow.
-  metadata?: {
+  customer?: {
+    id?: string
+    email?: string
+    first_name?: string
+    metadata?: ReviewMetadata
+  } | null
+  shipping_address?: {
+    postal_code?: string
+    first_name?: string
+  }
+  metadata?: ReviewMetadata & {
     delivered_at?: string
     order_count_at_time_of_purchase?: number
-    review_request_sent_at?: string
   }
   items?: Array<{ title?: string }>
 }
@@ -62,8 +66,29 @@ function withinDayOf(timestamp: string | undefined, daysAgo: number): boolean {
   return Math.abs(t - target) <= halfDay
 }
 
+function olderThanDays(timestamp: string | undefined, days: number): boolean {
+  if (!timestamp) return false
+  const t = new Date(timestamp).getTime()
+  if (!Number.isFinite(t)) return false
+  return Date.now() - t >= days * 24 * 60 * 60 * 1000
+}
+
 function isAtlantaZip(zip: string | undefined): boolean {
   return !!zip && zip.startsWith(ATLANTA_ZIP_PREFIX)
+}
+
+function isB2B(metadata?: ReviewMetadata): boolean {
+  const accountType = String(metadata?.account_type || "").toLowerCase()
+  return accountType.includes("wholesale") || accountType.includes("b2b")
+}
+
+function hasRecentBadSignal(order: DeliveredOrder): boolean {
+  const meta = order.metadata || {}
+  return !!(
+    meta.support_ticket_at ||
+    meta.refund_requested_at ||
+    meta.known_issue_at
+  )
 }
 
 function asOrderSummary(order: DeliveredOrder): string {
@@ -71,9 +96,9 @@ function asOrderSummary(order: DeliveredOrder): string {
     .map((i) => i.title)
     .filter((t): t is string => !!t)
     .slice(0, 2)
-  if (titles.length === 0) return ""
+  if (titles.length === 0) return "your recent order"
   if (titles.length === 1) return `your ${titles[0]} order`
-  return `your ${titles[0]} (and ${titles.length - 1} more) order`
+  return `your ${titles[0]} and ${titles.length - 1} more item order`
 }
 
 async function fetchRecentlyDelivered(): Promise<DeliveredOrder[]> {
@@ -83,9 +108,20 @@ async function fetchRecentlyDelivered(): Promise<DeliveredOrder[]> {
     )
     return []
   }
-  // Look back 60 days so both the 7-day and 30-day windows are covered.
-  const cutoff = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString()
-  const url = `${MEDUSA_BACKEND_URL.replace(/\/+$/, "")}/admin/orders?fields=id,email,customer_id,shipping_address.*,metadata,items.title&limit=500&created_at[$gte]=${encodeURIComponent(cutoff)}`
+  const cutoff = new Date(Date.now() - 75 * 24 * 60 * 60 * 1000).toISOString()
+  const fields = [
+    "id",
+    "email",
+    "customer_id",
+    "customer.*",
+    "shipping_address.*",
+    "metadata",
+    "items.title",
+  ].join(",")
+  const url =
+    `${MEDUSA_BACKEND_URL}/admin/orders?limit=500` +
+    `&fields=${encodeURIComponent(fields)}` +
+    `&created_at[$gte]=${encodeURIComponent(cutoff)}`
   try {
     const res = await fetch(url, {
       headers: { Authorization: `Bearer ${ADMIN_TOKEN}` },
@@ -106,80 +142,212 @@ async function fetchRecentlyDelivered(): Promise<DeliveredOrder[]> {
   }
 }
 
+async function isSuppressed(email: string): Promise<boolean> {
+  if (!STRAPI_BASE) return false
+  try {
+    const params = new URLSearchParams({
+      "filters[Email][$eqi]": email.toLowerCase(),
+      "filters[Type][$eq]": "reviews",
+      "pagination[limit]": "1",
+    })
+    const res = await fetch(`${STRAPI_BASE}/api/email-suppressions?${params}`, {
+      headers: STRAPI_API_TOKEN
+        ? { Authorization: `Bearer ${STRAPI_API_TOKEN}` }
+        : {},
+      cache: "no-store",
+    })
+    if (!res.ok) return false
+    const json = (await res.json()) as { data?: unknown[] }
+    return Array.isArray(json.data) && json.data.length > 0
+  } catch (err) {
+    console.error("[cron/review-acquisition] suppression lookup threw", err)
+    return false
+  }
+}
+
+async function medusaAdminJson(
+  path: string,
+  body: Record<string, unknown>
+): Promise<boolean> {
+  if (!MEDUSA_BACKEND_URL || !ADMIN_TOKEN) return false
+  try {
+    const res = await fetch(`${MEDUSA_BACKEND_URL}${path}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${ADMIN_TOKEN}`,
+      },
+      body: JSON.stringify(body),
+      cache: "no-store",
+    })
+    if (!res.ok) {
+      console.error("[cron/review-acquisition] metadata update failed", {
+        path,
+        status: res.status,
+      })
+    }
+    return res.ok
+  } catch (err) {
+    console.error("[cron/review-acquisition] metadata update threw", err)
+    return false
+  }
+}
+
+async function recordOrderMetadata(
+  order: DeliveredOrder,
+  metadata: ReviewMetadata
+): Promise<void> {
+  const next = { ...(order.metadata || {}), ...metadata }
+  const ok = await medusaAdminJson(`/admin/orders/${order.id}`, {
+    metadata: next,
+  })
+  if (!ok) {
+    await medusaAdminJson(`/admin/orders/${order.id}/metadata`, {
+      metadata: next,
+    })
+  }
+}
+
+async function recordCustomerMetadata(
+  order: DeliveredOrder,
+  metadata: ReviewMetadata
+): Promise<void> {
+  const customerId = order.customer?.id || order.customer_id
+  if (!customerId) return
+  const next = { ...(order.customer?.metadata || {}), ...metadata }
+  await medusaAdminJson(`/admin/customers/${customerId}`, {
+    metadata: next,
+  })
+}
+
+async function recordAskSent(
+  order: DeliveredOrder,
+  metadata: ReviewMetadata
+): Promise<void> {
+  await Promise.all([
+    recordOrderMetadata(order, metadata),
+    recordCustomerMetadata(order, metadata),
+  ])
+}
+
+function getEmail(order: DeliveredOrder): string {
+  return (order.email || order.customer?.email || "").trim().toLowerCase()
+}
+
+function getFirstName(order: DeliveredOrder): string | undefined {
+  return order.shipping_address?.first_name || order.customer?.first_name
+}
+
+function googleSentAt(order: DeliveredOrder): string | undefined {
+  return (
+    order.customer?.metadata?.review_ask_sent_google_at ||
+    order.metadata?.review_ask_sent_google_at ||
+    order.metadata?.review_request_sent_at
+  )
+}
+
+function yelpSentAt(order: DeliveredOrder): string | undefined {
+  return (
+    order.customer?.metadata?.review_ask_sent_yelp_at ||
+    order.metadata?.review_ask_sent_yelp_at
+  )
+}
+
+async function trySendAsk(
+  order: DeliveredOrder,
+  kind: ReviewAskKind
+): Promise<boolean> {
+  const result = await sendReviewAcquisitionEmail({
+    email: getEmail(order),
+    firstName: getFirstName(order),
+    orderId: order.id,
+    orderSummary: asOrderSummary(order),
+    kind,
+  })
+  if (!result.ok) return false
+
+  const now = new Date().toISOString()
+  if (kind === "yelp_atlanta_followup") {
+    await recordAskSent(order, { review_ask_sent_yelp_at: now })
+  } else {
+    await recordAskSent(order, {
+      review_ask_sent_google_at: now,
+      review_request_sent_at: now,
+    })
+  }
+  return true
+}
+
 export async function POST(req: Request): Promise<Response> {
   const auth = req.headers.get("authorization") || ""
-  // Fail closed — reject when `CRON_SECRET` is unset OR mismatched.
-  // The previous condition (`CRON_SECRET && auth !== ...`) silently
-  // made the cron public when the env var was missing (Codex review).
   if (!CRON_SECRET || auth !== `Bearer ${CRON_SECRET}`) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 })
   }
 
   const orders = await fetchRecentlyDelivered()
-  let sent = 0
-  let skipped = 0
+  const summary = {
+    scanned: orders.length,
+    sentGoogle: 0,
+    sentYelp: 0,
+    skipped: 0,
+  }
+
   for (const order of orders) {
+    const email = getEmail(order)
     const delivered = order.metadata?.delivered_at
     const repeat =
       (order.metadata?.order_count_at_time_of_purchase ?? 1) > 1
-    const eligibleDay = repeat
-      ? withinDayOf(delivered, 30)
-      : withinDayOf(delivered, 7)
-    if (!eligibleDay) {
-      skipped++
+    const customerMetadata = order.customer?.metadata || {}
+
+    if (
+      !email ||
+      !delivered ||
+      isB2B(customerMetadata) ||
+      hasRecentBadSignal(order) ||
+      (await isSuppressed(email))
+    ) {
+      summary.skipped++
       continue
     }
-    if (order.metadata?.review_request_sent_at) {
-      skipped++
+
+    const googleAt = googleSentAt(order)
+    const yelpAt = yelpSentAt(order)
+    const atlanta = isAtlantaZip(order.shipping_address?.postal_code)
+
+    if (
+      atlanta &&
+      googleAt &&
+      !yelpAt &&
+      olderThanDays(googleAt, YELP_FOLLOWUP_DAYS_AFTER_GOOGLE)
+    ) {
+      const sent = await trySendAsk(order, "yelp_atlanta_followup")
+      if (sent) summary.sentYelp++
+      else summary.skipped++
       continue
     }
-    if (!order.email) {
-      skipped++
+
+    if (googleAt) {
+      summary.skipped++
       continue
     }
-    const result = await sendReviewAcquisitionEmail({
-      email: order.email,
-      firstName: order.shipping_address?.first_name,
-      orderId: order.id,
-      orderSummary: asOrderSummary(order),
-      includeYelp: isAtlantaZip(order.shipping_address?.postal_code),
-    })
-    if (result.ok) {
-      sent++
-      // Best-effort: write back metadata so we don't re-send. Failure
-      // here means at most one duplicate send per order — preferable
-      // to a silent skip.
-      try {
-        await fetch(
-          `${MEDUSA_BACKEND_URL.replace(/\/+$/, "")}/admin/orders/${order.id}/metadata`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${ADMIN_TOKEN}`,
-            },
-            body: JSON.stringify({
-              metadata: {
-                review_request_sent_at: new Date().toISOString(),
-              },
-            }),
-          }
-        )
-      } catch {
-        // logged elsewhere; not fatal
-      }
-    } else {
-      skipped++
+
+    const googleEligible = repeat
+      ? withinDayOf(delivered, GOOGLE_REPEAT_DAYS)
+      : withinDayOf(delivered, GOOGLE_FIRST_TIME_DAYS)
+    if (!googleEligible) {
+      summary.skipped++
+      continue
     }
+
+    const sent = await trySendAsk(
+      order,
+      repeat ? "google_repeat" : "google_first_time"
+    )
+    if (sent) summary.sentGoogle++
+    else summary.skipped++
   }
-  return NextResponse.json({
-    ok: true,
-    scanned: orders.length,
-    sent,
-    skipped,
-  })
+
+  return NextResponse.json({ ok: true, ...summary })
 }
 
-// Also accept GET so a human can poke the endpoint and read the
-// last-run summary. Auth gate still applies.
 export const GET = POST

@@ -180,6 +180,7 @@ export async function requestBackInStockNotification(input: {
     templateAlias: "back-in-stock-confirm",
     templateModel: {
       product_title: input.productTitle,
+      product_handle: input.productHandle,
       product_url: productUrl,
       unsubscribe_url: unsubscribeUrl,
     },

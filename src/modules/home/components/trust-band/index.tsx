@@ -25,7 +25,10 @@ const Pill: React.FC<{
     "flex items-center gap-2.5 text-Charcoal text-p-sm font-maison-neue leading-snug"
   if (href) {
     return (
-      <a href={href} className={`${className} hover:text-Gold transition-colors`}>
+      <a
+        href={href}
+        className={`min-h-[44px] ${className} hover:text-Gold transition-colors`}
+      >
         <span aria-hidden="true" className="shrink-0 text-Gold">
           {icon}
         </span>
