@@ -49,17 +49,15 @@ export type LearnArticle = {
 }
 
 const assets = {
-  butcher:
-    "https://helpful-nature-fab70f9c51.media.strapiapp.com/howitworks_card_1_40c3310173.jpg",
-  order:
-    "https://helpful-nature-fab70f9c51.media.strapiapp.com/howitworks_order_fa3561917c.jpg",
-  coldPack:
-    "https://helpful-nature-fab70f9c51.media.strapiapp.com/howitworks_card_2_75728aa519.jpg",
-  beef: "https://helpful-nature-fab70f9c51.media.strapiapp.com/1_01_32_3_primary_5ab9386222.jpg",
-  lamb: "https://helpful-nature-fab70f9c51.media.strapiapp.com/3_01_12_1_primary_c58f64bb16.jpg",
-  poultry:
-    "https://helpful-nature-fab70f9c51.media.strapiapp.com/6_61_02_1_primary_e1cb3ef646.jpg",
-  veal: "https://helpful-nature-fab70f9c51.media.strapiapp.com/slow_braised_veal_with_onions_and_carrots_2_01_12_1_d860ac0006.jpg",
+  butcher: "/images/learn/butcher-guide-hero.jpg",
+  order: "/images/learn/order-planning.jpg",
+  coldPack: "/images/learn/cold-chain.jpg",
+  cutLibrary: "/images/learn/cut-library-hero.jpg",
+  beef: "/images/learn/cut-library-beef.jpg",
+  lamb: "/images/learn/cut-library-lamb.jpg",
+  poultry: "/images/learn/cut-library-poultry.jpg",
+  veal: "/images/learn/cut-library-veal.jpg",
+  specialty: "/images/learn/cut-library-specialty.jpg",
 }
 
 const foodSafetySources: LearnArticleLink[] = [
@@ -104,7 +102,7 @@ export const learnArticles: LearnArticle[] = [
         id: "product-page",
         heading: "Start with the product page",
         body: [
-          "The product page should answer the first four questions before anyone has to call: what the item is, whether it is raw or prepared, how it is packed, and what kosher or Passover details apply.",
+          "The product page should answer the first four questions clearly: what the item is, whether it is raw or prepared, how it is packed, and what kosher or Passover details apply.",
           "For a raw single-ingredient cut, the main shopping questions are usually cut, weight, fat, cooking method, and occasion. For a prepared item, the ingredient list matters more because seasoning, sauces, fillings, casings, and processing steps can change the answer for a specific household.",
         ],
         bullets: [
@@ -160,8 +158,8 @@ export const learnArticles: LearnArticle[] = [
         id: "label-enough",
         heading: "When the label is enough and when it is not",
         body: [
-          "Most shopping decisions can be handled by a clear product page and label. A customer choosing between brisket cuts, lamb chops, chicken thighs, or stew meat should not need a call just to understand the cut.",
-          "A call is still appropriate for a very specific family standard, a time-sensitive Passover question, a substitution on an order, or a question that depends on a product lot. The goal of the guide is to reduce routine calls, not hide the path to a human answer when the details matter.",
+          "Most shopping decisions can be handled by a clear product page and label. A customer choosing between brisket cuts, lamb chops, chicken thighs, or stew meat should be able to understand the cut, the package, and the best use without guesswork.",
+          "Direct help is still appropriate for a very specific family standard, a time-sensitive Passover question, a substitution on an order, or a question that depends on a product lot. The guide should make routine learning easy while keeping a clear path to a human answer when the details matter.",
         ],
         callout:
           "Kashrut claims should be reviewed by Grillers Pride leadership and the appropriate kashrut authority before publication. This guide is customer education, not a replacement for item-level certification.",
@@ -182,12 +180,12 @@ export const learnArticles: LearnArticle[] = [
       {
         question: "What should I do if I only need cooking advice?",
         answer:
-          "Use the cut library and cooking guides first. They are designed to answer portion size, method, substitution, and timing questions before you need to call.",
+          "Use the cut library and cooking guides for portion size, method, substitution, and timing questions. For item-level kashrut or order-specific details, use the contact path on the relevant page.",
       },
     ],
     primaryCta: {
       label: "Explore the cut library",
-      href: "/learn/cuts/beef",
+      href: "/learn/cuts",
       event: "view_cut_guide",
     },
     secondaryCta: {
@@ -196,7 +194,7 @@ export const learnArticles: LearnArticle[] = [
       event: "view_kashruth_guide",
     },
     related: [
-      { label: "Beef cut guide", href: "/learn/cuts/beef" },
+      { label: "Complete cut library", href: "/learn/cuts" },
       {
         label: "Frozen delivery and thawing",
         href: "/learn/guides/thawing-frozen-kosher-meat",
@@ -204,6 +202,316 @@ export const learnArticles: LearnArticle[] = [
       {
         label: "Build a Shabbos meat order",
         href: "/learn/guides/shabbos-meat-order",
+      },
+    ],
+  },
+  {
+    slug: "cuts",
+    category: "Cut Library",
+    title: "Complete Kosher Butcher Counter Cut Library",
+    metaTitle:
+      "Complete Kosher Cut Library | Beef, Lamb, Veal, Poultry, Specialty",
+    description:
+      "A complete kosher butcher counter guide to beef, lamb, veal, poultry, and prepared specialty cuts, with practical cooking methods, serving uses, substitutions, and kashrut notes.",
+    updated: "May 15, 2026",
+    readTime: "12 min read",
+    heroImage: assets.cutLibrary,
+    heroAlt:
+      "Kosher butcher counter assortment with beef, lamb, poultry, veal, and specialty items on clean butcher paper.",
+    quickAnswer:
+      "Start with the job at the table, then choose the animal and cut family. Fast lean cuts need precision, rich connective cuts need time, poultry dark meat gives forgiveness, and prepared specialties need ingredient and label review.",
+    facts: [
+      {
+        label: "Covers",
+        value: "Beef, lamb, veal, poultry, and specialty items",
+      },
+      {
+        label: "Best use",
+        value: "Choosing a cut by occasion and cooking method",
+      },
+      {
+        label: "Kashrut note",
+        value: "Use product labels for item-level status",
+      },
+    ],
+    sections: [
+      {
+        id: "how-to-use",
+        heading: "How to use the cut library",
+        body: [
+          "A butcher counter can feel overwhelming because the same animal may offer quick cuts, slow cuts, holiday centerpieces, freezer builders, soup builders, and prepared specialties. The cleanest way to choose is by the job you need the cut to do.",
+          "Use this page as the map, then open the family guide when you want more detail. Each family guide goes deeper on texture, cooking method, common mistakes, substitutions, and related products.",
+        ],
+        bullets: [
+          "Choose fast cuts for weeknight cooking, schnitzel, grilling, or searing.",
+          "Choose slow cuts for Shabbos lunch, cholent, braises, roasts, soups, and make-ahead meals.",
+          "Choose portioned cuts when serving needs to be predictable.",
+          "Choose prepared specialties when the ingredient list, certification, serving style, and storage details fit the meal.",
+        ],
+      },
+      {
+        id: "beef",
+        heading: "Beef cuts at the counter",
+        body: [
+          "Beef has the widest spread between lean quick cuts and rich slow cuts. That is why it creates both excitement and hesitation. Brisket, deckel, flanken, cheek, stew meat, and bones reward patience. London broil, minute steak, skirt, hanger, oyster steak, ribeye-style cuts, and burgers need heat control and clean slicing.",
+          "When in doubt, decide whether the meal needs neat slices, saucy tenderness, grill flavor, soup body, cholent richness, or a fast weeknight protein.",
+        ],
+        table: {
+          columns: ["Cut", "Best use", "What to know"],
+          rows: [
+            [
+              "Brisket first cut",
+              "Neat holiday slices",
+              "Leaner, needs moisture and gentle reheating",
+            ],
+            [
+              "Deckel",
+              "Rich braises and Shabbos mains",
+              "More forgiving, softer texture, less tidy slicing",
+            ],
+            [
+              "Whole brisket",
+              "Large tables and leftovers",
+              "Both lean and rich sections in one cook",
+            ],
+            [
+              "Corned brisket",
+              "Deli-style serving",
+              "Prepared item, so check ingredients and Passover status",
+            ],
+            [
+              "Flanken and short ribs",
+              "Cholent, soup, braise, grill",
+              "Bone, fat, and deep flavor",
+            ],
+            [
+              "London broil",
+              "Hot sear or broil",
+              "Lean and firm, slice thin across the grain",
+            ],
+            [
+              "Minute steak",
+              "Fast pan cooking",
+              "Thin and lean, easy to overcook",
+            ],
+            [
+              "Skirt, hanger, oyster steak",
+              "High-heat grilling or searing",
+              "Big flavor, needs correct slicing",
+            ],
+            [
+              "Cheek, stew meat, soup bones",
+              "Braises, soups, sauces, cholent",
+              "Flavor builders for long cooking",
+            ],
+            [
+              "Ground beef",
+              "Burgers, meatballs, sauces, stuffed vegetables",
+              "Flexible and freezer friendly",
+            ],
+          ],
+        },
+        callout:
+          "Open the beef guide when you want a deeper comparison of brisket, deckel, flanken, London broil, skirt, hanger, oyster steak, cheek, bones, and ground beef.",
+      },
+      {
+        id: "lamb",
+        heading: "Lamb cuts at the counter",
+        body: [
+          "Lamb reads as special, but the decision is simple. Rack, chops, and lollipop cuts are fast presentation cuts. Shoulder, shanks, riblets, stew meat, and ground lamb are more about depth, sauce, and make-ahead comfort.",
+          "The premium cuts need attention because they cook quickly. The slow cuts are more forgiving because time and moisture do the work.",
+        ],
+        table: {
+          columns: ["Cut", "Best use", "What to know"],
+          rows: [
+            ["Rack", "Yom Tov centerpiece", "Tender, visual, cooks quickly"],
+            [
+              "Chops and lollipop chops",
+              "Portioned special meals",
+              "Fast cooking, easy to overdo",
+            ],
+            [
+              "Shoulder",
+              "Pulled lamb, roast, stew",
+              "Rich and forgiving with time",
+            ],
+            [
+              "Shanks",
+              "Individual braised portions",
+              "Gelatin-rich and dramatic on the plate",
+            ],
+            [
+              "Riblets",
+              "Casual lamb plate or appetizer",
+              "Smaller format with strong lamb flavor",
+            ],
+            [
+              "Ground lamb",
+              "Kebabs, meatballs, stuffed vegetables",
+              "Lamb flavor without carving",
+            ],
+          ],
+        },
+      },
+      {
+        id: "poultry",
+        heading: "Poultry cuts at the counter",
+        body: [
+          "Poultry is familiar, but it still benefits from a map. White meat is fast and lean. Dark meat is more forgiving. Whole birds give table presence. Wings, drumsticks, and 8-piece cut-up chicken make serving easier. Turkey, duck, and capon need more planning because size, thawing time, and serving expectations matter.",
+          "For reheating, dark meat usually has the advantage. For schnitzel and quick weeknight meals, cutlets are the right tool. For soup, bones, backs, whole birds, and dark meat create better body.",
+        ],
+        table: {
+          columns: ["Cut", "Best use", "What to know"],
+          rows: [
+            [
+              "Whole chicken",
+              "Roast chicken, soup, family dinner",
+              "Flexible and economical",
+            ],
+            [
+              "8-piece cut-up chicken",
+              "Easy serving and sheet pans",
+              "More exposed surface, simple portions",
+            ],
+            [
+              "Cutlets",
+              "Schnitzel and quick saute",
+              "Lean and fast, easy to dry out",
+            ],
+            [
+              "Thighs and pargiot",
+              "Shabbos trays, braises, grilling",
+              "Moist and forgiving",
+            ],
+            [
+              "Wings and drumsticks",
+              "Casual trays, appetizers, packed meals",
+              "Sturdy, kid-friendly, sauce-friendly",
+            ],
+            [
+              "Turkey breast, thighs, wings, ground turkey",
+              "Large meals, lean mains, freezer basics",
+              "Plan thawing and avoid drying lean breast",
+            ],
+            [
+              "Duck and capon",
+              "Specialty poultry meals",
+              "Richer or larger birds with different timing",
+            ],
+          ],
+        },
+      },
+      {
+        id: "veal",
+        heading: "Veal cuts at the counter",
+        body: [
+          "Veal is delicate, mild, and easy to mishandle if the cooking method is too aggressive. Thin cuts such as scallopini, schnitzel, and cutlets need speed. Chops need a controlled sear and careful finish. Riblets, stew meat, bones, and ground veal are better when the dish wants gentler moisture or blended texture.",
+          "Treat veal by thickness first. Thin pieces cook in minutes. Larger or tougher pieces need time and sauce.",
+        ],
+        table: {
+          columns: ["Cut", "Best use", "What to know"],
+          rows: [
+            [
+              "Scallopini",
+              "Very fast saute",
+              "Do not crowd the pan or overcook",
+            ],
+            [
+              "Schnitzel and cutlets",
+              "Breaded quick fry",
+              "Keep thickness even and oil hot",
+            ],
+            [
+              "Chops",
+              "Sear and oven finish",
+              "Premium cut with less forgiveness than beef",
+            ],
+            ["Riblets", "Gentle braise", "Do not rush the cook"],
+            [
+              "Stew meat and ground veal",
+              "Saucy meals, meatballs, fillings",
+              "Mild flavor that needs clear seasoning",
+            ],
+          ],
+        },
+      },
+      {
+        id: "specialty",
+        heading: "Prepared and specialty items",
+        body: [
+          "Prepared and specialty items are part of the butcher counter too. Boerewors, biltong, droewors, pastrami, corned beef, deli, pocket pies, kugels, sides, sausages, franks, and smoked items solve a different problem than raw cuts. They can add convenience, cultural specificity, travel-friendly snacks, or a complete-meal feel.",
+          "Because these items may include spices, casings, fillings, curing steps, cooked components, or prepared sides, the product page and package label matter more than they do for a raw single-ingredient cut.",
+        ],
+        table: {
+          columns: ["Item", "Best use", "What to know"],
+          rows: [
+            [
+              "Boerewors",
+              "Distinctive grill or pan item",
+              "Cook gently so the casing stays intact",
+            ],
+            [
+              "Biltong and droewors",
+              "Snacks, travel, appetizers",
+              "Prepared dried meat specialties",
+            ],
+            [
+              "Pastrami and corned beef",
+              "Deli-style meals and easy serving",
+              "Prepared or cured, so review item-level status",
+            ],
+            [
+              "Pocket pies, kugels, prepared sides",
+              "Order completion and reduced cooking load",
+              "Ingredient and Passover status matter",
+            ],
+            [
+              "Franks, sausages, smoked items",
+              "Fast meals and freezer backup",
+              "Check casing, ingredients, supervision, and storage",
+            ],
+          ],
+        },
+      },
+      {
+        id: "kosher-safe-cooking",
+        heading: "Kosher-safe cooking language",
+        body: [
+          "Every meat guide should keep the cooking path meat-compatible. That means olive oil, avocado oil, schmaltz, rendered beef fat, stock, wine, onions, garlic, tomatoes, herbs, spices, citrus, and pareve sauces are useful tools.",
+          "Meat pages should not suggest butter basting, cream sauces, cheese toppings, dairy marinades, or dairy sides as part of the recommendation. If a familiar non-kosher cooking method uses dairy, rewrite it with a pareve or meat-compatible alternative.",
+        ],
+      },
+    ],
+    faqs: [
+      {
+        question: "What is the best cut for a beginner?",
+        answer:
+          "For a large meal, brisket, deckel, roast chicken, thighs, stew meat, and ground meat are forgiving. For a quick meal, cutlets, burgers, and lamb chops work well if you watch the timing.",
+      },
+      {
+        question: "What should I buy if I only know chicken breasts and ground beef?",
+        answer:
+          "Try chicken thighs for a more forgiving tray, brisket or deckel for a make-ahead main, flanken for cholent, lamb chops for a small special meal, and biltong or prepared sides to round out an order.",
+      },
+      {
+        question: "Should prepared items be treated like raw cuts?",
+        answer:
+          "No. Prepared items need closer label reading because ingredients, casings, curing, cooking steps, storage, and Passover status may vary by item.",
+      },
+    ],
+    primaryCta: {
+      label: "Use the family map",
+      href: "#how-to-use",
+      event: "view_cut_guide",
+    },
+    related: [
+      { label: "Beef cut guide", href: "/learn/cuts/beef" },
+      { label: "Lamb cut guide", href: "/learn/cuts/lamb" },
+      { label: "Poultry cut guide", href: "/learn/cuts/poultry" },
+      { label: "Veal cut guide", href: "/learn/cuts/veal" },
+      {
+        label: "Prepared and specialty guide",
+        href: "/learn/cuts/prepared-specialty",
       },
     ],
   },
@@ -646,8 +954,9 @@ export const learnArticles: LearnArticle[] = [
       "Learn how to shop prepared and specialty kosher meat, including boerewors, biltong, droewors, pastrami, corned beef, pocket pies, kugels, and sides.",
     updated: "May 15, 2026",
     readTime: "6 min read",
-    heroImage: assets.order,
-    heroAlt: "A Grillers Pride order being assembled with specialty products.",
+    heroImage: assets.specialty,
+    heroAlt:
+      "Kosher prepared specialties arranged on butcher paper with clean serving tools.",
     quickAnswer:
       "Prepared and specialty products are where convenience, culture, and kashrut details meet. Read ingredients and labels carefully, then choose by occasion.",
     facts: [
@@ -747,7 +1056,7 @@ export const learnArticles: LearnArticle[] = [
         label: "Bigger table",
         value: "Add cushion for holidays and leftovers",
       },
-      { label: "Best use", value: "Planning before checkout" },
+      { label: "Best use", value: "Planning a basket" },
     ],
     sections: [
       {
@@ -1232,7 +1541,7 @@ export const learnArticles: LearnArticle[] = [
         id: "food-safety",
         heading: "Food-safety baseline",
         body: [
-          "USDA food-safety guidance recommends thawing food in the refrigerator, in cold water, or in the microwave, not on the counter. Whole cuts of beef, lamb, veal, and pork have a 145 F minimum internal temperature with rest time in USDA guidance, while ground meats have a 160 F minimum.",
+          "USDA food-safety guidance recommends thawing food in the refrigerator, in cold water, or in the microwave, not on the counter. It also publishes minimum internal temperatures by food type, including 145 F with rest time for whole cuts such as beef, lamb, and veal, and 160 F for ground meats.",
           "Kosher practice determines what belongs in the kitchen. Food-safety practice determines how cold, hot, and time-sensitive foods should be handled.",
         ],
       },
@@ -1343,8 +1652,8 @@ export const learnArticles: LearnArticle[] = [
         ],
       },
       {
-        id: "calls",
-        heading: "What this should answer before a call",
+        id: "questions",
+        heading: "What this guide should answer clearly",
         bullets: [
           "Which cut should anchor Friday night?",
           "Which cuts reheat well for lunch?",

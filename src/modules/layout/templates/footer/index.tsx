@@ -75,7 +75,7 @@ const PaymentIcon = ({ method }: { method: string }) => {
 // Accepted payment methods
 const PAYMENT_METHODS = ["visa", "mastercard", "amex"]
 
-// Default social links — used as fallback when Strapi has none configured
+// Default social links used as fallback when Strapi has none configured
 const DEFAULT_SOCIAL_LINKS = [
   { id: "default-facebook", Platform: "facebook", Url: "https://www.facebook.com/GrillersPride" },
   { id: "default-instagram", Platform: "instagram", Url: "https://www.instagram.com/grillerspride/" },
@@ -100,7 +100,7 @@ const FOOTER_ASSURANCE_LINKS = [
   },
   {
     title: "Need help ordering?",
-    description: "Call or email before checkout",
+    description: "Call or email for order help",
     href: "/customer-service",
   },
 ]
@@ -173,7 +173,7 @@ export default async function Footer() {
 
   // Check what data we have available
   const hasNavigationColumns = footer?.NavigationColumns && footer.NavigationColumns.length > 0
-  // Merge Strapi social links with defaults — Strapi entries take precedence,
+  // Merge Strapi social links with defaults. Strapi entries take precedence,
   // and any default platform missing from Strapi is appended so FB/IG/X are
   // always present in the footer.
   const socialLinks = (() => {

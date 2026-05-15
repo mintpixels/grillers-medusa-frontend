@@ -73,17 +73,15 @@ type LinkedGuide = {
 }
 
 const assets = {
-  butcher:
-    "https://helpful-nature-fab70f9c51.media.strapiapp.com/howitworks_card_1_40c3310173.jpg",
-  order:
-    "https://helpful-nature-fab70f9c51.media.strapiapp.com/howitworks_order_fa3561917c.jpg",
-  coldPack:
-    "https://helpful-nature-fab70f9c51.media.strapiapp.com/howitworks_card_2_75728aa519.jpg",
-  beef: "https://helpful-nature-fab70f9c51.media.strapiapp.com/1_01_32_3_primary_5ab9386222.jpg",
-  lamb: "https://helpful-nature-fab70f9c51.media.strapiapp.com/3_01_12_1_primary_c58f64bb16.jpg",
-  poultry:
-    "https://helpful-nature-fab70f9c51.media.strapiapp.com/6_61_02_1_primary_e1cb3ef646.jpg",
-  veal: "https://helpful-nature-fab70f9c51.media.strapiapp.com/slow_braised_veal_with_onions_and_carrots_2_01_12_1_d860ac0006.jpg",
+  butcher: "/images/learn/butcher-guide-hero.jpg",
+  order: "/images/learn/order-planning.jpg",
+  coldPack: "/images/learn/cold-chain.jpg",
+  cutLibrary: "/images/learn/cut-library-hero.jpg",
+  beef: "/images/learn/cut-library-beef.jpg",
+  lamb: "/images/learn/cut-library-lamb.jpg",
+  poultry: "/images/learn/cut-library-poultry.jpg",
+  veal: "/images/learn/cut-library-veal.jpg",
+  specialty: "/images/learn/cut-library-specialty.jpg",
 }
 
 const pillarData: Pillar[] = [
@@ -121,7 +119,7 @@ const pillarData: Pillar[] = [
     title: "Cut Library",
     body: "A butcher-counter guide to what each cut is, where it shines, and what to buy if you want something similar.",
     icon: Scissors,
-    href: "#cut-library",
+    href: "/learn/cuts",
     event: "view_cut_guide",
     points: [
       "Beef, lamb, veal, poultry, and specialty families",
@@ -148,7 +146,7 @@ const pillarData: Pillar[] = [
 const kosher101: LinkedGuide[] = [
   {
     title: "Start with the product page",
-    body: "Each product should tell you whether it is raw or prepared, what its Passover status is, and which kosher details matter before checkout.",
+    body: "Each product should tell you whether it is raw or prepared, what its Passover status is, and which kosher details matter while you choose.",
     href: "/learn/kosher-meat-101#product-page",
     event: "view_kashruth_guide",
     cta: "Read the basics",
@@ -247,8 +245,9 @@ const cutFamilies: CutFamily[] = [
     title: "Prepared & Specialty",
     eyebrow: "The South African and Shabbos-table moat",
     body: "Boerewors, biltong, droewors, corned beef, pastrami, pocket pies, kugels, and prepared sides.",
-    image: assets.order,
-    imageAlt: "A Grillers Pride order being assembled with specialty products.",
+    image: assets.specialty,
+    imageAlt:
+      "Kosher prepared specialties arranged on butcher paper with clean serving tools.",
     icon: Store,
     cuts: ["Boerewors", "Biltong", "Corned brisket", "Kugels"],
     bestFor:
@@ -311,7 +310,7 @@ const buyingGuides: LinkedGuide[] = [
 const processSteps = [
   {
     title: "Choose with context",
-    body: "The guide points customers from a cut question into a full article before it asks them to shop or contact the counter.",
+    body: "The guide points customers from a cut question into a full article, then gives the right next step when they are ready.",
     icon: Search,
   },
   {
@@ -396,15 +395,14 @@ export default function ButcherEducationHub({
                 counter outward.
               </h1>
               <p className="mt-6 max-w-[660px] font-maison-neue text-p-lg leading-[1.65] text-Charcoal/75">
-                A customer-facing hub for the questions that come up before
-                checkout: what a cut is, why it costs what it does, how to cook
-                it successfully, and which kashruth details matter for your
-                home.
+                A customer-facing hub for the questions that shape a good
+                order: what a cut is, why it costs what it does, how to cook it
+                successfully, and which kashruth details matter for your home.
               </p>
 
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                 <TrackedLink
-                  href="#cut-library"
+                  href={hrefFor(countryCode, "/learn/cuts")}
                   event="view_cut_guide"
                   label="Explore the cut library"
                   section="hero"
@@ -499,7 +497,7 @@ export default function ButcherEducationHub({
               return (
                 <TrackedLink
                   key={pillar.id}
-                  href={pillar.href}
+                  href={hrefFor(countryCode, pillar.href)}
                   event={pillar.event}
                   label={pillar.title}
                   section="pillar_nav"
@@ -546,7 +544,7 @@ export default function ButcherEducationHub({
             <div>
               <Eyebrow>Kosher Meat 101</Eyebrow>
               <h2 className="mt-4 max-w-[620px] font-gyst text-h2-mobile leading-tight text-Charcoal md:text-h2">
-                Useful answers before the order, not abstract food history.
+                Useful answers for ordering, not abstract food history.
               </h2>
               <p className="mt-5 max-w-[560px] font-maison-neue text-p-md leading-[1.7] text-Charcoal/75 md:text-p-lg">
                 The hub is written for observant shoppers, kosher-curious
@@ -598,7 +596,7 @@ export default function ButcherEducationHub({
                 Grillers Pride operates under Atlanta Kashruth Commission
                 supervision, with a mashgiach present every processing shift.
                 The hub keeps supervision, hechsherim, and Passover status close
-                together so customers can verify before they buy.
+                together so customers can verify the details that matter.
               </p>
             </div>
 
@@ -671,7 +669,7 @@ export default function ButcherEducationHub({
               section="kashruth"
               className="inline-flex min-h-[50px] items-center justify-center gap-3 rounded-[5px] bg-Gold px-6 py-3 font-rexton text-h6 font-bold uppercase text-Charcoal transition-colors hover:bg-Gold/90"
             >
-              Ask before ordering
+              Ask a kashruth question
               <Phone className="h-4 w-4" strokeWidth={2} />
             </TrackedLink>
           </div>
@@ -687,12 +685,24 @@ export default function ButcherEducationHub({
                 Make unfamiliar cuts feel orderable.
               </h2>
             </div>
-            <p className="max-w-[680px] font-maison-neue text-p-md leading-[1.7] text-Charcoal/75 md:text-p-lg">
-              Each family starts with the same butcher-counter questions: what
-              is it, where does it come from, how fatty or lean is it, what
-              usually goes wrong, and what should I buy instead if this is not
-              the right fit?
-            </p>
+            <div>
+              <p className="max-w-[680px] font-maison-neue text-p-md leading-[1.7] text-Charcoal/75 md:text-p-lg">
+                Each family starts with the same butcher-counter questions:
+                what is it, where does it come from, how fatty or lean is it,
+                what usually goes wrong, and what should I buy instead if this
+                is not the right fit?
+              </p>
+              <TrackedLink
+                href={hrefFor(countryCode, "/learn/cuts")}
+                event="view_cut_guide"
+                label="Open complete cut library"
+                section="cut_library"
+                className="mt-5 inline-flex min-h-[48px] items-center justify-center gap-3 rounded-[5px] bg-Charcoal px-6 py-3 font-rexton text-h6 font-bold uppercase text-Scroll transition-colors hover:bg-Charcoal/90"
+              >
+                Open complete library
+                <ArrowRight className="h-4 w-4" strokeWidth={2} />
+              </TrackedLink>
+            </div>
           </div>
 
           <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-5">
@@ -781,7 +791,7 @@ export default function ButcherEducationHub({
             <div>
               <Eyebrow>Cooking & Buying Guides</Eyebrow>
               <h2 className="mt-4 max-w-[620px] font-gyst text-h2-mobile leading-tight text-Charcoal md:text-h2">
-                Build a better order in fewer calls.
+                Build a better order with clearer context.
               </h2>
               <p className="mt-5 max-w-[560px] font-maison-neue text-p-md leading-[1.7] text-Charcoal/75 md:text-p-lg">
                 The first guide set focuses on the questions that block cart
@@ -791,14 +801,14 @@ export default function ButcherEducationHub({
               </p>
               <div className="mt-7 flex flex-col gap-3 sm:flex-row">
                 <TrackedLink
-                  href={hrefFor(countryCode, "/learn/cuts/beef")}
+                  href={hrefFor(countryCode, "/learn/cuts")}
                   event="view_cut_guide"
-                  label="Start with beef guide"
+                  label="Open complete cut library"
                   section="buying_guides"
                   className="inline-flex min-h-[48px] items-center justify-center gap-3 rounded-[5px] bg-Charcoal px-6 py-3 font-rexton text-h6 font-bold uppercase text-Scroll transition-colors hover:bg-Charcoal/90"
                 >
-                  Start with beef
-                  <Beef className="h-4 w-4" strokeWidth={2} />
+                  Open cut library
+                  <Scissors className="h-4 w-4" strokeWidth={2} />
                 </TrackedLink>
                 <TrackedLink
                   href={hrefFor(
@@ -911,13 +921,13 @@ export default function ButcherEducationHub({
             <div>
               <Eyebrow light>Keep learning</Eyebrow>
               <h2 className="mt-4 max-w-[760px] font-gyst text-h2-mobile leading-tight md:text-h2">
-                Use the guides first, then shop with context.
+                Learn the cuts, then shop with context.
               </h2>
               <p className="mt-5 max-w-[700px] font-maison-neue text-p-md leading-[1.7] text-Scroll/75 md:text-p-lg">
-                The goal is to answer cut selection, portion planning, thawing,
-                Shabbos planning, and cooking method questions before the order
-                reaches the plant. Human help is still available for item-level
-                kashruth verification or unusual order needs.
+                The guides give customers cut selection, portion planning,
+                thawing, Shabbos planning, and cooking method context in one
+                place. Human help remains available for item-level kashruth
+                verification and unusual order needs.
               </p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row lg:flex-col">

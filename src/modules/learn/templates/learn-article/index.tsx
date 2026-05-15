@@ -296,7 +296,7 @@ export default function LearnArticleTemplate({
           <div className="content-container py-12 md:py-16">
             <Eyebrow>Common Questions</Eyebrow>
             <h2 className="mt-4 max-w-[720px] font-gyst text-h2-mobile leading-tight text-Charcoal md:text-h2">
-              Quick answers before you shop.
+              Quick answers for this guide.
             </h2>
             <div className="mt-8 grid gap-4 md:grid-cols-2">
               {article.faqs.map((faq) => (
@@ -323,7 +323,7 @@ export default function LearnArticleTemplate({
             <div>
               <Eyebrow>Next Steps</Eyebrow>
               <h2 className="mt-4 max-w-[760px] font-gyst text-h2-mobile leading-tight md:text-h2">
-                Keep learning before checkout.
+                Keep learning or choose the next step.
               </h2>
               <div className="mt-7 flex flex-col gap-3 sm:flex-row">
                 {article.primaryCta && (
