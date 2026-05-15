@@ -10,8 +10,15 @@ const excludedPaths = [
   "/api/*",
 ]
 
+const normalizeSiteUrl = (value) => {
+  const url = value || "https://grillerspride.com"
+  return /^https?:\/\//i.test(url) ? url : `https://${url}`
+}
+
 module.exports = {
-  siteUrl: process.env.NEXT_PUBLIC_BASE_URL || process.env.NEXT_PUBLIC_VERCEL_URL || "https://grillerspride.com",
+  siteUrl: normalizeSiteUrl(
+    process.env.NEXT_PUBLIC_BASE_URL || process.env.NEXT_PUBLIC_VERCEL_URL
+  ),
   generateRobotsTxt: true,
   generateIndexSitemap: true,
   exclude: excludedPaths,

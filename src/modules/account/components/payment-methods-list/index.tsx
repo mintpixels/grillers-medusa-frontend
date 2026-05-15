@@ -145,7 +145,7 @@ export default function PaymentMethodsList({
       </p>
       <button
         onClick={() => setShowAddModal(true)}
-        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-md text-sm font-semibold text-white bg-Gold hover:bg-Gold/90 transition-colors"
+        className="min-h-[44px] inline-flex items-center gap-2 px-5 py-2.5 rounded-md text-sm font-semibold text-white bg-Gold hover:bg-Gold/90 transition-colors"
       >
         <svg
           className="w-4 h-4"
@@ -185,7 +185,7 @@ export default function PaymentMethodsList({
           <div className="flex justify-end">
             <button
               onClick={() => setShowAddModal(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-semibold text-Charcoal border border-Charcoal/20 hover:border-Gold hover:text-Gold transition-colors"
+              className="min-h-[44px] inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-semibold text-Charcoal border border-Charcoal/20 hover:border-Gold hover:text-Gold transition-colors"
             >
               <svg
                 className="w-4 h-4"

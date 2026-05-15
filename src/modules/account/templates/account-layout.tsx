@@ -40,7 +40,7 @@ const AccountLayout: React.FC<AccountLayoutProps> = ({
             </div>
             <LocalizedClientLink
               href="/customer-service"
-              className="inline-flex items-center gap-2 text-sm font-maison-neue font-semibold text-Gold hover:text-Gold/80 transition-colors"
+              className="min-h-[44px] inline-flex items-center gap-2 text-sm font-maison-neue font-semibold text-Gold hover:text-Gold/80 transition-colors"
             >
               Customer Service
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

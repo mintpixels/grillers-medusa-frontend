@@ -15,8 +15,9 @@ export default function CheckoutLayout({
           {/* Logo — far left */}
           <LocalizedClientLink
             href="/"
-            className="flex items-center gap-1.5"
+            className="min-h-[44px] min-w-[44px] flex items-center gap-1.5"
             data-testid="store-link"
+            aria-label="Griller's Pride home"
           >
             <Image
               src="/images/logos/logo-mobile.svg"
@@ -33,8 +34,9 @@ export default function CheckoutLayout({
           {/* Back to cart — right side */}
           <LocalizedClientLink
             href="/cart"
-            className="flex items-center gap-x-2 text-sm text-ui-fg-subtle hover:text-ui-fg-base transition-colors"
+            className="min-h-[44px] min-w-[44px] flex items-center justify-center gap-x-2 text-sm text-ui-fg-subtle hover:text-ui-fg-base transition-colors"
             data-testid="back-link"
+            aria-label="Back to cart"
           >
             <span className="hidden small:block">Back to cart</span>
             <span className="block small:hidden">Back</span>
