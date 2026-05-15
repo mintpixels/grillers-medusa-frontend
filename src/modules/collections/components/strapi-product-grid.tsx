@@ -25,6 +25,10 @@ function alignTitlesAcrossRows() {
   // Reset every title's inline padding-right so we measure natural heights.
   for (const t of titles) t.style.paddingRight = ""
 
+  // On two-column mobile grids the padding equalizer can make the shorter
+  // title's text box too narrow and force words like "Kosher" to split.
+  if (window.innerWidth < 640) return
+
   // Group by Y position (5px tolerance to account for sub-pixel rounding).
   const buckets: Array<{ y: number; titles: HTMLElement[] }> = []
   for (const t of titles) {
@@ -327,15 +331,15 @@ export function ProductCard({ product, countryCode, viewMode = "grid" }: { produ
       </div>
 
       {/* Row 3: Title — line-clamp-3 caps at 3 lines, and useTitleAlignToTrack
-         pads shorter titles to match the actual title-row track height so all
-         cards in the same row have aligned title blocks. */}
+         pads shorter titles at >= sm to match the actual title-row track
+         height so all cards in the same row have aligned title blocks. */}
       <LocalizedClientLink
         href={`/products/${product?.MedusaProduct?.Handle}`}
         className="block min-w-0 mt-3"
       >
         <h2
           data-card-title
-          className="text-h4 font-gyst font-bold text-Charcoal hover:text-VibrantRed transition-colors sm:line-clamp-3 sm:pr-6 break-words text-balance"
+          className="text-h4 font-gyst font-bold text-Charcoal hover:text-VibrantRed transition-colors sm:line-clamp-3 sm:pr-6 text-balance"
         >
           {product.Title}
         </h2>
