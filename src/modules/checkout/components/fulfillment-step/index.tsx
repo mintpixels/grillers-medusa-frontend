@@ -255,7 +255,9 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
     },
   ]
 
-  const options = allOptions
+  const options = availableFulfillmentTypes.length
+    ? allOptions.filter((option) => availableFulfillmentTypes.includes(option.id))
+    : allOptions
 
   const hasSavedAddress = Boolean(activeAddress?.postal_code)
   // Show the address CTA when:

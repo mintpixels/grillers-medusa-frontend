@@ -76,12 +76,20 @@ export default async function CheckoutForm({
           <CheckoutStepsGate>
             {/* Step 2: Address — only after fulfillment chosen */}
             {hasFulfillment && (
-              <Addresses cart={cart} customer={customer} />
+              <Addresses
+                cart={cart}
+                customer={customer}
+                atlantaZipCodes={fulfillmentConfig.AtlantaDeliveryZipCodes}
+              />
             )}
 
             {/* Step 3: Delivery options — only for UPS shipping, only after address */}
             {hasFulfillment && addressComplete && showShippingMethodSelection && (
-              <Shipping cart={cart} availableShippingMethods={shippingMethods} />
+              <Shipping
+                cart={cart}
+                availableShippingMethods={shippingMethods}
+                serverNowIso={new Date().toISOString()}
+              />
             )}
 
             {/* Step 4: Payment — only after all previous steps complete and delivery step is closed */}

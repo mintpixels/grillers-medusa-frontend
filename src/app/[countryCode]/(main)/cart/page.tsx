@@ -20,7 +20,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 }
 
-export default async function Cart() {
+export default async function Cart({ params }: PageProps) {
+  const { countryCode } = await params
   const cart = await retrieveCart().catch((error) => {
     console.error(error)
     return notFound()
@@ -28,5 +29,5 @@ export default async function Cart() {
 
   const customer = await retrieveCustomer()
 
-  return <CartTemplate cart={cart} customer={customer} />
+  return <CartTemplate cart={cart} customer={customer} countryCode={countryCode} />
 }

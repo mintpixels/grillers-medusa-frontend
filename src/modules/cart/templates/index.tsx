@@ -3,16 +3,23 @@ import LocalizedClientLink from "@modules/common/components/localized-client-lin
 import EmptyCartMessage from "../components/empty-cart-message"
 import SignInPrompt from "../components/sign-in-prompt"
 import CartUpsells from "../components/cart-upsells"
+import { getCartUpsellProducts } from "../components/cart-upsells/server"
 import ItemsTemplate from "./items"
 import Summary from "./summary"
 
-const CartTemplate = ({
+const CartTemplate = async ({
   cart,
   customer,
+  countryCode = "us",
 }: {
   cart: HttpTypes.StoreCart | null
   customer: HttpTypes.StoreCustomer | null
+  countryCode?: string
 }) => {
+  const upsellProducts = cart?.items?.length
+    ? await getCartUpsellProducts(countryCode)
+    : []
+
   return (
     <div className="py-12">
       <div className="content-container" data-testid="cart-container">
@@ -28,6 +35,8 @@ const CartTemplate = ({
               <ItemsTemplate cart={cart} />
               <CartUpsells
                 surface="cart_page"
+                products={upsellProducts}
+                countryCode={countryCode}
                 excludeProductIds={cart.items?.map((item) => item.product_id)}
                 className="mt-8"
               />

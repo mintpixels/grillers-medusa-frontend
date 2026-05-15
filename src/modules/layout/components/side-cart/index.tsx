@@ -27,6 +27,7 @@ import {
   FreeShippingHelper,
 } from "@modules/common/components/cart-helpers"
 import CartUpsells from "@modules/cart/components/cart-upsells"
+import type { CartUpsellProduct } from "@modules/cart/components/cart-upsells/types"
 
 // Cart item image with Strapi fallback
 const CartItemImage = ({ item }: { item: HttpTypes.StoreCartLineItem }) => {
@@ -187,9 +188,15 @@ const QuantitySelector = ({
 
 type SideCartProps = {
   cart?: HttpTypes.StoreCart | null
+  upsellProducts?: CartUpsellProduct[]
+  countryCode?: string
 }
 
-export default function SideCart({ cart }: SideCartProps) {
+export default function SideCart({
+  cart,
+  upsellProducts = [],
+  countryCode = "us",
+}: SideCartProps) {
   const { isOpen, closeCart, openCart } = useCart()
   const [announcement, setAnnouncement] = useState("")
   const previousItemCount = useRef<number | null>(null)
@@ -363,6 +370,8 @@ export default function SideCart({ cart }: SideCartProps) {
                           <div className="px-6 py-4 bg-Scroll/30 border-t border-Charcoal/5">
                             <CartUpsells
                               surface="side_cart"
+                              products={upsellProducts}
+                              countryCode={countryCode}
                               compact
                               excludeProductIds={cart.items?.map((item) => item.product_id)}
                             />

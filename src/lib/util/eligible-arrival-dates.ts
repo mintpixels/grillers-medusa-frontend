@@ -592,9 +592,10 @@ export function isArrivalDateValid(
   input: Omit<ComputeArrivalDatesInput, "now"> & { now?: Date }
 ): boolean {
   if (!dateMmDdYyyy) return false
-  const parts = dateMmDdYyyy.split("/").map(Number)
+  const isIsoDate = /^\d{4}-\d{2}-\d{2}$/.test(dateMmDdYyyy)
+  const parts = dateMmDdYyyy.split(isIsoDate ? "-" : "/").map(Number)
   if (parts.length !== 3) return false
-  const [m, d, y] = parts
+  const [y, m, d] = isIsoDate ? parts : [parts[2], parts[0], parts[1]]
   if (!m || !d || !y) return false
   const date = new Date(y, m - 1, d)
   const iso = toIsoDate(date)

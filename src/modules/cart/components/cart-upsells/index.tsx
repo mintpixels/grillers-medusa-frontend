@@ -1,50 +1,18 @@
 "use client"
 
+import { useState, type MouseEvent } from "react"
 import Image from "next/image"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
+import { toast } from "@medusajs/ui"
+import { addToCart } from "@lib/data/cart"
 import { trackSelectItem } from "@lib/gtm"
 import { jitsuTrack } from "@lib/jitsu"
-
-type CartUpsell = {
-  id: string
-  title: string
-  handle: string
-  image: string
-  price?: number
-}
-
-const CART_UPSELLS: CartUpsell[] = [
-  {
-    id: "prod_01KC9RFN8D0E194R1KETKZ26CN",
-    title: "Kosher Chicken Drumettes & Wingettes",
-    handle:
-      "chicken-wings-david-elliot-chk-supervision-vacuum-packed-17-lb-kosher-for-passover-328lb",
-    image:
-      "https://helpful-nature-fab70f9c51.media.strapiapp.com/6_01_12_1_primary_9143d2bfb5.jpg",
-    price: 5.58,
-  },
-  {
-    id: "prod_01KC9RFAPPJ29C9BJXBMMK9E7S",
-    title: "Kosher First Cut Hand-Trimmed Lamb Chops",
-    handle:
-      "first-cut-lamb-chops-hand-trimmed-4-chops-uncooked-kosher-for-passover",
-    image:
-      "https://helpful-nature-fab70f9c51.media.strapiapp.com/3_01_12_1_primary_c58f64bb16.jpg",
-    price: 101.95,
-  },
-  {
-    id: "prod_01KC9RH2JQY5YYFAQ3A4TBX248",
-    title: "Kosher Ground Dark Turkey Meat",
-    handle:
-      "ground-turkey-dark-meat-vacuum-packed-antibiotic-free-hormone-free-1-lb-uncooked-not-kosher-for-passover",
-    image:
-      "https://helpful-nature-fab70f9c51.media.strapiapp.com/7_61_15_1_primary_cd2f48c347.jpg",
-    price: 12.3,
-  },
-]
+import type { CartUpsellProduct } from "./types"
 
 type CartUpsellsProps = {
   surface: "cart_page" | "side_cart"
+  products: CartUpsellProduct[]
+  countryCode?: string
   compact?: boolean
   excludeProductIds?: Array<string | null | undefined>
   className?: string
@@ -52,12 +20,16 @@ type CartUpsellsProps = {
 
 export default function CartUpsells({
   surface,
+  products: rawProducts,
+  countryCode = "us",
   compact = false,
   excludeProductIds = [],
   className = "",
 }: CartUpsellsProps) {
+  const [addingId, setAddingId] = useState<string | null>(null)
   const excluded = new Set(excludeProductIds.filter(Boolean))
-  const products = CART_UPSELLS.filter((product) => !excluded.has(product.id))
+  const products = rawProducts
+    .filter((product) => !excluded.has(product.id))
     .slice(0, compact ? 2 : 3)
 
   if (!products.length) return null
@@ -65,7 +37,7 @@ export default function CartUpsells({
   const listId = `cart_upsells_${surface}`
   const listName = surface === "side_cart" ? "Side Cart Upsells" : "Cart Page Upsells"
 
-  const handleClick = (product: CartUpsell, index: number) => {
+  const handleClick = (product: CartUpsellProduct, index: number) => {
     trackSelectItem({
       listId,
       listName,
@@ -83,6 +55,40 @@ export default function CartUpsells({
       product_handle: product.handle,
       position: index,
     })
+  }
+
+  const handleAdd = async (
+    event: MouseEvent<HTMLButtonElement>,
+    product: CartUpsellProduct,
+    index: number
+  ) => {
+    event.preventDefault()
+    event.stopPropagation()
+    if (addingId) return
+
+    setAddingId(product.id)
+    try {
+      await addToCart({
+        variantId: product.variantId,
+        quantity: 1,
+        countryCode,
+      })
+      toast.success("Added to cart", { description: product.title })
+      jitsuTrack("cart_upsell_added", {
+        surface,
+        product_id: product.id,
+        product_name: product.title,
+        product_handle: product.handle,
+        position: index,
+      })
+    } catch (error) {
+      console.error("Failed to add cart upsell:", error)
+      toast.error("Couldn't add to cart", {
+        description: "Please try again in a moment.",
+      })
+    } finally {
+      setAddingId(null)
+    }
   }
 
   return (
@@ -123,11 +129,29 @@ export default function CartUpsells({
               <p className="text-sm font-maison-neue font-semibold text-Charcoal leading-snug line-clamp-2">
                 {product.title}
               </p>
-              {product.price != null && (
-                <p className="mt-1 text-xs font-maison-neue text-Charcoal/55">
-                  From ${product.price.toFixed(2)}
-                </p>
-              )}
+              <div
+                className={
+                  compact
+                    ? "mt-1 flex items-center justify-between gap-2"
+                    : "mt-2 flex items-center justify-between gap-2"
+                }
+              >
+                {product.price != null ? (
+                  <p className="text-xs font-maison-neue text-Charcoal/55">
+                    From ${product.price.toFixed(2)}
+                  </p>
+                ) : (
+                  <span />
+                )}
+                <button
+                  type="button"
+                  onClick={(event) => handleAdd(event, product, index)}
+                  disabled={addingId === product.id}
+                  className="min-h-[36px] shrink-0 rounded-[5px] border border-Charcoal bg-Gold px-3 text-[10px] font-rexton font-bold uppercase tracking-wide text-Charcoal transition-opacity hover:opacity-90 disabled:opacity-60"
+                >
+                  {addingId === product.id ? "Adding" : "+ Add"}
+                </button>
+              </div>
             </div>
           </LocalizedClientLink>
         ))}

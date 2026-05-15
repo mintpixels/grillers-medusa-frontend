@@ -243,13 +243,20 @@ export async function setRequestedDeliveryDate({
       const cart = await retrieveCart(cartId)
       const fulfillmentType = cart?.metadata?.fulfillmentType as string | undefined
       const destZip = (cart?.shipping_address?.postal_code || "").trim()
-      // We can't easily resolve the exact UPS service_code here without an extra
-      // shipping-options fetch, so for ups_shipping we assume Ground (the slowest)
-      // — strictly the safest assumption for "is this date late enough?".
+      const selectedShippingName =
+        cart?.shipping_methods?.at(-1)?.name?.toLowerCase() || ""
       let method: any = "ups_ground"
       if (fulfillmentType === "atlanta_delivery") method = "atlanta_delivery"
       else if (fulfillmentType === "southeast_pickup") method = "southeast_pickup"
       else if (fulfillmentType === "plant_pickup") method = "plant_pickup"
+      else if (selectedShippingName.includes("overnight")) method = "ups_overnight"
+      else if (
+        selectedShippingName.includes("2nd day") ||
+        selectedShippingName.includes("second day") ||
+        selectedShippingName.includes("two day")
+      ) {
+        method = "ups_2day"
+      }
 
       // For southeast_pickup we don't have the date list here cheaply; skip server
       // validation in that case (the UI source-of-truth is Strapi-backed already).

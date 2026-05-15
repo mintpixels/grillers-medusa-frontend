@@ -30,9 +30,11 @@ function getPreferredAddress(customer: HttpTypes.StoreCustomer | null) {
 const Addresses = ({
   cart,
   customer,
+  atlantaZipCodes = [],
 }: {
   cart: HttpTypes.StoreCart | null
   customer: HttpTypes.StoreCustomer | null
+  atlantaZipCodes?: string[]
 }) => {
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -104,7 +106,15 @@ const Addresses = ({
   }, [])
 
   // Determine if the address is invalid for the selected fulfillment type
-  const addressMismatch = fulfillmentType === "atlanta_delivery" && postalCode.length >= 2 && !postalCode.startsWith("30")
+  const normalizedPostalCode = postalCode.trim()
+  const matchesAtlantaDelivery =
+    atlantaZipCodes.length > 0
+      ? atlantaZipCodes.includes(normalizedPostalCode)
+      : normalizedPostalCode.startsWith("30")
+  const addressMismatch =
+    fulfillmentType === "atlanta_delivery" &&
+    normalizedPostalCode.length >= 2 &&
+    !matchesAtlantaDelivery
   const addressMismatchMessage = addressMismatch
     ? "Atlanta Metro Delivery requires an address in the Atlanta metro area (ZIP starting with 30). Please update your ZIP code or change your delivery method."
     : null
