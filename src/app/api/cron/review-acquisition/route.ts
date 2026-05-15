@@ -77,6 +77,16 @@ function isAtlantaZip(zip: string | undefined): boolean {
   return !!zip && zip.startsWith(ATLANTA_ZIP_PREFIX)
 }
 
+function isDryRun(req: Request): boolean {
+  const url = new URL(req.url)
+  const value =
+    url.searchParams.get("dry_run") ||
+    url.searchParams.get("dryRun") ||
+    req.headers.get("x-review-dry-run") ||
+    ""
+  return ["1", "true", "yes"].includes(value.toLowerCase())
+}
+
 function isB2B(metadata?: ReviewMetadata): boolean {
   const accountType = String(metadata?.account_type || "").toLowerCase()
   return accountType.includes("wholesale") || accountType.includes("b2b")
@@ -284,12 +294,24 @@ export async function POST(req: Request): Promise<Response> {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 })
   }
 
+  const dryRun = isDryRun(req)
   const orders = await fetchRecentlyDelivered()
   const summary = {
+    dryRun,
     scanned: orders.length,
+    eligibleGoogle: 0,
+    eligibleYelp: 0,
     sentGoogle: 0,
     sentYelp: 0,
+    failed: 0,
     skipped: 0,
+    skippedNoEmail: 0,
+    skippedNoDeliveredAt: 0,
+    skippedB2B: 0,
+    skippedBadSignal: 0,
+    skippedSuppressed: 0,
+    skippedAlreadyAsked: 0,
+    skippedNotDue: 0,
   }
 
   for (const order of orders) {
@@ -299,14 +321,29 @@ export async function POST(req: Request): Promise<Response> {
       (order.metadata?.order_count_at_time_of_purchase ?? 1) > 1
     const customerMetadata = order.customer?.metadata || {}
 
-    if (
-      !email ||
-      !delivered ||
-      isB2B(customerMetadata) ||
-      hasRecentBadSignal(order) ||
-      (await isSuppressed(email))
-    ) {
+    if (!email) {
       summary.skipped++
+      summary.skippedNoEmail++
+      continue
+    }
+    if (!delivered) {
+      summary.skipped++
+      summary.skippedNoDeliveredAt++
+      continue
+    }
+    if (isB2B(customerMetadata)) {
+      summary.skipped++
+      summary.skippedB2B++
+      continue
+    }
+    if (hasRecentBadSignal(order)) {
+      summary.skipped++
+      summary.skippedBadSignal++
+      continue
+    }
+    if (await isSuppressed(email)) {
+      summary.skipped++
+      summary.skippedSuppressed++
       continue
     }
 
@@ -320,14 +357,20 @@ export async function POST(req: Request): Promise<Response> {
       !yelpAt &&
       olderThanDays(googleAt, YELP_FOLLOWUP_DAYS_AFTER_GOOGLE)
     ) {
+      summary.eligibleYelp++
+      if (dryRun) continue
       const sent = await trySendAsk(order, "yelp_atlanta_followup")
       if (sent) summary.sentYelp++
-      else summary.skipped++
+      else {
+        summary.failed++
+        summary.skipped++
+      }
       continue
     }
 
     if (googleAt) {
       summary.skipped++
+      summary.skippedAlreadyAsked++
       continue
     }
 
@@ -336,15 +379,21 @@ export async function POST(req: Request): Promise<Response> {
       : withinDayOf(delivered, GOOGLE_FIRST_TIME_DAYS)
     if (!googleEligible) {
       summary.skipped++
+      summary.skippedNotDue++
       continue
     }
 
+    summary.eligibleGoogle++
+    if (dryRun) continue
     const sent = await trySendAsk(
       order,
       repeat ? "google_repeat" : "google_first_time"
     )
     if (sent) summary.sentGoogle++
-    else summary.skipped++
+    else {
+      summary.failed++
+      summary.skipped++
+    }
   }
 
   return NextResponse.json({ ok: true, ...summary })
