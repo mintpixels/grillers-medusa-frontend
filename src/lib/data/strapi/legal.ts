@@ -3,6 +3,7 @@ import strapiClient from "@lib/strapi"
 
 export type StrapiMedia = {
   url: string
+  name?: string | null
   width?: number
   height?: number
   alternativeText?: string | null
@@ -88,6 +89,7 @@ export const GetLegalPageQuery = gql`
         Subhead
         Image {
           url
+          name
           width
           height
           alternativeText
@@ -109,6 +111,7 @@ export const GetLegalPageQuery = gql`
           SectionBody: Body
           SectionImage: Image {
             url
+            name
             width
             height
             alternativeText
@@ -124,6 +127,7 @@ export const GetLegalPageQuery = gql`
             Body
             Icon {
               url
+              name
               width
               height
               alternativeText
@@ -133,6 +137,7 @@ export const GetLegalPageQuery = gql`
         ... on ComponentInfoImageBlock {
           BlockImage: Image {
             url
+            name
             width
             height
             alternativeText
@@ -261,6 +266,45 @@ function pageHasContent(page?: LegalPageData | null) {
   )
 }
 
+function flattenRichText(children?: any[]): string {
+  if (!Array.isArray(children)) return ""
+  return children
+    .map((child) => {
+      if (child?.type === "text") return child.text || ""
+      return flattenRichText(child?.children)
+    })
+    .join("")
+}
+
+function shouldDropEditorBlock(block: any) {
+  if (block?.type !== "paragraph") return false
+  return /managed in Strapi|Strapi-managed|Strapi managed/i.test(
+    flattenRichText(block.children)
+  )
+}
+
+function sanitizeLegalPage(page: LegalPageData): LegalPageData {
+  if (!Array.isArray(page.Body)) return page
+
+  return {
+    ...page,
+    Body: page.Body.map((block) => {
+      if (
+        block.__typename === "ComponentInfoSection" &&
+        Array.isArray(block.SectionBody)
+      ) {
+        return {
+          ...block,
+          SectionBody: block.SectionBody.filter(
+            (richBlock) => !shouldDropEditorBlock(richBlock)
+          ),
+        }
+      }
+      return block
+    }),
+  }
+}
+
 async function fetchLegalPage(slug: string): Promise<LegalPageData | null> {
   try {
     const data = await strapiClient.request<LegalPagesQueryResult>(
@@ -268,7 +312,7 @@ async function fetchLegalPage(slug: string): Promise<LegalPageData | null> {
       { slug }
     )
     const page = data?.legalPages?.[0]
-    if (pageHasContent(page)) return page!
+    if (pageHasContent(page)) return sanitizeLegalPage(page!)
   } catch {
     // Network or schema error — return null so the route 404s cleanly.
   }

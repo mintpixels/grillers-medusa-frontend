@@ -1,6 +1,5 @@
 import { Metadata } from "next"
 import { notFound } from "next/navigation"
-import { BlocksRenderer } from "@strapi/blocks-react-renderer"
 import {
   getInfoPage,
   getLegalPage,
@@ -64,34 +63,7 @@ export default async function StaticPage({ params }: Props) {
     const page = await getLegalPage(slug)
     if (!page) notFound()
 
-    const updated = page.UpdatedAt
-      ? new Date(page.UpdatedAt).toLocaleDateString("en-US", {
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-        })
-      : null
-
-    return (
-      <div className="content-container py-12 md:py-16">
-        <article className="max-w-3xl mx-auto">
-          <header className="mb-8 pb-6 border-b border-Charcoal/10">
-            <h1 className="text-h2-mobile md:text-h2 font-gyst text-Charcoal">
-              {page.Title}
-            </h1>
-            {updated && (
-              <p className="mt-3 text-p-sm text-Charcoal/60">
-                Last updated: {updated}
-              </p>
-            )}
-          </header>
-
-          <div className="prose prose-Charcoal max-w-none font-maison-neue text-Charcoal/90 [&_h2]:font-gyst [&_h2]:text-Charcoal [&_h2]:mt-8 [&_h2]:mb-3 [&_h3]:font-gyst [&_h3]:text-Charcoal [&_a]:text-Gold [&_a:hover]:text-Gold/80">
-            <BlocksRenderer content={page.Content || []} />
-          </div>
-        </article>
-      </div>
-    )
+    return <InfoPageTemplate page={page} section="Policy" />
   }
 
   const page = await getInfoPage(slug)

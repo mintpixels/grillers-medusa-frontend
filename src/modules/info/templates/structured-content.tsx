@@ -8,7 +8,7 @@ import { useMemo } from "react"
  * Footer / info pages are authored in Strapi as a single rich-text Content
  * blob using a markdown-spec dialect. The default BlocksRenderer would dump
  * label literals like "Eyebrow:", "Headline:", "Subhead:", "Primary CTA:",
- * "Image:" verbatim — see #71.
+ * "Image:" verbatim. See #71.
  *
  * This component pre-parses the blocks once and renders proper design
  * elements:
@@ -80,7 +80,7 @@ const parseCta = (raw: string): { label: string; href?: string } => {
   const parts = raw.split(/\s+[—→\-]+\s+/)
   if (parts.length >= 2 && /^(\/|https?:)/.test(parts[parts.length - 1])) {
     const href = parts.pop()!
-    return { label: parts.join(" — ").trim(), href }
+    return { label: parts.join(" - ").trim(), href }
   }
   return { label: raw.trim() }
 }
@@ -94,6 +94,17 @@ const parseImageLine = (raw: string): { src: string; alt?: string } | null => {
   if (!/^(https?:|\/)/.test(src)) return null
   return { src, alt: parts[1] }
 }
+
+const isImplementationPlaceholder = (text: string) => {
+  const trimmed = text.trim()
+  if (!/^\[[^\]]+\]\.?$/.test(trimmed)) return false
+  return /(embedded|strapi-managed|email subscribe|subscribe form|placeholder|cta|table|calendar|list|form)/i.test(
+    trimmed
+  )
+}
+
+const isEditorInstructionText = (text: string) =>
+  /managed in Strapi|Strapi-managed|Strapi managed/i.test(text)
 
 type HeroData = {
   eyebrow?: string
@@ -159,7 +170,7 @@ const renderInline = (children: AnyChild[] | undefined, keyPrefix: string): Reac
 }
 
 // Detect bold-leading paragraphs in a section: a paragraph whose first
-// child run is bold and ends with ". " or "—" or "•" — render the section
+// child run is bold and ends with ". " or "—" or "•". Render the section
 // as a feature grid instead of plain paragraphs.
 const detectFeaturePattern = (blocks: Block[]): { lead: string; body: AnyChild[] }[] | null => {
   const features: { lead: string; body: AnyChild[] }[] = []
@@ -170,7 +181,7 @@ const detectFeaturePattern = (blocks: Block[]): { lead: string; body: AnyChild[]
     const first = children[0]
     if (first.type !== "text" || !first.bold) return null
     const fullText = flattenText(children)
-    const m = fullText.match(/^([^.]+\.)\s*(.*)$/s)
+    const m = fullText.match(/^([^.]+\.)\s*([\s\S]*)$/)
     if (!m) return null
     features.push({
       lead: m[1].trim(),
@@ -258,6 +269,9 @@ const renderBlocks = (
     const k = `${keyPrefix}.${i}`
     if (b?.type === "paragraph") {
       const text = flattenText(b.children).trim()
+      if (isImplementationPlaceholder(text) || isEditorInstructionText(text)) {
+        return
+      }
       const m = matchFieldLabel(text)
       if (m && m.field === "image") {
         const img = parseImageLine(m.rest)
