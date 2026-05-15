@@ -46,8 +46,6 @@ function getPromise(
       detail: isLoggedIn
         ? "We will use your ZIP to estimate local delivery, regional pickup, or UPS cold-chain transit before checkout."
         : `Atlanta delivery and regional pickup can unlock free delivery at $${IN_REGION_THRESHOLD}. UPS cold-chain shipping is free nationwide at $${NATIONAL_THRESHOLD}.`,
-      ctaHref: "/collections/kosher-beef",
-      ctaLabel: "Start with beef",
       badge: "ZIP ready",
     }
   }
