@@ -1,19 +1,27 @@
 "use client"
 
 import React from "react"
-import { Swiper, SwiperSlide } from "swiper/react"
-import "swiper/css"
 import Image from "next/image"
+import { ArrowRight } from "lucide-react"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 
 type Recipe = {
   documentId: string
   Title: string
   Slug: string
-  Image: {
+  Image?: {
     url: string
-  }
-  ShortDescription: string
+  } | null
+  ShortDescription?: string | null
+}
+
+const getRecipeTeaser = (description?: string | null) => {
+  if (!description) return null
+
+  const normalized = description.replace(/\s+/g, " ").trim()
+  const sentenceEnd = normalized.indexOf(".")
+
+  return sentenceEnd >= 0 ? normalized.slice(0, sentenceEnd + 1) : normalized
 }
 
 export default function HowItFitsSection({
@@ -27,80 +35,124 @@ export default function HowItFitsSection({
   // recipe-less SKU (#75).
   if (!recipes?.length) return null
 
+  const visibleRecipes = recipes.slice(0, 3)
+  const hasRecipeImages = visibleRecipes.some((recipe) => recipe?.Image?.url)
+
   return (
-    <section className="py-16 md:py-32 bg-Scroll overflow-hidden">
-      <div className="mx-auto max-w-7xl px-4.5">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-20">
-          <div className="hidden md:block size-[44px]" />
-          <div className="md:text-center w-[calc(100%-60px)] md:w-auto">
-            <h3 className="text-h2-mobile md:text-h2 font-gyst text-Charcoal mb-4 md:mb-8">
+    <section className="bg-White py-12 md:py-20 border-y border-Charcoal/15">
+      <div className="mx-auto max-w-7xl px-6">
+        <div className="grid grid-cols-1 gap-6 border-b border-Charcoal pb-8 md:grid-cols-[minmax(260px,0.8fr)_1fr] md:items-end md:gap-12 md:pb-10">
+          <div>
+            <p className="mb-3 font-maison-neue-mono text-p-ex-sm-mono uppercase tracking-[0.12em] text-RichGold">
+              Cook this cut
+            </p>
+            <h3 className="font-gyst text-h2-mobile text-Charcoal md:text-h2">
               How It Fits On Your Table
             </h3>
-            <p className="text-p-md font-maison-neue text-Charcoal max-w-[571px]">
+          </div>
+
+          <div className="flex flex-col gap-5 md:max-w-[520px] md:justify-self-end">
+            <p className="font-maison-neue text-p-md text-Charcoal md:text-right">
               Recipes built around the cuts our customers cook most.
               From a Tuesday weeknight to Friday Shabbos.
             </p>
+            <LocalizedClientLink
+              href="/recipes"
+              className="inline-flex h-11 items-center gap-3 self-start rounded-full border border-Charcoal px-5 font-rexton text-h6 font-bold uppercase text-Charcoal transition-colors hover:bg-Charcoal hover:text-White md:self-end"
+            >
+              View all recipes
+              <ArrowRight aria-hidden="true" size={16} strokeWidth={1.75} />
+            </LocalizedClientLink>
           </div>
-
-          <LocalizedClientLink
-            href="#"
-            className="h-[44px] w-[44px] border border-Charcoal rounded-full flex items-center justify-center flex-shrink-0"
-          >
-            <Image
-              src="/images/icons/arrow-right.svg"
-              width={20}
-              height={12}
-              alt="See more"
-            />
-          </LocalizedClientLink>
         </div>
 
-        {/* Slider */}
-        <div className="-mx-2">
-          <Swiper
-            spaceBetween={24}
-            slidesPerView={1}
-            breakpoints={{
-              480: { slidesPerView: 2 },
-              768: { slidesPerView: 3 },
-              1024: { slidesPerView: 4 },
-            }}
-            className="swiper-visible"
-          >
-            {recipes.map((recipe) => (
-              <SwiperSlide
-                key={recipe.documentId}
-                className="pb-4 outline-none"
-                aria-labelledby={`recipe-${recipe.documentId}-title`}
-              >
-                <LocalizedClientLink href={`/recipes/${recipe.Slug}`}>
-                  <figure className="relative w-full aspect-square bg-gray-50 h-[552px]">
-                    {recipe?.Image?.url && (
-                      <Image
-                        src={recipe.Image.url}
-                        alt={recipe.Title}
-                        fill
-                        className="object-cover"
-                      />
-                    )}
-                  </figure>
+        <div className="grid grid-cols-1 gap-y-10 pt-8 sm:grid-cols-2 sm:gap-x-6 md:grid-cols-3 md:pt-10">
+          {visibleRecipes.map((recipe) => {
+            const teaser = getRecipeTeaser(recipe.ShortDescription)
+            const hasImage = Boolean(recipe?.Image?.url)
 
-                  <div className="pt-8">
+            return (
+              <article
+                key={recipe.documentId}
+                aria-labelledby={`recipe-${recipe.documentId}-title`}
+                className="group"
+              >
+                <LocalizedClientLink
+                  href={`/recipes/${recipe.Slug}`}
+                  className={
+                    hasRecipeImages
+                      ? "block"
+                      : "flex h-full min-h-[260px] flex-col border-y border-Charcoal py-5 transition-colors hover:border-Crimson"
+                  }
+                >
+                  {hasRecipeImages && (
+                    <figure className="relative aspect-[4/3] w-full overflow-hidden border border-Charcoal/15 bg-Scroll">
+                      {hasImage ? (
+                        <Image
+                          src={recipe.Image!.url}
+                          alt={recipe.Title}
+                          fill
+                          className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                          sizes="(min-width: 1024px) 31vw, (min-width: 640px) 46vw, 92vw"
+                        />
+                      ) : (
+                        <div className="flex h-full flex-col justify-between bg-[linear-gradient(135deg,#F0F0ED_0%,#FFFFFF_58%,#E5B565_100%)] p-5">
+                          <span className="font-maison-neue-mono text-p-ex-sm-mono uppercase tracking-[0.14em] text-Charcoal/60">
+                            Recipe
+                          </span>
+                          <span className="max-w-[18ch] font-gyst text-h4 font-bold leading-tight text-Charcoal">
+                            {recipe.Title}
+                          </span>
+                        </div>
+                      )}
+                    </figure>
+                  )}
+
+                  <div className={hasRecipeImages ? "pt-5" : "flex h-full flex-col"}>
+                    {!hasRecipeImages && (
+                      <>
+                        <span className="font-maison-neue-mono text-p-ex-sm-mono uppercase tracking-[0.14em] text-Charcoal/60">
+                          Recipe
+                        </span>
+                        <span className="mt-3 h-px w-14 bg-RichGold" />
+                      </>
+                    )}
                     <h4
                       id={`recipe-${recipe.documentId}-title`}
-                      className="text-h4 font-gyst font-bold text-Charcoal pb-3 border-b border-Charcoal mb-4"
+                      className={
+                        hasRecipeImages
+                          ? "border-b border-Charcoal pb-3 font-gyst text-h4 font-bold text-Charcoal transition-colors group-hover:text-Crimson"
+                          : "mt-8 font-gyst text-h4 font-bold text-Charcoal transition-colors group-hover:text-Crimson"
+                      }
                     >
                       {recipe.Title}
                     </h4>
-                    <p className="text-p-sm font-maison-neue text-Charcoal pb-4 border-b border-Charcoal">
-                      {recipe.ShortDescription}
-                    </p>
+                    {teaser && (
+                      <p
+                        className={
+                          hasRecipeImages
+                            ? "min-h-[86px] border-b border-Charcoal py-4 font-maison-neue text-p-sm text-Charcoal"
+                            : "mt-4 font-maison-neue text-p-sm text-Charcoal"
+                        }
+                      >
+                        {teaser}
+                      </p>
+                    )}
+                    {!hasRecipeImages && (
+                      <span className="mt-auto inline-flex items-center gap-2 pt-8 font-rexton text-h6 font-bold uppercase text-Charcoal">
+                        Open recipe
+                        <ArrowRight
+                          aria-hidden="true"
+                          size={15}
+                          strokeWidth={1.75}
+                        />
+                      </span>
+                    )}
                   </div>
                 </LocalizedClientLink>
-              </SwiperSlide>
-            ))}
-          </Swiper>
+              </article>
+            )
+          })}
         </div>
       </div>
     </section>
