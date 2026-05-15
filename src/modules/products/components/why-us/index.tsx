@@ -8,9 +8,9 @@ export default function WhyUsSection({
 }: {
   data?: {
     Title: string
-    Image: {
+    Image?: {
       url: string
-    }
+    } | null
     List: {
       id: string
       Title: string
@@ -23,37 +23,74 @@ export default function WhyUsSection({
   // undefined image src (which throws). #128 cleanup.
   if (!data || !data.List?.length) return null
 
+  const qmdTrustItems = [
+    {
+      id: "akc-supervision",
+      Title: "AKC Supervised",
+      Description:
+        "Every product is processed under continuous Atlanta Kashruth Commission supervision, with a Mashgiach on-site every shift.",
+    },
+    {
+      id: "own-plant",
+      Title: "Our Own Plant",
+      Description:
+        "Single-ingredient cuts, prepared foods, smoked items, and sausages are handled by our team on our premises.",
+    },
+    {
+      id: "family-run",
+      Title: "Family-Run Service",
+      Description:
+        "Built on community trust and word-of-mouth, with real people available when you have a product, order, or kashruth question.",
+    },
+    {
+      id: "regional-routes",
+      Title: "Southeast Routes",
+      Description:
+        "Metro Atlanta home delivery, scheduled Southeast city deliveries, plant pickup, and nationwide UPS cold-chain shipping.",
+    },
+  ]
+  const cmsItems = data.List.filter((item) => item?.Title && item?.Description)
+  const trustItems = cmsItems.length >= 4 ? cmsItems.slice(0, 4) : qmdTrustItems
+
   return (
-    <section className="py-10 md:py-20 bg-Scroll">
-      <div className="mx-auto max-w-7xl px-4.5 grid grid-cols-1 md:grid-cols-[0.7fr_1.3fr] gap-8">
-        <div className="flex flex-col justify-between py-4 max-w-[365px]">
-          <h3 className="text-h2 font-gyst text-Charcoal mb-6">
+    <section className="bg-Scroll py-14 md:py-24">
+      <div className="mx-auto grid max-w-7xl grid-cols-1 gap-8 px-6 md:grid-cols-[0.72fr_1.28fr] md:items-start md:gap-16">
+        <div>
+          <p className="mb-3 font-maison-neue-mono text-p-ex-sm-mono uppercase tracking-[0.12em] text-RichGold">
+            Why customers come back
+          </p>
+          <h3 className="mb-8 font-gyst text-h2-mobile text-Charcoal md:text-h2">
             {data.Title}
           </h3>
-          <dl className="space-y-8 divide-y divide-Charcoal">
-            {data.List.slice(0, 3).map((item) => (
-              <div key={item.id} className="pt-5 pb-3 border-t border-Charcoal">
-                <dt className="text-h4 font-gyst font-bold text-Charcoal pb-2 mb-2">
-                  {item?.Title}
-                </dt>
-                <dd className="text-p-md font-maison-neue text-Charcoal">
-                  {item?.Description}
-                </dd>
-              </div>
-            ))}
-          </dl>
+
+          {data.Image?.url && (
+            <div className="relative aspect-[4/3] w-full overflow-hidden border border-Charcoal/15 md:mt-10">
+              <Image
+                src={data.Image.url}
+                alt={data.Title}
+                fill
+                className="object-cover"
+                sizes="(min-width: 1024px) 380px, 92vw"
+              />
+            </div>
+          )}
         </div>
 
-        {data.Image?.url && (
-          <div className="relative w-full aspect-square overflow-hidden">
-            <Image
-              src={data.Image.url}
-              alt={data.Title}
-              fill
-              className="object-cover"
-            />
-          </div>
-        )}
+        <dl className="grid grid-cols-1 border-t border-Charcoal sm:grid-cols-2">
+          {trustItems.map((item) => (
+            <div
+              key={item.id}
+              className="border-b border-Charcoal py-5 sm:odd:border-r sm:odd:pr-6 sm:even:pl-6 md:py-7"
+            >
+              <dt className="mb-3 font-gyst text-h4 font-bold text-Charcoal">
+                {item.Title}
+              </dt>
+              <dd className="font-maison-neue text-p-md text-Charcoal">
+                {item.Description}
+              </dd>
+            </div>
+          ))}
+        </dl>
       </div>
     </section>
   )
