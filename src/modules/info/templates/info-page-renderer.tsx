@@ -193,7 +193,12 @@ function renderInlineChild(
     )
   }
   if (child.italic) node = <em key={key}>{node}</em>
-  if (child.underline) node = <span key={key} className="underline">{node}</span>
+  if (child.underline)
+    node = (
+      <span key={key} className="underline">
+        {node}
+      </span>
+    )
 
   return { text, node: <span key={key}>{node}</span> }
 }
@@ -232,10 +237,15 @@ function RichTextBlocks({ content }: { content: RichTextBlock[] }) {
         const text = flattenInline(block.children)
 
         if (block.type === "paragraph") {
-          if (isImplementationPlaceholder(text) || isEditorInstructionText(text)) {
+          if (
+            isImplementationPlaceholder(text) ||
+            isEditorInstructionText(text)
+          ) {
             return null
           }
-          return <p key={key}>{renderInlineChildren(block.children || [], key)}</p>
+          return (
+            <p key={key}>{renderInlineChildren(block.children || [], key)}</p>
+          )
         }
 
         if (block.type === "heading") {
@@ -276,6 +286,351 @@ function RichTextBlocks({ content }: { content: RichTextBlock[] }) {
         return null
       })}
     </>
+  )
+}
+
+function firstBoldText(block: RichTextBlock) {
+  return (
+    block.children?.find(
+      (child) => child.type === "text" && child.bold && child.text
+    )?.text || ""
+  ).trim()
+}
+
+function textAfterFirstBold(block: RichTextBlock) {
+  const children = block.children || []
+  const firstBoldIndex = children.findIndex(
+    (child) => child.type === "text" && child.bold && child.text
+  )
+  if (firstBoldIndex < 0) return flattenInline(children).trim()
+  return flattenInline(children.slice(firstBoldIndex + 1)).trim()
+}
+
+type DeliveryRateRow = {
+  zip: string
+  day: string
+  rate250: string
+  rate150: string
+  rate100: string
+  rate50: string
+  rate0: string
+}
+
+type ParsedDeliveryRates = {
+  intro: RichTextBlock[]
+  rows: DeliveryRateRow[]
+  trailing: RichTextBlock[]
+}
+
+function parseDeliveryRates(
+  content: RichTextBlock[]
+): ParsedDeliveryRates | null {
+  const headerIndex = content.findIndex(
+    (block) =>
+      block.type === "paragraph" &&
+      firstBoldText(block).toLowerCase() === "zip code"
+  )
+
+  if (headerIndex < 0) return null
+
+  const rows: DeliveryRateRow[] = []
+  let index = headerIndex + 1
+
+  for (; index < content.length; index++) {
+    const block = content[index]
+    const zip = firstBoldText(block)
+    if (!/^\d{5}$/.test(zip)) break
+
+    const parts = textAfterFirstBold(block)
+      .split("/")
+      .map((part) => part.trim())
+      .filter(Boolean)
+
+    if (parts.length < 6) break
+
+    rows.push({
+      zip,
+      day: parts[0],
+      rate250: parts[1],
+      rate150: parts[2],
+      rate100: parts[3],
+      rate50: parts[4],
+      rate0: parts[5],
+    })
+  }
+
+  if (!rows.length) return null
+
+  return {
+    intro: content.slice(0, headerIndex),
+    rows,
+    trailing: content.slice(index),
+  }
+}
+
+function DeliveryRatesTable({ rows }: { rows: DeliveryRateRow[] }) {
+  const columns = [
+    { key: "rate250", label: "$250+" },
+    { key: "rate150", label: "$150-$249" },
+    { key: "rate100", label: "$100-$149" },
+    { key: "rate50", label: "$50-$99" },
+    { key: "rate0", label: "$0-$49" },
+  ] as const
+
+  return (
+    <div className="not-prose my-7">
+      <div className="hidden overflow-x-auto border-t border-Charcoal/20 md:block">
+        <table className="min-w-[760px] w-full border-collapse font-maison-neue text-left text-p-sm text-Charcoal">
+          <thead>
+            <tr className="border-b border-Charcoal/20">
+              <th className="py-3 pr-4 font-maison-neue-mono text-p-ex-sm-mono uppercase tracking-[0.14em] text-RichGold">
+                ZIP Code
+              </th>
+              <th className="py-3 pr-4 font-maison-neue-mono text-p-ex-sm-mono uppercase tracking-[0.14em] text-RichGold">
+                Delivery Day
+              </th>
+              {columns.map((column) => (
+                <th
+                  key={column.key}
+                  className="py-3 pr-4 font-maison-neue-mono text-p-ex-sm-mono uppercase tracking-[0.14em] text-RichGold"
+                >
+                  {column.label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.zip} className="border-b border-Charcoal/15">
+                <th className="py-3 pr-4 align-top font-semibold text-Charcoal">
+                  {row.zip}
+                </th>
+                <td className="py-3 pr-4 align-top text-Charcoal/80">
+                  {row.day}
+                </td>
+                {columns.map((column) => (
+                  <td
+                    key={column.key}
+                    className="py-3 pr-4 align-top text-Charcoal/80"
+                  >
+                    {row[column.key]}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="grid gap-3 md:hidden">
+        {rows.map((row) => (
+          <div key={row.zip} className="border-t border-Charcoal/20 pt-4">
+            <div className="flex items-baseline justify-between gap-4">
+              <h3 className="font-maison-neue text-p-md font-semibold text-Charcoal">
+                {row.zip}
+              </h3>
+              <p className="font-maison-neue-mono text-p-ex-sm-mono uppercase tracking-[0.12em] text-RichGold">
+                {row.day}
+              </p>
+            </div>
+            <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 font-maison-neue text-p-sm">
+              {columns.map((column) => (
+                <div key={column.key} className="flex justify-between gap-3">
+                  <dt className="text-Charcoal/60">{column.label}</dt>
+                  <dd className="font-semibold text-Charcoal">
+                    {row[column.key]}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+type ShippingComparisonRow = {
+  label: string
+  ground: string
+  overnight: string
+}
+
+type ParsedShippingComparison = {
+  intro: RichTextBlock[]
+  rows: ShippingComparisonRow[]
+  trailing: RichTextBlock[]
+}
+
+function parseShippingComparison(
+  content: RichTextBlock[]
+): ParsedShippingComparison | null {
+  const headerIndex = content.findIndex((block) => {
+    const text = flattenInline(block.children).toLowerCase()
+    return (
+      block.type === "paragraph" &&
+      text.includes("ground") &&
+      text.includes("overnight")
+    )
+  })
+
+  if (headerIndex < 0) return null
+
+  const rows: ShippingComparisonRow[] = []
+  let index = headerIndex + 1
+
+  for (; index < content.length; index++) {
+    const block = content[index]
+    const label = firstBoldText(block)
+    if (!label) break
+
+    const parts = textAfterFirstBold(block)
+      .split("/")
+      .map((part) => part.trim())
+      .filter(Boolean)
+
+    if (parts.length !== 2) break
+    rows.push({ label, ground: parts[0], overnight: parts[1] })
+  }
+
+  if (!rows.length) return null
+
+  return {
+    intro: content.slice(0, headerIndex),
+    rows,
+    trailing: content.slice(index),
+  }
+}
+
+function ShippingComparisonTable({ rows }: { rows: ShippingComparisonRow[] }) {
+  return (
+    <div className="not-prose my-7">
+      <div className="hidden overflow-x-auto border-t border-Charcoal/20 md:block">
+        <table className="min-w-[640px] w-full border-collapse font-maison-neue text-left text-p-sm text-Charcoal">
+          <thead>
+            <tr className="border-b border-Charcoal/20">
+              <th className="py-3 pr-4 font-maison-neue-mono text-p-ex-sm-mono uppercase tracking-[0.14em] text-RichGold">
+                Decision Point
+              </th>
+              <th className="py-3 pr-4 font-maison-neue-mono text-p-ex-sm-mono uppercase tracking-[0.14em] text-RichGold">
+                UPS Ground
+              </th>
+              <th className="py-3 font-maison-neue-mono text-p-ex-sm-mono uppercase tracking-[0.14em] text-RichGold">
+                UPS Overnight
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.label} className="border-b border-Charcoal/15">
+                <th className="py-4 pr-4 align-top font-semibold text-Charcoal">
+                  {row.label}
+                </th>
+                <td className="py-4 pr-4 align-top text-Charcoal/80">
+                  {row.ground}
+                </td>
+                <td className="py-4 align-top text-Charcoal/80">
+                  {row.overnight}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="grid gap-4 md:hidden">
+        {(["ground", "overnight"] as const).map((method) => (
+          <section key={method} className="border-t border-Charcoal/20 pt-4">
+            <h3 className="font-gyst text-h4 font-bold text-Charcoal">
+              {method === "ground" ? "UPS Ground" : "UPS Overnight"}
+            </h3>
+            <dl className="mt-3 space-y-3 font-maison-neue text-p-sm">
+              {rows.map((row) => (
+                <div key={row.label}>
+                  <dt className="font-maison-neue-mono text-p-ex-sm-mono uppercase tracking-[0.12em] text-RichGold">
+                    {row.label}
+                  </dt>
+                  <dd className="mt-1 leading-[1.6] text-Charcoal/80">
+                    {row[method]}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function renderSpecialSectionBody({
+  title,
+  content,
+}: {
+  title?: string | null
+  content: RichTextBlock[]
+}): React.ReactNode | null {
+  if (title === "Delivery zip codes & rates") {
+    const parsed = parseDeliveryRates(content)
+    if (parsed) {
+      return (
+        <>
+          {parsed.intro.length > 0 && (
+            <div className={richProse}>
+              <RichTextBlocks content={parsed.intro} />
+            </div>
+          )}
+          <DeliveryRatesTable rows={parsed.rows} />
+          {parsed.trailing.length > 0 && (
+            <div className={richProse}>
+              <RichTextBlocks content={parsed.trailing} />
+            </div>
+          )}
+        </>
+      )
+    }
+  }
+
+  if (title === "Ground or Overnight?") {
+    const parsed = parseShippingComparison(content)
+    if (parsed) {
+      return (
+        <>
+          {parsed.intro.length > 0 && (
+            <div className={richProse}>
+              <RichTextBlocks content={parsed.intro} />
+            </div>
+          )}
+          <ShippingComparisonTable rows={parsed.rows} />
+          {parsed.trailing.length > 0 && (
+            <div className={richProse}>
+              <RichTextBlocks content={parsed.trailing} />
+            </div>
+          )}
+        </>
+      )
+    }
+  }
+
+  return null
+}
+
+function SectionBodyContent({
+  block,
+}: {
+  block: Extract<InfoBodyComponent, { __typename: "ComponentInfoSection" }>
+}) {
+  if (!block.SectionBody) return null
+  const content = block.SectionBody as RichTextBlock[]
+  const special = renderSpecialSectionBody({
+    title: block.SectionTitle,
+    content,
+  })
+  if (special) return <>{special}</>
+  return (
+    <div className={richProse}>
+      <RichTextBlocks content={content} />
+    </div>
   )
 }
 
@@ -463,11 +818,7 @@ function SectionBlock({
                 {block.SectionTitle}
               </h2>
             )}
-            {block.SectionBody && (
-              <div className={richProse}>
-                <RichTextBlocks content={block.SectionBody as any} />
-              </div>
-            )}
+            {block.SectionBody && <SectionBodyContent block={block} />}
           </div>
           <div className="relative overflow-hidden border border-Charcoal/15 bg-Scroll">
             <StrapiImage
@@ -503,11 +854,7 @@ function SectionBlock({
             />
           </div>
         )}
-        {block.SectionBody && (
-          <div className={richProse}>
-            <RichTextBlocks content={block.SectionBody as any} />
-          </div>
-        )}
+        {block.SectionBody && <SectionBodyContent block={block} />}
       </div>
     </section>
   )
@@ -643,16 +990,10 @@ export function StructuredInfoBody({
   const sanitizedBody = sanitizeInfoBody(body)
   const navItems = sanitizedBody
     .map((block) => {
-      if (
-        block.__typename === "ComponentInfoSection" &&
-        block.SectionTitle
-      ) {
+      if (block.__typename === "ComponentInfoSection" && block.SectionTitle) {
         return { label: block.SectionTitle, id: slugify(block.SectionTitle) }
       }
-      if (
-        block.__typename === "ComponentInfoFeatureGrid" &&
-        block.Heading
-      ) {
+      if (block.__typename === "ComponentInfoFeatureGrid" && block.Heading) {
         return { label: block.Heading, id: slugify(block.Heading) }
       }
       return null
