@@ -18,9 +18,20 @@ type StrapiProductGridProps = {
   /** When the filter sidebar is hidden the products area is wider, so we
    * bump to 4 cols at xl. Default 3 cols matches the with-sidebar layout. */
   wide?: boolean
+  recentProductIds?: string[]
 }
 
-export function ProductCard({ product, countryCode, viewMode = "grid" }: { product: StrapiCollectionProduct; countryCode: string; viewMode?: "grid" | "list" }) {
+export function ProductCard({
+  product,
+  countryCode,
+  viewMode = "grid",
+  previouslyOrdered = false,
+}: {
+  product: StrapiCollectionProduct
+  countryCode: string
+  viewMode?: "grid" | "list"
+  previouslyOrdered?: boolean
+}) {
   const [isAdding, setIsAdding] = useState(false)
 
   const handleAddToCart = async () => {
@@ -91,6 +102,11 @@ export function ProductCard({ product, countryCode, viewMode = "grid" }: { produ
               alt={product.Title}
               sizes="(max-width: 640px) 100vw, (max-width: 1024px) 160px, 180px"
             />
+            {previouslyOrdered && (
+              <span className="absolute left-2 top-2 rounded-full bg-white/95 px-2.5 py-1 font-maison-neue-mono text-[9px] font-bold uppercase tracking-wide text-Charcoal shadow-sm">
+                Ordered before
+              </span>
+            )}
           </figure>
         </LocalizedClientLink>
 
@@ -241,6 +257,11 @@ export function ProductCard({ product, countryCode, viewMode = "grid" }: { produ
               sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 33vw"
             />
           </div>
+          {previouslyOrdered && (
+            <span className="absolute left-2 top-2 rounded-full bg-white/95 px-2.5 py-1 font-maison-neue-mono text-[9px] font-bold uppercase tracking-wide text-Charcoal shadow-sm">
+              Ordered before
+            </span>
+          )}
         </figure>
       </LocalizedClientLink>
 
@@ -371,7 +392,15 @@ export function ProductCard({ product, countryCode, viewMode = "grid" }: { produ
   )
 }
 
-export default function StrapiProductGrid({ products, countryCode, viewMode = "grid", wide = false }: StrapiProductGridProps) {
+export default function StrapiProductGrid({
+  products,
+  countryCode,
+  viewMode = "grid",
+  wide = false,
+  recentProductIds = [],
+}: StrapiProductGridProps) {
+  const recentSet = new Set(recentProductIds)
+
   if (products.length === 0) {
     return (
       <div className="text-center py-12">
@@ -400,6 +429,10 @@ export default function StrapiProductGrid({ products, countryCode, viewMode = "g
             product={product} 
             countryCode={countryCode}
             viewMode={viewMode}
+            previouslyOrdered={
+              !!product.MedusaProduct?.ProductId &&
+              recentSet.has(product.MedusaProduct.ProductId)
+            }
           />
         ))}
       </div>

@@ -73,7 +73,7 @@ function EmptyResults({
           <Link
             key={s.label}
             href={s.href}
-            className="px-4 py-2 border border-Charcoal/20 rounded-full text-p-sm font-maison-neue hover:border-Gold hover:text-Gold transition-colors"
+            className="inline-flex min-h-[44px] items-center px-4 py-2 border border-Charcoal/20 rounded-full text-p-sm font-maison-neue hover:border-Gold hover:text-Gold transition-colors"
           >
             {s.label}
           </Link>

@@ -1,11 +1,16 @@
 "use client"
 
-import React, { useRef, useEffect } from "react"
+import React, { useRef, useEffect, useCallback, useState } from "react"
 import { HttpTypes } from "@medusajs/types"
 import { useIntersection } from "@lib/hooks/use-in-view"
 import { useAddToCart } from "@lib/hooks/use-add-to-cart"
 import { trackViewItem } from "@lib/gtm"
 import { jitsuTrack } from "@lib/jitsu"
+import {
+  getCartConversionState,
+  type CartConversionState,
+} from "@lib/data/conversion"
+import type { PurchaseHistoryItem } from "@lib/data/orders"
 
 import ProductDetail from "./components"
 
@@ -23,11 +28,13 @@ export default function ProductDetailContainer({
   region,
   countryCode,
   strapiProductData,
+  purchaseHistoryItem,
 }: {
   product: HttpTypes.StoreProduct
   region: HttpTypes.StoreRegion
   countryCode: string
   strapiProductData: any
+  purchaseHistoryItem?: PurchaseHistoryItem | null
 }) {
   const {
     quantity,
@@ -44,6 +51,25 @@ export default function ProductDetailContainer({
 
   const actionsRef = useRef<HTMLDivElement>(null)
   const inView = useIntersection(actionsRef, "0px")
+  const [cartConversion, setCartConversion] =
+    useState<CartConversionState | null>(null)
+
+  const refreshCartConversion = useCallback(async () => {
+    try {
+      setCartConversion(await getCartConversionState())
+    } catch {
+      setCartConversion(null)
+    }
+  }, [])
+
+  useEffect(() => {
+    refreshCartConversion()
+  }, [refreshCartConversion])
+
+  const handleAddToCartAndRefresh = useCallback(async () => {
+    await handleAddToCart()
+    await refreshCartConversion()
+  }, [handleAddToCart, refreshCartConversion])
 
   // Track view_item event when product is viewed
   useEffect(() => {
@@ -119,9 +145,11 @@ export default function ProductDetailContainer({
       quantity={quantity}
       increment={increment}
       decrement={decrement}
-      handleAddToCart={handleAddToCart}
+      handleAddToCart={handleAddToCartAndRefresh}
       actionsRef={actionsRef}
       showMobileActions={!inView}
+      cartConversion={cartConversion}
+      purchaseHistoryItem={purchaseHistoryItem}
     />
   )
 }

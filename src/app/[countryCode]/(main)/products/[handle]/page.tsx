@@ -6,6 +6,8 @@ import ProductTemplate from "@modules/products/templates"
 import strapiClient from "@lib/strapi"
 import { GetCommonPdpQuery, GetProductQuery, generateProductJsonLd } from "@lib/data/strapi/pdp"
 import { getBaseURL } from "@lib/util/env"
+import { retrieveCustomer } from "@lib/data/customer"
+import { listPurchaseHistory } from "@lib/data/orders"
 
 type Props = {
   params: Promise<{ countryCode: string; handle: string }>
@@ -153,6 +155,13 @@ export default async function ProductPage(props: Props) {
     params.countryCode
   )
 
+  const customer = await retrieveCustomer().catch(() => null)
+  const purchaseHistoryItem = customer
+    ? (await listPurchaseHistory().catch(() => [])).find(
+        (item) => item.productId === pricedProduct.id
+      ) || null
+    : null
+
   return (
     <>
       {/* Product JSON-LD for SEO */}
@@ -166,6 +175,7 @@ export default async function ProductPage(props: Props) {
         countryCode={params.countryCode}
         strapiCommonPdpData={strapiCommonPdpData?.pdp}
         strapiProductData={strapiProductData?.products?.[0]}
+        purchaseHistoryItem={purchaseHistoryItem}
       />
     </>
   )

@@ -16,9 +16,12 @@ import SocialShare from "@modules/common/components/social-share"
 import KashruthBadges from "@modules/products/components/kashruth-badges"
 import NotifyBackInStockForm from "@modules/products/components/notify-back-in-stock"
 import ShippingEligibility from "@modules/products/components/shipping-eligibility"
+import ProductConversionPanel from "@modules/products/components/product-conversion-panel"
 import { sanitizeProductCopy } from "@lib/util/product-claims"
 
 import type { StrapiProductData } from "types/strapi"
+import type { CartConversionState } from "@lib/data/conversion"
+import type { PurchaseHistoryItem } from "@lib/data/orders"
 
 type ProductTemplateProps = {
   product: HttpTypes.StoreProduct
@@ -37,6 +40,8 @@ type ProductTemplateProps = {
   handleAddToCart: () => void
   actionsRef?: React.RefObject<HTMLDivElement | null>
   showMobileActions?: boolean
+  cartConversion?: CartConversionState | null
+  purchaseHistoryItem?: PurchaseHistoryItem | null
 }
 
 const ProductImages = ({
@@ -192,6 +197,8 @@ export default function ProductDetail({
   handleAddToCart,
   actionsRef,
   showMobileActions = false,
+  cartConversion,
+  purchaseHistoryItem,
 }: ProductTemplateProps) {
   const heroTag = strapiProductData?.Metadata?.KosherForPassover
     ? "Kosher for Passover"
@@ -245,6 +252,8 @@ export default function ProductDetail({
   const optionSummary =
     Object.values(options).filter(Boolean).join(" / ") || "Select Options"
   const isSingleVariant = (product.variants?.length ?? 0) <= 1
+  const selectedItemTotal =
+    (stickyPrice?.calculated_price_number || 0) * quantity
   const setActionsNode = useCallback(
     (node: HTMLDivElement | null) => {
       if (!actionsRef) return
@@ -323,6 +332,12 @@ export default function ProductDetail({
 
           {/* Quantity + Add to Cart */}
           <div ref={setActionsNode}>
+            <ProductConversionPanel
+              cartState={cartConversion}
+              selectedItemTotal={selectedItemTotal}
+              currencyCode={region.currency_code}
+              purchaseHistoryItem={purchaseHistoryItem}
+            />
             <ProductActions
               product={product}
               variant={selectedVariant}
