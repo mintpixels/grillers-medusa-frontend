@@ -295,8 +295,8 @@ export default function CollectionTemplate({
         </div>
       </div>
 
-      {/* Mobile filter drawer. Hidden ≥ lg (desktop uses the sidebar
-          above). Backdrop closes the drawer; Esc handler in the parent
+      {/* Mobile filter bottom sheet. Hidden ≥ lg (desktop uses the sidebar
+          above). Backdrop closes the sheet; Esc handler in the parent
           effect also closes it. */}
       {showFilters && (
         <div
@@ -315,11 +315,14 @@ export default function CollectionTemplate({
             role="dialog"
             aria-modal="true"
             aria-label="Product filters"
-            className={`absolute right-0 top-0 bottom-0 w-[85%] max-w-md bg-white shadow-xl flex flex-col transition-transform duration-300 ease-out ${
-              mobileFiltersOpen ? "translate-x-0" : "translate-x-full"
+            className={`absolute inset-x-0 bottom-0 max-h-[88dvh] rounded-t-[24px] bg-white shadow-2xl flex flex-col pb-[env(safe-area-inset-bottom)] transition-transform duration-300 ease-out ${
+              mobileFiltersOpen ? "translate-y-0" : "translate-y-full"
             }`}
           >
-            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 shrink-0">
+            <div className="flex justify-center pt-3 pb-1 shrink-0">
+              <div className="h-1 w-12 rounded-full bg-Charcoal/20" />
+            </div>
+            <div className="flex items-center justify-between px-5 py-3 border-b border-gray-200 shrink-0">
               <h2 className="text-h4 font-gyst font-bold text-Charcoal">
                 Filters
               </h2>
