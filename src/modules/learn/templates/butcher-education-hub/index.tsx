@@ -63,6 +63,15 @@ type CutFamily = {
   href: string
 }
 
+type LinkedGuide = {
+  title: string
+  body: string
+  icon?: LucideIcon
+  href: string
+  event: string
+  cta: string
+}
+
 const assets = {
   butcher:
     "https://helpful-nature-fab70f9c51.media.strapiapp.com/howitworks_card_1_40c3310173.jpg",
@@ -136,22 +145,34 @@ const pillarData: Pillar[] = [
   },
 ]
 
-const kosher101 = [
+const kosher101: LinkedGuide[] = [
   {
     title: "Start with the product page",
     body: "Each product should tell you whether it is raw or prepared, what its Passover status is, and which kosher details matter before checkout.",
+    href: "/store",
+    event: "learn_collection_click",
+    cta: "Browse products",
   },
   {
     title: "Single-ingredient cuts are simpler",
     body: "Raw beef, lamb, veal, and poultry are easier to understand than sausages, sauces, smoked items, or other multi-ingredient products.",
+    href: "/collections/kosher-beef",
+    event: "learn_collection_click",
+    cta: "Compare raw cuts",
   },
   {
     title: "Meat guidance stays meat-compatible",
     body: "Cooking notes for meat products should never suggest dairy ingredients, dairy cooking steps, or dairy pairings.",
+    href: "#buying-guides",
+    event: "view_cut_guide",
+    cta: "See cooking guides",
   },
   {
     title: "Ask when the label is not enough",
     body: "If you need a specific hechsher, shchita standard, or Passover answer, call before ordering so the team can verify the item.",
+    href: "/customer-service",
+    event: "learn_contact_click",
+    cta: "Ask the counter",
   },
 ]
 
@@ -236,36 +257,54 @@ const cutFamilies: CutFamily[] = [
   },
 ]
 
-const buyingGuides = [
+const buyingGuides: LinkedGuide[] = [
   {
     title: "How much meat should I buy?",
     body: "Portion guidance for adults, children, mixed menus, leftovers, and big Yom Tov tables.",
     icon: Utensils,
+    href: "/customer-service",
+    event: "learn_contact_click",
+    cta: "Ask for portions",
   },
   {
     title: "Brisket first cut, deckel, or whole?",
     body: "A practical comparison by fat, tenderness, slicing, cook time, and holiday fit.",
     icon: Beef,
+    href: "/collections/kosher-brisket",
+    event: "learn_collection_click",
+    cta: "Compare brisket",
   },
   {
     title: "Best cuts for slow cooking",
     body: "Cholent, braises, roasts, shanks, cheeks, ribs, and the cuts that reward patience.",
     icon: CookingPot,
+    href: "/collections/kosher-stew-braising",
+    event: "learn_collection_click",
+    cta: "Shop slow-cook cuts",
   },
   {
     title: "Best cuts for grilling",
     body: "Steaks, chops, boerewors, skirt, hanger, burgers, and how to avoid overcooking lean kosher cuts.",
     icon: Flame,
+    href: "/collections/kosher-steaks",
+    event: "learn_collection_click",
+    cta: "Shop grill cuts",
   },
   {
     title: "Frozen delivery and thawing",
     body: "What to do when a dry-ice shipment arrives, how to store it, and how to thaw safely.",
     icon: Snowflake,
+    href: "/shipping/ups",
+    event: "learn_collection_click",
+    cta: "Read shipping",
   },
   {
     title: "Build a Shabbos order",
     body: "A balanced basket across protein, prepared sides, soup bones, deli, and easy reorders.",
     icon: PackageCheck,
+    href: "/store",
+    event: "learn_collection_click",
+    cta: "Start an order",
   },
 ]
 
@@ -519,9 +558,13 @@ export default function ButcherEducationHub({
 
             <div className="grid gap-3 sm:grid-cols-2">
               {kosher101.map((item) => (
-                <article
+                <TrackedLink
                   key={item.title}
-                  className="rounded-[6px] border border-Charcoal/10 bg-white p-5"
+                  href={hrefFor(countryCode, item.href)}
+                  event={item.event}
+                  label={item.title}
+                  section="kosher_meat_101"
+                  className="group block rounded-[6px] border border-Charcoal/10 bg-white p-5 transition-colors hover:border-Gold hover:bg-Scroll/40"
                 >
                   <h3 className="font-rexton text-[22px] leading-tight text-Charcoal">
                     {item.title}
@@ -529,7 +572,14 @@ export default function ButcherEducationHub({
                   <p className="mt-3 font-maison-neue text-p-sm leading-[1.65] text-Charcoal/70">
                     {item.body}
                   </p>
-                </article>
+                  <span className="mt-5 inline-flex min-h-[36px] items-center gap-2 font-rexton text-h6 font-bold uppercase text-Charcoal transition-colors group-hover:text-VibrantRed">
+                    {item.cta}
+                    <ArrowRight
+                      className="h-4 w-4 transition-transform group-hover:translate-x-1"
+                      strokeWidth={2}
+                    />
+                  </span>
+                </TrackedLink>
               ))}
             </div>
           </div>
@@ -650,9 +700,13 @@ export default function ButcherEducationHub({
               const Icon = family.icon
               const href = hrefFor(countryCode, family.href)
               return (
-                <article
+                <TrackedLink
                   key={family.title}
-                  className="group flex min-h-full flex-col overflow-hidden rounded-[6px] border border-Charcoal/10 bg-Scroll"
+                  href={href}
+                  event="learn_collection_click"
+                  label={family.title}
+                  section="cut_library"
+                  className="group flex min-h-full flex-col overflow-hidden rounded-[6px] border border-Charcoal/10 bg-Scroll transition-colors hover:border-Gold hover:bg-white"
                 >
                   <div className="relative aspect-[4/3] overflow-hidden bg-Charcoal">
                     <Image
@@ -703,18 +757,15 @@ export default function ButcherEducationHub({
                       {family.bestFor}
                     </p>
 
-                    <TrackedLink
-                      href={href}
-                      event="learn_collection_click"
-                      label={family.title}
-                      section="cut_library"
-                      className="mt-auto inline-flex min-h-[48px] items-center gap-2 pt-5 font-rexton text-h6 font-bold uppercase text-Charcoal transition-colors hover:text-VibrantRed"
-                    >
+                    <span className="mt-auto inline-flex min-h-[48px] items-center gap-2 pt-5 font-rexton text-h6 font-bold uppercase text-Charcoal transition-colors group-hover:text-VibrantRed">
                       Shop and compare
-                      <ArrowRight className="h-4 w-4" strokeWidth={2} />
-                    </TrackedLink>
+                      <ArrowRight
+                        className="h-4 w-4 transition-transform group-hover:translate-x-1"
+                        strokeWidth={2}
+                      />
+                    </span>
                   </div>
-                </article>
+                </TrackedLink>
               )
             })}
           </div>
@@ -766,9 +817,13 @@ export default function ButcherEducationHub({
               {buyingGuides.map((guide) => {
                 const Icon = guide.icon
                 return (
-                  <article
+                  <TrackedLink
                     key={guide.title}
-                    className="rounded-[6px] border border-Charcoal/10 bg-white p-5"
+                    href={hrefFor(countryCode, guide.href)}
+                    event={guide.event}
+                    label={guide.title}
+                    section="buying_guides"
+                    className="group block rounded-[6px] border border-Charcoal/10 bg-white p-5 transition-colors hover:border-Gold hover:bg-Scroll/40"
                   >
                     <div className="mb-5 flex h-10 w-10 items-center justify-center rounded-[4px] border border-Charcoal/15 bg-Scroll text-VibrantRed">
                       <Icon className="h-5 w-5" strokeWidth={1.8} />
@@ -779,7 +834,14 @@ export default function ButcherEducationHub({
                     <p className="mt-3 font-maison-neue text-p-sm leading-[1.65] text-Charcoal/70">
                       {guide.body}
                     </p>
-                  </article>
+                    <span className="mt-5 inline-flex min-h-[36px] items-center gap-2 font-rexton text-h6 font-bold uppercase text-Charcoal transition-colors group-hover:text-VibrantRed">
+                      {guide.cta}
+                      <ArrowRight
+                        className="h-4 w-4 transition-transform group-hover:translate-x-1"
+                        strokeWidth={2}
+                      />
+                    </span>
+                  </TrackedLink>
                 )
               })}
             </div>
