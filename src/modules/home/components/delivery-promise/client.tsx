@@ -22,8 +22,8 @@ type PromiseResult = {
   eyebrow: string
   headline: string
   detail: string
-  ctaHref: string
-  ctaLabel: string
+  ctaHref?: string
+  ctaLabel?: string
   badge: string
 }
 
@@ -70,8 +70,6 @@ function getPromise(
       eyebrow: "Local route likely available",
       headline: "Atlanta delivery available for this ZIP",
       detail: `Free local delivery starts at $${IN_REGION_THRESHOLD}. Checkout confirms your exact delivery day and any route minimums before payment.`,
-      ctaHref: "/collections/kosher-beef",
-      ctaLabel: "Shop local favorites",
       badge: "Atlanta delivery",
     }
   }
@@ -184,12 +182,14 @@ export default function DeliveryPromiseClient({
               <span className="inline-flex h-9 items-center rounded-full bg-white px-4 font-maison-neue-mono text-[11px] font-bold uppercase tracking-wide text-Charcoal shadow-sm ring-1 ring-Charcoal/10">
                 {result.badge}
               </span>
-              <LocalizedClientLink
-                href={result.ctaHref}
-                className="inline-flex min-h-[44px] items-center rounded-full bg-Gold px-4 font-maison-neue-mono text-[11px] font-bold uppercase tracking-wide text-Charcoal shadow-sm ring-1 ring-Charcoal/10 transition-opacity hover:opacity-90"
-              >
-                {result.ctaLabel}
-              </LocalizedClientLink>
+              {result.ctaHref && result.ctaLabel && (
+                <LocalizedClientLink
+                  href={result.ctaHref}
+                  className="inline-flex min-h-[44px] items-center rounded-full bg-Gold px-4 font-maison-neue-mono text-[11px] font-bold uppercase tracking-wide text-Charcoal shadow-sm ring-1 ring-Charcoal/10 transition-opacity hover:opacity-90"
+                >
+                  {result.ctaLabel}
+                </LocalizedClientLink>
+              )}
             </div>
           </div>
         </div>
