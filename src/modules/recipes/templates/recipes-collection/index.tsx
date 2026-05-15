@@ -271,7 +271,7 @@ const RecipesCollection = ({
               className={`shrink-0 rounded-full border px-3 py-2 text-p-sm font-maison-neue font-semibold ${
                 activeBucket
                   ? "border-Charcoal/15 bg-white text-Charcoal"
-                  : "border-Charcoal bg-Charcoal text-white"
+                  : "border-Gold bg-Gold text-Charcoal shadow-sm"
               }`}
               aria-current={!activeBucket ? "page" : undefined}
             >
@@ -280,7 +280,7 @@ const RecipesCollection = ({
           </div>
 
           <div
-            className="-mx-4.5 flex snap-x gap-2 overflow-x-auto px-4.5 pb-2"
+            className="flex snap-x gap-2 overflow-x-auto pb-2"
             aria-label="Recipe browse paths"
           >
             {BROWSE_PATHS.map((path) => {
@@ -292,13 +292,18 @@ const RecipesCollection = ({
                   key={path.id}
                   href={path.href}
                   aria-current={isActive ? "page" : undefined}
-                  className={`snap-start inline-flex min-h-[44px] shrink-0 items-center gap-2 rounded-full border px-4 font-maison-neue text-p-sm font-semibold ${
+                  className={`snap-start inline-flex min-h-[44px] shrink-0 items-center gap-2 rounded-full border px-4 font-maison-neue text-p-sm font-semibold whitespace-nowrap ${
                     isActive
-                      ? "border-Charcoal bg-Charcoal text-white"
+                      ? "border-Gold bg-Gold text-Charcoal shadow-sm"
                       : "border-Charcoal/15 bg-white text-Charcoal"
                   }`}
                 >
-                  <Icon className="h-4 w-4" aria-hidden="true" />
+                  <Icon
+                    className={`h-4 w-4 ${
+                      isActive ? "text-Charcoal" : "text-Charcoal/70"
+                    }`}
+                    aria-hidden="true"
+                  />
                   {path.label}
                 </LocalizedClientLink>
               )
@@ -321,6 +326,11 @@ const RecipesCollection = ({
               <h2 className="mt-2 font-gyst text-h3 text-Charcoal">
                 {resultLabel}
               </h2>
+              {activeBucket?.description && (
+                <p className="mt-2 max-w-2xl text-p-md font-maison-neue text-Charcoal/70">
+                  {activeBucket.description}
+                </p>
+              )}
               <p className="mt-2 text-p-md font-maison-neue text-Charcoal/65">
                 {hasActiveFilters
                   ? `${total} recipes match the current search and filters.`
