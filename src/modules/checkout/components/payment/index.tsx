@@ -88,6 +88,7 @@ const Payment = ({
     useState<string | null>(null)
 
   const hasInitiatedSession = useRef(false)
+  const hasAutoSelectedSavedCard = useRef(false)
 
   useEffect(() => {
     if (
@@ -172,6 +173,7 @@ const Payment = ({
 
   const handleUseNewStripeCard = async () => {
     if (!stripeProviderId) return
+    hasAutoSelectedSavedCard.current = true
     setSelectedSavedPaymentMethodId(null)
     setCardComplete(false)
     await setPaymentMethod(stripeProviderId)
@@ -235,8 +237,29 @@ const Payment = ({
     setError(null)
     if (!isOpen) {
       hasInitiatedSession.current = false
+      hasAutoSelectedSavedCard.current = false
     }
   }, [isOpen])
+
+  useEffect(() => {
+    if (
+      !isOpen ||
+      !stripeProviderId ||
+      savedPaymentMethods.length === 0 ||
+      selectedSavedPaymentMethodId ||
+      hasAutoSelectedSavedCard.current
+    ) {
+      return
+    }
+
+    const preferredSavedCard =
+      savedPaymentMethods.find((method) => method.is_default) ||
+      savedPaymentMethods[0]
+
+    if (!preferredSavedCard) return
+    hasAutoSelectedSavedCard.current = true
+    void handleSavedCardSelect(preferredSavedCard)
+  }, [isOpen, stripeProviderId, savedPaymentMethods, selectedSavedPaymentMethodId])
 
   useEffect(() => {
     if (isOpen && selectedPaymentMethod && !activeSession && !hasInitiatedSession.current) {

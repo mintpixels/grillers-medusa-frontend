@@ -23,9 +23,10 @@ const BRAND_LABELS: Record<string, string> = {
 const ConfirmDeleteModal: React.FC<{
   open: boolean
   busy: boolean
+  isOnlyCard: boolean
   onCancel: () => void
   onConfirm: () => void
-}> = ({ open, busy, onCancel, onConfirm }) => (
+}> = ({ open, busy, isOnlyCard, onCancel, onConfirm }) => (
   <Transition appear show={open} as={Fragment}>
     <Dialog as="div" className="relative z-[80]" onClose={onCancel}>
       <Transition.Child
@@ -55,7 +56,9 @@ const ConfirmDeleteModal: React.FC<{
                 Remove this card?
               </Dialog.Title>
               <p className="text-sm text-Charcoal/70 mt-2">
-                You can add it again at any time.
+                {isOnlyCard
+                  ? "This is your only saved card. You can add it again later, but checkout will not have a saved-card option until then."
+                  : "You can add it again at any time."}
               </p>
               <div className="flex justify-end gap-3 mt-6">
                 <button
@@ -169,6 +172,7 @@ export default function PaymentMethodsList({
       <ConfirmDeleteModal
         open={!!pendingDelete}
         busy={!!busyDeleteId}
+        isOnlyCard={methods.length === 1}
         onCancel={() => setPendingDelete(null)}
         onConfirm={handleConfirmDelete}
       />
