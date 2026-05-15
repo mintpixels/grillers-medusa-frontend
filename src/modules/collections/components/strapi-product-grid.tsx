@@ -1,6 +1,6 @@
 "use client"
 
-import { useLayoutEffect, useState } from "react"
+import { useState } from "react"
 import Image from "next/image"
 import { Tooltip, TooltipProvider, toast } from "@medusajs/ui"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
@@ -9,76 +9,6 @@ import ProductCardCarousel from "@modules/common/components/product-card-carouse
 import { addToCart } from "@lib/data/cart"
 import { formatProductPriceDisplay } from "@lib/util/price-display"
 import type { StrapiCollectionProduct } from "@lib/data/strapi/collections"
-
-// Find every card title in the document, group them by visible row (Y top),
-// and pad shorter titles within each row to the max natural height of that
-// row. Works in both the CSS-grid collection page and the PDP Swiper because
-// it groups by rendered position, not parent type. Runs once per animation
-// frame regardless of how many cards request alignment.
-function alignTitlesAcrossRows() {
-  if (typeof document === "undefined") return
-  const titles = Array.from(
-    document.querySelectorAll<HTMLElement>("[data-card-title]")
-  )
-  if (titles.length === 0) return
-
-  // Reset every title's inline padding-right so we measure natural heights.
-  for (const t of titles) t.style.paddingRight = ""
-
-  // On two-column mobile grids the padding equalizer can make the shorter
-  // title's text box too narrow and force words like "Kosher" to split.
-  if (window.innerWidth < 640) return
-
-  // Group by Y position (5px tolerance to account for sub-pixel rounding).
-  const buckets: Array<{ y: number; titles: HTMLElement[] }> = []
-  for (const t of titles) {
-    const y = t.getBoundingClientRect().top
-    const bucket = buckets.find((b) => Math.abs(b.y - y) < 5)
-    if (bucket) bucket.titles.push(t)
-    else buckets.push({ y, titles: [t] })
-  }
-
-  for (const { titles: rowTitles } of buckets) {
-    if (rowTitles.length <= 1) continue
-    let maxH = 0
-    for (const t of rowTitles) if (t.offsetHeight > maxH) maxH = t.offsetHeight
-    for (const t of rowTitles) {
-      if (t.offsetHeight >= maxH - 1) continue
-      const fullWidth = t.clientWidth
-      if (fullWidth <= 0) continue
-      let lo = 0
-      let hi = fullWidth * 0.7
-      for (let i = 0; i < 12; i++) {
-        const mid = (lo + hi) / 2
-        t.style.paddingRight = `${mid}px`
-        if (t.offsetHeight >= maxH - 1) hi = mid
-        else lo = mid
-      }
-      t.style.paddingRight = `${hi}px`
-    }
-  }
-}
-
-let alignScheduled = false
-function scheduleAlignTitles() {
-  if (alignScheduled || typeof window === "undefined") return
-  alignScheduled = true
-  requestAnimationFrame(() => {
-    alignScheduled = false
-    alignTitlesAcrossRows()
-  })
-}
-
-if (typeof window !== "undefined") {
-  window.addEventListener("resize", scheduleAlignTitles)
-}
-
-function useTitleAlignToRow(deps: any[]) {
-  useLayoutEffect(() => {
-    scheduleAlignTitles()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, deps)
-}
 
 type StrapiProductGridProps = {
   products: StrapiCollectionProduct[]
@@ -91,7 +21,6 @@ type StrapiProductGridProps = {
 
 export function ProductCard({ product, countryCode, viewMode = "grid" }: { product: StrapiCollectionProduct; countryCode: string; viewMode?: "grid" | "list" }) {
   const [isAdding, setIsAdding] = useState(false)
-  useTitleAlignToRow([product.Title, viewMode])
 
   const handleAddToCart = async () => {
     const variantId = product?.MedusaProduct?.Variants?.[0]?.VariantId
@@ -330,16 +259,13 @@ export function ProductCard({ product, countryCode, viewMode = "grid" }: { produ
         ) : <span />}
       </div>
 
-      {/* Row 3: Title — line-clamp-3 caps at 3 lines, and useTitleAlignToTrack
-         pads shorter titles at >= sm to match the actual title-row track
-         height so all cards in the same row have aligned title blocks. */}
+      {/* Row 3: Title */}
       <LocalizedClientLink
         href={`/products/${product?.MedusaProduct?.Handle}`}
         className="block min-w-0 min-h-[44px] mt-3"
       >
         <h2
-          data-card-title
-          className="text-[18px] leading-[1.18] font-gyst font-bold text-Charcoal hover:text-VibrantRed transition-colors break-normal [overflow-wrap:normal] [word-break:normal] sm:text-h4 sm:leading-normal sm:line-clamp-3 sm:pr-6 sm:text-balance"
+          className="text-[18px] leading-[1.18] font-gyst font-bold text-Charcoal hover:text-VibrantRed transition-colors whitespace-normal break-normal [hyphens:none] [overflow-wrap:normal] [word-break:normal] sm:text-h4 sm:leading-normal sm:line-clamp-3 sm:text-balance"
         >
           {product.Title}
         </h2>
