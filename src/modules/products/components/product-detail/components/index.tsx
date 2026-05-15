@@ -252,8 +252,6 @@ export default function ProductDetail({
   const optionSummary =
     Object.values(options).filter(Boolean).join(" / ") || "Select Options"
   const isSingleVariant = (product.variants?.length ?? 0) <= 1
-  const selectedItemTotal =
-    (stickyPrice?.calculated_price_number || 0) * quantity
   const setActionsNode = useCallback(
     (node: HTMLDivElement | null) => {
       if (!actionsRef) return
@@ -334,7 +332,6 @@ export default function ProductDetail({
           <div ref={setActionsNode}>
             <ProductConversionPanel
               cartState={cartConversion}
-              selectedItemTotal={selectedItemTotal}
               currencyCode={region.currency_code}
               purchaseHistoryItem={purchaseHistoryItem}
             />

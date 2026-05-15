@@ -12,7 +12,6 @@ import { normalizeDeliveryZip } from "@lib/util/delivery-zip"
 
 type FulfillmentProgressProps = {
   subtotal?: number | null
-  selectedItemTotal?: number
   currencyCode?: string
   fulfillmentType?: FulfillmentType
   shipState?: string | null
@@ -79,42 +78,29 @@ function etaText(
 
 export default function FulfillmentProgress({
   subtotal = 0,
-  selectedItemTotal = 0,
   currencyCode = "usd",
   fulfillmentType,
   shipState,
   postalCode,
   className = "",
-  context = "cart",
   variant = "light",
 }: FulfillmentProgressProps) {
   const baseSubtotal = Math.max(0, subtotal ?? 0)
-  const projectedSubtotal = baseSubtotal + selectedItemTotal
   const effectiveFulfillmentType = inferFulfillmentType(
     fulfillmentType,
     postalCode
   )
   const state = getFreeShippingState({
-    subtotal: projectedSubtotal,
-    fulfillmentType: effectiveFulfillmentType,
-    shipState,
-  })
-  const currentState = getFreeShippingState({
     subtotal: baseSubtotal,
     fulfillmentType: effectiveFulfillmentType,
     shipState,
   })
 
   const progress = state.threshold
-    ? Math.min(100, Math.max(0, (projectedSubtotal / state.threshold) * 100))
+    ? Math.min(100, Math.max(0, (baseSubtotal / state.threshold) * 100))
     : state.qualified
       ? 100
       : 0
-  const itemGetsThere =
-    context === "pdp" &&
-    !currentState.qualified &&
-    state.qualified &&
-    selectedItemTotal > 0
   const thresholdLabel = state.threshold
     ? convertToLocale({ amount: state.threshold, currency_code: currencyCode })
     : null
@@ -140,9 +126,7 @@ export default function FulfillmentProgress({
       return "Enter your ZIP or choose fulfillment to see the right free threshold."
     }
     if (state.qualified) {
-      return itemGetsThere
-        ? `Adding this item unlocks ${freeLabel}.`
-        : `This cart qualifies for ${freeLabel}.`
+      return `This cart qualifies for ${freeLabel}.`
     }
     return `${remainingLabel} away from ${freeLabel}.`
   })()
@@ -202,10 +186,10 @@ export default function FulfillmentProgress({
         }`}
       >
         <p>
-          {context === "pdp" ? "Cart after this selection" : "Cart subtotal"}:{" "}
+          Cart subtotal:{" "}
           <strong className={isDark ? "text-white" : "text-Charcoal"}>
             {convertToLocale({
-              amount: projectedSubtotal,
+              amount: baseSubtotal,
               currency_code: currencyCode,
             })}
           </strong>

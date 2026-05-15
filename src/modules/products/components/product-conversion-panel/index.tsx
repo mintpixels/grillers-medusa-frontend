@@ -5,7 +5,6 @@ import type { PurchaseHistoryItem } from "@lib/data/orders"
 
 type ProductConversionPanelProps = {
   cartState?: CartConversionState | null
-  selectedItemTotal?: number
   currencyCode?: string
   purchaseHistoryItem?: PurchaseHistoryItem | null
 }
@@ -23,7 +22,6 @@ function formatDate(value?: string | null): string {
 
 export default function ProductConversionPanel({
   cartState,
-  selectedItemTotal = 0,
   currencyCode = "usd",
   purchaseHistoryItem,
 }: ProductConversionPanelProps) {
@@ -62,7 +60,6 @@ export default function ProductConversionPanel({
 
       <FulfillmentProgress
         subtotal={subtotal}
-        selectedItemTotal={selectedItemTotal}
         currencyCode={currencyCode}
         fulfillmentType={cartState?.fulfillmentType}
         shipState={cartState?.shipState}
