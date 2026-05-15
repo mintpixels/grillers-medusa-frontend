@@ -1,6 +1,7 @@
 "use server"
 
 import { retrieveCart } from "@lib/data/cart"
+import { getDeliveryZipCookie } from "@lib/data/delivery-zip"
 import type { FulfillmentType } from "@lib/util/free-shipping"
 
 export type CartConversionState = {
@@ -14,6 +15,7 @@ export type CartConversionState = {
 
 export async function getCartConversionState(): Promise<CartConversionState> {
   const cart = await retrieveCart().catch(() => null)
+  const savedZip = await getDeliveryZipCookie()
 
   if (!cart) {
     return {
@@ -22,7 +24,7 @@ export async function getCartConversionState(): Promise<CartConversionState> {
       itemCount: 0,
       fulfillmentType: null,
       shipState: null,
-      postalCode: null,
+      postalCode: savedZip || null,
     }
   }
 
@@ -38,6 +40,6 @@ export async function getCartConversionState(): Promise<CartConversionState> {
         ? metadata.fulfillmentType
         : null,
     shipState: cart.shipping_address?.province || null,
-    postalCode: cart.shipping_address?.postal_code || null,
+    postalCode: cart.shipping_address?.postal_code || savedZip || null,
   }
 }

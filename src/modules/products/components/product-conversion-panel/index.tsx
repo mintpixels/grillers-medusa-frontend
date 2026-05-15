@@ -33,7 +33,7 @@ function getEtaText(postalCode?: string | null): string {
     return "Checkout confirms delivery or cold-chain shipping before payment."
   }
   const days = lookupUpsGroundDays(zip)
-  return `UPS Ground estimate: ${days === 1 ? "1 business day" : `${days} business days`} in transit.`
+  return `Using ZIP ${zip}: UPS Ground estimate is ${days === 1 ? "1 business day" : `${days} business days`} in transit.`
 }
 
 export default function ProductConversionPanel({

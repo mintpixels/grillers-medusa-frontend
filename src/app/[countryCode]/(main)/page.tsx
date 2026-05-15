@@ -118,6 +118,11 @@ export default async function Home(props: {
     : null
   const isLoggedIn = !!customer
   const hasOrders = (orders?.length || 0) > 0
+  const customerZip =
+    customer?.addresses?.find((address) => address.is_default_shipping)
+      ?.postal_code ||
+    customer?.addresses?.[0]?.postal_code ||
+    null
 
   // Reorder-row data: only fetch purchase history (and the Strapi enrichment
   // for product images / clean titles) for logged-in customers with orders.
@@ -185,7 +190,11 @@ export default async function Home(props: {
                   isLoggedIn={isLoggedIn}
                   hasOrders={hasOrders}
                 />
-                <DeliveryPromiseSection countryCode={countryCode} />
+                <DeliveryPromiseSection
+                  countryCode={countryCode}
+                  customerZip={customerZip}
+                  isLoggedIn={isLoggedIn}
+                />
                 <TrustBand customer={customer} phoneNumber={null} />
                 <HolidayBanner />
               </React.Fragment>
