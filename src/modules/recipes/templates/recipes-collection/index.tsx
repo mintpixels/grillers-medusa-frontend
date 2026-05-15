@@ -85,7 +85,7 @@ const BUCKET_ICONS: Record<
 
 const BROWSE_PATHS = RECIPE_BUCKETS.map((bucket) => ({
   ...bucket,
-  href: `/recipes?bucket=${bucket.id}`,
+  href: `/recipes?bucket=${bucket.id}#recipes-results`,
   icon: BUCKET_ICONS[bucket.id] || Sparkles,
 }))
 
@@ -202,7 +202,7 @@ const RecipesCollection = ({
         </div>
       </section>
 
-      <section className="border-b border-Charcoal/10 bg-white">
+      <section className="hidden border-b border-Charcoal/10 bg-white md:block">
         <div className="mx-auto max-w-7xl px-4.5 py-8">
           <div className="mb-5 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
             <div>
@@ -252,7 +252,66 @@ const RecipesCollection = ({
         </div>
       </section>
 
-      <div className="mx-auto max-w-7xl px-4.5 py-8 md:py-12">
+      <div
+        id="recipes-results"
+        className="scroll-mt-4 mx-auto max-w-7xl px-4.5 py-8 md:scroll-mt-8 md:py-12"
+      >
+        <section className="mb-6 border-b border-Charcoal/10 pb-5 md:hidden">
+          <div className="mb-3 flex items-end justify-between gap-3">
+            <div>
+              <p className="font-maison-neue text-p-sm font-bold uppercase text-Gold">
+                Browse paths
+              </p>
+              <h2 className="mt-1 font-gyst text-h4 text-Charcoal">
+                Choose a shelf
+              </h2>
+            </div>
+            <LocalizedClientLink
+              href="/recipes#recipes-results"
+              className={`shrink-0 rounded-full border px-3 py-2 text-p-sm font-maison-neue font-semibold ${
+                activeBucket
+                  ? "border-Charcoal/15 bg-white text-Charcoal"
+                  : "border-Charcoal bg-Charcoal text-white"
+              }`}
+              aria-current={!activeBucket ? "page" : undefined}
+            >
+              All
+            </LocalizedClientLink>
+          </div>
+
+          <div
+            className="-mx-4.5 flex snap-x gap-2 overflow-x-auto px-4.5 pb-2"
+            aria-label="Recipe browse paths"
+          >
+            {BROWSE_PATHS.map((path) => {
+              const Icon = path.icon
+              const isActive = activeBucket?.id === path.id
+
+              return (
+                <LocalizedClientLink
+                  key={path.id}
+                  href={path.href}
+                  aria-current={isActive ? "page" : undefined}
+                  className={`snap-start inline-flex min-h-[44px] shrink-0 items-center gap-2 rounded-full border px-4 font-maison-neue text-p-sm font-semibold ${
+                    isActive
+                      ? "border-Charcoal bg-Charcoal text-white"
+                      : "border-Charcoal/15 bg-white text-Charcoal"
+                  }`}
+                >
+                  <Icon className="h-4 w-4" aria-hidden="true" />
+                  {path.label}
+                </LocalizedClientLink>
+              )
+            })}
+          </div>
+
+          <p className="mt-2 text-p-sm font-maison-neue text-Charcoal/65">
+            {activeBucket
+              ? `${total} ${total === 1 ? "recipe" : "recipes"} shown for ${activeBucket.label}.`
+              : `${total} recipe ideas across every path.`}
+          </p>
+        </section>
+
         <div className="mb-8 border-b border-Charcoal/10 pb-6">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div>
@@ -525,7 +584,7 @@ function buildShelves(recipes: RecipeCardData[]) {
       eyebrow: bucket.eyebrow,
       title: bucket.shelfTitle,
       description: bucket.shelfDescription,
-      href: `/recipes?bucket=${bucket.id}`,
+      href: `/recipes?bucket=${bucket.id}#recipes-results`,
       recipes: shelfRecipes,
     }
   }).filter((shelf) => shelf.recipes.length > 0)
