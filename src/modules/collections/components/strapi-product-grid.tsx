@@ -265,7 +265,7 @@ export function ProductCard({ product, countryCode, viewMode = "grid" }: { produ
         className="block min-w-0 min-h-[44px] mt-3"
       >
         <h2
-          className="text-[18px] leading-[1.18] font-gyst font-bold text-Charcoal hover:text-VibrantRed transition-colors whitespace-normal break-normal [hyphens:none] [overflow-wrap:normal] [word-break:normal] sm:text-h4 sm:leading-normal sm:line-clamp-3 sm:text-balance"
+          className="text-[16px] min-[390px]:text-[18px] leading-[1.18] font-gyst font-bold text-Charcoal hover:text-VibrantRed transition-colors whitespace-normal break-normal [hyphens:none] [overflow-wrap:normal] [word-break:normal] sm:line-clamp-3 sm:text-balance lg:text-h4 lg:leading-normal"
         >
           {product.Title}
         </h2>
