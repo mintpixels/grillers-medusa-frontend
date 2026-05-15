@@ -56,10 +56,13 @@ const AddCardForm: React.FC<{
       if (setupError) {
         setError(setupError.message || "Could not save card.")
       } else {
-        const paymentMethodId =
-          typeof setupIntent?.payment_method === "string"
-            ? setupIntent.payment_method
-            : setupIntent?.payment_method?.id
+        let paymentMethodId: string | null = null
+        const paymentMethod = setupIntent?.payment_method
+        if (typeof paymentMethod === "string") {
+          paymentMethodId = paymentMethod
+        } else if (paymentMethod?.id) {
+          paymentMethodId = paymentMethod.id
+        }
 
         if (makeDefault && paymentMethodId) {
           const defaultResult = await setDefaultPaymentMethod(paymentMethodId)
