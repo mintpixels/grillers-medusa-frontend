@@ -126,7 +126,7 @@ const Payment = ({
       payment_type: paymentType,
       value: (cart.total || 0) / 100,
       currency: cart.currency_code?.toUpperCase() || "USD",
-      items: paymentItems.map(item => ({
+      items: paymentItems.map((item: any) => ({
         item_id: item.id,
         item_name: (cartTitleMap && cartTitleMap[item.id]) || item.title,
         price: item.price,

@@ -44,12 +44,14 @@ const GoldButton = ({
 type PaymentButtonProps = {
   cart: HttpTypes.StoreCart
   cardComplete?: boolean
+  savedPaymentMethodId?: string | null
   "data-testid": string
 }
 
 const PaymentButton: React.FC<PaymentButtonProps> = ({
   cart,
   cardComplete = false,
+  savedPaymentMethodId,
   "data-testid": dataTestId,
 }) => {
   // All fulfillment types (including pickup) now set a shipping method on the cart
@@ -69,6 +71,7 @@ const PaymentButton: React.FC<PaymentButtonProps> = ({
           notReady={notReady}
           cart={cart}
           cardComplete={cardComplete}
+          savedPaymentMethodId={savedPaymentMethodId}
           data-testid={dataTestId}
         />
       )
@@ -89,11 +92,13 @@ const StripePaymentButton = ({
   cart,
   notReady,
   cardComplete = false,
+  savedPaymentMethodId,
   "data-testid": dataTestId,
 }: {
   cart: HttpTypes.StoreCart
   notReady: boolean
   cardComplete?: boolean
+  savedPaymentMethodId?: string | null
   "data-testid"?: string
 }) => {
   const [submitting, setSubmitting] = useState(false)
@@ -119,23 +124,25 @@ const StripePaymentButton = ({
     (s) => s.status === "pending"
   )
 
-  const disabled = !stripe || !elements || !cardComplete
+  const disabled = savedPaymentMethodId
+    ? !stripe
+    : !stripe || !elements || !card || !cardComplete
 
   const handlePayment = async () => {
     if (submittingRef.current) return
     submittingRef.current = true
     setSubmitting(true)
 
-    if (!stripe || !elements || !card || !cart) {
+    if (!stripe || !cart || (!savedPaymentMethodId && (!elements || !card))) {
       submittingRef.current = false
       setSubmitting(false)
       return
     }
 
-    await stripe
-      .confirmCardPayment(session?.data.client_secret as string, {
-        payment_method: {
-          card: card,
+    const paymentMethod = savedPaymentMethodId
+      ? savedPaymentMethodId
+      : {
+          card: card!,
           billing_details: {
             name:
               cart.billing_address?.first_name +
@@ -152,7 +159,11 @@ const StripePaymentButton = ({
             email: cart.email,
             phone: cart.billing_address?.phone ?? undefined,
           },
-        },
+        }
+
+    await stripe
+      .confirmCardPayment(session?.data.client_secret as string, {
+        payment_method: paymentMethod,
       })
       .then(({ error, paymentIntent }) => {
         if (error) {

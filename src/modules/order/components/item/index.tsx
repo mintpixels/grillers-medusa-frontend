@@ -19,9 +19,12 @@ const OrderItem = ({ item, currencyCode }: ItemProps) => {
     productId,
     (item as any).thumbnail || "https://placehold.co/80x80"
   )
-  const title = useProductTitle(productId, item.product_title || item.title)
+  const title = useProductTitle(
+    productId,
+    item.product_title || item.title || undefined
+  )
   const metadata = useProductMetadata(productId)
-  const display = formatProductPriceDisplay(
+  const priceDisplay = formatProductPriceDisplay(
     (item.unit_price ?? 0) / 100,
     metadata,
     (item as any).variant?.sku || (item as any).variant_sku || null
@@ -42,12 +45,12 @@ const OrderItem = ({ item, currencyCode }: ItemProps) => {
           {title}
         </p>
         <p className="text-xs font-maison-neue text-Charcoal/50 mt-0.5">
-          Qty: {item.quantity} &times; {display.primary}
-          {display.primaryLabel && ` ${display.primaryLabel}`}
+          Qty: {item.quantity} &times; {priceDisplay.primary}
+          {priceDisplay.primaryLabel && ` ${priceDisplay.primaryLabel}`}
         </p>
-        {display.secondary && (
+        {priceDisplay.secondary && (
           <p className="text-xs font-maison-neue text-Charcoal/45 mt-0.5">
-            {display.secondary}
+            {priceDisplay.secondary}
           </p>
         )}
       </div>
