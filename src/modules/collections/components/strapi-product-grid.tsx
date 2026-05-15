@@ -339,7 +339,7 @@ export function ProductCard({ product, countryCode, viewMode = "grid" }: { produ
       >
         <h2
           data-card-title
-          className="text-h4 font-gyst font-bold text-Charcoal hover:text-VibrantRed transition-colors sm:line-clamp-3 sm:pr-6 text-balance"
+          className="text-[18px] leading-[1.18] font-gyst font-bold text-Charcoal hover:text-VibrantRed transition-colors break-normal [overflow-wrap:normal] [word-break:normal] sm:text-h4 sm:leading-normal sm:line-clamp-3 sm:pr-6 sm:text-balance"
         >
           {product.Title}
         </h2>
