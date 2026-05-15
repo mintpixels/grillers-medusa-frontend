@@ -284,6 +284,49 @@ export const GetCuratedCollectionBySlugQuery = gql`
   }
 `
 
+const CuratedCollectionCardFields = gql`
+  fragment CuratedCollectionCardFields on CuratedCollection {
+    documentId
+    Name
+    Slug
+    Eyebrow
+    ShortDescription
+    CustomerStateFilter
+    VisibilityStart
+    VisibilityEnd
+    HeroImage {
+      url
+    }
+    HeroImageAlt
+    Items {
+      Product {
+        documentId
+        Title
+        FeaturedImage {
+          url
+        }
+      }
+    }
+    SortOrder
+    IsFeatured
+    IsActive
+    SurfacePlacements
+  }
+`
+
+export const GetCuratedCollectionCardsQuery = gql`
+  ${CuratedCollectionCardFields}
+  query GetCuratedCollectionCards($limit: Int = 50) {
+    curatedCollections(
+      filters: { IsActive: { eq: true } }
+      sort: ["SortOrder:asc", "Name:asc"]
+      pagination: { limit: $limit, start: 0 }
+    ) {
+      ...CuratedCollectionCardFields
+    }
+  }
+`
+
 function isVisibleNow(collection: CuratedCollection, now = new Date()) {
   if (collection.IsActive === false) return false
   const start = collection.VisibilityStart
@@ -379,6 +422,30 @@ export async function getCuratedCollections({
     return enrichCollections(filtered, countryCode)
   } catch (error) {
     console.error("Error fetching curated collections:", error)
+    return []
+  }
+}
+
+export async function getCuratedCollectionCards({
+  surface,
+  customerState = "all",
+  limit = 50,
+}: {
+  surface?: string
+  customerState?: "guest_or_no_orders" | "returning" | "all"
+  limit?: number
+}): Promise<CuratedCollection[]> {
+  try {
+    const data = await strapiClient.request<{
+      curatedCollections: CuratedCollection[]
+    }>(GetCuratedCollectionCardsQuery, { limit })
+
+    return (data.curatedCollections || [])
+      .filter((collection) => isVisibleNow(collection))
+      .filter((collection) => !surface || matchesSurface(collection, surface))
+      .filter((collection) => matchesCustomerState(collection, customerState))
+  } catch (error) {
+    console.error("Error fetching curated collection cards:", error)
     return []
   }
 }
