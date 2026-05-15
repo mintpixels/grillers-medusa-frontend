@@ -80,6 +80,13 @@ const CartTotals: React.FC<CartTotalsProps> = ({
   return (
     <div>
       <div className="flex flex-col gap-y-2 txt-medium text-ui-fg-subtle ">
+        <FreeShippingHelper
+          subtotal={subtotal}
+          currencyCode={currency_code}
+          shipState={shipState}
+          fulfillmentType={fulfillmentType}
+          className="mb-1"
+        />
         <div className="flex items-center justify-between">
           <span className="flex gap-x-1 items-center">
             Subtotal (excl. shipping and taxes)
@@ -88,13 +95,6 @@ const CartTotals: React.FC<CartTotalsProps> = ({
             {convertToLocale({ amount: subtotal ?? 0, currency_code })}
           </span>
         </div>
-        <FreeShippingHelper
-          subtotal={subtotal}
-          currencyCode={currency_code}
-          shipState={shipState}
-          fulfillmentType={fulfillmentType}
-          className="my-1"
-        />
         {!!discount_total && (
           <div className="flex items-center justify-between">
             <span>Discount</span>

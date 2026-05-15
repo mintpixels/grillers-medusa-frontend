@@ -2,6 +2,7 @@ import { HttpTypes } from "@medusajs/types"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import EmptyCartMessage from "../components/empty-cart-message"
 import SignInPrompt from "../components/sign-in-prompt"
+import CartUpsells from "../components/cart-upsells"
 import ItemsTemplate from "./items"
 import Summary from "./summary"
 
@@ -25,6 +26,11 @@ const CartTemplate = ({
                 </>
               )}
               <ItemsTemplate cart={cart} />
+              <CartUpsells
+                surface="cart_page"
+                excludeProductIds={cart.items?.map((item) => item.product_id)}
+                className="mt-8"
+              />
             </div>
             <div className="relative">
               <div className="flex flex-col gap-y-8 sticky top-12">

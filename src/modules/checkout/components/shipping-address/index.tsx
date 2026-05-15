@@ -81,6 +81,15 @@ const ShippingAddress = ({
     })
   }, [addressesInRegion])
 
+  const addressesForSelect = useMemo(() => {
+    const inRegion = addressesInRegion || []
+    return [...inRegion].sort((a, b) => {
+      if (a.is_default_shipping && !b.is_default_shipping) return -1
+      if (!a.is_default_shipping && b.is_default_shipping) return 1
+      return 0
+    })
+  }, [addressesInRegion])
+
   const setFormAddress = (
     address?: HttpTypes.StoreCartAddress,
     email?: string

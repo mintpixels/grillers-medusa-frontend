@@ -7,6 +7,7 @@ import OnboardingCta from "@modules/order/components/onboarding-cta"
 import OrderItems from "@modules/order/components/items"
 import FulfillmentDetails from "@modules/order/components/fulfillment-details"
 import PurchaseTracker from "../../../components/purchase-tracker"
+import type { FulfillmentType } from "@lib/data/cart"
 
 type OrderCompletedTemplateProps = {
   order: HttpTypes.StoreOrder
@@ -22,6 +23,14 @@ export default async function OrderCompletedTemplate({
 
   const payment = order.payment_collections?.[0]?.payments?.[0]
   const shippingMethod = order.shipping_methods?.[0]
+  const fulfillmentType = order.metadata?.fulfillmentType as FulfillmentType | undefined
+  const isPickup =
+    fulfillmentType === "plant_pickup" || fulfillmentType === "southeast_pickup"
+  const addressCardTitle = isPickup
+    ? "Pickup Contact"
+    : fulfillmentType === "atlanta_delivery"
+      ? "Delivery Address"
+      : "Shipping Address"
 
   const firstName = order.shipping_address?.first_name || "there"
 
@@ -88,7 +97,7 @@ export default async function OrderCompletedTemplate({
           {/* Delivery card */}
           <div className="bg-white rounded-xl border border-Charcoal/10 shadow-sm p-6">
             <h3 className="text-sm font-maison-neue-mono uppercase tracking-wider text-Charcoal/60 mb-4">
-              Shipping Address
+              {addressCardTitle}
             </h3>
             <div className="space-y-1 text-sm font-maison-neue text-Charcoal">
               <p className="font-semibold">

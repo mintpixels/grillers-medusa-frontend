@@ -26,6 +26,7 @@ import {
   CatchWeightBadge,
   FreeShippingHelper,
 } from "@modules/common/components/cart-helpers"
+import CartUpsells from "@modules/cart/components/cart-upsells"
 
 // Cart item image with Strapi fallback
 const CartItemImage = ({ item }: { item: HttpTypes.StoreCartLineItem }) => {
@@ -356,6 +357,15 @@ export default function SideCart({ cart }: SideCartProps) {
                                   </li>
                                 ))}
                             </ul>
+                          </div>
+
+                          {/* Cart upsells */}
+                          <div className="px-6 py-4 bg-Scroll/30 border-t border-Charcoal/5">
+                            <CartUpsells
+                              surface="side_cart"
+                              compact
+                              excludeProductIds={cart.items?.map((item) => item.product_id)}
+                            />
                           </div>
 
                           {/* Kosher trust badge */}
