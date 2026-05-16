@@ -161,8 +161,8 @@ export default async function Home(props: {
     countryCode,
     surface: "homepage",
     customerState: hasOrders ? "returning" : "guest_or_no_orders",
-    limit: 50,
-  }).then((collections) => collections.slice(0, 8))
+    limit: 8,
+  })
 
   // Fetch global data for Organization JSON-LD
   let globalData: GlobalData | null = null
