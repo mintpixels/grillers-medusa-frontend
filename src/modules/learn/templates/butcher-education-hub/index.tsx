@@ -739,7 +739,7 @@ export default function ButcherEducationHub({
                     <p className="min-h-[34px] font-maison-neue-mono text-[11px] font-bold uppercase tracking-[0.16em] text-RichGold">
                       {family.eyebrow}
                     </p>
-                    <h3 className="mt-3 min-h-[72px] font-gyst text-[30px] leading-tight text-Charcoal">
+                    <h3 className="mt-3 min-h-[76px] font-gyst text-[30px] leading-tight text-Charcoal">
                       {family.title}
                     </h3>
                     <p className="mt-3 min-h-[112px] font-maison-neue text-p-sm leading-[1.6] text-Charcoal/72">
