@@ -20,8 +20,11 @@ import { listCollections } from "@lib/data/collections"
 import { getRegion } from "@lib/data/regions"
 import { retrieveCustomer } from "@lib/data/customer"
 import { listOrders, listPurchaseHistory } from "@lib/data/orders"
-import { getProductsByMedusaIds, type StrapiCollectionProduct } from "@lib/data/strapi/collections"
-import { getCuratedCollectionCards } from "@lib/data/strapi/curated-collections"
+import {
+  getProductsByMedusaIds,
+  type StrapiCollectionProduct,
+} from "@lib/data/strapi/collections"
+import { getCuratedCollections } from "@lib/data/strapi/curated-collections"
 import strapiClient from "@lib/strapi"
 import { GetHomePageQuery, type HomePageData } from "@lib/data/strapi/home"
 import {
@@ -37,10 +40,14 @@ type PageProps = {
   params: Promise<{ countryCode: string }>
 }
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: PageProps): Promise<Metadata> {
   const { countryCode } = await params
   try {
-    const strapiData = await strapiClient.request<HomePageData>(GetHomePageQuery)
+    const strapiData = await strapiClient.request<HomePageData>(
+      GetHomePageQuery
+    )
     const seo = strapiData?.home?.SEO
     const socialMeta = strapiData?.home?.SocialMeta
 
@@ -115,9 +122,7 @@ export default async function Home(props: {
   // Customer state for the conditional Hero CTA (#57). Both calls swallow
   // errors — homepage must render for logged-out visitors too.
   const customer = await retrieveCustomer().catch(() => null)
-  const orders = customer
-    ? await listOrders().catch(() => null)
-    : null
+  const orders = customer ? await listOrders().catch(() => null) : null
   const isLoggedIn = !!customer
   const hasOrders = (orders?.length || 0) > 0
   const customerZip =
@@ -130,9 +135,8 @@ export default async function Home(props: {
   // for product images / clean titles) for logged-in customers with orders.
   // Guests + zero-order accounts skip both calls so the homepage RSC stays
   // fast for them. (#53)
-  const purchaseHistory = isLoggedIn && hasOrders
-    ? await listPurchaseHistory().catch(() => [])
-    : []
+  const purchaseHistory =
+    isLoggedIn && hasOrders ? await listPurchaseHistory().catch(() => []) : []
   const reorderStrapiMap: Record<string, StrapiCollectionProduct> = {}
   if (purchaseHistory.length > 0) {
     const ids = Array.from(
@@ -153,12 +157,13 @@ export default async function Home(props: {
   }
 
   const strapiData = await strapiClient.request<HomePageData>(GetHomePageQuery)
-  const homeCuratedCollections = await getCuratedCollectionCards({
+  const homeCuratedCollections = await getCuratedCollections({
+    countryCode,
     surface: "homepage",
     customerState: hasOrders ? "returning" : "guest_or_no_orders",
     limit: 50,
   }).then((collections) => collections.slice(0, 8))
-  
+
   // Fetch global data for Organization JSON-LD
   let globalData: GlobalData | null = null
   try {
@@ -221,10 +226,7 @@ export default async function Home(props: {
                     countryCode={countryCode}
                   />
                 )}
-                <BestsellersSection
-                  data={section}
-                  countryCode={countryCode}
-                />
+                <BestsellersSection data={section} countryCode={countryCode} />
               </React.Fragment>
             )
           case "ComponentHomeKosherPromise":
@@ -248,6 +250,7 @@ export default async function Home(props: {
               <React.Fragment key={section.__typename}>
                 <ShopCollectionsSection
                   data={section}
+                  countryCode={countryCode}
                   collections={homeCuratedCollections}
                 />
                 <LearnEntrySection />
@@ -294,7 +297,9 @@ export default async function Home(props: {
       {organizationJsonLd && (
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(organizationJsonLd),
+          }}
         />
       )}
       <script

@@ -4,13 +4,29 @@ import React from "react"
 import { Swiper, SwiperSlide } from "swiper/react"
 import "swiper/css"
 import Image from "next/image"
+import { toast } from "@medusajs/ui"
+import { addToCart } from "@lib/data/cart"
+import { dispatchCartUpdated } from "@lib/util/cart-events"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
-import type { CuratedCollection } from "@lib/data/strapi/curated-collections"
+import AddBundleButton from "@modules/products/components/pairs-well-with/add-bundle-button"
+import type {
+  CuratedCollection,
+  CuratedCollectionItem,
+} from "@lib/data/strapi/curated-collections"
+import type { StrapiCollectionProduct } from "@lib/data/strapi/collections"
+import {
+  collectionEstimatedSubtotals,
+  getCollectionSubstitutionGuardrails,
+  lineCartMetadata,
+  productPriceDisplay,
+} from "@lib/util/collection-substitutions"
 
 export default function ShopCollectionsSection({
   data,
+  countryCode,
   collections = [],
 }: {
+  countryCode: string
   data: {
     CollectionsTitle: string
     Collections: [
@@ -30,18 +46,31 @@ export default function ShopCollectionsSection({
   const cards =
     collections.length > 0
       ? collections.map((collection) => {
-          const firstProduct = collection.Items?.find((item) => item.Product)
-            ?.Product
+          const firstProduct = collection.Items?.find(
+            (item) => item.Product
+          )?.Product
+          const products = collectionItems(collection)
+          const guardrails = getCollectionSubstitutionGuardrails(products)
+          const totalQuantity = products.reduce(
+            (sum, item) => sum + (item.Quantity || 1),
+            0
+          )
+          const { total } = collectionEstimatedSubtotals(products)
           return {
             id: collection.documentId,
             title: collection.Name,
             slug: `/collections/${collection.Slug}`,
+            collection,
+            products,
+            totalQuantity,
+            estimatedSubtotal: total,
+            guardrails,
             imageUrl:
-              collection.HeroImage?.url || firstProduct?.FeaturedImage?.url || "",
+              collection.HeroImage?.url ||
+              firstProduct?.FeaturedImage?.url ||
+              "",
             alt:
-              collection.HeroImageAlt ||
-              firstProduct?.Title ||
-              collection.Name,
+              collection.HeroImageAlt || firstProduct?.Title || collection.Name,
             description: collection.ShortDescription,
             eyebrow: collection.Eyebrow,
           }
@@ -50,6 +79,11 @@ export default function ShopCollectionsSection({
           id: collection.id,
           title: collection.Title,
           slug: collection.Slug,
+          collection: null,
+          products: [],
+          totalQuantity: 0,
+          estimatedSubtotal: null,
+          guardrails: null,
           imageUrl: collection.Image?.url || "",
           alt: collection.Title,
           description: "",
@@ -91,7 +125,7 @@ export default function ShopCollectionsSection({
         >
           {cards.map((col) => (
             <SwiperSlide key={col.id} className="pb-4">
-              <article className="block overflow-hidden">
+              <article className="flex h-full min-w-0 flex-col overflow-hidden">
                 <LocalizedClientLink href={col.slug}>
                   <figure className="relative w-full aspect-square bg-gray-50">
                     {col.imageUrl && (
@@ -103,8 +137,10 @@ export default function ShopCollectionsSection({
                       />
                     )}
                   </figure>
+                </LocalizedClientLink>
 
-                  <div className="py-8">
+                <div className="flex flex-1 flex-col py-8">
+                  <LocalizedClientLink href={col.slug}>
                     {col.eyebrow && (
                       <p className="mb-2 font-maison-neue-mono text-[11px] font-bold uppercase tracking-wide text-VibrantRed">
                         {col.eyebrow}
@@ -121,7 +157,100 @@ export default function ShopCollectionsSection({
                         {col.description}
                       </p>
                     )}
-                    <div className="pt-4 inline-flex items-center gap-2">
+                  </LocalizedClientLink>
+
+                  {col.collection && col.products.length > 0 && (
+                    <div className="mt-5 border-t border-Charcoal/15 pt-4">
+                      <div className="mb-3 flex items-end justify-between gap-3">
+                        <div>
+                          <p className="font-maison-neue-mono text-[10px] font-bold uppercase tracking-wide text-Charcoal/55">
+                            Collection subtotal
+                          </p>
+                          <p className="mt-1 font-maison-neue text-sm font-semibold text-Charcoal">
+                            ${col.estimatedSubtotal?.toFixed(2)} estimated
+                          </p>
+                        </div>
+                        <LocalizedClientLink
+                          href={col.slug}
+                          className="inline-flex min-h-[36px] items-center gap-2 font-rexton text-[11px] font-bold uppercase tracking-wide text-Charcoal hover:text-VibrantRed"
+                        >
+                          View items
+                          <Image
+                            src="/images/icons/arrow-right.svg"
+                            width={16}
+                            height={10}
+                            alt=""
+                            aria-hidden="true"
+                          />
+                        </LocalizedClientLink>
+                      </div>
+
+                      <AddBundleButton
+                        items={col.products
+                          .map((item) => {
+                            const variant =
+                              item.Product.MedusaProduct?.Variants?.[0]
+                            return {
+                              variantId: variant?.VariantId || "",
+                              title: item.Product.Title,
+                              quantity: item.Quantity || 1,
+                              metadata: lineCartMetadata(item),
+                            }
+                          })
+                          .filter((item) => item.variantId)}
+                        countryCode={countryCode}
+                        bundleId={col.collection.documentId}
+                        bundleTitle={col.collection.Name}
+                        bundleSlug={col.collection.Slug}
+                        disabledReason={
+                          col.guardrails?.needsBusinessReview
+                            ? "Needs substitution review before purchase."
+                            : col.guardrails?.requiresAcknowledgement
+                            ? "Review substitution details first."
+                            : undefined
+                        }
+                        className="space-y-2"
+                        fullWidth
+                      />
+
+                      <ul
+                        className="mt-4 space-y-2"
+                        aria-label={`${col.title} items`}
+                      >
+                        {col.products.slice(0, 3).map((item) => (
+                          <li
+                            key={`${col.id}-${item.Product.documentId}`}
+                            className="flex min-w-0 items-center justify-between gap-3 border-t border-Charcoal/10 pt-2"
+                          >
+                            <LocalizedClientLink
+                              href={`/products/${item.Product.MedusaProduct?.Handle}`}
+                              className="min-w-0"
+                            >
+                              <span className="line-clamp-1 font-maison-neue text-xs font-semibold text-Charcoal">
+                                {item.Quantity > 1 ? `${item.Quantity}x ` : ""}
+                                {item.Product.Title}
+                              </span>
+                              <span className="mt-0.5 block font-maison-neue-mono text-[10px] uppercase tracking-wide text-Charcoal/45">
+                                {productPriceDisplay(item.Product)?.primary ||
+                                  "See price"}
+                              </span>
+                            </LocalizedClientLink>
+                            <CollectionItemAddButton
+                              item={item}
+                              collection={col.collection}
+                              countryCode={countryCode}
+                            />
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {!col.collection && (
+                    <LocalizedClientLink
+                      href={col.slug}
+                      className="pt-4 inline-flex items-center gap-2"
+                    >
                       <span className="text-p-sm-mono font-rexton uppercase font-bold">
                         Explore
                       </span>
@@ -132,14 +261,85 @@ export default function ShopCollectionsSection({
                         alt=""
                         aria-hidden="true"
                       />
-                    </div>
-                  </div>
-                </LocalizedClientLink>
+                    </LocalizedClientLink>
+                  )}
+                </div>
               </article>
             </SwiperSlide>
           ))}
         </Swiper>
       </div>
     </section>
+  )
+}
+
+type ResolvedCollectionItem = CuratedCollectionItem & {
+  Product: StrapiCollectionProduct
+}
+
+function collectionItems(
+  collection: CuratedCollection
+): ResolvedCollectionItem[] {
+  return (collection.Items || []).filter(
+    (item): item is ResolvedCollectionItem =>
+      Boolean(item.Product?.MedusaProduct?.Variants?.[0]?.VariantId)
+  )
+}
+
+function CollectionItemAddButton({
+  item,
+  collection,
+  countryCode,
+}: {
+  item: ResolvedCollectionItem
+  collection: CuratedCollection
+  countryCode: string
+}) {
+  const [isAdding, setIsAdding] = React.useState(false)
+  const variant = item.Product.MedusaProduct?.Variants?.[0]
+  const quantity = item.Quantity || 1
+
+  const onAdd = async () => {
+    if (!variant?.VariantId) return
+    setIsAdding(true)
+    try {
+      await addToCart({
+        variantId: variant.VariantId,
+        quantity,
+        countryCode,
+        metadata: {
+          ...lineCartMetadata(item),
+          source_collection_id: collection.documentId,
+          source_collection_title: collection.Name,
+          source_collection_slug: collection.Slug,
+        },
+      })
+      dispatchCartUpdated({
+        action: "add",
+        variantId: variant.VariantId,
+        quantity,
+      })
+      toast.success("Added to cart", {
+        description: item.Product.Title,
+      })
+    } catch (error) {
+      console.error("Failed to add collection item:", error)
+      toast.error("Couldn't add item", {
+        description: "Please try again in a moment.",
+      })
+    } finally {
+      setIsAdding(false)
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onAdd}
+      disabled={isAdding || !variant?.VariantId}
+      className="inline-flex min-h-[34px] shrink-0 items-center justify-center rounded-full border border-Charcoal px-3 font-rexton text-[10px] font-bold uppercase tracking-wide text-Charcoal transition-colors hover:bg-Charcoal hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      {isAdding ? "Adding" : quantity > 1 ? `Add ${quantity}x` : "Add"}
+    </button>
   )
 }

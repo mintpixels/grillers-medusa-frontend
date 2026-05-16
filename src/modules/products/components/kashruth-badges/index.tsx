@@ -10,12 +10,6 @@ import LocalizedClientLink from "@modules/common/components/localized-client-lin
  * v2 price list). Asserting blanket Glatt/AKC on every SKU would be
  * misleading for stricter customers who filter by shchita.
  *
- * Strapi schema currently does NOT have a per-product shchita field
- * (Chassidish, CHK, Lubavitch, etc.). When that lands, this component
- * should accept the resolved value and render a dedicated chip. Until
- * then we render the "View our kashruth policy →" link so customers
- * who care can read the umbrella supervision details.
- *
  * `MSG: true` historically means "NO MSG" on this catalog (the field
  * is inverted; flagged as a follow-up Strapi schema cleanup in #39's
  * Codex review). We render the customer-friendly "No MSG" label to
@@ -29,6 +23,17 @@ function chipsFor(metadata: Metadata | null | undefined): Chip[] {
   const chips: Chip[] = []
 
   // Kashruth flags — only when set in Strapi.
+  if (m.ChassidishShchita)
+    chips.push({ label: "Chassidish shchita", tone: "kosher" })
+  if (m.CHK) chips.push({ label: "CHK", tone: "kosher" })
+  if (m.RabbiWeissmandl)
+    chips.push({ label: "Rabbi Weissmandl", tone: "kosher" })
+  if (m.OU) chips.push({ label: "OU", tone: "kosher" })
+  if (m.StarK) chips.push({ label: "Star-K", tone: "kosher" })
+  if (m.RabbiTeitelbaum)
+    chips.push({ label: "Rabbi Teitelbaum", tone: "kosher" })
+  if (m.CRC) chips.push({ label: "CRC", tone: "kosher" })
+  if (m.Lubavitch) chips.push({ label: "Lubavitch", tone: "kosher" })
   if (m.KosherForPassover)
     chips.push({ label: "Kosher for Passover", tone: "kosher" })
   if (m.Pareve) chips.push({ label: "Pareve", tone: "kosher" })
@@ -39,7 +44,8 @@ function chipsFor(metadata: Metadata | null | undefined): Chip[] {
   if (m.GrassFed) chips.push({ label: "100% Grass-Fed", tone: "sourcing" })
   if (m.Organic) chips.push({ label: "Organic", tone: "sourcing" })
   if (m.FreeRange) chips.push({ label: "Free Range", tone: "sourcing" })
-  if (m.AntibioticFree) chips.push({ label: "No Antibiotics", tone: "sourcing" })
+  if (m.AntibioticFree)
+    chips.push({ label: "No Antibiotics", tone: "sourcing" })
   if (m.HormoneFree) chips.push({ label: "No Hormones", tone: "sourcing" })
   if (m.NoSteroids) chips.push({ label: "No Steroids", tone: "sourcing" })
   if (m.NoNitrites || m.NoNitrates)
@@ -53,12 +59,9 @@ function chipsFor(metadata: Metadata | null | undefined): Chip[] {
 }
 
 const toneClass: Record<Chip["tone"], string> = {
-  kosher:
-    "bg-Gold/15 text-Charcoal border border-Gold/40",
-  sourcing:
-    "bg-Charcoal/5 text-Charcoal border border-Charcoal/15",
-  dietary:
-    "bg-Scroll text-Charcoal border border-Charcoal/15",
+  kosher: "bg-Gold/15 text-Charcoal border border-Gold/40",
+  sourcing: "bg-Charcoal/5 text-Charcoal border border-Charcoal/15",
+  dietary: "bg-Scroll text-Charcoal border border-Charcoal/15",
 }
 
 export default function KashruthBadges({
@@ -87,7 +90,9 @@ export default function KashruthBadges({
           {chips.map((chip) => (
             <li
               key={chip.label}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-maison-neue-mono uppercase tracking-wide ${toneClass[chip.tone]}`}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-maison-neue-mono uppercase tracking-wide ${
+                toneClass[chip.tone]
+              }`}
             >
               <svg
                 className="w-3.5 h-3.5 flex-shrink-0"

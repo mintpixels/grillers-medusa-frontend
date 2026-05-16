@@ -22,6 +22,9 @@ export default function AddBundleButton({
   requiresAcknowledgement = false,
   acknowledgementLabel = "I understand this collection includes a substitution.",
   disabledReason,
+  className = "space-y-3",
+  buttonClassName = "",
+  fullWidth = false,
 }: {
   items: BundleItem[]
   countryCode: string
@@ -31,6 +34,9 @@ export default function AddBundleButton({
   requiresAcknowledgement?: boolean
   acknowledgementLabel?: string
   disabledReason?: string | null
+  className?: string
+  buttonClassName?: string
+  fullWidth?: boolean
 }) {
   const [isAdding, setIsAdding] = useState(false)
   const [acknowledged, setAcknowledged] = useState(!requiresAcknowledgement)
@@ -88,7 +94,7 @@ export default function AddBundleButton({
   }
 
   return (
-    <div className="space-y-3">
+    <div className={className}>
       {requiresAcknowledgement && (
         <label className="flex items-start gap-2 font-maison-neue text-xs leading-snug text-Charcoal/70">
           <input
@@ -103,8 +109,15 @@ export default function AddBundleButton({
       <button
         type="button"
         onClick={addBundle}
-        disabled={isAdding || items.length === 0 || !acknowledged || Boolean(disabledReason)}
-        className="inline-flex min-h-[44px] w-full items-center justify-center rounded-[5px] border border-Charcoal bg-Gold px-5 py-3 font-rexton text-xs font-bold uppercase tracking-wide text-Charcoal transition-opacity hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+        disabled={
+          isAdding ||
+          items.length === 0 ||
+          !acknowledged ||
+          Boolean(disabledReason)
+        }
+        className={`inline-flex min-h-[44px] w-full items-center justify-center rounded-[5px] border border-Charcoal bg-Gold px-5 py-3 font-rexton text-xs font-bold uppercase tracking-wide text-Charcoal transition-opacity hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50 ${
+          fullWidth ? "" : "sm:w-auto"
+        } ${buttonClassName}`}
       >
         {isAdding ? "Adding..." : `Add ${totalQuantity} items`}
       </button>
