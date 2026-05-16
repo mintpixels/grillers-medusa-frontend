@@ -17,7 +17,7 @@ export type ResolvedCuratedCollectionItem = CuratedCollectionItem & {
 export type SubstitutionImpact = {
   originalQuantity: number
   originalTotal: number | null
-  replacementTotal: number
+  replacementTotal: number | null
   originalWeight: number | null
   replacementWeight: number | null
   priceDelta: number | null
@@ -65,7 +65,17 @@ export function lineEstimatedTotal(
   product: StrapiCollectionProduct,
   quantity: number
 ): number {
-  return (productPriceDisplay(product)?.estimatedPackPrice ?? 0) * quantity
+  return lineEstimatedTotalOrNull(product, quantity) ?? 0
+}
+
+function lineEstimatedTotalOrNull(
+  product: StrapiCollectionProduct,
+  quantity: number
+): number | null {
+  const estimatedPackPrice = productPriceDisplay(product)?.estimatedPackPrice
+  return typeof estimatedPackPrice === "number"
+    ? estimatedPackPrice * quantity
+    : null
 }
 
 export function lineEstimatedWeightLb(
@@ -115,16 +125,18 @@ export function getSubstitutionImpact(
 ): SubstitutionImpact {
   const originalQuantity = item.OriginalQuantity || item.Quantity
   const originalTotal = item.OriginalProduct
-    ? lineEstimatedTotal(item.OriginalProduct, originalQuantity)
+    ? lineEstimatedTotalOrNull(item.OriginalProduct, originalQuantity)
     : null
-  const replacementTotal = lineEstimatedTotal(item.Product, item.Quantity)
+  const replacementTotal = lineEstimatedTotalOrNull(item.Product, item.Quantity)
   const originalWeight = lineEstimatedWeightLb(
     item.OriginalProduct,
     originalQuantity
   )
   const replacementWeight = lineEstimatedWeightLb(item.Product, item.Quantity)
   const priceDelta =
-    originalTotal == null ? null : replacementTotal - originalTotal
+    originalTotal == null || replacementTotal == null
+      ? null
+      : replacementTotal - originalTotal
   const weightDelta =
     originalWeight == null || replacementWeight == null
       ? null
@@ -181,6 +193,20 @@ export function getSubstitutionGuardrail(
   const replacementFreeDeliveryEligible = productFreeDeliveryEligible(
     item.Product
   )
+
+  if (!item.OriginalProduct) {
+    reviewReasons.push(
+      "substitution needs original product relation for price, weight, and eligibility review"
+    )
+  }
+
+  if (impact.originalTotal == null || impact.replacementTotal == null) {
+    reviewReasons.push("substitution needs comparable estimated prices")
+  }
+
+  if (impact.originalWeight == null || impact.replacementWeight == null) {
+    reviewReasons.push("substitution needs comparable pack weights")
+  }
 
   if (item.RequiresSubstitutionAcknowledgement) {
     acknowledgementReasons.push("editor requires acknowledgement")
@@ -248,15 +274,13 @@ export function getSubstitutionGuardrail(
     )
   }
 
+  if (originalFreeDeliveryEligible === false && replacementFreeDeliveryEligible) {
+    reviewReasons.push(
+      "substitution changes free-delivery eligibility from excluded to eligible"
+    )
+  }
+
   if (item.SubstitutionValuePolicy === "equal_or_better_value") {
-    if (impact.originalTotal == null) {
-      reviewReasons.push(
-        "equal-or-better substitution needs original estimated value"
-      )
-    }
-    if (impact.originalWeight == null || impact.replacementWeight == null) {
-      reviewReasons.push("equal-or-better substitution needs comparable weights")
-    }
     if (
       impact.priceDelta != null &&
       impact.priceDelta < -LOWER_VALUE_PRICE_TOLERANCE

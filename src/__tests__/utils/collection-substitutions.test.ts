@@ -219,4 +219,60 @@ describe("curated collection substitutions", () => {
       "substitution changes free-delivery eligibility from eligible to excluded"
     )
   })
+
+  it("blocks substitutions that would turn an excluded original into eligible progress", () => {
+    const item = {
+      Product: product({
+        title: "Eligible replacement",
+        price: 85,
+        avgPackWeight: "4 lb",
+        sku: "ELIGIBLE-REPLACEMENT",
+      }),
+      OriginalProduct: product({
+        title: "Excluded bulky original",
+        price: 45,
+        avgPackWeight: "4 lb",
+        sku: "EXCLUDED-ORIGINAL",
+        qualifies: false,
+      }),
+      Quantity: 1,
+      OriginalQuantity: 1,
+      SubstitutionStatus: "editor_substituted",
+      SubstitutionValuePolicy: "actual_replacement_price",
+      ShippingCostRisk: "normal",
+    } as any
+
+    const guardrails = getCollectionSubstitutionGuardrails([item])
+    expect(guardrails.needsBusinessReview).toBe(true)
+    expect(guardrails.reviewReasons).toContain(
+      "substitution changes free-delivery eligibility from excluded to eligible"
+    )
+  })
+
+  it("blocks substitutions without original product evidence", () => {
+    const item = {
+      Product: product({
+        title: "Replacement",
+        price: 85,
+        avgPackWeight: "4 lb",
+        sku: "REPLACEMENT",
+      }),
+      OriginalProductName: "Original item, manually entered",
+      Quantity: 1,
+      OriginalQuantity: 1,
+      SubstitutionStatus: "editor_substituted",
+      SubstitutionValuePolicy: "actual_replacement_price",
+      ShippingCostRisk: "normal",
+    } as any
+
+    const guardrails = getCollectionSubstitutionGuardrails([item])
+    expect(guardrails.needsBusinessReview).toBe(true)
+    expect(guardrails.reviewReasons).toEqual(
+      expect.arrayContaining([
+        "substitution needs original product relation for price, weight, and eligibility review",
+        "substitution needs comparable estimated prices",
+        "substitution needs comparable pack weights",
+      ])
+    )
+  })
 })
