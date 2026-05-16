@@ -195,7 +195,7 @@ export const GetLegalPageQuery = gql`
             Alignment
             IsPrimary
           }
-          Rows {
+          TableRows: Rows {
             Label
             Cells
           }
@@ -208,7 +208,7 @@ export const GetLegalPageQuery = gql`
           DecisionLabel
           LeftOptionLabel
           RightOptionLabel
-          Rows {
+          ComparisonRows: Rows {
             Label
             LeftValue
             RightValue
@@ -355,6 +355,18 @@ function sanitizeLegalPage(page: LegalPageData): LegalPageData {
   return {
     ...page,
     Body: page.Body.map((block) => {
+      if (block.__typename === "ComponentInfoTableBlock") {
+        return {
+          ...block,
+          Rows: (block as any).TableRows || block.Rows,
+        }
+      }
+      if (block.__typename === "ComponentInfoComparisonTable") {
+        return {
+          ...block,
+          Rows: (block as any).ComparisonRows || block.Rows,
+        }
+      }
       if (
         block.__typename === "ComponentInfoSection" &&
         Array.isArray(block.SectionBody)
@@ -385,7 +397,9 @@ async function fetchLegalPage(slug: string): Promise<LegalPageData | null> {
   return null
 }
 
-export async function getLegalPage(slug: string): Promise<LegalPageData | null> {
+export async function getLegalPage(
+  slug: string
+): Promise<LegalPageData | null> {
   if (!isLegalSlug(slug)) return null
   const page = await fetchLegalPage(slug)
   if (page) return page
