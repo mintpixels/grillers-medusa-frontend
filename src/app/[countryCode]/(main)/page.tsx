@@ -163,6 +163,15 @@ export default async function Home(props: {
     customerState: hasOrders ? "returning" : "guest_or_no_orders",
     limit: 8,
   })
+  const hasShopCollectionsSection = Boolean(
+    strapiData?.home?.Sections?.some(
+      (section: any) => section.__typename === "ComponentHomeShopCollections"
+    )
+  )
+  const fallbackCollectionsSection = {
+    CollectionsTitle: "Build a full table",
+    Collections: [],
+  }
 
   // Fetch global data for Organization JSON-LD
   let globalData: GlobalData | null = null
@@ -227,6 +236,16 @@ export default async function Home(props: {
                   />
                 )}
                 <BestsellersSection data={section} countryCode={countryCode} />
+                {!hasShopCollectionsSection && (
+                  <>
+                    <ShopCollectionsSection
+                      data={fallbackCollectionsSection}
+                      countryCode={countryCode}
+                      collections={homeCuratedCollections}
+                    />
+                    <LearnEntrySection />
+                  </>
+                )}
               </React.Fragment>
             )
           case "ComponentHomeKosherPromise":

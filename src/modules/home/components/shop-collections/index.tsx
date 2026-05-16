@@ -29,16 +29,14 @@ export default function ShopCollectionsSection({
   countryCode: string
   data: {
     CollectionsTitle: string
-    Collections: [
-      {
-        id: number
-        Title: string
-        Slug: string
-        Image: {
-          url: string
-        }
+    Collections: Array<{
+      id: number
+      Title: string
+      Slug: string
+      Image: {
+        url: string
       }
-    ]
+    }>
   }
   collections?: CuratedCollection[]
 }) {
@@ -89,6 +87,8 @@ export default function ShopCollectionsSection({
           description: "",
           eyebrow: "",
         }))
+
+  if (!cards.length) return null
 
   return (
     <section className="pt-14 md:pt-32 pb-8 bg-Scroll overflow-hidden">
