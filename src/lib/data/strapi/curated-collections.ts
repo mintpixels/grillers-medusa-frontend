@@ -669,11 +669,17 @@ export async function getCuratedCollections({
       .filter((collection) => isVisibleNow(collection))
       .filter((collection) => !surface || matchesSurface(collection, surface))
       .filter((collection) => matchesCustomerState(collection, customerState))
+      .slice(0, limit)
+
+  // Strapi pagination runs before the app-level surface/customer filters above.
+  // Fetch a wider window so "homepage" and other narrower surfaces are not
+  // accidentally starved by earlier SortOrder records intended for PDP/cart.
+  const queryLimit = Math.max(limit, 100)
 
   try {
     const data = await strapiClient.request<{
       curatedCollections: CuratedCollection[]
-    }>(GetCuratedCollectionsQuery, { limit })
+    }>(GetCuratedCollectionsQuery, { limit: queryLimit })
 
     return enrichCollections(applyFilters(data.curatedCollections), countryCode)
   } catch (error) {
@@ -683,7 +689,7 @@ export async function getCuratedCollections({
   try {
     const data = await strapiClient.request<{
       curatedCollections: CuratedCollection[]
-    }>(LegacyCuratedCollectionsQuery, { limit })
+    }>(LegacyCuratedCollectionsQuery, { limit: queryLimit })
     return enrichCollections(applyFilters(data.curatedCollections), countryCode)
   } catch (error) {
     console.error("Error fetching legacy curated collections:", error)

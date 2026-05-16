@@ -60,15 +60,13 @@ async function getCollections(countryCode: string) {
   const [guestCollections, returningCollections] = await Promise.all([
     getCuratedCollections({
       countryCode,
-      surface: "homepage",
       customerState: "guest_or_no_orders",
-      limit: 12,
+      limit: 60,
     }),
     getCuratedCollections({
       countryCode,
-      surface: "homepage",
       customerState: "returning",
-      limit: 12,
+      limit: 60,
     }),
   ])
 
