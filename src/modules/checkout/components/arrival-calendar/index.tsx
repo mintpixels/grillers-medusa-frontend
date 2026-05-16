@@ -9,6 +9,7 @@ import {
   computeEligibleArrivalDates,
   toIsoDate,
   type ArrivalMethod,
+  type AtlantaZipDayConfig,
 } from "@lib/util/eligible-arrival-dates"
 import { ATLANTA_DELIVERY_ZIP_DAYS } from "@lib/data/strapi/checkout"
 
@@ -31,6 +32,7 @@ type ArriveFoodCalendarProps = {
   availableShippingMethods?: StoreCartShippingOption[] | null
   /** Server-derived "now" — passed from the parent so the client clock can't lie. */
   serverNowIso?: string
+  atlantaZipConfig?: Record<string, AtlantaZipDayConfig>
 }
 
 function deriveArrivalMethod(
@@ -65,6 +67,7 @@ export default function ArriveFoodCalendar({
   setError,
   availableShippingMethods,
   serverNowIso,
+  atlantaZipConfig = ATLANTA_DELIVERY_ZIP_DAYS,
 }: ArriveFoodCalendarProps) {
   const [dateValue, setDateValue] = useState<Date | null>(null)
 
@@ -87,9 +90,9 @@ export default function ArriveFoodCalendar({
         method,
         destinationZip,
         now,
-        atlantaZipConfig: ATLANTA_DELIVERY_ZIP_DAYS,
+        atlantaZipConfig,
       }),
-    [method, destinationZip, now]
+    [method, destinationZip, now, atlantaZipConfig]
   )
 
   const minDate = eligibility.earliest ?? undefined

@@ -25,6 +25,14 @@ import {
   CatchWeightBadge,
 } from "@modules/common/components/cart-helpers"
 import FulfillmentProgress from "@modules/common/components/fulfillment-progress"
+import type { AtlantaZipDayConfig } from "@lib/util/eligible-arrival-dates"
+import {
+  getExcludedFreeDeliverySubtotal,
+  getFreeDeliveryEligibleSubtotal,
+  getLineItemFreeDeliveryExclusionReason,
+  getLineItemSubtotal,
+  isLineItemFreeDeliveryEligible,
+} from "@lib/util/free-delivery-eligibility"
 import {
   DELIVERY_ZIP_EVENT,
   getStoredDeliveryZip,
@@ -123,9 +131,11 @@ const CartItemTitle = ({
 const QuantitySelector = ({
   item,
   onOptimisticDelta,
+  countsTowardFreeDelivery,
 }: {
   item: HttpTypes.StoreCartLineItem
-  onOptimisticDelta: (delta: number) => void
+  onOptimisticDelta: (delta: number, eligibleDelta: number) => void
+  countsTowardFreeDelivery: boolean
 }) => {
   const router = useRouter()
   const [isUpdating, setIsUpdating] = useState(false)
@@ -140,10 +150,11 @@ const QuantitySelector = ({
 
     const qtyDelta = newQuantity - optimisticQuantity
     const priceDelta = qtyDelta * (item.unit_price ?? 0)
+    const eligiblePriceDelta = countsTowardFreeDelivery ? priceDelta : 0
 
     setIsUpdating(true)
     setOptimisticQuantity(newQuantity)
-    onOptimisticDelta(priceDelta)
+    onOptimisticDelta(priceDelta, eligiblePriceDelta)
 
     try {
       await updateLineItem({ lineId: item.id, quantity: newQuantity })
@@ -162,7 +173,7 @@ const QuantitySelector = ({
       router.refresh()
     } catch (error) {
       setOptimisticQuantity(item.quantity)
-      onOptimisticDelta(-priceDelta)
+      onOptimisticDelta(-priceDelta, -eligiblePriceDelta)
     } finally {
       setIsUpdating(false)
     }
@@ -197,33 +208,52 @@ const QuantitySelector = ({
 
 type SideCartProps = {
   cart?: HttpTypes.StoreCart | null
+  atlantaZipConfig?: Record<string, AtlantaZipDayConfig>
+  initialDeliveryZip?: string | null
 }
 
-export default function SideCart({ cart }: SideCartProps) {
+export default function SideCart({
+  cart,
+  atlantaZipConfig,
+  initialDeliveryZip,
+}: SideCartProps) {
   const { isOpen, closeCart, openCart } = useCart()
   const [announcement, setAnnouncement] = useState("")
   const previousItemCount = useRef<number | null>(null)
   const isInitialMount = useRef(true)
   const [optimisticDelta, setOptimisticDelta] = useState(0)
-  const [deliveryZip, setDeliveryZip] = useState("")
+  const [optimisticEligibleDelta, setOptimisticEligibleDelta] = useState(0)
+  const [deliveryZip, setDeliveryZip] = useState(
+    normalizeDeliveryZip(initialDeliveryZip)
+  )
   const prevCartRef = useRef(cart?.subtotal)
 
   // Reset optimistic delta when server data arrives
   useEffect(() => {
     if (cart?.subtotal !== prevCartRef.current) {
       setOptimisticDelta(0)
+      setOptimisticEligibleDelta(0)
       prevCartRef.current = cart?.subtotal
     }
   }, [cart?.subtotal])
 
-  const handleOptimisticDelta = useCallback((delta: number) => {
+  const handleOptimisticDelta = useCallback((delta: number, eligibleDelta = delta) => {
     setOptimisticDelta((prev) => prev + delta)
+    setOptimisticEligibleDelta((prev) => prev + eligibleDelta)
   }, [])
 
   const totalItems =
     cart?.items?.reduce((acc, item) => acc + item.quantity, 0) || 0
   const subtotal = (cart?.subtotal ?? 0) + optimisticDelta
-  const postalCode = cart?.shipping_address?.postal_code || deliveryZip
+  const eligibleSubtotal =
+    getFreeDeliveryEligibleSubtotal(cart?.items) + optimisticEligibleDelta
+  const excludedSubtotal =
+    getExcludedFreeDeliverySubtotal(cart?.items) +
+    Math.max(0, optimisticDelta - optimisticEligibleDelta)
+  const postalCode =
+    cart?.shipping_address?.postal_code ||
+    deliveryZip ||
+    normalizeDeliveryZip(initialDeliveryZip)
 
   const checkoutUrl = "/checkout"
   const sortedItems =
@@ -234,7 +264,7 @@ export default function SideCart({ cart }: SideCartProps) {
       ) || []
 
   useEffect(() => {
-    setDeliveryZip(getStoredDeliveryZip())
+    setDeliveryZip(getStoredDeliveryZip() || normalizeDeliveryZip(initialDeliveryZip))
 
     const handleDeliveryZipUpdate = (event: Event) => {
       const nextZip = (event as CustomEvent<{ zip?: string }>).detail?.zip
@@ -244,7 +274,7 @@ export default function SideCart({ cart }: SideCartProps) {
     window.addEventListener(DELIVERY_ZIP_EVENT, handleDeliveryZipUpdate)
     return () =>
       window.removeEventListener(DELIVERY_ZIP_EVENT, handleDeliveryZipUpdate)
-  }, [])
+  }, [initialDeliveryZip])
 
   // Track cart_viewed when side cart opens
   useEffect(() => {
@@ -348,6 +378,20 @@ export default function SideCart({ cart }: SideCartProps) {
                             <ul>
                               {sortedItems.map((item, index) => {
                                 const metadata = (item.metadata || {}) as Record<string, any>
+                                const countsTowardFreeDelivery =
+                                  isLineItemFreeDeliveryEligible(item)
+                                const exclusionReason =
+                                  getLineItemFreeDeliveryExclusionReason(item)
+                                const substitutionStatus =
+                                  metadata.substitution_status
+                                const originalProductName =
+                                  typeof metadata.original_product_name === "string"
+                                    ? metadata.original_product_name
+                                    : null
+                                const substitutionNote =
+                                  typeof metadata.substitution_note === "string"
+                                    ? metadata.substitution_note
+                                    : null
                                 const collectionTitle =
                                   metadata.curated_collection_title ||
                                   metadata.bundle_title
@@ -389,6 +433,17 @@ export default function SideCart({ cart }: SideCartProps) {
                                               Collection item
                                             </p>
                                           )}
+                                          {substitutionStatus && (
+                                            <p className="mt-1 font-maison-neue text-xs leading-snug text-Charcoal/55">
+                                              Substituted
+                                              {originalProductName
+                                                ? ` for ${originalProductName}`
+                                                : ""}
+                                              {substitutionNote
+                                                ? `: ${substitutionNote}`
+                                                : "."}
+                                            </p>
+                                          )}
                                           {/* Price — per-lb vs per-pack
                                               decided by the same helper
                                               used on PLP + PDP (#31 / #104). */}
@@ -396,20 +451,31 @@ export default function SideCart({ cart }: SideCartProps) {
                                             item={item}
                                             currencyCode={cart.currency_code}
                                           />
+                                          {!countsTowardFreeDelivery && (
+                                            <p className="mt-1 font-maison-neue text-xs leading-snug text-Charcoal/55">
+                                              Does not count toward free delivery
+                                              {exclusionReason
+                                                ? `: ${exclusionReason}`
+                                                : "."}
+                                            </p>
+                                          )}
                                         </div>
 
                                         {/* Quantity + Remove */}
                                         <div className="flex items-center justify-between mt-3">
-                                          <QuantitySelector item={item} onOptimisticDelta={handleOptimisticDelta} />
+                                          <QuantitySelector
+                                            item={item}
+                                            countsTowardFreeDelivery={countsTowardFreeDelivery}
+                                            onOptimisticDelta={handleOptimisticDelta}
+                                          />
                                           <DeleteButton
                                             id={item.id}
                                             onDeleted={() =>
                                               handleOptimisticDelta(
-                                                -(
-                                                  item.subtotal ??
-                                                  (item.unit_price ?? 0) *
-                                                    item.quantity
-                                                )
+                                                -getLineItemSubtotal(item),
+                                                countsTowardFreeDelivery
+                                                  ? -getLineItemSubtotal(item)
+                                                  : 0
                                               )
                                             }
                                           >
@@ -453,7 +519,9 @@ export default function SideCart({ cart }: SideCartProps) {
                             </div>
 
                             <FulfillmentProgress
-                              subtotal={subtotal}
+                              subtotal={Math.max(0, eligibleSubtotal)}
+                              cartSubtotal={subtotal}
+                              excludedSubtotal={excludedSubtotal}
                               currencyCode={cart.currency_code}
                               shipState={cart.shipping_address?.province}
                               fulfillmentType={
@@ -461,6 +529,7 @@ export default function SideCart({ cart }: SideCartProps) {
                                   ?.fulfillmentType
                               }
                               postalCode={postalCode}
+                              atlantaZipConfig={atlantaZipConfig}
                               context="cart"
                               className="mb-3"
                             />

@@ -1,4 +1,4 @@
-import { ATLANTA_DELIVERY_ZIP_DAYS } from "@lib/data/strapi/checkout"
+import { getAtlantaDeliveryZipConfig } from "@lib/data/strapi/fulfillment"
 import { getDeliveryZipCookie } from "@lib/data/delivery-zip"
 import { normalizeDeliveryZip } from "@lib/util/delivery-zip"
 import DeliveryPromiseClient from "./client"
@@ -13,12 +13,13 @@ export default async function DeliveryPromiseSection({
   isLoggedIn?: boolean
 }) {
   const savedZip = await getDeliveryZipCookie()
+  const atlantaZipConfig = await getAtlantaDeliveryZipConfig()
   const initialZip = normalizeDeliveryZip(customerZip) || savedZip
 
   return (
     <DeliveryPromiseClient
       countryCode={countryCode}
-      atlantaZipCodes={Object.keys(ATLANTA_DELIVERY_ZIP_DAYS)}
+      atlantaZipCodes={Object.keys(atlantaZipConfig)}
       initialZip={initialZip}
       isLoggedIn={isLoggedIn}
     />

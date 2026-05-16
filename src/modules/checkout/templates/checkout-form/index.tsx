@@ -80,7 +80,11 @@ export default async function CheckoutForm({
 
             {/* Step 3: Delivery options — only for UPS shipping, only after address */}
             {hasFulfillment && addressComplete && showShippingMethodSelection && (
-              <Shipping cart={cart} availableShippingMethods={shippingMethods} />
+              <Shipping
+                cart={cart}
+                availableShippingMethods={shippingMethods}
+                atlantaZipConfig={fulfillmentConfig.AtlantaDeliveryZipDays}
+              />
             )}
 
             {/* Step 4: Payment — only after all previous steps complete and delivery step is closed */}

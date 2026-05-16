@@ -7,6 +7,7 @@ import BestsellersSection from "@modules/home/components/shop-bestsellers"
 import KosherPromiseSection from "@modules/home/components/kosher-promise"
 import WholesaleBand from "@modules/home/components/wholesale-band"
 import ShopCollectionsSection from "@modules/home/components/shop-collections"
+import LearnEntrySection from "@modules/home/components/learn-entry"
 import TestimonialSection from "@modules/home/components/testimonial"
 import FollowUsSection from "@modules/home/components/follow-us"
 import BlogExploreSection from "@modules/home/components/blog-explore"
@@ -244,11 +245,13 @@ export default async function Home(props: {
             )
           case "ComponentHomeShopCollections":
             return (
-              <ShopCollectionsSection
-                key={section.__typename}
-                data={section}
-                collections={homeCuratedCollections}
-              />
+              <React.Fragment key={section.__typename}>
+                <ShopCollectionsSection
+                  data={section}
+                  collections={homeCuratedCollections}
+                />
+                <LearnEntrySection />
+              </React.Fragment>
             )
           case "ComponentHomeTestimonial":
             // Lazy load testimonial section (typically below fold)

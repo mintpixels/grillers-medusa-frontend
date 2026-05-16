@@ -30,6 +30,24 @@ export type InfoFeatureCard = {
   Body?: string | null
 }
 
+export type InfoTableColumn = {
+  Label: string
+  Key: string
+  Alignment?: "left" | "center" | "right" | null
+  IsPrimary?: boolean | null
+}
+
+export type InfoTableRow = {
+  Label?: string | null
+  Cells?: Record<string, string | number | boolean | null> | null
+}
+
+export type InfoComparisonRow = {
+  Label: string
+  LeftValue: string
+  RightValue: string
+}
+
 export type InfoBodyComponent =
   | {
       __typename: "ComponentInfoSection"
@@ -58,6 +76,25 @@ export type InfoBodyComponent =
   | {
       __typename: "ComponentSharedRichText"
       body?: string | null
+    }
+  | {
+      __typename: "ComponentInfoTableBlock"
+      Heading?: string | null
+      Intro?: string | null
+      Columns?: InfoTableColumn[] | null
+      Rows?: InfoTableRow[] | null
+      MobilePresentation?: "scroll-table" | "cards" | "comparison" | null
+      Caption?: string | null
+    }
+  | {
+      __typename: "ComponentInfoComparisonTable"
+      Heading?: string | null
+      Intro?: string | null
+      DecisionLabel: string
+      LeftOptionLabel: string
+      RightOptionLabel: string
+      Rows?: InfoComparisonRow[] | null
+      Caption?: string | null
     }
 
 export type LegalPageData = {
@@ -148,6 +185,35 @@ export const GetLegalPageQuery = gql`
         }
         ... on ComponentSharedRichText {
           body
+        }
+        ... on ComponentInfoTableBlock {
+          Heading
+          Intro
+          Columns {
+            Label
+            Key
+            Alignment
+            IsPrimary
+          }
+          Rows {
+            Label
+            Cells
+          }
+          MobilePresentation
+          Caption
+        }
+        ... on ComponentInfoComparisonTable {
+          Heading
+          Intro
+          DecisionLabel
+          LeftOptionLabel
+          RightOptionLabel
+          Rows {
+            Label
+            LeftValue
+            RightValue
+          }
+          Caption
         }
       }
       Content

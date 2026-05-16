@@ -14,6 +14,10 @@ import {
 import { withTimeout } from "@lib/util/promise-timeout"
 import type { StrapiCollectionProduct } from "@lib/data/strapi/collections"
 import type { HttpTypes } from "@medusajs/types"
+import {
+  getCollectionSubstitutionGuardrails,
+  lineCartMetadata,
+} from "@lib/util/collection-substitutions"
 
 function productPriceDisplay(
   product: StrapiCollectionProduct
@@ -175,12 +179,25 @@ export default async function PairsWellWith({
 
         <div className="grid gap-5 lg:grid-cols-3">
           {collections.map((collection) => {
+            const substitutionGuardrails =
+              getCollectionSubstitutionGuardrails(collection.products)
+            const quickAddDisabledReason =
+              substitutionGuardrails.needsBusinessReview
+                ? "This collection is temporarily unavailable while we confirm substitution weight and shipping costs."
+                : substitutionGuardrails.requiresAcknowledgement
+                  ? "Review substitution details on the collection page before adding."
+                  : undefined
             const items = collection.products
-              .map(({ Product, Quantity }) => ({
+              .map((collectionItem) => ({
                 variantId:
-                  Product.MedusaProduct?.Variants?.[0]?.VariantId || "",
-                title: Product.Title || Product.MedusaProduct?.Handle || "",
-                quantity: Quantity || 1,
+                  collectionItem.Product.MedusaProduct?.Variants?.[0]
+                    ?.VariantId || "",
+                title:
+                  collectionItem.Product.Title ||
+                  collectionItem.Product.MedusaProduct?.Handle ||
+                  "",
+                quantity: collectionItem.Quantity || 1,
+                metadata: lineCartMetadata(collectionItem),
               }))
               .filter((item) => item.variantId)
             const total = collection.products.reduce(
@@ -296,6 +313,7 @@ export default async function PairsWellWith({
                     bundleId={collection.documentId}
                     bundleTitle={collection.Name}
                     bundleSlug={collection.Slug}
+                    disabledReason={quickAddDisabledReason}
                   />
                 </div>
               </article>

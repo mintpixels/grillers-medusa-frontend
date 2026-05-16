@@ -94,6 +94,18 @@ export interface Metadata {
 
   // Kashruth.
   KosherForPassover?: boolean
+  ChassidishShchita?: boolean
+  CHK?: boolean
+  RabbiWeissmandl?: boolean
+  OU?: boolean
+  StarK?: boolean
+  RabbiTeitelbaum?: boolean
+  CRC?: boolean
+  Lubavitch?: boolean
+
+  // Shipping-offer eligibility.
+  QualifiesForFreeDeliveryOffers?: boolean
+  FreeDeliveryExclusionReason?: string
 
   // Sourcing.
   Source?: string
@@ -135,6 +147,8 @@ export interface MedusaProductVariant {
   // GP internal SKU code (e.g. "1-03-15-1"). Used by the PDP for the
   // phone-order workflow (#110) and by Algolia indexing.
   Sku?: string | null
+  QualifiesForFreeDeliveryOffers?: boolean | null
+  FreeDeliveryExclusionReason?: string | null
   Price?: {
     CalculatedPriceNumber: number
     OriginalPriceNumber: number

@@ -60,10 +60,13 @@ export default function ProductConversionPanel({
 
       <FulfillmentProgress
         subtotal={subtotal}
+        cartSubtotal={cartState?.cartSubtotal}
+        excludedSubtotal={cartState?.excludedSubtotal}
         currencyCode={currencyCode}
         fulfillmentType={cartState?.fulfillmentType}
         shipState={cartState?.shipState}
         postalCode={cartState?.postalCode}
+        atlantaZipConfig={cartState?.atlantaZipConfig}
         context="pdp"
       />
     </div>

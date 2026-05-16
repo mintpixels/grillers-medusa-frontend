@@ -12,6 +12,28 @@ export type CuratedCollectionItem = {
   Notes?: string | null
   ProductHandle?: string | null
   Product?: StrapiCollectionProduct | null
+  OriginalProduct?: StrapiCollectionProduct | null
+  OriginalProductName?: string | null
+  OriginalQuantity?: number | null
+  SubstitutionStatus?:
+    | "none"
+    | "out_of_stock_substituted"
+    | "editor_substituted"
+    | null
+  SubstitutionValuePolicy?:
+    | "actual_replacement_price"
+    | "equal_or_better_value"
+    | "smaller_pack_acknowledged"
+    | "requires_editor_review"
+    | null
+  ShippingCostRisk?:
+    | "normal"
+    | "heavier_or_bulkier"
+    | "margin_review_required"
+    | null
+  RequiresBusinessReview?: boolean | null
+  SubstitutionNote?: string | null
+  RequiresSubstitutionAcknowledgement?: boolean | null
 }
 
 export type CuratedCurationSlot = {
@@ -78,12 +100,241 @@ export type CuratedCollection = {
   SurfacePlacements?: string[] | null
   PdpMatchKeywords?: string[] | null
   StrategySignals?: string[] | null
+  CustomerFacingRationale?: string | null
+  SubstitutionPolicyCopy?: string | null
   SEO?: StrapiSEO | null
   SocialMeta?: StrapiSocialMeta | null
 }
 
 const CuratedProductFields = gql`
   fragment CuratedProductFields on Product {
+    documentId
+    Title
+    FeaturedImage {
+      url
+    }
+    GalleryImages {
+      url
+    }
+    Metadata {
+      AvgPackSize
+      AvgPackWeight
+      Serves
+      PiecesPerPack
+      Uncooked
+      Cooked
+      HeatAndServe
+      GlutenFree
+      MSG
+      AntibioticFree
+      HormoneFree
+      NoSteroids
+      NoNitrites
+      NoNitrates
+      Organic
+      Brand
+      Source
+      Origin
+      Breed
+      Supplier
+      Angus
+      GrassFed
+      FreeRange
+      SouthAmerican
+      GrainFree
+      BoneIn
+      Boneless
+      SkinOn
+      Skinless
+      Trimmed
+      Untrimmed
+      Netted
+      FirstCut
+      DeckelOn
+      WholePacker
+      CowboyCut
+      Thickness
+      Pargiot
+      Capon
+      Schnitzel
+      Strips
+      Marrow
+      Kebab
+      Smoked
+      Pickled
+      Cured
+      Marinated
+      MarinadeFlavor
+      CharGrilled
+      Sliced
+      Ground
+      Bulk
+      Offcut
+      VacuumPacked
+      BulkPack
+      BoilablePouch
+      AluminumPan
+      IQF
+      KosherForPassover
+      Pareve
+      Meat
+      Dairy
+      CholovYisroel
+      ChassidishShchita
+      CHK
+      RabbiWeissmandl
+      OU
+      StarK
+      RabbiTeitelbaum
+      CRC
+      Lubavitch
+      QualifiesForFreeDeliveryOffers
+      FreeDeliveryExclusionReason
+    }
+    Categorization {
+      ProductTags {
+        Name
+      }
+    }
+    MedusaProduct {
+      ProductId
+      Handle
+      Description
+      ShortDescription
+      Variants {
+        VariantId
+        Sku
+        QualifiesForFreeDeliveryOffers
+        FreeDeliveryExclusionReason
+        Price {
+          CalculatedPriceNumber
+        }
+      }
+    }
+  }
+`
+
+const CuratedCollectionFields = gql`
+  ${CuratedProductFields}
+  fragment CuratedCollectionFields on CuratedCollection {
+    documentId
+    Name
+    Slug
+    Eyebrow
+    ShortDescription
+    CustomerFacingRationale
+    SubstitutionPolicyCopy
+    CollectionType
+    Occasion
+    CustomerStateFilter
+    VisibilityStart
+    VisibilityEnd
+    HeroImage {
+      url
+    }
+    HeroImageAlt
+    Items {
+      Quantity
+      Required
+      Role
+      Notes
+      ProductHandle
+      OriginalProductName
+      OriginalQuantity
+      SubstitutionStatus
+      SubstitutionValuePolicy
+      ShippingCostRisk
+      RequiresBusinessReview
+      SubstitutionNote
+      RequiresSubstitutionAcknowledgement
+      OriginalProduct {
+        ...CuratedProductFields
+      }
+      Product {
+        ...CuratedProductFields
+      }
+    }
+    CurationSlots {
+      Label
+      CategoryRule
+      MinWeightLb
+      MaxWeightLb
+      MinPricePerLb
+      MaxPricePerLb
+      Required
+      Notes
+    }
+    RecommendationRules {
+      Surface
+      Trigger
+      MatchKeywords
+      CustomerState
+      Priority
+      Notes
+    }
+    TargetPriceCents
+    TargetMinWeightLb
+    TargetMaxWeightLb
+    SortOrder
+    IsFeatured
+    IsActive
+    SurfacePlacements
+    PdpMatchKeywords
+    StrategySignals
+    SEO {
+      metaTitle
+      metaDescription
+      keywords
+      canonicalUrl
+    }
+    SocialMeta {
+      ogTitle
+      ogDescription
+      ogImage {
+        url
+      }
+      ogImageAlt
+      ogType
+      twitterCard
+      twitterTitle
+      twitterDescription
+      twitterImage {
+        url
+      }
+      twitterImageAlt
+      twitterCreator
+      twitterSite
+    }
+  }
+`
+
+export const GetCuratedCollectionsQuery = gql`
+  ${CuratedCollectionFields}
+  query GetCuratedCollections($limit: Int = 50) {
+    curatedCollections(
+      filters: { IsActive: { eq: true } }
+      sort: ["SortOrder:asc", "Name:asc"]
+      pagination: { limit: $limit, start: 0 }
+    ) {
+      ...CuratedCollectionFields
+    }
+  }
+`
+
+export const GetCuratedCollectionBySlugQuery = gql`
+  ${CuratedCollectionFields}
+  query GetCuratedCollectionBySlug($slug: String!) {
+    curatedCollections(
+      filters: { Slug: { eq: $slug }, IsActive: { eq: true } }
+      pagination: { limit: 1, start: 0 }
+    ) {
+      ...CuratedCollectionFields
+    }
+  }
+`
+
+const LegacyCuratedProductFields = gql`
+  fragment LegacyCuratedProductFields on Product {
     documentId
     Title
     FeaturedImage {
@@ -178,9 +429,9 @@ const CuratedProductFields = gql`
   }
 `
 
-const CuratedCollectionFields = gql`
-  ${CuratedProductFields}
-  fragment CuratedCollectionFields on CuratedCollection {
+const LegacyCuratedCollectionFields = gql`
+  ${LegacyCuratedProductFields}
+  fragment LegacyCuratedCollectionFields on CuratedCollection {
     documentId
     Name
     Slug
@@ -202,7 +453,7 @@ const CuratedCollectionFields = gql`
       Notes
       ProductHandle
       Product {
-        ...CuratedProductFields
+        ...LegacyCuratedProductFields
       }
     }
     CurationSlots {
@@ -259,27 +510,27 @@ const CuratedCollectionFields = gql`
   }
 `
 
-export const GetCuratedCollectionsQuery = gql`
-  ${CuratedCollectionFields}
-  query GetCuratedCollections($limit: Int = 50) {
+const LegacyCuratedCollectionsQuery = gql`
+  ${LegacyCuratedCollectionFields}
+  query LegacyCuratedCollections($limit: Int = 50) {
     curatedCollections(
       filters: { IsActive: { eq: true } }
       sort: ["SortOrder:asc", "Name:asc"]
       pagination: { limit: $limit, start: 0 }
     ) {
-      ...CuratedCollectionFields
+      ...LegacyCuratedCollectionFields
     }
   }
 `
 
-export const GetCuratedCollectionBySlugQuery = gql`
-  ${CuratedCollectionFields}
-  query GetCuratedCollectionBySlug($slug: String!) {
+const LegacyCuratedCollectionBySlugQuery = gql`
+  ${LegacyCuratedCollectionFields}
+  query LegacyCuratedCollectionBySlug($slug: String!) {
     curatedCollections(
       filters: { Slug: { eq: $slug }, IsActive: { eq: true } }
       pagination: { limit: 1, start: 0 }
     ) {
-      ...CuratedCollectionFields
+      ...LegacyCuratedCollectionFields
     }
   }
 `
@@ -409,19 +660,29 @@ export async function getCuratedCollections({
   customerState?: "guest_or_no_orders" | "returning" | "all"
   limit?: number
 }): Promise<CuratedCollection[]> {
+  const applyFilters = (collections: CuratedCollection[]) =>
+    (collections || [])
+      .filter((collection) => isVisibleNow(collection))
+      .filter((collection) => !surface || matchesSurface(collection, surface))
+      .filter((collection) => matchesCustomerState(collection, customerState))
+
   try {
     const data = await strapiClient.request<{
       curatedCollections: CuratedCollection[]
     }>(GetCuratedCollectionsQuery, { limit })
 
-    const filtered = (data.curatedCollections || [])
-      .filter((collection) => isVisibleNow(collection))
-      .filter((collection) => !surface || matchesSurface(collection, surface))
-      .filter((collection) => matchesCustomerState(collection, customerState))
-
-    return enrichCollections(filtered, countryCode)
+    return enrichCollections(applyFilters(data.curatedCollections), countryCode)
   } catch (error) {
     console.error("Error fetching curated collections:", error)
+  }
+
+  try {
+    const data = await strapiClient.request<{
+      curatedCollections: CuratedCollection[]
+    }>(LegacyCuratedCollectionsQuery, { limit })
+    return enrichCollections(applyFilters(data.curatedCollections), countryCode)
+  } catch (error) {
+    console.error("Error fetching legacy curated collections:", error)
     return []
   }
 }
@@ -454,16 +715,30 @@ export async function getCuratedCollectionBySlug(
   slug: string,
   countryCode: string
 ): Promise<CuratedCollection | null> {
+  const enrichVisibleCollection = async (
+    collection: CuratedCollection | null | undefined
+  ) => {
+    if (!collection || !isVisibleNow(collection)) return null
+    const [enriched] = await enrichCollections([collection], countryCode)
+    return enriched || null
+  }
+
   try {
     const data = await strapiClient.request<{
       curatedCollections: CuratedCollection[]
     }>(GetCuratedCollectionBySlugQuery, { slug })
-    const collection = data.curatedCollections?.[0]
-    if (!collection || !isVisibleNow(collection)) return null
-    const [enriched] = await enrichCollections([collection], countryCode)
-    return enriched || null
+    return enrichVisibleCollection(data.curatedCollections?.[0])
   } catch (error) {
     console.error("Error fetching curated collection:", error)
+  }
+
+  try {
+    const data = await strapiClient.request<{
+      curatedCollections: CuratedCollection[]
+    }>(LegacyCuratedCollectionBySlugQuery, { slug })
+    return enrichVisibleCollection(data.curatedCollections?.[0])
+  } catch (error) {
+    console.error("Error fetching legacy curated collection:", error)
     return null
   }
 }

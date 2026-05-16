@@ -7,10 +7,18 @@ import { useProductTitle } from "@lib/hooks/use-product-title"
 import DiscountCode from "@modules/checkout/components/discount-code"
 import Thumbnail from "@modules/products/components/thumbnail"
 import type { FulfillmentType } from "@lib/data/cart"
-import { FreeShippingHelper } from "@modules/common/components/cart-helpers"
+import FulfillmentProgress from "@modules/common/components/fulfillment-progress"
+import type { AtlantaZipDayConfig } from "@lib/util/eligible-arrival-dates"
+import {
+  getExcludedFreeDeliverySubtotal,
+  getFreeDeliveryEligibleSubtotal,
+  getLineItemFreeDeliveryExclusionReason,
+  isLineItemFreeDeliveryEligible,
+} from "@lib/util/free-delivery-eligibility"
 
 type CheckoutSummaryProps = {
   cart: HttpTypes.StoreCart
+  atlantaZipConfig?: Record<string, AtlantaZipDayConfig>
 }
 
 // Item component that fetches Strapi image and title
@@ -22,6 +30,18 @@ const CheckoutItem = ({
   currencyCode: string
 }) => {
   const productId = item.product_id || item?.product?.id
+  const countsTowardFreeDelivery = isLineItemFreeDeliveryEligible(item)
+  const exclusionReason = getLineItemFreeDeliveryExclusionReason(item)
+  const metadata = (item.metadata || {}) as Record<string, unknown>
+  const isSubstituted = Boolean(metadata.substitution_status)
+  const originalProductName =
+    typeof metadata.original_product_name === "string"
+      ? metadata.original_product_name
+      : null
+  const substitutionNote =
+    typeof metadata.substitution_note === "string"
+      ? metadata.substitution_note
+      : null
   const imgSrc = useProductFeaturedImageSrc(
     productId,
     "https://placehold.co/64x64"
@@ -44,6 +64,19 @@ const CheckoutItem = ({
       {/* Details */}
       <div className="flex-1 min-w-0">
         <p className="text-sm text-white line-clamp-2">{title}</p>
+        {isSubstituted && (
+          <p className="mt-1 text-xs leading-snug text-gray-400">
+            Substituted
+            {originalProductName ? ` for ${originalProductName}` : ""}
+            {substitutionNote ? `: ${substitutionNote}` : "."}
+          </p>
+        )}
+        {!countsTowardFreeDelivery && (
+          <p className="mt-1 text-xs leading-snug text-gray-400">
+            Does not count toward free delivery
+            {exclusionReason ? `: ${exclusionReason}` : "."}
+          </p>
+        )}
       </div>
 
       {/* Price */}
@@ -59,9 +92,11 @@ const CheckoutItem = ({
   )
 }
 
-const CheckoutSummary = ({ cart }: CheckoutSummaryProps) => {
+const CheckoutSummary = ({ cart, atlantaZipConfig }: CheckoutSummaryProps) => {
   const items = cart.items || []
   const totalItems = items.reduce((acc, item) => acc + item.quantity, 0)
+  const eligibleSubtotal = getFreeDeliveryEligibleSubtotal(items)
+  const excludedSubtotal = getExcludedFreeDeliverySubtotal(items)
   
   // Check if this is a pickup order (no shipping needed)
   const fulfillmentType = cart.metadata?.fulfillmentType as FulfillmentType | undefined
@@ -79,7 +114,7 @@ const CheckoutSummary = ({ cart }: CheckoutSummaryProps) => {
 
       {/* Promo Code */}
       <div className="mb-6">
-        <DiscountCode cart={cart} variant="dark" />
+        <DiscountCode cart={cart as any} variant="dark" />
       </div>
 
       {/* Totals */}
@@ -93,12 +128,16 @@ const CheckoutSummary = ({ cart }: CheckoutSummaryProps) => {
             })}
           </span>
         </div>
-        <FreeShippingHelper
-          subtotal={cart.subtotal}
+        <FulfillmentProgress
+          subtotal={eligibleSubtotal}
+          cartSubtotal={cart.subtotal}
+          excludedSubtotal={excludedSubtotal}
           currencyCode={cart.currency_code}
           shipState={cart.shipping_address?.province}
+          postalCode={cart.shipping_address?.postal_code}
           fulfillmentType={fulfillmentType}
           variant="dark"
+          atlantaZipConfig={atlantaZipConfig}
         />
         {/* Only show shipping for delivery orders, not pickup */}
         {!isPickup && (

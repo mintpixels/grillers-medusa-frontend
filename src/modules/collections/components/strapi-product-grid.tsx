@@ -10,6 +10,10 @@ import { addToCart } from "@lib/data/cart"
 import { formatProductPriceDisplay } from "@lib/util/price-display"
 import { sanitizeProductCopy } from "@lib/util/product-claims"
 import { dispatchCartUpdated } from "@lib/util/cart-events"
+import {
+  freeDeliveryEligibilityMetadata,
+  getProductFreeDeliveryEligibility,
+} from "@lib/util/free-delivery-eligibility"
 import type { StrapiCollectionProduct } from "@lib/data/strapi/collections"
 
 type StrapiProductGridProps = {
@@ -41,10 +45,15 @@ export function ProductCard({
 
     setIsAdding(true)
     try {
+      const variant = product.MedusaProduct?.Variants?.[0]
+      const metadata = freeDeliveryEligibilityMetadata(
+        getProductFreeDeliveryEligibility(product, variant?.Sku)
+      )
       await addToCart({
         variantId,
         quantity: 1,
         countryCode,
+        metadata: Object.keys(metadata).length ? metadata : undefined,
       })
       dispatchCartUpdated({ action: "add", variantId, quantity: 1 })
       toast.success("Added to cart", { description: product.Title })

@@ -1,5 +1,9 @@
 import { gql } from "graphql-request"
 import strapiClient from "@lib/strapi"
+import {
+  getAtlantaDeliveryZones,
+  type AtlantaDeliveryZone,
+} from "@lib/data/strapi/fulfillment"
 import NewsletterForm from "../../../components/newsletter-form"
 
 type HolidayDeadline = {
@@ -37,6 +41,7 @@ type PalletShipmentCity = {
 
 export type InfoSupplementalData = {
   holidayDeadlines?: HolidayDeadline[]
+  atlantaDeliveryZones?: AtlantaDeliveryZone[]
   southeastPickupLocations?: SoutheastPickupLocation[]
   palletShipmentCities?: PalletShipmentCity[]
 }
@@ -130,6 +135,10 @@ export async function getInfoSupplementalData(
           data.southeastPickupLocations || []
         ),
       }
+    }
+
+    if (pageSlug === "shipping-atlanta") {
+      return { atlantaDeliveryZones: await getAtlantaDeliveryZones() }
     }
 
     if (pageSlug === "shipping-pallet-program") {
@@ -281,6 +290,85 @@ function SoutheastPickupSchedule({
   )
 }
 
+function formatCents(value?: number | null) {
+  if (typeof value !== "number") return "-"
+  if (value <= 0) return "Free"
+  return `$${(value / 100).toFixed(2)}`
+}
+
+function AtlantaDeliveryZoneTable({ rows }: { rows: AtlantaDeliveryZone[] }) {
+  if (!rows.length) return null
+
+  return (
+    <div className="not-prose mt-6 overflow-x-auto border-t border-Charcoal/20">
+      <table className="min-w-[760px] w-full border-collapse font-maison-neue text-left text-p-sm text-Charcoal">
+        <thead>
+          <tr className="border-b border-Charcoal/20">
+            <th className="py-3 pr-4 font-maison-neue-mono text-p-ex-sm-mono uppercase tracking-[0.14em] text-RichGold">
+              ZIP
+            </th>
+            <th className="py-3 pr-4 font-maison-neue-mono text-p-ex-sm-mono uppercase tracking-[0.14em] text-RichGold">
+              Route day
+            </th>
+            <th className="py-3 pr-4 font-maison-neue-mono text-p-ex-sm-mono uppercase tracking-[0.14em] text-RichGold">
+              Cutoff
+            </th>
+            <th className="py-3 pr-4 font-maison-neue-mono text-p-ex-sm-mono uppercase tracking-[0.14em] text-RichGold">
+              $250+
+            </th>
+            <th className="py-3 pr-4 font-maison-neue-mono text-p-ex-sm-mono uppercase tracking-[0.14em] text-RichGold">
+              $150-$249
+            </th>
+            <th className="py-3 font-maison-neue-mono text-p-ex-sm-mono uppercase tracking-[0.14em] text-RichGold">
+              $100-$149
+            </th>
+            <th className="py-3 font-maison-neue-mono text-p-ex-sm-mono uppercase tracking-[0.14em] text-RichGold">
+              $50-$99
+            </th>
+            <th className="py-3 font-maison-neue-mono text-p-ex-sm-mono uppercase tracking-[0.14em] text-RichGold">
+              Under $50
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.documentId} className="border-b border-Charcoal/15">
+              <th className="py-4 pr-4 align-top font-semibold text-Charcoal">
+                {row.ZipCode}
+              </th>
+              <td className="py-4 pr-4 align-top text-Charcoal/80">
+                {row.DeliveryDay}
+              </td>
+              <td className="py-4 pr-4 align-top text-Charcoal/80">
+                Noon before delivery
+                {typeof row.CutoffHourLocal === "number" &&
+                row.CutoffHourLocal !== 12
+                  ? ` (${row.CutoffHourLocal}:00 local)`
+                  : ""}
+              </td>
+              <td className="py-4 pr-4 align-top text-Charcoal/80">
+                {formatCents(row.Rate250PlusCents)}
+              </td>
+              <td className="py-4 pr-4 align-top text-Charcoal/80">
+                {formatCents(row.Rate150To249Cents)}
+              </td>
+              <td className="py-4 align-top text-Charcoal/80">
+                {formatCents(row.Rate100To149Cents)}
+              </td>
+              <td className="py-4 align-top text-Charcoal/80">
+                {formatCents(row.Rate50To99Cents)}
+              </td>
+              <td className="py-4 align-top text-Charcoal/80">
+                {formatCents(row.Rate0To49Cents)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
 function PalletCityList({ rows }: { rows: PalletShipmentCity[] }) {
   if (!rows.length) return null
 
@@ -342,6 +430,14 @@ export function SupplementalInfoModule({
     return (
       <SoutheastPickupSchedule rows={data?.southeastPickupLocations || []} />
     )
+  }
+
+  if (
+    pageSlug === "shipping-atlanta" &&
+    (anchorId === "delivery-zip-codes-and-rates" ||
+      anchorId === "zip-codes-and-rates")
+  ) {
+    return <AtlantaDeliveryZoneTable rows={data?.atlantaDeliveryZones || []} />
   }
 
   if (

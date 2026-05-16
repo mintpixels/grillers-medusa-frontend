@@ -4,37 +4,18 @@ import AddBundleButton from "@modules/products/components/pairs-well-with/add-bu
 import FulfillmentProgress from "@modules/common/components/fulfillment-progress"
 import { sanitizeProductCopy } from "@lib/util/product-claims"
 import {
-  formatProductPriceDisplay,
-  type PriceDisplay,
-} from "@lib/util/price-display"
+  collectionEstimatedSubtotals,
+  formatMoneyDelta,
+  formatWeightDelta,
+  getCollectionSubstitutionGuardrails,
+  getSubstitutionImpact,
+  lineCartMetadata,
+  productPriceDisplay,
+} from "@lib/util/collection-substitutions"
 import {
   getCollectionProducts,
   type CuratedCollection,
 } from "@lib/data/strapi/curated-collections"
-import type { StrapiCollectionProduct } from "@lib/data/strapi/collections"
-
-function productPriceDisplay(
-  product: StrapiCollectionProduct
-): PriceDisplay | null {
-  const variant = product.MedusaProduct?.Variants?.[0]
-  const price = variant?.Price?.CalculatedPriceNumber
-  if (typeof price !== "number") return null
-  return formatProductPriceDisplay(
-    price,
-    product.Metadata,
-    variant?.Sku,
-    (
-      product.MedusaProduct as
-        | { PricingMode?: "per_lb" | "fixed_price" }
-        | undefined
-    )?.PricingMode
-  )
-}
-
-function lineTotal(product: StrapiCollectionProduct, quantity: number): number {
-  return (productPriceDisplay(product)?.estimatedPackPrice ?? 0) * quantity
-}
-
 export default function CuratedCollectionTemplate({
   collection,
   countryCode,
@@ -43,18 +24,27 @@ export default function CuratedCollectionTemplate({
   countryCode: string
 }) {
   const products = getCollectionProducts(collection)
-  const total = products.reduce(
-    (sum, item) => sum + lineTotal(item.Product, item.Quantity),
-    0
-  )
+  const { total, eligible, excluded } = collectionEstimatedSubtotals(products)
   const totalQuantity = products.reduce((sum, item) => sum + item.Quantity, 0)
   const addItems = products
-    .map(({ Product, Quantity }) => ({
-      variantId: Product.MedusaProduct?.Variants?.[0]?.VariantId || "",
-      title: Product.Title,
-      quantity: Quantity,
-    }))
+    .map((collectionItem) => {
+      const { Product, Quantity } = collectionItem
+      const variant = Product.MedusaProduct?.Variants?.[0]
+      return {
+        variantId: variant?.VariantId || "",
+        title: Product.Title,
+        quantity: Quantity,
+        metadata: lineCartMetadata(collectionItem),
+      }
+    })
     .filter((item) => item.variantId)
+  const substitutionItems = products.filter(
+    (item) => item.SubstitutionStatus && item.SubstitutionStatus !== "none"
+  )
+  const substitutionGuardrails = getCollectionSubstitutionGuardrails(products)
+  const requiresSubstitutionAcknowledgement =
+    substitutionGuardrails.requiresAcknowledgement
+  const needsBusinessReview = substitutionGuardrails.needsBusinessReview
   const heroImage =
     collection.HeroImage?.url ||
     products.find((item) => item.Product.FeaturedImage?.url)?.Product
@@ -123,10 +113,25 @@ export default function CuratedCollectionTemplate({
               </div>
 
               <FulfillmentProgress
-                subtotal={total}
+                subtotal={eligible}
+                cartSubtotal={total}
+                excludedSubtotal={excluded}
                 currencyCode="usd"
                 className="mb-4"
               />
+
+              {needsBusinessReview && (
+                <div className="mb-4 rounded-[5px] border border-VibrantRed/30 bg-VibrantRed/10 p-3 font-maison-neue text-xs leading-relaxed text-Charcoal/70">
+                  This collection has a substitution marked for business review.
+                  Editors should confirm weight, margin, and shipping cost before
+                  promoting it.
+                  {substitutionGuardrails.reviewReasons.length > 0 && (
+                    <span className="mt-1 block text-Charcoal/60">
+                      {substitutionGuardrails.reviewReasons[0]}
+                    </span>
+                  )}
+                </div>
+              )}
 
               <AddBundleButton
                 items={addItems}
@@ -134,6 +139,16 @@ export default function CuratedCollectionTemplate({
                 bundleId={collection.documentId}
                 bundleTitle={collection.Name}
                 bundleSlug={collection.Slug}
+                requiresAcknowledgement={requiresSubstitutionAcknowledgement}
+                acknowledgementLabel={
+                  collection.SubstitutionPolicyCopy ||
+                  "I understand this collection includes the substitutions shown below."
+                }
+                disabledReason={
+                  needsBusinessReview
+                    ? "This collection is temporarily unavailable while we confirm substitution weight and shipping costs."
+                    : undefined
+                }
               />
               <p className="mt-3 font-maison-neue text-xs leading-relaxed text-Charcoal/55">
                 Items are added as normal cart lines. You can edit quantities or
@@ -226,52 +241,86 @@ export default function CuratedCollectionTemplate({
         </div>
       </section>
 
-      {Boolean(
-        (collection.CurationSlots?.length || 0) +
-          (collection.StrategySignals?.length || 0)
-      ) && (
-        <section className="bg-Scroll py-12">
-          <div className="content-container grid gap-8 md:grid-cols-2">
-            {collection.CurationSlots?.length ? (
-              <div>
-                <p className="font-maison-neue-mono text-p-sm-mono font-bold uppercase tracking-wide text-VibrantRed">
-                  Curation rules
-                </p>
-                <div className="mt-4 space-y-3">
-                  {collection.CurationSlots.map((slot) => (
-                    <div
-                      key={slot.Label}
-                      className="rounded-[5px] border border-Charcoal/10 bg-white p-4"
-                    >
-                      <h3 className="font-maison-neue text-sm font-bold text-Charcoal">
-                        {slot.Label}
-                      </h3>
-                      <p className="mt-1 font-maison-neue text-sm leading-relaxed text-Charcoal/65">
-                        {slot.CategoryRule}
-                      </p>
+      {substitutionItems.length > 0 && (
+        <section className="content-container border-t border-Charcoal/10 py-12">
+          <div className="max-w-3xl">
+            <p className="font-maison-neue-mono text-p-sm-mono font-bold uppercase tracking-wide text-VibrantRed">
+              Substitutions
+            </p>
+            <h2 className="mt-2 font-gyst text-h2-mobile font-bold leading-tight text-Charcoal md:text-h2">
+              What changed in this collection
+            </h2>
+            {collection.SubstitutionPolicyCopy && (
+              <p className="mt-3 font-maison-neue text-p-md leading-relaxed text-Charcoal/70">
+                {collection.SubstitutionPolicyCopy}
+              </p>
+            )}
+          </div>
+          <div className="mt-6 grid gap-4 md:grid-cols-2">
+            {substitutionItems.map((item) => (
+              (() => {
+                const impact = getSubstitutionImpact(item)
+                const weightDelta = formatWeightDelta(impact.weightDelta)
+                return (
+                  <div
+                    key={`${item.Product.documentId}-substitution`}
+                    className="rounded-[5px] border border-Gold/40 bg-Gold/10 p-4"
+                  >
+                    <p className="font-maison-neue-mono text-[10px] font-bold uppercase tracking-wide text-VibrantRed">
+                      {item.SubstitutionStatus === "out_of_stock_substituted"
+                        ? "Out of stock substitution"
+                        : "Editor substitution"}
+                    </p>
+                    <p className="mt-2 font-maison-neue text-sm font-semibold text-Charcoal">
+                      {item.OriginalQuantity && item.OriginalQuantity > 1
+                        ? `${item.OriginalQuantity}x `
+                        : ""}
+                      {item.OriginalProduct?.Title ||
+                        item.OriginalProductName ||
+                        "Original item"}{" "}
+                      → {item.Quantity > 1 ? `${item.Quantity}x ` : ""}
+                      {item.Product.Title}
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {impact.priceDelta != null && (
+                        <span className="rounded-full bg-white px-2 py-1 font-maison-neue-mono text-[10px] font-bold uppercase tracking-wide text-Charcoal/65">
+                          {formatMoneyDelta(impact.priceDelta)}
+                        </span>
+                      )}
+                      {weightDelta && (
+                        <span className="rounded-full bg-white px-2 py-1 font-maison-neue-mono text-[10px] font-bold uppercase tracking-wide text-Charcoal/65">
+                          {weightDelta}
+                        </span>
+                      )}
+                      {item.ShippingCostRisk &&
+                        item.ShippingCostRisk !== "normal" && (
+                          <span className="rounded-full bg-white px-2 py-1 font-maison-neue-mono text-[10px] font-bold uppercase tracking-wide text-VibrantRed">
+                            Shipping review
+                          </span>
+                        )}
                     </div>
-                  ))}
-                </div>
-              </div>
-            ) : null}
+                    {item.SubstitutionNote && (
+                      <p className="mt-2 font-maison-neue text-sm leading-relaxed text-Charcoal/70">
+                        {item.SubstitutionNote}
+                      </p>
+                    )}
+                  </div>
+                )
+              })()
+            ))}
+          </div>
+        </section>
+      )}
 
-            {collection.StrategySignals?.length ? (
-              <div>
-                <p className="font-maison-neue-mono text-p-sm-mono font-bold uppercase tracking-wide text-VibrantRed">
-                  Why this collection exists
-                </p>
-                <ul className="mt-4 space-y-3">
-                  {collection.StrategySignals.map((signal) => (
-                    <li
-                      key={signal}
-                      className="rounded-[5px] border border-Charcoal/10 bg-white p-4 font-maison-neue text-sm leading-relaxed text-Charcoal/70"
-                    >
-                      {signal}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
+      {collection.CustomerFacingRationale && (
+        <section className="bg-Scroll py-12">
+          <div className="content-container max-w-3xl">
+            <p className="font-maison-neue-mono text-p-sm-mono font-bold uppercase tracking-wide text-VibrantRed">
+              Why this collection works
+            </p>
+            <div className="mt-4 rounded-[5px] border border-Charcoal/10 bg-white p-5 font-maison-neue text-sm leading-relaxed text-Charcoal/70">
+              {collection.CustomerFacingRationale}
+            </div>
           </div>
         </section>
       )}

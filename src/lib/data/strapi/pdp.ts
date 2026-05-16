@@ -52,6 +52,16 @@ export const GetProductQuery = gql`
         AvgPackWeight
         Serves
         PiecesPerPack
+        ChassidishShchita
+        CHK
+        RabbiWeissmandl
+        OU
+        StarK
+        RabbiTeitelbaum
+        CRC
+        Lubavitch
+        QualifiesForFreeDeliveryOffers
+        FreeDeliveryExclusionReason
       }
       Recipes {
         documentId
@@ -70,6 +80,9 @@ export const GetProductQuery = gql`
         Variants {
           VariantId
           Title
+          Sku
+          QualifiesForFreeDeliveryOffers
+          FreeDeliveryExclusionReason
           Price {
             OriginalPriceNumber
             CalculatedPriceNumber
@@ -122,6 +135,8 @@ export const GetProductMetadataQuery = gql`
       Metadata {
         AvgPackWeight
         AvgPackSize
+        QualifiesForFreeDeliveryOffers
+        FreeDeliveryExclusionReason
       }
     }
   }
@@ -130,6 +145,8 @@ export const GetProductMetadataQuery = gql`
 export type ProductMetadata = {
   AvgPackWeight?: string | null
   AvgPackSize?: string | null
+  QualifiesForFreeDeliveryOffers?: boolean | null
+  FreeDeliveryExclusionReason?: string | null
 }
 
 /**

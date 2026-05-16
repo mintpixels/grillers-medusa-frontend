@@ -5,6 +5,7 @@ import type {
   InfoBodyComponent,
   InfoFeatureCard,
   InfoHero,
+  InfoTableColumn,
   StrapiLink,
   StrapiMedia,
 } from "@lib/data/strapi/legal"
@@ -978,6 +979,222 @@ function RichTextBlock({
   )
 }
 
+function TableValue({ value }: { value: unknown }) {
+  if (value == null || value === "") return <span className="text-Charcoal/35">-</span>
+  if (typeof value === "boolean") return <>{value ? "Yes" : "No"}</>
+  return <>{String(value)}</>
+}
+
+function alignmentClass(alignment?: InfoTableColumn["Alignment"]) {
+  if (alignment === "center") return "text-center"
+  if (alignment === "right") return "text-right"
+  return "text-left"
+}
+
+function TableBlockComponent({
+  block,
+  anchorId,
+}: {
+  block: Extract<InfoBodyComponent, { __typename: "ComponentInfoTableBlock" }>
+  anchorId?: string
+}) {
+  const columns = block.Columns || []
+  const rows = block.Rows || []
+  if (!columns.length || !rows.length) return null
+
+  return (
+    <section
+      id={anchorId}
+      className="scroll-mt-32 border-t border-Charcoal/20 py-8 md:py-10"
+    >
+      {(block.Heading || block.Intro) && (
+        <div className="mb-6 max-w-3xl">
+          {block.Heading && (
+            <h2 className="mb-3 font-gyst text-h3-mobile text-Charcoal text-balance md:text-h3">
+              {block.Heading}
+            </h2>
+          )}
+          {block.Intro && (
+            <p className="font-maison-neue text-p-sm leading-[1.65] text-Charcoal/75 md:text-p-md">
+              {block.Intro}
+            </p>
+          )}
+        </div>
+      )}
+
+      <div className="hidden overflow-hidden border border-Charcoal/20 md:block">
+        <table className="w-full border-collapse font-maison-neue text-sm">
+          <thead className="bg-Scroll">
+            <tr>
+              {columns.map((column) => (
+                <th
+                  key={column.Key}
+                  className={`border-b border-Charcoal/20 px-4 py-3 font-maison-neue-mono text-[11px] font-bold uppercase tracking-wide text-Charcoal/65 ${alignmentClass(column.Alignment)}`}
+                >
+                  {column.Label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, rowIndex) => (
+              <tr key={row.Label || rowIndex} className="border-b border-Charcoal/10 last:border-b-0">
+                {columns.map((column) => (
+                  <td
+                    key={column.Key}
+                    className={`px-4 py-4 leading-relaxed text-Charcoal/80 ${column.IsPrimary ? "font-semibold text-Charcoal" : ""} ${alignmentClass(column.Alignment)}`}
+                  >
+                    <TableValue value={row.Cells?.[column.Key]} />
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="grid gap-3 md:hidden">
+        {rows.map((row, rowIndex) => {
+          const primaryColumn = columns.find((column) => column.IsPrimary) || columns[0]
+          return (
+            <div
+              key={row.Label || rowIndex}
+              className="rounded-[5px] border border-Charcoal/15 bg-white p-4"
+            >
+              <h3 className="font-maison-neue text-sm font-semibold text-Charcoal">
+                <TableValue value={row.Label || row.Cells?.[primaryColumn.Key]} />
+              </h3>
+              <dl className="mt-3 space-y-2">
+                {columns
+                  .filter((column) => column.Key !== primaryColumn.Key)
+                  .map((column) => (
+                    <div key={column.Key} className="grid grid-cols-[120px_minmax(0,1fr)] gap-3">
+                      <dt className="font-maison-neue-mono text-[10px] font-bold uppercase tracking-wide text-RichGold">
+                        {column.Label}
+                      </dt>
+                      <dd className="font-maison-neue text-sm leading-snug text-Charcoal/75">
+                        <TableValue value={row.Cells?.[column.Key]} />
+                      </dd>
+                    </div>
+                  ))}
+              </dl>
+            </div>
+          )
+        })}
+      </div>
+
+      {block.Caption && (
+        <p className="mt-3 font-maison-neue text-xs leading-relaxed text-Charcoal/55">
+          {block.Caption}
+        </p>
+      )}
+    </section>
+  )
+}
+
+function ComparisonTableBlock({
+  block,
+  anchorId,
+}: {
+  block: Extract<InfoBodyComponent, { __typename: "ComponentInfoComparisonTable" }>
+  anchorId?: string
+}) {
+  const rows = block.Rows || []
+  if (!rows.length) return null
+
+  return (
+    <section
+      id={anchorId}
+      className="scroll-mt-32 border-t border-Charcoal/20 py-8 md:py-10"
+    >
+      {(block.Heading || block.Intro) && (
+        <div className="mb-6 max-w-3xl">
+          {block.Heading && (
+            <h2 className="mb-3 font-gyst text-h3-mobile text-Charcoal text-balance md:text-h3">
+              {block.Heading}
+            </h2>
+          )}
+          {block.Intro && (
+            <p className="font-maison-neue text-p-sm leading-[1.65] text-Charcoal/75 md:text-p-md">
+              {block.Intro}
+            </p>
+          )}
+        </div>
+      )}
+
+      <div className="hidden overflow-hidden border border-Charcoal/20 md:block">
+        <table className="w-full border-collapse font-maison-neue text-sm">
+          <thead className="bg-Scroll">
+            <tr>
+              <th className="border-b border-Charcoal/20 px-4 py-3 text-left font-maison-neue-mono text-[11px] font-bold uppercase tracking-wide text-Charcoal/65">
+                {block.DecisionLabel}
+              </th>
+              <th className="border-b border-Charcoal/20 px-4 py-3 text-left font-maison-neue-mono text-[11px] font-bold uppercase tracking-wide text-Charcoal/65">
+                {block.LeftOptionLabel}
+              </th>
+              <th className="border-b border-Charcoal/20 px-4 py-3 text-left font-maison-neue-mono text-[11px] font-bold uppercase tracking-wide text-Charcoal/65">
+                {block.RightOptionLabel}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.Label} className="border-b border-Charcoal/10 last:border-b-0">
+                <th className="px-4 py-4 text-left font-semibold leading-relaxed text-Charcoal">
+                  {row.Label}
+                </th>
+                <td className="px-4 py-4 leading-relaxed text-Charcoal/75">
+                  {row.LeftValue}
+                </td>
+                <td className="px-4 py-4 leading-relaxed text-Charcoal/75">
+                  {row.RightValue}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="grid gap-3 md:hidden">
+        {rows.map((row) => (
+          <div
+            key={row.Label}
+            className="rounded-[5px] border border-Charcoal/15 bg-white p-4"
+          >
+            <h3 className="font-maison-neue text-sm font-semibold text-Charcoal">
+              {row.Label}
+            </h3>
+            <dl className="mt-3 space-y-3">
+              <div>
+                <dt className="font-maison-neue-mono text-[10px] font-bold uppercase tracking-wide text-RichGold">
+                  {block.LeftOptionLabel}
+                </dt>
+                <dd className="mt-1 font-maison-neue text-sm leading-relaxed text-Charcoal/75">
+                  {row.LeftValue}
+                </dd>
+              </div>
+              <div>
+                <dt className="font-maison-neue-mono text-[10px] font-bold uppercase tracking-wide text-RichGold">
+                  {block.RightOptionLabel}
+                </dt>
+                <dd className="mt-1 font-maison-neue text-sm leading-relaxed text-Charcoal/75">
+                  {row.RightValue}
+                </dd>
+              </div>
+            </dl>
+          </div>
+        ))}
+      </div>
+
+      {block.Caption && (
+        <p className="mt-3 font-maison-neue text-xs leading-relaxed text-Charcoal/55">
+          {block.Caption}
+        </p>
+      )}
+    </section>
+  )
+}
+
 export function StructuredInfoBody({
   body,
   pageSlug,
@@ -994,6 +1211,13 @@ export function StructuredInfoBody({
         return { label: block.SectionTitle, id: slugify(block.SectionTitle) }
       }
       if (block.__typename === "ComponentInfoFeatureGrid" && block.Heading) {
+        return { label: block.Heading, id: slugify(block.Heading) }
+      }
+      if (
+        (block.__typename === "ComponentInfoTableBlock" ||
+          block.__typename === "ComponentInfoComparisonTable") &&
+        block.Heading
+      ) {
         return { label: block.Heading, id: slugify(block.Heading) }
       }
       return null
@@ -1028,6 +1252,10 @@ export function StructuredInfoBody({
               ? slugify(block.SectionTitle)
               : block.__typename === "ComponentInfoFeatureGrid" && block.Heading
               ? slugify(block.Heading)
+              : (block.__typename === "ComponentInfoTableBlock" ||
+                  block.__typename === "ComponentInfoComparisonTable") &&
+                block.Heading
+              ? slugify(block.Heading)
               : undefined
 
           let rendered: React.ReactNode
@@ -1044,6 +1272,12 @@ export function StructuredInfoBody({
               break
             case "ComponentSharedRichText":
               rendered = <RichTextBlock block={block} anchorId={anchorId} />
+              break
+            case "ComponentInfoTableBlock":
+              rendered = <TableBlockComponent block={block} anchorId={anchorId} />
+              break
+            case "ComponentInfoComparisonTable":
+              rendered = <ComparisonTableBlock block={block} anchorId={anchorId} />
               break
             default:
               rendered = null

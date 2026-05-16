@@ -239,7 +239,10 @@ export async function setRequestedDeliveryDate({
       const { isArrivalDateValid } = await import(
         "@lib/util/eligible-arrival-dates"
       )
-      const { ATLANTA_DELIVERY_ZIP_DAYS } = await import("@lib/data/strapi/checkout")
+      const { getAtlantaDeliveryZipConfig } = await import(
+        "@lib/data/strapi/fulfillment"
+      )
+      const atlantaZipConfig = await getAtlantaDeliveryZipConfig()
       const cart = await retrieveCart(cartId)
       const fulfillmentType = cart?.metadata?.fulfillmentType as string | undefined
       const destZip = (cart?.shipping_address?.postal_code || "").trim()
@@ -257,7 +260,7 @@ export async function setRequestedDeliveryDate({
         const ok = isArrivalDateValid(date, {
           method,
           destinationZip: destZip,
-          atlantaZipConfig: ATLANTA_DELIVERY_ZIP_DAYS,
+          atlantaZipConfig,
         })
         if (!ok) {
           throw new Error(

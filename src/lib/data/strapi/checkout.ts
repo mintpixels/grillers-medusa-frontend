@@ -1,5 +1,6 @@
 import { gql } from "graphql-request"
 import type { StrapiSEO } from "./seo"
+import type { AtlantaZipDayConfig } from "@lib/util/eligible-arrival-dates"
 export { ATLANTA_DELIVERY_ZIP_DAYS } from "@lib/util/atlanta-delivery-zips"
 
 // ============================================
@@ -51,6 +52,8 @@ export type FulfillmentConfigData = {
   checkout: {
     // Zip codes that qualify for Atlanta delivery
     AtlantaDeliveryZipCodes: string[]
+    // Zip-code-specific Atlanta delivery weekdays and cutoff hour
+    AtlantaDeliveryZipDays?: Record<string, AtlantaZipDayConfig>
     // Zip code prefixes for Southeast region (e.g., "30", "31" for Georgia)
     SoutheastZipPrefixes: string[]
     // Pickup locations for Southeast
