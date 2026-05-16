@@ -736,17 +736,17 @@ export default function ButcherEducationHub({
                   </div>
 
                   <div className="flex flex-1 flex-col p-5">
-                    <p className="font-maison-neue-mono text-[11px] font-bold uppercase tracking-[0.16em] text-RichGold">
+                    <p className="min-h-[34px] font-maison-neue-mono text-[11px] font-bold uppercase tracking-[0.16em] text-RichGold">
                       {family.eyebrow}
                     </p>
-                    <h3 className="mt-3 font-gyst text-[30px] leading-tight text-Charcoal">
+                    <h3 className="mt-3 min-h-[72px] font-gyst text-[30px] leading-tight text-Charcoal">
                       {family.title}
                     </h3>
-                    <p className="mt-3 font-maison-neue text-p-sm leading-[1.6] text-Charcoal/72">
+                    <p className="mt-3 min-h-[112px] font-maison-neue text-p-sm leading-[1.6] text-Charcoal/72">
                       {family.body}
                     </p>
 
-                    <div className="mt-5 border-t border-Charcoal/10 pt-4">
+                    <div className="mt-5 min-h-[118px] border-t border-Charcoal/10 pt-4">
                       <p className="font-maison-neue-mono text-[11px] font-bold uppercase tracking-[0.14em] text-Charcoal/55">
                         First guides
                       </p>
@@ -762,7 +762,7 @@ export default function ButcherEducationHub({
                       </div>
                     </div>
 
-                    <p className="mt-4 font-maison-neue text-p-sm leading-[1.55] text-Charcoal/70">
+                    <p className="mt-4 min-h-[84px] font-maison-neue text-p-sm leading-[1.55] text-Charcoal/70">
                       <span className="font-bold text-Charcoal">Best for:</span>{" "}
                       {family.bestFor}
                     </p>
@@ -836,18 +836,18 @@ export default function ButcherEducationHub({
                     event={guide.event}
                     label={guide.title}
                     section="buying_guides"
-                    className="group block rounded-[6px] border border-Charcoal/10 bg-white p-5 transition-colors hover:border-Gold hover:bg-Scroll/40"
+                    className="group flex min-h-full flex-col rounded-[6px] border border-Charcoal/10 bg-white p-5 transition-colors hover:border-Gold hover:bg-Scroll/40"
                   >
                     <div className="mb-5 flex h-10 w-10 items-center justify-center rounded-[4px] border border-Charcoal/15 bg-Scroll text-VibrantRed">
                       <Icon className="h-5 w-5" strokeWidth={1.8} />
                     </div>
-                    <h3 className="font-rexton text-[22px] leading-tight text-Charcoal">
+                    <h3 className="min-h-[88px] font-rexton text-[22px] leading-tight text-Charcoal">
                       {guide.title}
                     </h3>
-                    <p className="mt-3 font-maison-neue text-p-sm leading-[1.65] text-Charcoal/70">
+                    <p className="mt-3 min-h-[64px] font-maison-neue text-p-sm leading-[1.65] text-Charcoal/70">
                       {guide.body}
                     </p>
-                    <span className="mt-5 inline-flex min-h-[36px] items-center gap-2 font-rexton text-h6 font-bold uppercase text-Charcoal transition-colors group-hover:text-VibrantRed">
+                    <span className="mt-auto inline-flex min-h-[36px] items-center gap-2 pt-5 font-rexton text-h6 font-bold uppercase text-Charcoal transition-colors group-hover:text-VibrantRed">
                       {guide.cta}
                       <ArrowRight
                         className="h-4 w-4 transition-transform group-hover:translate-x-1"
