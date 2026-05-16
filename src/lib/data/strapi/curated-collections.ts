@@ -598,8 +598,9 @@ function matchesSurface(collection: CuratedCollection, surface: string) {
 
 function matchesCustomerState(
   collection: CuratedCollection,
-  customerState: "guest_or_no_orders" | "returning" | "all"
+  customerState: "guest_or_no_orders" | "returning" | "all" | "any"
 ) {
+  if (customerState === "any") return true
   const filter = collection.CustomerStateFilter || "all"
   return filter === "all" || filter === customerState
 }
@@ -658,11 +659,13 @@ export async function getCuratedCollections({
   surface,
   customerState = "all",
   limit = 50,
+  enrichPrices = true,
 }: {
   countryCode: string
   surface?: string
-  customerState?: "guest_or_no_orders" | "returning" | "all"
+  customerState?: "guest_or_no_orders" | "returning" | "all" | "any"
   limit?: number
+  enrichPrices?: boolean
 }): Promise<CuratedCollection[]> {
   const applyFilters = (collections: CuratedCollection[]) =>
     (collections || [])
@@ -681,7 +684,10 @@ export async function getCuratedCollections({
       curatedCollections: CuratedCollection[]
     }>(GetCuratedCollectionsQuery, { limit: queryLimit })
 
-    return enrichCollections(applyFilters(data.curatedCollections), countryCode)
+    const collections = applyFilters(data.curatedCollections)
+    return enrichPrices
+      ? enrichCollections(collections, countryCode)
+      : collections
   } catch (error) {
     console.error("Error fetching curated collections:", error)
   }
@@ -690,7 +696,10 @@ export async function getCuratedCollections({
     const data = await strapiClient.request<{
       curatedCollections: CuratedCollection[]
     }>(LegacyCuratedCollectionsQuery, { limit: queryLimit })
-    return enrichCollections(applyFilters(data.curatedCollections), countryCode)
+    const collections = applyFilters(data.curatedCollections)
+    return enrichPrices
+      ? enrichCollections(collections, countryCode)
+      : collections
   } catch (error) {
     console.error("Error fetching legacy curated collections:", error)
     return []

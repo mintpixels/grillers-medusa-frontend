@@ -57,20 +57,14 @@ function dedupeCollections(collections: CuratedCollection[]) {
 }
 
 async function getCollections(countryCode: string) {
-  const [guestCollections, returningCollections] = await Promise.all([
-    getCuratedCollections({
-      countryCode,
-      customerState: "guest_or_no_orders",
-      limit: 60,
-    }),
-    getCuratedCollections({
-      countryCode,
-      customerState: "returning",
-      limit: 60,
-    }),
-  ])
+  const collections = await getCuratedCollections({
+    countryCode,
+    customerState: "any",
+    limit: 60,
+    enrichPrices: false,
+  })
 
-  return dedupeCollections([...guestCollections, ...returningCollections])
+  return dedupeCollections(collections)
 }
 
 export default async function CollectionsPage({ params }: PageProps) {
