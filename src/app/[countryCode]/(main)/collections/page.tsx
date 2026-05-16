@@ -3,7 +3,7 @@ import { Metadata } from "next"
 import { getBaseURL } from "@lib/util/env"
 import { generateAlternates } from "@lib/util/seo"
 import {
-  getCuratedCollections,
+  getCuratedCollectionsForHub,
   type CuratedCollection,
 } from "@lib/data/strapi/curated-collections"
 import CollectionsHub from "@modules/collections/templates/collections-hub"
@@ -56,12 +56,9 @@ function dedupeCollections(collections: CuratedCollection[]) {
   return result.sort((a, b) => (a.SortOrder || 999) - (b.SortOrder || 999))
 }
 
-async function getCollections(countryCode: string) {
-  const collections = await getCuratedCollections({
-    countryCode,
-    customerState: "any",
+async function getCollections() {
+  const collections = await getCuratedCollectionsForHub({
     limit: 60,
-    enrichPrices: false,
   })
 
   return dedupeCollections(collections)
@@ -69,7 +66,7 @@ async function getCollections(countryCode: string) {
 
 export default async function CollectionsPage({ params }: PageProps) {
   const { countryCode } = await params
-  const collections = await getCollections(countryCode)
+  const collections = await getCollections()
   const pageUrl = `${getBaseURL()}/${countryCode}/collections`
   const jsonLd = {
     "@context": "https://schema.org",

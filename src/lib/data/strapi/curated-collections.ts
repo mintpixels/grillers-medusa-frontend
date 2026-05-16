@@ -565,6 +565,64 @@ const CuratedCollectionCardFields = gql`
   }
 `
 
+const CuratedCollectionHubFields = gql`
+  fragment CuratedCollectionHubFields on CuratedCollection {
+    documentId
+    Name
+    Slug
+    Eyebrow
+    ShortDescription
+    CollectionType
+    Occasion
+    CustomerStateFilter
+    VisibilityStart
+    VisibilityEnd
+    HeroImage {
+      url
+    }
+    HeroImageAlt
+    Items {
+      id
+      Quantity
+      Required
+      Role
+      Product {
+        documentId
+        Title
+        FeaturedImage {
+          url
+        }
+        Metadata {
+          AvgPackWeight
+          QualifiesForFreeDeliveryOffers
+          FreeDeliveryExclusionReason
+        }
+        MedusaProduct {
+          ProductId
+          Handle
+          ShortDescription
+          Variants {
+            VariantId
+            Sku
+            QualifiesForFreeDeliveryOffers
+            FreeDeliveryExclusionReason
+            Price {
+              CalculatedPriceNumber
+            }
+          }
+        }
+      }
+    }
+    TargetPriceCents
+    TargetMinWeightLb
+    TargetMaxWeightLb
+    SortOrder
+    IsFeatured
+    IsActive
+    SurfacePlacements
+  }
+`
+
 export const GetCuratedCollectionCardsQuery = gql`
   ${CuratedCollectionCardFields}
   query GetCuratedCollectionCards($limit: Int = 50) {
@@ -574,6 +632,19 @@ export const GetCuratedCollectionCardsQuery = gql`
       pagination: { limit: $limit, start: 0 }
     ) {
       ...CuratedCollectionCardFields
+    }
+  }
+`
+
+export const GetCuratedCollectionHubQuery = gql`
+  ${CuratedCollectionHubFields}
+  query GetCuratedCollectionHub($limit: Int = 100) {
+    curatedCollections(
+      filters: { IsActive: { eq: true } }
+      sort: ["SortOrder:asc", "Name:asc"]
+      pagination: { limit: $limit, start: 0 }
+    ) {
+      ...CuratedCollectionHubFields
     }
   }
 `
@@ -726,6 +797,26 @@ export async function getCuratedCollectionCards({
       .filter((collection) => matchesCustomerState(collection, customerState))
   } catch (error) {
     console.error("Error fetching curated collection cards:", error)
+    return []
+  }
+}
+
+export async function getCuratedCollectionsForHub({
+  limit = 100,
+}: {
+  limit?: number
+} = {}): Promise<CuratedCollection[]> {
+  try {
+    const data = await strapiClient.request<{
+      curatedCollections: CuratedCollection[]
+    }>(GetCuratedCollectionHubQuery, { limit })
+
+    return (data.curatedCollections || [])
+      .filter((collection) => isVisibleNow(collection))
+      .filter((collection) => matchesCustomerState(collection, "any"))
+      .slice(0, limit)
+  } catch (error) {
+    console.error("Error fetching curated collection hub:", error)
     return []
   }
 }
