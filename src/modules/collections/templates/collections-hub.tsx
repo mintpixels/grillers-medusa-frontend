@@ -2,6 +2,7 @@ import Image from "next/image"
 
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import AddBundleButton from "@modules/products/components/pairs-well-with/add-bundle-button"
+import CuratedCollectionItems from "@modules/collections/components/curated-collection-items"
 import {
   getCollectionProducts,
   type CuratedCollection,
@@ -10,10 +11,7 @@ import {
   collectionEstimatedSubtotals,
   getCollectionSubstitutionGuardrails,
   lineCartMetadata,
-  lineEstimatedTotal,
-  productPriceDisplay,
 } from "@lib/util/collection-substitutions"
-import { sanitizeProductCopy } from "@lib/util/product-claims"
 
 type CollectionsHubProps = {
   collections: CuratedCollection[]
@@ -82,71 +80,6 @@ function addItemsForCollection(collection: CuratedCollection) {
       }
     })
     .filter((item) => item.variantId)
-}
-
-function CollectionItemLine({
-  item,
-}: {
-  item: ReturnType<typeof getCollectionProducts>[number]
-}) {
-  const price = productPriceDisplay(item.Product)
-  const quantity = item.Quantity || 1
-  const lineTotal = lineEstimatedTotal(item.Product, quantity)
-  const description = sanitizeProductCopy(
-    item.Product.MedusaProduct?.ShortDescription,
-    {
-      handle: item.Product.MedusaProduct?.Handle,
-      title: item.Product.Title,
-    }
-  )
-
-  return (
-    <li className="border-t border-Charcoal/10 py-3 first:border-t-0 first:pt-0">
-      <LocalizedClientLink
-        href={`/products/${item.Product.MedusaProduct?.Handle}`}
-        className="group block min-w-0"
-      >
-        <div className="flex min-w-0 items-start justify-between gap-3">
-          <p className="min-w-0 font-maison-neue text-sm font-semibold leading-snug text-Charcoal group-hover:text-VibrantRed">
-            {quantity > 1 ? `${quantity}x ` : ""}
-            {item.Product.Title}
-          </p>
-          {item.Required === false && (
-            <span className="shrink-0 rounded-full bg-Scroll px-2 py-0.5 font-maison-neue-mono text-[10px] font-bold uppercase tracking-wide text-Charcoal/55">
-              Optional
-            </span>
-          )}
-        </div>
-        {price ? (
-          <div className="mt-1 space-y-0.5">
-            <p className="font-maison-neue-mono text-[11px] font-bold uppercase leading-tight text-Charcoal/60">
-              {price.primary}
-              {price.primaryLabel && ` ${price.primaryLabel}`}
-            </p>
-            {price.secondary && (
-              <p className="font-maison-neue text-xs leading-snug text-Charcoal/55">
-                {price.secondary}
-              </p>
-            )}
-            {quantity > 1 && lineTotal > 0 && (
-              <p className="font-maison-neue text-xs leading-snug text-Charcoal/55">
-                Line est. ${lineTotal.toFixed(2)}
-              </p>
-            )}
-          </div>
-        ) : (
-          <p className="mt-1 font-maison-neue-mono text-[11px] uppercase tracking-wide text-Charcoal/45">
-            See price
-          </p>
-        )}
-        {description && (
-          <p className="mt-1 line-clamp-2 font-maison-neue text-xs leading-snug text-Charcoal/45">
-            {description}
-          </p>
-        )}
-      </LocalizedClientLink>
-    </li>
-  )
 }
 
 function CollectionCard({
@@ -239,14 +172,12 @@ function CollectionCard({
           <p className="font-maison-neue-mono text-[10px] font-bold uppercase tracking-wide text-Charcoal/45">
             What is inside
           </p>
-          <ul className="mt-3">
-            {products.map((item) => (
-              <CollectionItemLine
-                key={`${collection.documentId}-${item.Product.documentId}`}
-                item={item}
-              />
-            ))}
-          </ul>
+          <CuratedCollectionItems
+            collection={collection}
+            countryCode={countryCode}
+            className="mt-3"
+            showDescriptions
+          />
         </div>
 
         <div className="mt-5 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">

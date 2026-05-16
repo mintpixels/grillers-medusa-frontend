@@ -1,8 +1,7 @@
 import Image from "next/image"
-import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import AddBundleButton from "@modules/products/components/pairs-well-with/add-bundle-button"
+import CuratedCollectionItems from "@modules/collections/components/curated-collection-items"
 import FulfillmentProgress from "@modules/common/components/fulfillment-progress"
-import { sanitizeProductCopy } from "@lib/util/product-claims"
 import {
   collectionEstimatedSubtotals,
   formatMoneyDelta,
@@ -10,7 +9,6 @@ import {
   getCollectionSubstitutionGuardrails,
   getSubstitutionImpact,
   lineCartMetadata,
-  productPriceDisplay,
 } from "@lib/util/collection-substitutions"
 import {
   getCollectionProducts,
@@ -170,84 +168,13 @@ export default function CuratedCollectionTemplate({
           </h2>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2">
-          {products.map(({ Product: item, Quantity, Role, Required }) => {
-            const imageUrl = item.FeaturedImage?.url
-            const price = productPriceDisplay(item)
-            const description = sanitizeProductCopy(
-              item.MedusaProduct?.ShortDescription,
-              {
-                handle: item.MedusaProduct?.Handle,
-                title: item.Title,
-              }
-            )
-
-            return (
-              <article
-                key={item.documentId}
-                className="grid min-w-0 grid-cols-[88px_minmax(0,1fr)] gap-4 rounded-[5px] border border-Charcoal/10 bg-white p-4"
-              >
-                <LocalizedClientLink
-                  href={`/products/${item.MedusaProduct?.Handle}`}
-                  className="relative aspect-square overflow-hidden rounded-[5px] bg-gray-100"
-                >
-                  {imageUrl && (
-                    <Image
-                      src={imageUrl}
-                      alt={item.Title}
-                      fill
-                      sizes="88px"
-                      className="object-cover"
-                    />
-                  )}
-                </LocalizedClientLink>
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    {Quantity > 1 && (
-                      <span className="rounded-full bg-Gold/20 px-2 py-0.5 font-maison-neue-mono text-[10px] font-bold uppercase text-Charcoal">
-                        {Quantity}x
-                      </span>
-                    )}
-                    <span className="rounded-full bg-Scroll px-2 py-0.5 font-maison-neue-mono text-[10px] font-bold uppercase text-Charcoal/65">
-                      {Required === false ? "Optional" : "Recommended"}
-                    </span>
-                  </div>
-                  <LocalizedClientLink
-                    href={`/products/${item.MedusaProduct?.Handle}`}
-                  >
-                    <h3 className="mt-2 line-clamp-2 font-maison-neue text-sm font-semibold leading-snug text-Charcoal hover:text-VibrantRed">
-                      {item.Title}
-                    </h3>
-                  </LocalizedClientLink>
-                  <div className="mt-1">
-                    {price && (
-                      <div className="space-y-0.5">
-                        <span className="block font-maison-neue-mono text-[11px] font-bold uppercase leading-tight text-Charcoal/70">
-                          {price.primary}
-                          {price.primaryLabel && ` ${price.primaryLabel}`}
-                        </span>
-                        {price.secondary && (
-                          <span className="block font-maison-neue text-xs leading-snug text-Charcoal/50">
-                            {price.secondary}
-                          </span>
-                        )}
-                      </div>
-                    )}
-                    {description && (
-                      <p className="mt-1 line-clamp-1 font-maison-neue text-xs text-Charcoal/50">
-                        {description}
-                      </p>
-                    )}
-                  </div>
-                  {Role && (
-                    <p className="mt-2 font-maison-neue text-xs leading-relaxed text-Charcoal/60">
-                      {Role}
-                    </p>
-                  )}
-                </div>
-              </article>
-            )
-          })}
+        <div className="rounded-[5px] border border-Charcoal/10 bg-white p-4">
+          <CuratedCollectionItems
+            collection={collection}
+            countryCode={countryCode}
+            showDescriptions
+            showImages
+          />
         </div>
       </section>
 
