@@ -11,6 +11,11 @@ import {
   getCuratedCollections,
   type CuratedCollection,
 } from "@lib/data/strapi/curated-collections"
+import {
+  freeDeliveryEligibilityMetadata,
+  getProductFreeDeliveryEligibility,
+} from "@lib/util/free-delivery-eligibility"
+import { withTimeout } from "@lib/util/promise-timeout"
 import type { StrapiCollectionProduct } from "@lib/data/strapi/collections"
 import type { HttpTypes } from "@medusajs/types"
 
@@ -36,12 +41,17 @@ function lineTotal(product: StrapiCollectionProduct, quantity: number): number {
   return (productPriceDisplay(product)?.estimatedPackPrice ?? 0) * quantity
 }
 
-function normalize(value?: string | null) {
-  return (value || "")
+function normalize(value?: unknown) {
+  if (value == null) return ""
+  return String(value)
     .toLowerCase()
     .replace(/[^a-z0-9/]+/g, " ")
     .replace(/\s+/g, " ")
     .trim()
+}
+
+function asArray<T>(value: T[] | null | undefined): T[] {
+  return Array.isArray(value) ? value : []
 }
 
 function currentProductText(
@@ -49,8 +59,9 @@ function currentProductText(
   strapiProductData?: any
 ) {
   const tags =
-    strapiProductData?.Categorization?.ProductTags?.map((tag: any) => tag.Name) ||
-    []
+    asArray(strapiProductData?.Categorization?.ProductTags)
+      .map((tag: any) => tag?.Name)
+      .filter(Boolean) || []
   return normalize(
     [
       product.title,
@@ -67,14 +78,16 @@ function scoreCollection(collection: CuratedCollection, currentText: string) {
   let score = collection.IsFeatured ? 8 : 0
   score += Math.max(0, 200 - (collection.SortOrder || 100)) / 100
 
-  for (const keyword of collection.PdpMatchKeywords || []) {
-    if (currentText.includes(normalize(keyword))) score += 10
+  for (const keyword of asArray(collection.PdpMatchKeywords)) {
+    const normalizedKeyword = normalize(keyword)
+    if (normalizedKeyword && currentText.includes(normalizedKeyword)) score += 10
   }
 
-  for (const rule of collection.RecommendationRules || []) {
-    if (rule.Surface !== "pdp") continue
-    for (const keyword of rule.MatchKeywords || []) {
-      if (currentText.includes(normalize(keyword))) score += 6
+  for (const rule of asArray(collection.RecommendationRules)) {
+    if (!rule || rule.Surface !== "pdp") continue
+    for (const keyword of asArray(rule.MatchKeywords)) {
+      const normalizedKeyword = normalize(keyword)
+      if (normalizedKeyword && currentText.includes(normalizedKeyword)) score += 6
     }
     score += Math.max(0, 200 - (rule.Priority || 100)) / 200
   }
@@ -90,10 +103,12 @@ function prepareCollections(
   const currentHandle = product.handle || ""
   const currentText = currentProductText(product, strapiProductData)
 
-  return collections
+  return asArray(collections)
     .map((collection) => {
       const products = getCollectionProducts(collection).filter(
-        ({ Product }) => Product.MedusaProduct?.Handle !== currentHandle
+        ({ Product }) =>
+          Product?.MedusaProduct?.Handle &&
+          Product.MedusaProduct.Handle !== currentHandle
       )
       return {
         ...collection,
@@ -115,17 +130,32 @@ export default async function PairsWellWith({
   countryCode: string
   strapiProductData?: any
 }) {
-  const curatedCollections = await getCuratedCollections({
-    countryCode,
-    surface: "pdp",
-    customerState: "all",
-    limit: 50,
-  })
-  const collections = prepareCollections(
-    curatedCollections,
-    product,
-    strapiProductData
-  )
+  let collections: ReturnType<typeof prepareCollections> = []
+  try {
+    const curatedCollections = await withTimeout(
+      getCuratedCollections({
+        countryCode,
+        surface: "pdp",
+        customerState: "all",
+        limit: 12,
+      }),
+      1800,
+      [],
+      `PDP curated collections for ${product.handle || product.id}`
+    )
+    collections = prepareCollections(
+      curatedCollections,
+      product,
+      strapiProductData
+    )
+  } catch (error) {
+    console.error("Failed to render PDP curated collections:", {
+      productId: product.id,
+      handle: product.handle,
+      error,
+    })
+    return null
+  }
 
   if (collections.length === 0) return null
 
@@ -153,41 +183,58 @@ export default async function PairsWellWith({
               .map(({ Product, Quantity }) => ({
                 variantId:
                   Product.MedusaProduct?.Variants?.[0]?.VariantId || "",
-                title: Product.Title,
-                quantity: Quantity,
+                title: Product.Title || Product.MedusaProduct?.Handle || "",
+                quantity: Quantity || 1,
+                metadata: freeDeliveryEligibilityMetadata(
+                  getProductFreeDeliveryEligibility(
+                    Product,
+                    Product.MedusaProduct?.Variants?.[0]?.Sku
+                  )
+                ),
               }))
               .filter((item) => item.variantId)
             const total = collection.products.reduce(
-              (sum, item) => sum + lineTotal(item.Product, item.Quantity),
+              (sum, item) => sum + lineTotal(item.Product, item.Quantity || 1),
               0
             )
+            const occasion =
+              collection.Occasion && typeof collection.Occasion === "string"
+                ? collection.Occasion.replace(/_/g, " ")
+                : "recommended"
 
             return (
               <article
-                key={collection.documentId}
+                key={collection.documentId || collection.Slug}
                 className="flex min-w-0 flex-col rounded-[5px] border border-Charcoal/10 bg-white"
               >
                 <div className="border-b border-Charcoal/10 p-5">
                   <p className="font-maison-neue-mono text-[11px] font-bold uppercase tracking-wide text-VibrantRed">
-                    {collection.Eyebrow || collection.Occasion.replace(/_/g, " ")}
+                    {collection.Eyebrow || occasion}
                   </p>
                   <h3 className="mt-2 font-gyst text-h4 font-bold leading-tight text-Charcoal">
-                    {collection.Name}
+                    {collection.Name || "Recommended picks"}
                   </h3>
-                  <p className="mt-2 font-maison-neue text-sm leading-relaxed text-Charcoal/70">
-                    {collection.ShortDescription}
-                  </p>
-                  <LocalizedClientLink
-                    href={`/collections/${collection.Slug}`}
-                    className="mt-3 inline-flex font-maison-neue-mono text-[11px] font-bold uppercase tracking-wide text-Charcoal underline underline-offset-4"
-                  >
-                    View collection
-                  </LocalizedClientLink>
+                  {collection.ShortDescription && (
+                    <p className="mt-2 font-maison-neue text-sm leading-relaxed text-Charcoal/70">
+                      {collection.ShortDescription}
+                    </p>
+                  )}
+                  {collection.Slug && (
+                    <LocalizedClientLink
+                      href={`/collections/${collection.Slug}`}
+                      className="mt-3 inline-flex font-maison-neue-mono text-[11px] font-bold uppercase tracking-wide text-Charcoal underline underline-offset-4"
+                    >
+                      View collection
+                    </LocalizedClientLink>
+                  )}
                 </div>
 
                 <div className="flex flex-1 flex-col divide-y divide-Charcoal/10">
                   {collection.products.slice(0, 5).map(({ Product: item, Quantity }) => {
-                    const imageUrl = item.FeaturedImage?.url
+                    const imageUrl =
+                      typeof item.FeaturedImage?.url === "string"
+                        ? item.FeaturedImage.url
+                        : null
                     const price = productPriceDisplay(item)
                     const description = sanitizeProductCopy(
                       item.MedusaProduct?.ShortDescription,
@@ -222,7 +269,7 @@ export default async function PairsWellWith({
                               </span>
                             )}
                             <p className="line-clamp-2 font-maison-neue text-sm font-semibold leading-snug text-Charcoal">
-                              {item.Title}
+                              {item.Title || "Recommended product"}
                             </p>
                           </div>
                           <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">

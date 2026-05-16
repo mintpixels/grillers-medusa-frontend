@@ -56,6 +56,16 @@ const ProductImages = ({
   const [announcement, setAnnouncement] = useState("")
   const totalImages = images.length
 
+  if (totalImages === 0) {
+    return (
+      <div className="flex h-96 w-full items-center justify-center border border-gray-300 bg-white md:h-[600px]">
+        <span className="px-6 text-center font-maison-neue text-p-sm text-Charcoal/60">
+          Product image coming soon
+        </span>
+      </div>
+    )
+  }
+
   const handleSlideChange = useCallback((swiper: SwiperType) => {
     const newIndex = swiper.realIndex
     setCurrentIndex(newIndex)

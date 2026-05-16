@@ -27,12 +27,37 @@ function getUserId(): string | undefined {
 
 function getCookie(name: string): string | null {
   if (typeof document === "undefined") return null
-  const match = document.cookie.match(new RegExp("(^| )" + name + "=([^;]+)"))
-  return match ? decodeURIComponent(match[2]) : null
+  try {
+    const match = document.cookie.match(new RegExp("(^| )" + name + "=([^;]+)"))
+    return match ? decodeURIComponent(match[2]) : null
+  } catch {
+    return null
+  }
 }
 
 function setCookie(name: string, value: string, maxAgeSec: number) {
-  document.cookie = `${name}=${encodeURIComponent(value)};path=/;max-age=${maxAgeSec};SameSite=Lax;Secure`
+  if (typeof document === "undefined") return
+  try {
+    const secure =
+      typeof window !== "undefined" && window.location.protocol === "https:"
+        ? ";Secure"
+        : ""
+    document.cookie = `${name}=${encodeURIComponent(value)};path=/;max-age=${maxAgeSec};SameSite=Lax${secure}`
+  } catch {
+    // Analytics identifiers are optional. Storage failures must not affect UX.
+  }
+}
+
+function randomId(): string {
+  try {
+    if (typeof crypto !== "undefined" && crypto.randomUUID) {
+      return crypto.randomUUID()
+    }
+  } catch {
+    // Fall through to a local fallback for constrained browser contexts.
+  }
+
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`
 }
 
 // ── Anonymous ID (persists across sessions, 1-year expiry) ──────
@@ -40,7 +65,7 @@ function setCookie(name: string, value: string, maxAgeSec: number) {
 function getAnonymousId(): string {
   let id = getCookie(COOKIE_ANON_ID)
   if (!id) {
-    id = crypto.randomUUID()
+    id = randomId()
     setCookie(COOKIE_ANON_ID, id, 365 * 24 * 60 * 60)
   }
   return id
@@ -51,7 +76,7 @@ function getAnonymousId(): string {
 function getSessionId(): string {
   let id = getCookie(COOKIE_SESSION_ID)
   if (!id) {
-    id = crypto.randomUUID()
+    id = randomId()
   }
   // Reset the sliding expiry on every call
   setCookie(COOKIE_SESSION_ID, id, SESSION_TIMEOUT_MS / 1000)
@@ -99,7 +124,7 @@ function buildEvent(
   return {
     event_type: eventType,
     eventn_ctx: {
-      event_id: crypto.randomUUID(),
+      event_id: randomId(),
       event_timestamp_ms: Date.now(),
       anonymous_id: anonymousId,
       session_id: sessionId,
@@ -136,12 +161,16 @@ export function jitsuTrack(
   event: string,
   properties?: Record<string, any>
 ) {
-  const payload = buildEvent(event, { src: "jitsu_track" })
-  payload.event_type = event
-  if (properties) {
-    payload.eventn_ctx = { ...payload.eventn_ctx, ...properties }
+  try {
+    const payload = buildEvent(event, { src: "jitsu_track" })
+    payload.event_type = event
+    if (properties) {
+      payload.eventn_ctx = { ...payload.eventn_ctx, ...properties }
+    }
+    sendEvent(payload)
+  } catch {
+    // Silent fail — analytics should never trip a route error boundary.
   }
-  sendEvent(payload)
 }
 
 /**
@@ -152,28 +181,36 @@ export function jitsuIdentify(
   id: string,
   traits?: Record<string, any>
 ) {
-  // Persist user_id in a 1-year cookie so identity survives logout
-  setCookie(COOKIE_USER_ID, id, 365 * 24 * 60 * 60)
-  if (traits) userTraits = { ...userTraits, ...traits }
+  try {
+    // Persist user_id in a 1-year cookie so identity survives logout
+    setCookie(COOKIE_USER_ID, id, 365 * 24 * 60 * 60)
+    if (traits) userTraits = { ...userTraits, ...traits }
 
-  const payload = buildEvent("identify")
-  payload.eventn_ctx.user = {
-    anonymous_id: getAnonymousId(),
-    id,
-    ...userTraits,
+    const payload = buildEvent("identify")
+    payload.eventn_ctx.user = {
+      anonymous_id: getAnonymousId(),
+      id,
+      ...userTraits,
+    }
+    sendEvent(payload)
+  } catch {
+    // Silent fail
   }
-  sendEvent(payload)
 }
 
 /**
  * Track a page view. Called automatically by JitsuScript on route changes.
  */
 export function jitsuPage(properties?: Record<string, any>) {
-  const payload = buildEvent("page_viewed")
-  if (properties) {
-    payload.eventn_ctx = { ...payload.eventn_ctx, ...properties }
+  try {
+    const payload = buildEvent("page_viewed")
+    if (properties) {
+      payload.eventn_ctx = { ...payload.eventn_ctx, ...properties }
+    }
+    sendEvent(payload)
+  } catch {
+    // Silent fail
   }
-  sendEvent(payload)
 }
 
 /**
@@ -182,5 +219,11 @@ export function jitsuPage(properties?: Record<string, any>) {
  * type becomes known (customer_type).
  */
 export function setJitsuContext(ctx: Partial<typeof globalContext>) {
-  globalContext = { ...globalContext, ...ctx }
+  const next = { ...globalContext }
+  for (const [key, value] of Object.entries(ctx)) {
+    if (typeof value === "string") {
+      next[key] = value
+    }
+  }
+  globalContext = next
 }

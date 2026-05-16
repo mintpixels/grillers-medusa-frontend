@@ -5,6 +5,39 @@ import { Text } from "@medusajs/ui"
 import Link from "next/link"
 import { useEffect } from "react"
 
+function isTransientNavigationError(error: Error & { digest?: string }) {
+  const message = `${error?.name || ""} ${error?.message || ""}`.toLowerCase()
+  return [
+    "connection closed",
+    "chunkloaderror",
+    "loading chunk",
+    "failed to fetch",
+    "networkerror",
+    "timeout",
+  ].some((needle) => message.includes(needle))
+}
+
+function reloadOnceForTransientError(error: Error & { digest?: string }) {
+  if (typeof window === "undefined" || !isTransientNavigationError(error)) {
+    return
+  }
+
+  const errorKey = [
+    "route-error-reload",
+    window.location.pathname,
+    error.digest || error.message || error.name || "unknown",
+  ].join(":")
+
+  try {
+    if (sessionStorage.getItem(errorKey) === "true") return
+    sessionStorage.setItem(errorKey, "true")
+  } catch {
+    return
+  }
+
+  window.location.reload()
+}
+
 export default function Error({
   error,
   reset,
@@ -15,6 +48,7 @@ export default function Error({
   useEffect(() => {
     // Log the error to an error reporting service
     console.error("Application error:", error)
+    reloadOnceForTransientError(error)
   }, [error])
 
   return (
@@ -59,5 +93,4 @@ export default function Error({
     </div>
   )
 }
-
 
