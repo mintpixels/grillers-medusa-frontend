@@ -59,7 +59,12 @@ export type CuratedRecommendationRule = {
     | "category_gap"
     | "free_shipping_gap"
   MatchKeywords?: string[] | null
-  CustomerState?: "all" | "guest_or_no_orders" | "returning" | "lapsed" | "high_value"
+  CustomerState?:
+    | "all"
+    | "guest_or_no_orders"
+    | "returning"
+    | "lapsed"
+    | "high_value"
   Priority?: number | null
   Notes?: string | null
 }
@@ -83,7 +88,12 @@ export type CuratedCollection = {
     | "stock_up"
     | "cart_upsell"
     | "other"
-  CustomerStateFilter?: "all" | "guest_or_no_orders" | "returning" | "lapsed" | "high_value"
+  CustomerStateFilter?:
+    | "all"
+    | "guest_or_no_orders"
+    | "returning"
+    | "lapsed"
+    | "high_value"
   VisibilityStart?: string | null
   VisibilityEnd?: string | null
   HeroImage?: { url: string } | null
@@ -240,16 +250,6 @@ const CuratedCollectionFields = gql`
       Notes
       ProductHandle
       OriginalProductName
-      OriginalQuantity
-      SubstitutionStatus
-      SubstitutionValuePolicy
-      ShippingCostRisk
-      RequiresBusinessReview
-      SubstitutionNote
-      RequiresSubstitutionAcknowledgement
-      OriginalProduct {
-        ...CuratedProductFields
-      }
       Product {
         ...CuratedProductFields
       }
@@ -633,7 +633,8 @@ function replaceProducts(
   return collections.map((collection) => ({
     ...collection,
     Items: (collection.Items || []).map((item) => {
-      const id = item.Product?.MedusaProduct?.ProductId || item.Product?.documentId
+      const id =
+        item.Product?.MedusaProduct?.ProductId || item.Product?.documentId
       return id && byId.has(id) ? { ...item, Product: byId.get(id)! } : item
     }),
   }))
@@ -645,7 +646,10 @@ async function enrichCollections(
 ) {
   const products = uniqueProducts(collections)
   if (!products.length) return collections
-  const enriched = await enrichStrapiProductsWithMedusaPrices(products, countryCode)
+  const enriched = await enrichStrapiProductsWithMedusaPrices(
+    products,
+    countryCode
+  )
   return replaceProducts(collections, enriched)
 }
 
