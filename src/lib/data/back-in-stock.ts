@@ -53,6 +53,8 @@ function generateUnsubscribeToken(): string {
 async function persistToStrapi(payload: {
   Email: string
   MedusaProductId: string
+  MedusaVariantId?: string
+  Sku?: string
   ProductHandle: string
   ProductTitle: string
   UnsubscribeToken: string
@@ -97,7 +99,8 @@ async function persistToStrapi(payload: {
 
 async function hasActiveSubscription(
   email: string,
-  medusaProductId: string
+  medusaProductId: string,
+  medusaVariantId?: string
 ): Promise<boolean> {
   if (!STRAPI_BASE) return false
   try {
@@ -105,6 +108,9 @@ async function hasActiveSubscription(
       `${STRAPI_BASE}/api/back-in-stock-requests` +
       `?filters[Email][$eqi]=${encodeURIComponent(email)}` +
       `&filters[MedusaProductId][$eq]=${encodeURIComponent(medusaProductId)}` +
+      (medusaVariantId
+        ? `&filters[MedusaVariantId][$eq]=${encodeURIComponent(medusaVariantId)}`
+        : "") +
       `&filters[NotifiedAt][$null]=true` +
       `&filters[UnsubscribedAt][$null]=true` +
       `&pagination[limit]=1`
@@ -125,6 +131,8 @@ async function hasActiveSubscription(
 export async function requestBackInStockNotification(input: {
   email: string
   medusaProductId: string
+  medusaVariantId?: string
+  sku?: string
   productHandle: string
   productTitle: string
   source?: "pdp" | "side_cart" | "search"
@@ -149,10 +157,15 @@ export async function requestBackInStockNotification(input: {
     return { ok: true }
   }
 
-  // De-dupe before sending. If this email has an active (un-unsubscribed)
-  // subscription on this product, return ok without queuing another
-  // confirmation email — the customer's already on the list.
-  if (await hasActiveSubscription(email, input.medusaProductId)) {
+  // De-dupe before sending. If this email has an active request for this
+  // selected SKU, return ok without queuing another confirmation email.
+  if (
+    await hasActiveSubscription(
+      email,
+      input.medusaProductId,
+      input.medusaVariantId
+    )
+  ) {
     return { ok: true }
   }
 
@@ -160,6 +173,8 @@ export async function requestBackInStockNotification(input: {
   const persisted = await persistToStrapi({
     Email: email,
     MedusaProductId: input.medusaProductId,
+    MedusaVariantId: input.medusaVariantId,
+    Sku: input.sku,
     ProductHandle: input.productHandle,
     ProductTitle: input.productTitle || "your product",
     UnsubscribeToken: token,
@@ -181,12 +196,16 @@ export async function requestBackInStockNotification(input: {
     templateModel: {
       product_title: input.productTitle,
       product_handle: input.productHandle,
+      medusa_variant_id: input.medusaVariantId || "",
+      sku: input.sku || "",
       product_url: productUrl,
       unsubscribe_url: unsubscribeUrl,
     },
     tag: "back-in-stock-confirm",
     metadata: {
       medusa_product_id: input.medusaProductId,
+      medusa_variant_id: input.medusaVariantId || "",
+      sku: input.sku || "",
       strapi_id: persisted.documentId ?? "",
       source: input.source ?? "pdp",
     },
