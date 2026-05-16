@@ -16,10 +16,14 @@ import { requestBackInStockNotification } from "@lib/data/back-in-stock"
  */
 export default function NotifyBackInStockForm({
   medusaProductId,
+  medusaVariantId,
+  sku,
   productHandle,
   productTitle,
 }: {
   medusaProductId: string
+  medusaVariantId?: string
+  sku?: string
   productHandle: string
   productTitle: string
 }) {
@@ -40,6 +44,8 @@ export default function NotifyBackInStockForm({
     const result = await requestBackInStockNotification({
       email,
       medusaProductId,
+      medusaVariantId,
+      sku,
       productHandle,
       productTitle,
       source: "pdp",
@@ -84,7 +90,7 @@ export default function NotifyBackInStockForm({
         Out of stock. Get notified.
       </h3>
       <p className="text-p-sm font-maison-neue text-Charcoal/70 mb-3">
-        Drop your email and we&apos;ll let you know the moment this is
+        Drop your email and we&apos;ll let you know the moment this SKU is
         back. No marketing list. One email per restock, then we stop.
       </p>
       <div className="flex flex-col sm:flex-row gap-2">

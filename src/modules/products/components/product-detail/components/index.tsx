@@ -367,8 +367,18 @@ export default function ProductDetail({
             <div className="mb-6">
               <NotifyBackInStockForm
                 medusaProductId={product.id || ""}
+                medusaVariantId={selectedVariant?.id}
+                sku={selectedVariant?.sku || undefined}
                 productHandle={product.handle || ""}
-                productTitle={strapiProductData?.Title || product.title || "this product"}
+                productTitle={[
+                  strapiProductData?.Title || product.title || "this product",
+                  selectedVariant?.title &&
+                  selectedVariant.title.toLowerCase() !== "default"
+                    ? selectedVariant.title
+                    : null,
+                ]
+                  .filter(Boolean)
+                  .join(" — ")}
               />
             </div>
           )}

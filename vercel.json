@@ -4,10 +4,6 @@
     {
       "path": "/api/cron/review-acquisition",
       "schedule": "0 14 * * *"
-    },
-    {
-      "path": "/api/cron/back-in-stock-trigger",
-      "schedule": "*/15 * * * *"
     }
   ]
 }
