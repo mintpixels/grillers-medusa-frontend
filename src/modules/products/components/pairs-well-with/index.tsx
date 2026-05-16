@@ -11,10 +11,6 @@ import {
   getCuratedCollections,
   type CuratedCollection,
 } from "@lib/data/strapi/curated-collections"
-import {
-  freeDeliveryEligibilityMetadata,
-  getProductFreeDeliveryEligibility,
-} from "@lib/util/free-delivery-eligibility"
 import { withTimeout } from "@lib/util/promise-timeout"
 import type { StrapiCollectionProduct } from "@lib/data/strapi/collections"
 import type { HttpTypes } from "@medusajs/types"
@@ -185,12 +181,6 @@ export default async function PairsWellWith({
                   Product.MedusaProduct?.Variants?.[0]?.VariantId || "",
                 title: Product.Title || Product.MedusaProduct?.Handle || "",
                 quantity: Quantity || 1,
-                metadata: freeDeliveryEligibilityMetadata(
-                  getProductFreeDeliveryEligibility(
-                    Product,
-                    Product.MedusaProduct?.Variants?.[0]?.Sku
-                  )
-                ),
               }))
               .filter((item) => item.variantId)
             const total = collection.products.reduce(
