@@ -273,6 +273,64 @@ type LegacyPurchaseHistoryResponse = {
   purchase_history?: PurchaseHistoryItem[]
 }
 
+export type LegacyReorderRequestResult = {
+  success: boolean
+  status?: string
+  requestId?: string
+  error?: string
+}
+
+export async function requestLegacyReorderAssistance(input: {
+  key: string
+}): Promise<LegacyReorderRequestResult> {
+  const headers = {
+    ...(await getAuthHeaders()),
+  }
+
+  if (!("authorization" in headers)) {
+    return { success: false, error: "Sign in to request this item." }
+  }
+
+  const key = input.key?.trim()
+  if (!key) {
+    return { success: false, error: "Missing purchase history item." }
+  }
+
+  try {
+    const response = await sdk.client.fetch<{
+      ok?: boolean
+      status?: string
+      request_id?: string
+      message?: string
+    }>(`/store/legacy-order-history/reorder-request`, {
+      method: "POST",
+      headers,
+      body: { key },
+      cache: "no-store",
+    })
+
+    if (!response.ok) {
+      return {
+        success: false,
+        status: response.status,
+        requestId: response.request_id,
+        error: response.message || "Could not send request.",
+      }
+    }
+
+    return {
+      success: true,
+      status: response.status,
+      requestId: response.request_id,
+    }
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err?.message || "Could not send request.",
+    }
+  }
+}
+
 async function listLegacyPurchaseHistory(): Promise<PurchaseHistoryItem[]> {
   const headers = {
     ...(await getAuthHeaders()),

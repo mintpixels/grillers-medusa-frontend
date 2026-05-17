@@ -1,13 +1,18 @@
 "use client"
 
 import { useState, useMemo } from "react"
-import { PurchaseHistoryItem } from "@lib/data/orders"
+import {
+  requestLegacyReorderAssistance,
+  type PurchaseHistoryItem,
+} from "@lib/data/orders"
 import type { StrapiCollectionProduct } from "@lib/data/strapi/collections"
 import { ProductCard } from "@modules/collections/components/strapi-product-grid"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
+import { toast } from "@medusajs/ui"
 
 type SortOption = "recent" | "frequent" | "az" | "price"
 type DateFilter = "all" | "30" | "60" | "90"
+type RequestState = "idle" | "submitting" | "sent" | "error"
 
 function historyKey(item: PurchaseHistoryItem) {
   return (
@@ -27,13 +32,27 @@ function itemTitle(
   return strapiProduct?.Title || item.productTitle || item.title || "Past purchase"
 }
 
-function LegacyHistoryCard({ item }: { item: PurchaseHistoryItem }) {
+function LegacyHistoryCard({
+  item,
+  requestState,
+  onRequest,
+}: {
+  item: PurchaseHistoryItem
+  requestState: RequestState
+  onRequest: () => void
+}) {
   const title = item.productTitle || item.title || "Past purchase"
   const lastOrdered = item.lastOrderedAt
     ? new Date(item.lastOrderedAt).toLocaleDateString()
     : "Unknown"
   const phoneDisplay = "(770) 454-8108"
   const phoneHref = "tel:+17704548108"
+  const requestLabel =
+    requestState === "submitting"
+      ? "Sending..."
+      : requestState === "sent"
+        ? "Request sent"
+        : "Ask staff to reorder"
 
   return (
     <div className="flex min-h-[260px] flex-col rounded-lg border border-gray-200 bg-white p-5">
@@ -74,14 +93,29 @@ function LegacyHistoryCard({ item }: { item: PurchaseHistoryItem }) {
 
       <div className="mt-5 border-t border-gray-100 pt-4">
         <p className="text-sm font-maison-neue text-Charcoal/55">
-          This item is in your order history. Call us and we can help match it to today's catalog.
+          This item is in your order history. Ask our staff to match it to today's catalog, or call us for immediate help.
         </p>
-        <a
-          className="mt-3 inline-flex min-h-[42px] items-center justify-center rounded-[5px] border border-Charcoal px-4 py-2 text-sm font-rexton font-bold uppercase text-Charcoal transition-colors hover:bg-Charcoal hover:text-white"
-          href={phoneHref}
-        >
-          Call {phoneDisplay}
-        </a>
+        <div className="mt-3 flex flex-col gap-2 xsmall:flex-row">
+          <button
+            type="button"
+            onClick={onRequest}
+            disabled={requestState === "submitting" || requestState === "sent"}
+            className="inline-flex min-h-[42px] items-center justify-center rounded-[5px] bg-Charcoal px-4 py-2 text-sm font-rexton font-bold uppercase text-white transition-colors hover:bg-Charcoal/90 disabled:cursor-not-allowed disabled:bg-Charcoal/45"
+          >
+            {requestLabel}
+          </button>
+          <a
+            className="inline-flex min-h-[42px] items-center justify-center rounded-[5px] border border-Charcoal px-4 py-2 text-sm font-rexton font-bold uppercase text-Charcoal transition-colors hover:bg-Charcoal hover:text-white"
+            href={phoneHref}
+          >
+            Call {phoneDisplay}
+          </a>
+        </div>
+        {requestState === "sent" && (
+          <p className="mt-3 text-xs font-maison-neue text-Charcoal/50">
+            We saved this request with the matching order-history details.
+          </p>
+        )}
       </div>
     </div>
   )
@@ -99,6 +133,34 @@ export default function ReorderBrowser({
   const [search, setSearch] = useState("")
   const [sort, setSort] = useState<SortOption>("recent")
   const [dateFilter, setDateFilter] = useState<DateFilter>("all")
+  const [requestStates, setRequestStates] = useState<Record<string, RequestState>>({})
+
+  const handleLegacyReorderRequest = async (item: PurchaseHistoryItem) => {
+    const key = historyKey(item)
+    const current = requestStates[key] || "idle"
+    if (current === "submitting" || current === "sent") {
+      return
+    }
+
+    setRequestStates((states) => ({ ...states, [key]: "submitting" }))
+
+    const result = await requestLegacyReorderAssistance({ key })
+    if (result.success) {
+      setRequestStates((states) => ({ ...states, [key]: "sent" }))
+      toast.success(
+        result.status === "already_requested" ? "Request already sent" : "Request sent",
+        {
+          description: "Our staff will use your purchase history to match the item.",
+        }
+      )
+      return
+    }
+
+    setRequestStates((states) => ({ ...states, [key]: "error" }))
+    toast.error("Couldn't send request", {
+      description: result.error || "Please call the store and we'll help.",
+    })
+  }
 
   const filtered = useMemo(() => {
     const seen = new Set<string>()
@@ -236,7 +298,15 @@ export default function ReorderBrowser({
               )
             }
 
-            return <LegacyHistoryCard key={historyKey(item)} item={item} />
+            const key = historyKey(item)
+            return (
+              <LegacyHistoryCard
+                key={key}
+                item={item}
+                requestState={requestStates[key] || "idle"}
+                onRequest={() => handleLegacyReorderRequest(item)}
+              />
+            )
           })}
         </div>
       ) : (
