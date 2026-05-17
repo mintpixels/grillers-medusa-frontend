@@ -6,6 +6,12 @@ import {
 import { getStaffImpersonationSession } from "@lib/data/staff/impersonation"
 import { Toaster } from "@medusajs/ui"
 import AccountLayout from "@modules/account/templates/account-layout"
+import {
+  DEFAULT_SEO_DESCRIPTION,
+  DEFAULT_SEO_TITLE,
+  DEFAULT_SOCIAL_IMAGE,
+  SITE_NAME,
+} from "@lib/util/seo"
 
 // Force dynamic — every /us/account/* route depends on session cookies
 // and was never suitable for prerender. (Parallel-routes setup used to
@@ -16,7 +22,7 @@ export const dynamic = "force-dynamic"
 
 export async function generateMetadata(): Promise<Metadata> {
   const customer = await retrieveCustomer().catch(() => null)
-  return customer
+  const accountMetadata = customer
     ? {
         title: "My Account | Griller's Pride",
         description: "Overview of your account activity.",
@@ -25,6 +31,27 @@ export async function generateMetadata(): Promise<Metadata> {
         title: "Sign in | Griller's Pride",
         description: "Sign in to your Griller's Pride account.",
       }
+
+  return {
+    ...accountMetadata,
+    robots: {
+      index: false,
+      follow: false,
+    },
+    openGraph: {
+      title: DEFAULT_SEO_TITLE,
+      description: DEFAULT_SEO_DESCRIPTION,
+      type: "website",
+      siteName: SITE_NAME,
+      images: [DEFAULT_SOCIAL_IMAGE],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: DEFAULT_SEO_TITLE,
+      description: DEFAULT_SEO_DESCRIPTION,
+      images: [DEFAULT_SOCIAL_IMAGE.url],
+    },
+  }
 }
 
 export default async function AccountPageLayout({

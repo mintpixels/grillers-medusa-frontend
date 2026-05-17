@@ -2,6 +2,16 @@ import { listRegions } from "@lib/data/regions"
 import { getBaseURL } from "@lib/util/env"
 
 const DEFAULT_REGION = process.env.NEXT_PUBLIC_DEFAULT_REGION || "us"
+export const SITE_NAME = "Griller's Pride"
+export const DEFAULT_SEO_TITLE = "Griller's Pride | Premium Kosher Meats"
+export const DEFAULT_SEO_DESCRIPTION =
+  "Shop premium glatt kosher meat, poultry, and prepared dishes from Griller's Pride."
+export const DEFAULT_SOCIAL_IMAGE = {
+  url: "/opengraph-image.jpg",
+  width: 1200,
+  height: 630,
+  alt: "Griller's Pride premium kosher meat for the family table.",
+}
 
 /**
  * Generate canonical URL for a page
@@ -115,5 +125,4 @@ export async function generateAlternates(
     languages,
   }
 }
-
 

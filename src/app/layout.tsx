@@ -6,6 +6,12 @@ import AnalyticsProvider from "../components/analytics-provider"
 import JitsuScript from "../components/jitsu-script"
 import CookieConsentProvider from "../components/cookie-consent-provider"
 import "styles/globals.css"
+import {
+  DEFAULT_SEO_DESCRIPTION,
+  DEFAULT_SEO_TITLE,
+  DEFAULT_SOCIAL_IMAGE,
+  SITE_NAME,
+} from "@lib/util/seo"
 
 // Site-wide robots policy. Production indexes normally; every other
 // environment (Vercel previews, localhost) emits `noindex, nofollow` so
@@ -17,7 +23,24 @@ const robots = isProductionHost()
 
 export const metadata: Metadata = {
   metadataBase: new URL(getBaseURL()),
+  applicationName: SITE_NAME,
+  title: DEFAULT_SEO_TITLE,
+  description: DEFAULT_SEO_DESCRIPTION,
   robots,
+  openGraph: {
+    title: DEFAULT_SEO_TITLE,
+    description: DEFAULT_SEO_DESCRIPTION,
+    type: "website",
+    url: getBaseURL(),
+    siteName: SITE_NAME,
+    images: [DEFAULT_SOCIAL_IMAGE],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: DEFAULT_SEO_TITLE,
+    description: DEFAULT_SEO_DESCRIPTION,
+    images: [DEFAULT_SOCIAL_IMAGE.url],
+  },
 }
 
 export default function RootLayout(props: { children: React.ReactNode }) {
