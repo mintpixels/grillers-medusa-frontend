@@ -39,7 +39,7 @@ const Overview = ({ customer, orders }: OverviewProps) => {
       </div>
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 gap-3 small:grid-cols-3 small:gap-4">
         <StatCard
           label="Orders"
           value={orderCount}
@@ -231,11 +231,11 @@ function StatCard({
   return (
     <LocalizedClientLink
       href={href}
-      className="bg-white rounded-xl border border-gray-200 p-5 hover:border-Gold/30 hover:shadow-sm transition-all group"
+      className="bg-white rounded-xl border border-gray-200 p-4 hover:border-Gold/30 hover:shadow-sm transition-all group small:p-5"
     >
-      <div className="flex items-center gap-3 mb-3">
+      <div className="flex items-center gap-2 mb-3 small:gap-3">
         <span className="text-Gold/70 group-hover:text-Gold transition-colors">{icon}</span>
-        <span className="text-xs font-maison-neue font-semibold text-Charcoal/50 uppercase tracking-wider">
+        <span className="text-[11px] font-maison-neue font-semibold text-Charcoal/50 uppercase tracking-wider small:text-xs">
           {label}
         </span>
       </div>
@@ -357,7 +357,7 @@ function ProfileStatCard({ status }: { status: ProfileStatus }) {
   return (
     <LocalizedClientLink
       href={ctaHref}
-      className="bg-white rounded-xl border border-gray-200 p-5 hover:border-Gold/30 hover:shadow-sm transition-all group"
+      className="col-span-2 bg-white rounded-xl border border-gray-200 p-4 hover:border-Gold/30 hover:shadow-sm transition-all group small:col-span-1 small:p-5"
     >
       <div className="flex items-center gap-3 mb-3">
         <span className="text-Gold/70 group-hover:text-Gold transition-colors">

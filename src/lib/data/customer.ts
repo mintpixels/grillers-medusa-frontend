@@ -272,7 +272,7 @@ export const retrieveAuthenticatedCustomer =
           // omits the customer's saved addresses, which the checkout flow
           // (and the "Add Address" CTA) depend on to detect whether a
           // logged-in customer already has a delivery address on file.
-          fields: "*orders,*addresses",
+          fields: "*orders,*addresses,+metadata",
         },
         headers,
         next,
