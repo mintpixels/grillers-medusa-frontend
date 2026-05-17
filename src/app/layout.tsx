@@ -21,6 +21,35 @@ export const metadata: Metadata = {
 }
 
 export default function RootLayout(props: { children: React.ReactNode }) {
+  const baseUrl = getBaseURL()
+  const siteJsonLd = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": `${baseUrl}/#organization`,
+        name: "Grillers Pride",
+        url: baseUrl,
+        telephone: "+1-770-454-8108",
+        logo: `${baseUrl}/images/logos/logo-horizontal.svg`,
+      },
+      {
+        "@type": "WebSite",
+        "@id": `${baseUrl}/#website`,
+        url: baseUrl,
+        name: "Grillers Pride",
+        publisher: {
+          "@id": `${baseUrl}/#organization`,
+        },
+        potentialAction: {
+          "@type": "SearchAction",
+          target: `${baseUrl}/us/search?q={search_term_string}`,
+          "query-input": "required name=search_term_string",
+        },
+      },
+    ],
+  }
+
   return (
     <html
       lang="en"
@@ -29,6 +58,10 @@ export default function RootLayout(props: { children: React.ReactNode }) {
     >
       <head>
         <link rel="stylesheet" href="https://use.typekit.net/ddo8gwe.css" />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(siteJsonLd) }}
+        />
       </head>
       <body>
         <AnalyticsProvider />
