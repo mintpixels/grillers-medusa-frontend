@@ -466,13 +466,29 @@ export default function PhoneOrderCopilot({
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-h3 font-gyst font-bold text-Charcoal">
-          Staff Phone Orders
-        </h1>
-        <p className="mt-1 text-sm font-maison-neue text-Charcoal/55">
-          Signed in as {staffName}
-        </p>
+      <div className="rounded-lg border border-gray-200 bg-white p-5">
+        <div className="flex flex-col gap-4 large:flex-row large:items-start large:justify-between">
+          <div>
+            <p className="text-xs font-maison-neue-mono uppercase text-Gold">
+              Staff console
+            </p>
+            <h1 className="mt-2 text-h3 font-gyst font-bold text-Charcoal">
+              Help a customer
+            </h1>
+            <p className="mt-1 max-w-2xl text-sm font-maison-neue text-Charcoal/60">
+              Start a phone order, enter a customer account context, or resolve an
+              existing order with an auditable staff action.
+            </p>
+          </div>
+          <div className="rounded-md border border-Gold/35 bg-Gold/10 px-4 py-3">
+            <p className="text-xs font-maison-neue-mono uppercase text-Charcoal/55">
+              Signed in
+            </p>
+            <p className="mt-1 text-sm font-maison-neue font-semibold text-Charcoal">
+              {staffName}
+            </p>
+          </div>
+        </div>
       </div>
 
       {impersonation && (
@@ -510,28 +526,46 @@ export default function PhoneOrderCopilot({
         </div>
       )}
 
-      <div className="flex flex-wrap gap-2 rounded-lg border border-gray-200 bg-white p-2">
+      <div className="grid gap-3 md:grid-cols-2">
         <button
-          className={`min-h-[44px] rounded-md px-4 text-sm font-rexton font-bold uppercase transition ${
+          className={`rounded-lg border p-5 text-left transition ${
             activeWorkspace === "phone_order"
-              ? "bg-Charcoal text-white"
-              : "text-Charcoal hover:bg-SilverPlate/50"
+              ? "border-Charcoal bg-Charcoal text-white"
+              : "border-gray-200 bg-white text-Charcoal hover:border-Gold/50"
           }`}
           onClick={() => setActiveWorkspace("phone_order")}
           type="button"
         >
-          Phone Order
+          <span className="block text-xs font-maison-neue-mono uppercase opacity-70">
+            New order
+          </span>
+          <span className="mt-2 block text-xl font-gyst font-bold">
+            Phone order
+          </span>
+          <span className="mt-2 block text-sm font-maison-neue opacity-75">
+            Find or create the customer, build the cart, and collect card details
+            only after explicit authorization.
+          </span>
         </button>
         <button
-          className={`min-h-[44px] rounded-md px-4 text-sm font-rexton font-bold uppercase transition ${
+          className={`rounded-lg border p-5 text-left transition ${
             activeWorkspace === "exceptions"
-              ? "bg-Charcoal text-white"
-              : "text-Charcoal hover:bg-SilverPlate/50"
+              ? "border-Charcoal bg-Charcoal text-white"
+              : "border-gray-200 bg-white text-Charcoal hover:border-Gold/50"
           }`}
           onClick={() => setActiveWorkspace("exceptions")}
           type="button"
         >
-          Exceptions
+          <span className="block text-xs font-maison-neue-mono uppercase opacity-70">
+            Existing order
+          </span>
+          <span className="mt-2 block text-xl font-gyst font-bold">
+            Order support
+          </span>
+          <span className="mt-2 block text-sm font-maison-neue opacity-75">
+            Search an order, review payment and fulfillment state, then record a
+            refund, credit, shipping exception, or note.
+          </span>
         </button>
       </div>
 

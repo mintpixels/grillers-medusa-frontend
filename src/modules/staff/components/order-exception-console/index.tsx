@@ -182,18 +182,46 @@ export default function StaffOrderExceptionConsole() {
     })
   }
 
+  function chooseAction(action: StaffExceptionActionType) {
+    if (!selectedOrder) return
+    setAcknowledged(false)
+    setActionDraft({
+      ...emptyAction(selectedOrder.id),
+      action,
+      customerConsentMethod: actionRequiresCustomerConsent(action)
+        ? "phone"
+        : "not_applicable",
+    })
+  }
+
   return (
     <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
       <div className="space-y-6">
         <section className="rounded-lg border border-gray-200 bg-white p-5">
           <div className="mb-4">
+            <p className="text-xs font-maison-neue-mono uppercase text-Gold">
+              Existing order support
+            </p>
             <h2 className="text-xl font-gyst font-bold text-Charcoal">
-              Order Exceptions
+              Find an order
             </h2>
             <p className="mt-1 text-sm font-maison-neue text-Charcoal/55">
-              Audited staff actions for refunds, payments, shipping exceptions,
-              cancellations, and customer-support notes.
+              Search first, then review the order state before applying any
+              money, shipping, or cancellation action.
             </p>
+          </div>
+
+          <div className="mb-5 grid gap-2 text-sm font-maison-neue text-Charcoal/65 small:grid-cols-3">
+            {["1. Find order", "2. Review state", "3. Apply action"].map(
+              (step) => (
+                <div
+                  className="rounded-md border border-gray-100 bg-SilverPlate/30 px-3 py-2"
+                  key={step}
+                >
+                  {step}
+                </div>
+              )
+            )}
           </div>
 
           <div className="flex flex-col gap-3 small:flex-row small:items-end">
@@ -201,6 +229,7 @@ export default function StaffOrderExceptionConsole() {
               <span className={labelClass()}>Order, email, or customer</span>
               <input
                 className={fieldClass()}
+                placeholder="Order #, email, name, or phone"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 onKeyDown={(event) => {
@@ -215,7 +244,7 @@ export default function StaffOrderExceptionConsole() {
               onClick={runOrderSearch}
               type="button"
             >
-              Search
+              Find Orders
             </Button>
           </div>
 
@@ -278,6 +307,30 @@ export default function StaffOrderExceptionConsole() {
                 {statusChip(selectedOrder.paymentStatus)}
                 {statusChip(selectedOrder.operationalState, "gold")}
               </div>
+            </div>
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              {[
+                ["record_note", "Add note"],
+                ["refund_payment", "Refund"],
+                ["shipping_override", "Shipping"],
+                ["record_offline_payment", "Offline payment"],
+                ["credit_memo", "Credit"],
+                ["cancel_order", "Cancel"],
+              ].map(([action, label]) => (
+                <button
+                  className={`min-h-[40px] rounded-md border px-3 text-sm font-maison-neue font-semibold transition ${
+                    selectedAction === action
+                      ? "border-Charcoal bg-Charcoal text-white"
+                      : "border-gray-200 bg-white text-Charcoal hover:border-Gold/50"
+                  }`}
+                  key={action}
+                  onClick={() => chooseAction(action as StaffExceptionActionType)}
+                  type="button"
+                >
+                  {label}
+                </button>
+              ))}
             </div>
 
             <div className="grid gap-6 py-5 lg:grid-cols-[minmax(0,1fr)_260px]">
@@ -407,12 +460,18 @@ export default function StaffOrderExceptionConsole() {
       <aside className="space-y-6">
         <section className="rounded-lg border border-gray-200 bg-white p-5">
           <h2 className="mb-4 text-xl font-gyst font-bold text-Charcoal">
-            Staff Action
+            Apply Audited Action
           </h2>
           {!selectedOrder ? (
-            <p className="text-sm font-maison-neue text-Charcoal/55">
-              Select an order to unlock audited staff actions.
-            </p>
+            <div className="rounded-md border border-gray-100 bg-SilverPlate/30 p-4">
+              <p className="text-sm font-maison-neue font-semibold text-Charcoal">
+                No order selected
+              </p>
+              <p className="mt-1 text-sm font-maison-neue text-Charcoal/55">
+                Use the search panel, then choose a common action from the order
+                header. Required fields appear here.
+              </p>
+            </div>
           ) : (
             <div className="space-y-4">
               <label className="flex flex-col gap-1">
