@@ -100,6 +100,32 @@ async function fetchJson(url, headers) {
   return response.json()
 }
 
+async function fetchGraphql(query, variables) {
+  const endpoint = process.env.STRAPI_ENDPOINT
+  const token = process.env.STRAPI_API_TOKEN
+  if (!endpoint || !token) return null
+
+  const response = await fetch(`${endpoint.replace(/\/$/, "")}/graphql`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ query, variables }),
+  })
+
+  if (!response.ok) {
+    throw new Error(`${response.status} ${response.statusText}`)
+  }
+
+  const data = await response.json()
+  if (data.errors?.length) {
+    throw new Error(data.errors.map((error) => error.message).join("; "))
+  }
+
+  return data.data
+}
+
 async function getUsRegionId(headers) {
   const backendUrl = process.env.MEDUSA_BACKEND_URL
   if (!backendUrl) return null
@@ -155,6 +181,64 @@ async function getProductSitemapEntries() {
   return entries
 }
 
+const recipeSitemapQuery = `
+  query RecipeSitemap($page: Int!, $pageSize: Int!) {
+    recipes_connection(
+      pagination: { page: $page, pageSize: $pageSize }
+      sort: ["PublishedDate:desc"]
+      status: PUBLISHED
+      filters: {
+        Title: { notContainsi: "Recipe Title" }
+        ShortDescription: { notContainsi: "Etiam id nisi" }
+      }
+    ) {
+      nodes {
+        Slug
+        PublishedDate
+        updatedAt
+      }
+      pageInfo {
+        page
+        pageCount
+        total
+      }
+    }
+  }
+`
+
+async function getRecipeSitemapEntries() {
+  const pageSize = 100
+  let page = 1
+  let pageCount = 1
+  const entries = []
+
+  do {
+    const data = await fetchGraphql(recipeSitemapQuery, { page, pageSize })
+    const connection = data?.recipes_connection
+    const recipes = connection?.nodes || []
+
+    entries.push(
+      ...recipes
+        .filter((recipe) => recipe.Slug)
+        .map((recipe) => ({
+          loc: `/us/recipes/${recipe.Slug}`,
+          changefreq: "weekly",
+          priority: 0.75,
+          lastmod:
+            recipe.updatedAt ||
+            (recipe.PublishedDate
+              ? new Date(recipe.PublishedDate).toISOString()
+              : new Date().toISOString()),
+        }))
+    )
+
+    pageCount = connection?.pageInfo?.pageCount || pageCount
+    page += 1
+  } while (page <= pageCount)
+
+  return entries
+}
+
 module.exports = {
   siteUrl,
   generateRobotsTxt: true,
@@ -195,7 +279,19 @@ module.exports = {
       console.warn("[next-sitemap] Product sitemap fetch failed:", error)
     }
 
-    return [...staticEntries, ...learnEntries, ...productEntries]
+    let recipeEntries = []
+    try {
+      recipeEntries = await getRecipeSitemapEntries()
+    } catch (error) {
+      console.warn("[next-sitemap] Recipe sitemap fetch failed:", error)
+    }
+
+    return [
+      ...staticEntries,
+      ...learnEntries,
+      ...productEntries,
+      ...recipeEntries,
+    ]
   },
   // Transform function to customize sitemap entries
   transform: async (config, path) => {
