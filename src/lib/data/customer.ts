@@ -21,7 +21,6 @@ import {
 } from "./staff/session-cookie"
 import {
   getAuthHeaders,
-  getCacheOptions,
   getCacheTag,
   getCartId,
   removeAuthToken,
@@ -260,10 +259,6 @@ export const retrieveAuthenticatedCustomer =
       ...authHeaders,
     }
 
-    const next = {
-      ...(await getCacheOptions("customers")),
-    }
-
     return await sdk.client
       .fetch<{ customer: HttpTypes.StoreCustomer }>(`/store/customers/me`, {
         method: "GET",
@@ -275,11 +270,34 @@ export const retrieveAuthenticatedCustomer =
           fields: "*orders,*addresses,+metadata",
         },
         headers,
-        next,
-        cache: "force-cache",
+        cache: "no-store",
       })
       .then(({ customer }) => customer)
       .catch(() => null)
+  }
+
+export const retrieveAuthenticatedCustomerForStaffAccess =
+  async (): Promise<HttpTypes.StoreCustomer | null> => {
+    const customer = await retrieveAuthenticatedCustomer()
+    if (!customer) return null
+
+    if (isStaffCustomer(customer)) {
+      return customer
+    }
+
+    try {
+      const adminCustomer = await retrieveAdminCustomer(customer.id)
+      if (!isStaffCustomer(adminCustomer as HttpTypes.StoreCustomer | null)) {
+        return customer
+      }
+
+      return {
+        ...customer,
+        metadata: adminCustomer?.metadata || customer.metadata,
+      } as HttpTypes.StoreCustomer
+    } catch {
+      return customer
+    }
   }
 
 export async function getActiveStaffImpersonation(): Promise<{

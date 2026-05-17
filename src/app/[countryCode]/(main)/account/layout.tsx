@@ -1,6 +1,6 @@
 import { Metadata } from "next"
 import {
-  retrieveAuthenticatedCustomer,
+  retrieveAuthenticatedCustomerForStaffAccess,
   retrieveCustomer,
 } from "@lib/data/customer"
 import { getStaffImpersonationSession } from "@lib/data/staff/impersonation"
@@ -33,7 +33,9 @@ export default async function AccountPageLayout({
   children: React.ReactNode
 }) {
   const customer = await retrieveCustomer().catch(() => null)
-  const staffCustomer = await retrieveAuthenticatedCustomer().catch(() => null)
+  const staffCustomer = await retrieveAuthenticatedCustomerForStaffAccess().catch(
+    () => null
+  )
   const staffImpersonation = await getStaffImpersonationSession().catch(
     () => null
   )
