@@ -30,6 +30,7 @@ import {
   stopStaffImpersonation,
   type StaffImpersonationSession,
 } from "@lib/data/staff/impersonation"
+import StaffOrderExceptionConsole from "@modules/staff/components/order-exception-console"
 
 type Props = {
   countryCode: string
@@ -231,6 +232,8 @@ export default function PhoneOrderCopilot({
   const [status, setStatus] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+  const [activeWorkspace, setActiveWorkspace] =
+    useState<"phone_order" | "exceptions">("phone_order")
 
   const staffName = useMemo(
     () =>
@@ -507,6 +510,32 @@ export default function PhoneOrderCopilot({
         </div>
       )}
 
+      <div className="flex flex-wrap gap-2 rounded-lg border border-gray-200 bg-white p-2">
+        <button
+          className={`min-h-[44px] rounded-md px-4 text-sm font-rexton font-bold uppercase transition ${
+            activeWorkspace === "phone_order"
+              ? "bg-Charcoal text-white"
+              : "text-Charcoal hover:bg-SilverPlate/50"
+          }`}
+          onClick={() => setActiveWorkspace("phone_order")}
+          type="button"
+        >
+          Phone Order
+        </button>
+        <button
+          className={`min-h-[44px] rounded-md px-4 text-sm font-rexton font-bold uppercase transition ${
+            activeWorkspace === "exceptions"
+              ? "bg-Charcoal text-white"
+              : "text-Charcoal hover:bg-SilverPlate/50"
+          }`}
+          onClick={() => setActiveWorkspace("exceptions")}
+          type="button"
+        >
+          Exceptions
+        </button>
+      </div>
+
+      {activeWorkspace === "phone_order" ? (
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
         <div className="space-y-6">
           <section className="rounded-lg border border-gray-200 bg-white p-5">
@@ -1015,6 +1044,9 @@ export default function PhoneOrderCopilot({
           ) : null}
         </aside>
       </div>
+      ) : (
+        <StaffOrderExceptionConsole />
+      )}
     </div>
   )
 }
