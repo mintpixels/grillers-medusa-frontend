@@ -32,20 +32,22 @@ function LegacyHistoryCard({ item }: { item: PurchaseHistoryItem }) {
   const lastOrdered = item.lastOrderedAt
     ? new Date(item.lastOrderedAt).toLocaleDateString()
     : "Unknown"
+  const phoneDisplay = "(770) 454-8108"
+  const phoneHref = "tel:+17704548108"
 
   return (
     <div className="flex min-h-[260px] flex-col rounded-lg border border-gray-200 bg-white p-5">
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
           <p className="text-xs font-maison-neue-mono uppercase text-Charcoal/45">
-            Historical item
+            Past purchase
           </p>
           <h3 className="mt-2 text-xl font-gyst font-bold leading-tight text-Charcoal">
             {title}
           </h3>
         </div>
         <span className="shrink-0 rounded-full bg-SilverPlate px-3 py-1 text-xs font-maison-neue text-Charcoal/70">
-          {item.mappingStatus === "mapped" ? "Unavailable" : "Unmapped"}
+          Staff reorder
         </span>
       </div>
 
@@ -70,9 +72,17 @@ function LegacyHistoryCard({ item }: { item: PurchaseHistoryItem }) {
         </div>
       </dl>
 
-      <p className="mt-5 border-t border-gray-100 pt-4 text-sm font-maison-neue text-Charcoal/55">
-        This purchase is in your order history but is not currently available for online reorder.
-      </p>
+      <div className="mt-5 border-t border-gray-100 pt-4">
+        <p className="text-sm font-maison-neue text-Charcoal/55">
+          This item is in your order history. Call us and we can help match it to today's catalog.
+        </p>
+        <a
+          className="mt-3 inline-flex min-h-[42px] items-center justify-center rounded-[5px] border border-Charcoal px-4 py-2 text-sm font-rexton font-bold uppercase text-Charcoal transition-colors hover:bg-Charcoal hover:text-white"
+          href={phoneHref}
+        >
+          Call {phoneDisplay}
+        </a>
+      </div>
     </div>
   )
 }
