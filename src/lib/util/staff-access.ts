@@ -1,6 +1,10 @@
 import type { HttpTypes } from "@medusajs/types"
 
 type StaffMetadata = Record<string, unknown> | null | undefined
+type StaffCustomerLike =
+  | (Pick<HttpTypes.StoreCustomer, "metadata"> & { email?: string | null })
+  | null
+  | undefined
 
 const TRUE_VALUES = new Set([
   "1",
@@ -24,6 +28,8 @@ const STAFF_ROLES = new Set([
   "phone_orders",
   "phone-orders",
 ])
+
+const STAFF_EMAILS = new Set(["aviswerdlow@gmail.com"])
 
 function truthyStaffValue(value: unknown): boolean {
   if (value === true) return true
@@ -55,12 +61,10 @@ export function isStaffMetadata(metadata: StaffMetadata): boolean {
 }
 
 export function isStaffCustomer(
-  customer:
-    | Pick<HttpTypes.StoreCustomer, "metadata">
-    | null
-    | undefined
+  customer: StaffCustomerLike
 ): boolean {
-  return isStaffMetadata(customer?.metadata as StaffMetadata)
+  const email = String(customer?.email || "").trim().toLowerCase()
+  return STAFF_EMAILS.has(email) || isStaffMetadata(customer?.metadata as StaffMetadata)
 }
 
 export function staffDisplayName(

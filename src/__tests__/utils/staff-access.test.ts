@@ -18,6 +18,15 @@ describe("staff access helpers", () => {
     expect(isStaffCustomer({ metadata: { role: "customer" } } as any)).toBe(false)
   })
 
+  it("accepts explicit staff emails", () => {
+    expect(
+      isStaffCustomer({
+        email: "aviswerdlow@gmail.com",
+        metadata: { role: "customer" },
+      } as any)
+    ).toBe(true)
+  })
+
   it("formats a staff display name safely", () => {
     expect(
       staffDisplayName({
