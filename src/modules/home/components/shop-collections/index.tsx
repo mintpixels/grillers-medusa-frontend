@@ -139,9 +139,9 @@ function ShopCollectionCard({
         </LocalizedClientLink>
 
         {card.collection ? (
-          <div className="mt-5 border-t border-Charcoal/15 pt-4">
+          <div className="mt-5 flex flex-1 flex-col border-t border-Charcoal/15 pt-4">
             {isLoading && !detail && (
-              <div className="space-y-2" aria-live="polite">
+              <div className="min-h-[344px] space-y-2" aria-live="polite">
                 <div className="h-4 w-32 animate-pulse rounded bg-Charcoal/10" />
                 <div className="h-12 animate-pulse rounded bg-Charcoal/10" />
                 <div className="h-12 animate-pulse rounded bg-Charcoal/10" />
@@ -166,7 +166,7 @@ function ShopCollectionCard({
 
             {detail && products.length > 0 && (
               <>
-                <div className="mb-3 grid grid-cols-[minmax(0,1fr)_auto] gap-3">
+                <div className="mb-3 grid min-h-[42px] grid-cols-[minmax(0,1fr)_auto] gap-3">
                   <div>
                     <p className="font-maison-neue-mono text-[10px] font-bold uppercase tracking-wide text-Charcoal/55">
                       Collection subtotal
@@ -193,7 +193,8 @@ function ShopCollectionCard({
                 <CuratedCollectionItems
                   collection={detail}
                   countryCode={countryCode}
-                  className="mt-4"
+                  className="mt-4 min-h-[292px]"
+                  compactRows
                 />
 
                 <AddBundleButton
@@ -309,7 +310,7 @@ export default function ShopCollectionsSection({
           className="swiper-visible"
         >
           {cards.map((col) => (
-            <SwiperSlide key={col.id} className="pb-4">
+            <SwiperSlide key={col.id} className="!h-auto pb-4">
               <ShopCollectionCard card={col} countryCode={countryCode} />
             </SwiperSlide>
           ))}

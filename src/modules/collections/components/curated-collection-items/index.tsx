@@ -31,6 +31,7 @@ type CuratedCollectionItemsProps = {
   showDescriptions?: boolean
   showImages?: boolean
   showItemAdd?: boolean
+  compactRows?: boolean
   className?: string
 }
 
@@ -50,6 +51,7 @@ export default function CuratedCollectionItems({
   showDescriptions = false,
   showImages = false,
   showItemAdd = true,
+  compactRows = false,
   className = "",
 }: CuratedCollectionItemsProps) {
   const [isExpanded, setIsExpanded] = React.useState(false)
@@ -76,6 +78,7 @@ export default function CuratedCollectionItems({
             showDescriptions={showDescriptions}
             showImages={showImages}
             showItemAdd={showItemAdd}
+            compactRows={compactRows}
           />
         ))}
       </ul>
@@ -113,6 +116,7 @@ function CollectionItemRow({
   showDescriptions,
   showImages,
   showItemAdd,
+  compactRows,
 }: {
   item: ResolvedCollectionItem
   collection: CuratedCollection
@@ -120,6 +124,7 @@ function CollectionItemRow({
   showDescriptions: boolean
   showImages: boolean
   showItemAdd: boolean
+  compactRows: boolean
 }) {
   const imageUrl = item.Product.FeaturedImage?.url
   const price = productPriceDisplay(item.Product)
@@ -134,6 +139,8 @@ function CollectionItemRow({
   return (
     <li
       className={`min-w-0 border-t border-Charcoal/10 pt-2 ${
+        compactRows ? "min-h-[86px]" : ""
+      } ${
         showImages ? "grid grid-cols-[72px_minmax(0,1fr)] gap-3" : ""
       }`}
     >
@@ -158,7 +165,11 @@ function CollectionItemRow({
           href={`/products/${item.Product.MedusaProduct?.Handle}`}
           className="min-w-0"
         >
-          <span className="font-maison-neue text-xs font-semibold leading-snug text-Charcoal hover:text-VibrantRed">
+          <span
+            className={`font-maison-neue text-xs font-semibold leading-snug text-Charcoal hover:text-VibrantRed ${
+              compactRows ? "line-clamp-2 min-h-[32px]" : ""
+            }`}
+          >
             {item.Quantity > 1 ? `${item.Quantity}x ` : ""}
             {item.Product.Title}
           </span>
@@ -169,7 +180,11 @@ function CollectionItemRow({
                 {price.primaryLabel && ` ${price.primaryLabel}`}
               </span>
               {price.secondary && (
-                <span className="block font-maison-neue text-[11px] leading-snug text-Charcoal/50">
+                <span
+                  className={`block font-maison-neue text-[11px] leading-snug text-Charcoal/50 ${
+                    compactRows ? "line-clamp-1" : ""
+                  }`}
+                >
                   {price.secondary}
                 </span>
               )}
