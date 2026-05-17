@@ -169,27 +169,29 @@ export default function LearnEntrySection() {
           </div>
         </div>
 
-        <div className="mt-5 grid gap-3 md:grid-cols-[auto_minmax(0,1fr)] md:items-center">
+        <div className="mt-5 grid gap-4 md:grid-cols-[auto_minmax(0,1fr)] md:items-center">
           <div className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-Charcoal text-white">
             <Package className="h-5 w-5" aria-hidden="true" />
           </div>
-          <div className="flex gap-3 overflow-x-auto pb-1">
-            {recipePaths.map((path) => {
-              const Icon = path.icon
-              return (
-                <LocalizedClientLink
-                  key={path.href}
-                  href={path.href}
-                  className="group inline-flex min-h-[48px] shrink-0 items-center gap-3 rounded-full border border-Charcoal/15 bg-white px-4 font-maison-neue text-sm font-semibold text-Charcoal transition-colors hover:border-Charcoal"
-                >
-                  <Icon
-                    className="h-4 w-4 text-Charcoal/60 group-hover:text-Gold"
-                    aria-hidden="true"
-                  />
-                  {path.title}
-                </LocalizedClientLink>
-              )
-            })}
+          <div className="-mx-4.5 min-w-0 overflow-x-auto px-4.5 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:mx-0 md:px-0">
+            <div className="flex w-max snap-x gap-2 pr-14 md:gap-3 md:pr-0">
+              {recipePaths.map((path) => {
+                const Icon = path.icon
+                return (
+                  <LocalizedClientLink
+                    key={path.href}
+                    href={path.href}
+                    className="group inline-flex min-h-[48px] shrink-0 snap-start items-center justify-center gap-2.5 rounded-full border border-Charcoal/15 bg-white px-3.5 font-maison-neue text-sm font-semibold text-Charcoal transition-colors hover:border-Charcoal md:gap-3 md:px-4"
+                  >
+                    <Icon
+                      className="h-4 w-4 text-Charcoal/60 group-hover:text-Gold"
+                      aria-hidden="true"
+                    />
+                    {path.title}
+                  </LocalizedClientLink>
+                )
+              })}
+            </div>
           </div>
         </div>
       </div>
