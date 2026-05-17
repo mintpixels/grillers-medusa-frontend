@@ -1,4 +1,11 @@
-import { isStaffCustomer, isStaffMetadata, staffDisplayName } from "@lib/util/staff-access"
+import {
+  isStaffCustomer,
+  isStaffMetadata,
+  isSuperAdminCustomer,
+  staffAccessRole,
+  staffDisplayName,
+  staffMetadataRole,
+} from "@lib/util/staff-access"
 
 describe("staff access helpers", () => {
   it("accepts explicit staff flags", () => {
@@ -10,21 +17,35 @@ describe("staff access helpers", () => {
   it("accepts staff roles", () => {
     expect(isStaffMetadata({ staff_role: "customer_service" })).toBe(true)
     expect(isStaffMetadata({ role: "ops" })).toBe(true)
+    expect(staffMetadataRole({ gp_staff_role: "super_admin" })).toBe(
+      "super_admin"
+    )
   })
 
   it("rejects normal customer metadata", () => {
     expect(isStaffMetadata(null)).toBe(false)
     expect(isStaffMetadata({ vip: true })).toBe(false)
     expect(isStaffCustomer({ metadata: { role: "customer" } } as any)).toBe(false)
-  })
-
-  it("accepts explicit staff emails", () => {
     expect(
       isStaffCustomer({
-        email: "aviswerdlow@gmail.com",
-        metadata: { role: "customer" },
+        metadata: { staff_role: "staff", staff_access_revoked: true },
       } as any)
-    ).toBe(true)
+    ).toBe(false)
+  })
+
+  it("bootstraps Avi and Peter as super admins", () => {
+    const avi = {
+      email: "aviswerdlow@gmail.com",
+      metadata: { role: "customer" },
+    } as any
+    const peter = {
+      email: "Peter@grillerspride.com",
+      metadata: { role: "customer" },
+    } as any
+
+    expect(isStaffCustomer(avi)).toBe(true)
+    expect(isSuperAdminCustomer(avi)).toBe(true)
+    expect(staffAccessRole(peter)).toBe("super_admin")
   })
 
   it("formats a staff display name safely", () => {

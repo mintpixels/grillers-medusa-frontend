@@ -6,6 +6,34 @@ type StaffCustomerLike =
   | null
   | undefined
 
+export type StaffAccessRole = "customer" | "staff" | "super_admin"
+
+export const STAFF_ROLE_OPTIONS: Array<{
+  value: StaffAccessRole
+  label: string
+  description: string
+  confirmation: string
+}> = [
+  {
+    value: "customer",
+    label: "Customer",
+    description: "No staff console access.",
+    confirmation: "REMOVE STAFF",
+  },
+  {
+    value: "staff",
+    label: "Staff",
+    description: "Can enter customer context, place phone orders, and support orders.",
+    confirmation: "STAFF",
+  },
+  {
+    value: "super_admin",
+    label: "Super admin",
+    description: "All staff powers plus team access management.",
+    confirmation: "SUPER ADMIN",
+  },
+]
+
 const TRUE_VALUES = new Set([
   "1",
   "true",
@@ -18,6 +46,8 @@ const TRUE_VALUES = new Set([
   "customer_service",
 ])
 
+const FALSE_VALUES = new Set(["0", "false", "no", "n", "customer", "none"])
+
 const STAFF_ROLES = new Set([
   "staff",
   "admin",
@@ -27,9 +57,15 @@ const STAFF_ROLES = new Set([
   "customer-service",
   "phone_orders",
   "phone-orders",
+  "super_admin",
+  "super-admin",
+  "owner",
 ])
 
-const STAFF_EMAILS = new Set(["aviswerdlow@gmail.com"])
+const SUPER_ADMIN_EMAILS = new Set([
+  "aviswerdlow@gmail.com",
+  "peter@grillerspride.com",
+])
 
 function truthyStaffValue(value: unknown): boolean {
   if (value === true) return true
@@ -38,8 +74,47 @@ function truthyStaffValue(value: unknown): boolean {
   return TRUE_VALUES.has(value.trim().toLowerCase())
 }
 
-export function isStaffMetadata(metadata: StaffMetadata): boolean {
-  if (!metadata) return false
+function falseyStaffValue(value: unknown): boolean {
+  if (value === false) return true
+  if (typeof value === "number") return value === 0
+  if (typeof value !== "string") return false
+  return FALSE_VALUES.has(value.trim().toLowerCase())
+}
+
+function normalizedEmail(email: unknown): string {
+  return String(email || "").trim().toLowerCase()
+}
+
+export function isBootstrapSuperAdminEmail(email: unknown): boolean {
+  return SUPER_ADMIN_EMAILS.has(normalizedEmail(email))
+}
+
+function normalizeRole(value: unknown): string {
+  return String(value || "").trim().toLowerCase()
+}
+
+export function staffMetadataRole(metadata: StaffMetadata): StaffAccessRole {
+  if (!metadata) return "customer"
+
+  if (truthyStaffValue(metadata.staff_access_revoked)) {
+    return "customer"
+  }
+
+  const role = normalizeRole(
+    metadata.gp_staff_role ||
+      metadata.staff_role ||
+      metadata.role ||
+      metadata.account_role ||
+      ""
+  )
+
+  if (role === "super_admin" || role === "super-admin" || role === "owner") {
+    return "super_admin"
+  }
+
+  if (STAFF_ROLES.has(role)) {
+    return "staff"
+  }
 
   const directFlags = [
     metadata.is_staff,
@@ -49,22 +124,45 @@ export function isStaffMetadata(metadata: StaffMetadata): boolean {
     metadata.phone_order_staff,
   ]
 
-  if (directFlags.some(truthyStaffValue)) return true
+  if (directFlags.some(truthyStaffValue)) return "staff"
 
-  const role = String(
-    metadata.staff_role || metadata.role || metadata.account_role || ""
-  )
-    .trim()
-    .toLowerCase()
+  return "customer"
+}
 
-  return STAFF_ROLES.has(role)
+export function isStaffMetadata(metadata: StaffMetadata): boolean {
+  return staffMetadataRole(metadata) !== "customer"
 }
 
 export function isStaffCustomer(
   customer: StaffCustomerLike
 ): boolean {
-  const email = String(customer?.email || "").trim().toLowerCase()
-  return STAFF_EMAILS.has(email) || isStaffMetadata(customer?.metadata as StaffMetadata)
+  return staffAccessRole(customer) !== "customer"
+}
+
+export function staffAccessRole(customer: StaffCustomerLike): StaffAccessRole {
+  if (isBootstrapSuperAdminEmail(customer?.email)) {
+    return "super_admin"
+  }
+
+  return staffMetadataRole(customer?.metadata as StaffMetadata)
+}
+
+export function isSuperAdminCustomer(customer: StaffCustomerLike): boolean {
+  return staffAccessRole(customer) === "super_admin"
+}
+
+export function isExplicitStaffDeny(value: unknown): boolean {
+  return falseyStaffValue(value)
+}
+
+export function staffRoleLabel(role: StaffAccessRole): string {
+  return STAFF_ROLE_OPTIONS.find((option) => option.value === role)?.label || role
+}
+
+export function staffRoleConfirmation(role: StaffAccessRole): string {
+  return (
+    STAFF_ROLE_OPTIONS.find((option) => option.value === role)?.confirmation || ""
+  )
 }
 
 export function staffDisplayName(

@@ -25,12 +25,14 @@ import {
   type StaffPrepareOrderResult,
   type StaffProductSearchResult,
 } from "@lib/data/staff/order-entry"
+import { isSuperAdminCustomer } from "@lib/util/staff-access"
 import {
   startStaffImpersonation,
   stopStaffImpersonation,
   type StaffImpersonationSession,
 } from "@lib/data/staff/impersonation"
 import StaffOrderExceptionConsole from "@modules/staff/components/order-exception-console"
+import StaffTeamAccessConsole from "@modules/staff/components/team-access-console"
 
 type Props = {
   countryCode: string
@@ -233,7 +235,8 @@ export default function PhoneOrderCopilot({
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const [activeWorkspace, setActiveWorkspace] =
-    useState<"phone_order" | "exceptions">("phone_order")
+    useState<"phone_order" | "exceptions" | "team_access">("phone_order")
+  const canManageTeamAccess = isSuperAdminCustomer(staffCustomer)
 
   const staffName = useMemo(
     () =>
@@ -526,7 +529,11 @@ export default function PhoneOrderCopilot({
         </div>
       )}
 
-      <div className="grid gap-3 md:grid-cols-2">
+      <div
+        className={`grid gap-3 ${
+          canManageTeamAccess ? "md:grid-cols-3" : "md:grid-cols-2"
+        }`}
+      >
         <button
           className={`rounded-lg border p-5 text-left transition ${
             activeWorkspace === "phone_order"
@@ -567,9 +574,33 @@ export default function PhoneOrderCopilot({
             refund, credit, shipping exception, or note.
           </span>
         </button>
+        {canManageTeamAccess && (
+          <button
+            className={`rounded-lg border p-5 text-left transition ${
+              activeWorkspace === "team_access"
+                ? "border-Charcoal bg-Charcoal text-white"
+                : "border-gray-200 bg-white text-Charcoal hover:border-Gold/50"
+            }`}
+            onClick={() => setActiveWorkspace("team_access")}
+            type="button"
+          >
+            <span className="block text-xs font-maison-neue-mono uppercase opacity-70">
+              Super admin
+            </span>
+            <span className="mt-2 block text-xl font-gyst font-bold">
+              Team access
+            </span>
+            <span className="mt-2 block text-sm font-maison-neue opacity-75">
+              Search customer accounts, make staff members, promote super admins,
+              and audit every permission change.
+            </span>
+          </button>
+        )}
       </div>
 
-      {activeWorkspace === "phone_order" ? (
+      {activeWorkspace === "team_access" && canManageTeamAccess ? (
+        <StaffTeamAccessConsole />
+      ) : activeWorkspace === "phone_order" ? (
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
         <div className="space-y-6">
           <section className="rounded-lg border border-gray-200 bg-white p-5">
