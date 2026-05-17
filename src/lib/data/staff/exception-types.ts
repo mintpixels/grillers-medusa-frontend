@@ -169,6 +169,37 @@ export function actionMovesMoney(action: StaffExceptionActionType): boolean {
   return staffExceptionActionConfig(action)?.moneyMovement ?? false
 }
 
+export function actionRequiredConfirmation(
+  action: StaffExceptionActionType
+): string | null {
+  switch (action) {
+    case "refund_payment":
+      return "REFUND"
+    case "capture_payment":
+      return "CAPTURE"
+    case "cancel_order":
+      return "CANCEL"
+    default:
+      return null
+  }
+}
+
+export function actionMutatesMedusa(
+  action: StaffExceptionActionType
+): boolean {
+  return (
+    action === "refund_payment" ||
+    action === "capture_payment" ||
+    action === "cancel_order"
+  )
+}
+
+export function actionIsAuditOnly(
+  action: StaffExceptionActionType
+): boolean {
+  return !actionMutatesMedusa(action)
+}
+
 export function actionIsBlockedByOperationalState(
   action: StaffExceptionActionType,
   state: StaffOrderOperationalState

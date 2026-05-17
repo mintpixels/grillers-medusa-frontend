@@ -5,15 +5,20 @@ import Button from "@modules/common/components/button"
 import {
   applyStaffOrderException,
   getStaffExceptionOrderDetail,
+  previewStaffOrderException,
   searchStaffExceptionOrders,
   type StaffExceptionActionInput,
+  type StaffExceptionActionPreview,
   type StaffExceptionOrderDetail,
   type StaffExceptionOrderSummary,
 } from "@lib/data/staff/order-exceptions"
 import {
   STAFF_EXCEPTION_ACTIONS,
   STAFF_EXCEPTION_REASON_CODES,
+  actionIsAuditOnly,
   actionMovesMoney,
+  actionMutatesMedusa,
+  actionRequiredConfirmation,
   actionRequiresCustomerConsent,
   type StaffConsentMethod,
   type StaffExceptionActionType,
@@ -88,6 +93,8 @@ export default function StaffOrderExceptionConsole() {
   const [actionDraft, setActionDraft] = useState<StaffExceptionActionInput>(
     emptyAction()
   )
+  const [preview, setPreview] = useState<StaffExceptionActionPreview | null>(null)
+  const [typedConfirmation, setTypedConfirmation] = useState("")
   const [acknowledged, setAcknowledged] = useState(false)
   const [status, setStatus] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -101,9 +108,15 @@ export default function StaffOrderExceptionConsole() {
     selectedAction === "record_offline_payment" ||
     selectedAction === "refund_payment" ||
     selectedAction === "capture_payment"
+  const destructiveConfirmation = preview?.requiredConfirmation
+  const typedConfirmationMatches =
+    !destructiveConfirmation ||
+    typedConfirmation.trim().toUpperCase() === destructiveConfirmation
 
   const canSubmit = useMemo(() => {
     if (!selectedOrder || !acknowledged) return false
+    if (!preview?.ok) return false
+    if (!typedConfirmationMatches) return false
     if (!actionDraft.staffNote.trim()) return false
     if (!actionDraft.reasonCode) return false
     if (
@@ -127,9 +140,21 @@ export default function StaffOrderExceptionConsole() {
       return false
     }
     return true
-  }, [acknowledged, actionDraft, needsAmount, requiresConsent, selectedAction, selectedOrder])
+  }, [
+    acknowledged,
+    actionDraft,
+    needsAmount,
+    preview,
+    requiresConsent,
+    selectedAction,
+    selectedOrder,
+    typedConfirmationMatches,
+  ])
 
   function updateActionDraft(patch: Partial<StaffExceptionActionInput>) {
+    setPreview(null)
+    setTypedConfirmation("")
+    setAcknowledged(false)
     setActionDraft((current) => ({ ...current, ...patch }))
   }
 
@@ -151,6 +176,8 @@ export default function StaffOrderExceptionConsole() {
     setError(null)
     setStatus(null)
     setAcknowledged(false)
+    setPreview(null)
+    setTypedConfirmation("")
     startTransition(async () => {
       try {
         const detail = await getStaffExceptionOrderDetail(orderId)
@@ -158,6 +185,26 @@ export default function StaffOrderExceptionConsole() {
         setActionDraft(emptyAction(detail.id))
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err))
+      }
+    })
+  }
+
+  function reviewAction() {
+    if (!selectedOrder) return
+    setError(null)
+    setStatus(null)
+    setAcknowledged(false)
+    setTypedConfirmation("")
+    startTransition(async () => {
+      const result = await previewStaffOrderException({
+        ...actionDraft,
+        orderId: selectedOrder.id,
+      })
+      setPreview(result)
+      if (!result.ok) {
+        setError(result.error || "Review found a blocking issue.")
+      } else {
+        setStatus("Review complete. Confirm the action before applying it.")
       }
     })
   }
@@ -170,6 +217,7 @@ export default function StaffOrderExceptionConsole() {
       const result = await applyStaffOrderException({
         ...actionDraft,
         orderId: selectedOrder.id,
+        typedConfirmation,
       })
       if (!result.ok || !result.order) {
         setError(result.error || "Could not apply staff action.")
@@ -178,6 +226,8 @@ export default function StaffOrderExceptionConsole() {
       setSelectedOrder(result.order)
       setActionDraft(emptyAction(result.order.id))
       setAcknowledged(false)
+      setPreview(null)
+      setTypedConfirmation("")
       setStatus("Staff action recorded and audited.")
     })
   }
@@ -185,6 +235,8 @@ export default function StaffOrderExceptionConsole() {
   function chooseAction(action: StaffExceptionActionType) {
     if (!selectedOrder) return
     setAcknowledged(false)
+    setPreview(null)
+    setTypedConfirmation("")
     setActionDraft({
       ...emptyAction(selectedOrder.id),
       action,
@@ -643,16 +695,143 @@ export default function StaffOrderExceptionConsole() {
                 />
               </label>
 
+              {actionIsAuditOnly(selectedAction) && (
+                <div className="rounded-md border border-gray-200 bg-SilverPlate/40 p-3 text-sm font-maison-neue text-Charcoal/70">
+                  This action is audit-only in the storefront. It records the
+                  request/status on the order for staff follow-up, but does not
+                  mutate QuickBooks, carrier labels, customer messages, or card
+                  payments.
+                </div>
+              )}
+
+              {actionMutatesMedusa(selectedAction) && (
+                <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm font-maison-neue text-red-700">
+                  This action can change Medusa order or payment state. Review it
+                  first, then type the confirmation word before applying it.
+                </div>
+              )}
+
+              {actionDraft.customerVisibleNote?.trim() && (
+                <div className="rounded-md border border-Gold/35 bg-Gold/10 p-3 text-sm font-maison-neue text-Charcoal">
+                  Customer messaging is not sent from this console yet. This
+                  note is recorded for staff follow-up and audit context only.
+                </div>
+              )}
+
+              {preview && (
+                <div
+                  className={`rounded-md border p-4 ${
+                    preview.ok
+                      ? "border-green-200 bg-green-50"
+                      : "border-red-200 bg-red-50"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className={labelClass()}>Review</p>
+                      <h3 className="mt-1 text-base font-maison-neue font-semibold text-Charcoal">
+                        {preview.actionLabel}
+                      </h3>
+                    </div>
+                    {statusChip(
+                      preview.willMutateMedusa ? "external action" : "audit only",
+                      preview.willMutateMedusa ? "red" : "gold"
+                    )}
+                  </div>
+                  <p className="mt-3 text-sm font-maison-neue text-Charcoal/75">
+                    {preview.summary}
+                  </p>
+                  <dl className="mt-3 grid gap-2 text-xs font-maison-neue text-Charcoal/65">
+                    <div className="flex justify-between gap-3">
+                      <dt>Order</dt>
+                      <dd className="font-semibold text-Charcoal">
+                        {preview.orderDisplayId}
+                      </dd>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <dt>State</dt>
+                      <dd className="font-semibold text-Charcoal">
+                        {preview.operationalState.replace(/_/g, " ")}
+                      </dd>
+                    </div>
+                    {preview.amount !== undefined && (
+                      <div className="flex justify-between gap-3">
+                        <dt>Amount</dt>
+                        <dd className="font-semibold text-Charcoal">
+                          {formatMoney(
+                            preview.amount,
+                            selectedOrder.currencyCode
+                          )}
+                        </dd>
+                      </div>
+                    )}
+                    <div className="flex justify-between gap-3">
+                      <dt>QBD follow-up</dt>
+                      <dd className="font-semibold text-Charcoal">
+                        {preview.qbdReconciliationNeeded ? "Needed" : "No"}
+                      </dd>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <dt>Customer message</dt>
+                      <dd className="font-semibold text-Charcoal">
+                        {preview.customerNotificationStatus ===
+                        "recorded_only_not_sent"
+                          ? "Recorded only"
+                          : "Not requested"}
+                      </dd>
+                    </div>
+                  </dl>
+                  {preview.blockingReasons.length > 0 && (
+                    <ul className="mt-3 space-y-1 text-sm font-maison-neue text-red-700">
+                      {preview.blockingReasons.map((reason) => (
+                        <li key={reason}>{reason}</li>
+                      ))}
+                    </ul>
+                  )}
+                  {preview.warnings.length > 0 && (
+                    <ul className="mt-3 space-y-1 text-xs font-maison-neue text-Charcoal/65">
+                      {preview.warnings.map((warning) => (
+                        <li key={warning}>{warning}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+
+              {destructiveConfirmation && preview?.ok && (
+                <label className="flex flex-col gap-1">
+                  <span className={labelClass()}>
+                    Type {destructiveConfirmation} to confirm
+                  </span>
+                  <input
+                    className={fieldClass()}
+                    value={typedConfirmation}
+                    onChange={(event) => setTypedConfirmation(event.target.value)}
+                  />
+                </label>
+              )}
+
               <label className="flex items-start gap-3 rounded-md border border-Gold/35 bg-Gold/10 p-3 text-sm font-maison-neue text-Charcoal">
                 <input
                   checked={acknowledged}
+                  disabled={!preview?.ok}
                   className="mt-1"
                   onChange={(event) => setAcknowledged(event.target.checked)}
                   type="checkbox"
                 />
-                This staff action is correct, customer-authorized where required,
-                and should be auditable back to me.
+                I reviewed the action, the customer authorized it where required,
+                and the audit trail should attribute it to me.
               </label>
+
+              <Button
+                className="min-h-[48px] w-full rounded-md border border-Charcoal bg-white px-4 text-sm font-rexton font-bold uppercase text-Charcoal"
+                disabled={!selectedOrder}
+                isLoading={isPending}
+                onClick={reviewAction}
+                type="button"
+              >
+                Review Action
+              </Button>
 
               <Button
                 className="min-h-[48px] w-full rounded-md bg-Gold px-4 text-sm font-rexton font-bold uppercase text-Charcoal"
@@ -675,6 +854,12 @@ export default function StaffOrderExceptionConsole() {
             <div className="space-y-4">
               <dl className="space-y-3">
                 <DetailRow label="Email" value={selectedOrder.email} />
+                <DetailRow
+                  label="Staff status"
+                  value={String(
+                    selectedOrder.metadata?.staff_exception_status || ""
+                  ).replace(/_/g, " ")}
+                />
                 <DetailRow
                   label="Shipping"
                   value={[

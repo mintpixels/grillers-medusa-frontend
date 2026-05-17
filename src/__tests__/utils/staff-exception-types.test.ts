@@ -1,6 +1,9 @@
 import {
   actionIsBlockedByOperationalState,
+  actionIsAuditOnly,
   actionMovesMoney,
+  actionMutatesMedusa,
+  actionRequiredConfirmation,
   actionRequiresCustomerConsent,
   parseStaffAuditLog,
   staffOrderOperationalState,
@@ -42,6 +45,22 @@ describe("staff exception helpers", () => {
     expect(actionMovesMoney("shipping_override")).toBe(false)
     expect(actionRequiresCustomerConsent("shipping_override")).toBe(true)
     expect(actionRequiresCustomerConsent("record_note")).toBe(false)
+  })
+
+  it("separates audit-only actions from Medusa mutations", () => {
+    expect(actionMutatesMedusa("refund_payment")).toBe(true)
+    expect(actionMutatesMedusa("capture_payment")).toBe(true)
+    expect(actionMutatesMedusa("cancel_order")).toBe(true)
+    expect(actionIsAuditOnly("shipping_override")).toBe(true)
+    expect(actionIsAuditOnly("credit_memo")).toBe(true)
+  })
+
+  it("requires typed confirmation for destructive actions only", () => {
+    expect(actionRequiredConfirmation("refund_payment")).toBe("REFUND")
+    expect(actionRequiredConfirmation("capture_payment")).toBe("CAPTURE")
+    expect(actionRequiredConfirmation("cancel_order")).toBe("CANCEL")
+    expect(actionRequiredConfirmation("record_offline_payment")).toBeNull()
+    expect(actionRequiredConfirmation("record_note")).toBeNull()
   })
 
   it("blocks unsafe actions after cancellation or shipment", () => {

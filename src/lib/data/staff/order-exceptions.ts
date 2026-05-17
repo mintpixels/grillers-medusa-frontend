@@ -7,9 +7,13 @@ import { isStaffCustomer, staffDisplayName } from "@lib/util/staff-access"
 import { adminFetch, appendStaffAuditLog } from "./admin"
 import {
   actionIsBlockedByOperationalState,
+  actionIsAuditOnly,
   actionMovesMoney,
+  actionMutatesMedusa,
+  actionRequiredConfirmation,
   actionRequiresCustomerConsent,
   parseStaffAuditLog,
+  staffExceptionActionConfig,
   staffOrderOperationalState,
   type StaffAuditEntry,
   type StaffConsentMethod,
@@ -98,12 +102,32 @@ export type StaffExceptionActionInput = {
   offlinePaymentReference?: string
   shippingChangeSummary?: string
   notifyCustomer?: boolean
+  typedConfirmation?: string
 }
 
 export type StaffExceptionActionResult = {
   ok: boolean
   error?: string
   order?: StaffExceptionOrderDetail
+}
+
+export type StaffExceptionActionPreview = {
+  ok: boolean
+  error?: string
+  action: StaffExceptionActionType
+  actionLabel: string
+  operationalState: StaffOrderOperationalState
+  orderDisplayId: string
+  amount?: number
+  paymentId?: string
+  willWriteAuditLog: boolean
+  willMutateMedusa: boolean
+  qbdReconciliationNeeded: boolean
+  customerNotificationStatus: "not_requested" | "recorded_only_not_sent"
+  requiredConfirmation: string | null
+  summary: string
+  warnings: string[]
+  blockingReasons: string[]
 }
 
 const ORDER_LIST_FIELDS =
@@ -338,6 +362,14 @@ function baseAuditEntry({
     staff_note: input.staffNote.trim(),
     customer_visible_note: input.customerVisibleNote?.trim() || undefined,
     notify_customer: Boolean(input.notifyCustomer),
+    customer_notification_status: input.notifyCustomer
+      ? "recorded_only_not_sent"
+      : "not_requested",
+    medusa_mutation: actionMutatesMedusa(input.action),
+    typed_confirmation_required: actionRequiredConfirmation(input.action) || undefined,
+    typed_confirmation_received: actionRequiredConfirmation(input.action)
+      ? true
+      : undefined,
     customer_consent_method: input.customerConsentMethod || "not_applicable",
     staff_actor_customer_id: staff.id,
     staff_actor_email: staff.email,
@@ -345,6 +377,84 @@ function baseAuditEntry({
     order_id: order.id,
     order_display_id: displayId(order),
     order_operational_state: staffOrderOperationalState(order),
+  }
+}
+
+function actionLabel(action: StaffExceptionActionType): string {
+  return staffExceptionActionConfig(action)?.label || action.replace(/_/g, " ")
+}
+
+function qbdReconciliationNeeded(action: StaffExceptionActionType): boolean {
+  return (
+    action === "record_offline_payment" ||
+    action === "credit_memo" ||
+    action === "refund_payment" ||
+    action === "capture_payment"
+  )
+}
+
+function previewSummary(input: StaffExceptionActionInput): string {
+  switch (input.action) {
+    case "record_note":
+      return "This will append an internal staff note to the order audit trail."
+    case "record_offline_payment":
+      return "This will record an offline payment for QuickBooks reconciliation. It will not charge a card."
+    case "shipping_override":
+      return "This will record a shipping-change request for operations review. It will not silently change a shipment."
+    case "credit_memo":
+      return "This will record a credit or adjustment request for QuickBooks reconciliation. It will not issue money by itself."
+    case "cancel_order":
+      return "This will call Medusa's order cancellation endpoint after writing a staff audit entry."
+    case "refund_payment":
+      return "This will call Medusa's payment refund endpoint after writing a staff audit entry."
+    case "capture_payment":
+      return "This will call Medusa's payment capture endpoint after writing a staff audit entry."
+  }
+}
+
+function previewWarnings(
+  input: StaffExceptionActionInput,
+  order: AnyRecord
+): string[] {
+  const warnings: string[] = []
+
+  if (actionIsAuditOnly(input.action)) {
+    warnings.push(
+      "Audit-only action: this records the request/status on the order, but does not change QuickBooks, carrier labels, customer notifications, or payment state."
+    )
+  } else {
+    warnings.push(
+      "External action: this can change Medusa order/payment state after final confirmation."
+    )
+  }
+
+  if (input.customerVisibleNote?.trim() || input.notifyCustomer) {
+    warnings.push(
+      "Customer messaging is not sent from this console yet. The customer note is recorded for staff follow-up only."
+    )
+  }
+
+  if (
+    staffOrderOperationalState(order) !== "open" &&
+    staffOrderOperationalState(order) !== "confirmed"
+  ) {
+    warnings.push(
+      "Fulfillment is no longer fully open. Shipping and cancellation actions may require operations review."
+    )
+  }
+
+  return warnings
+}
+
+function previewAmount(input: StaffExceptionActionInput): number | undefined {
+  if (!actionMovesMoney(input.action) && input.action !== "record_offline_payment") {
+    return undefined
+  }
+
+  try {
+    return minorUnitsFromDollars(input.amount)
+  } catch {
+    return undefined
   }
 }
 
@@ -381,6 +491,15 @@ function validateAction(input: StaffExceptionActionInput, order: AnyRecord) {
 
   if (input.action === "shipping_override" && !input.shippingChangeSummary?.trim()) {
     throw new Error("Summarize the shipping change.")
+  }
+}
+
+function validateTypedConfirmation(input: StaffExceptionActionInput) {
+  const required = actionRequiredConfirmation(input.action)
+  if (!required) return
+
+  if ((input.typedConfirmation || "").trim().toUpperCase() !== required) {
+    throw new Error(`Type ${required} to confirm this action.`)
   }
 }
 
@@ -443,6 +562,64 @@ export async function getStaffExceptionOrderDetail(
   return detailOrder(await retrieveOrder(orderId))
 }
 
+export async function previewStaffOrderException(
+  input: StaffExceptionActionInput
+): Promise<StaffExceptionActionPreview> {
+  const fallbackAction = input.action || "record_note"
+
+  try {
+    await requireStaffOperator()
+    const order = await retrieveOrder(input.orderId)
+    const state = staffOrderOperationalState(order)
+    const blockingReasons: string[] = []
+
+    try {
+      validateAction(input, order)
+    } catch (err) {
+      blockingReasons.push(err instanceof Error ? err.message : String(err))
+    }
+
+    return {
+      ok: blockingReasons.length === 0,
+      error: blockingReasons[0],
+      action: fallbackAction,
+      actionLabel: actionLabel(fallbackAction),
+      operationalState: state,
+      orderDisplayId: displayId(order),
+      amount: previewAmount(input),
+      paymentId: input.paymentId || undefined,
+      willWriteAuditLog: true,
+      willMutateMedusa: actionMutatesMedusa(fallbackAction),
+      qbdReconciliationNeeded: qbdReconciliationNeeded(fallbackAction),
+      customerNotificationStatus:
+        input.customerVisibleNote?.trim() || input.notifyCustomer
+          ? "recorded_only_not_sent"
+          : "not_requested",
+      requiredConfirmation: actionRequiredConfirmation(fallbackAction),
+      summary: previewSummary(input),
+      warnings: previewWarnings(input, order),
+      blockingReasons,
+    }
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : String(err),
+      action: fallbackAction,
+      actionLabel: actionLabel(fallbackAction),
+      operationalState: "open",
+      orderDisplayId: input.orderId || "Order",
+      willWriteAuditLog: false,
+      willMutateMedusa: false,
+      qbdReconciliationNeeded: false,
+      customerNotificationStatus: "not_requested",
+      requiredConfirmation: actionRequiredConfirmation(fallbackAction),
+      summary: previewSummary(input),
+      warnings: [],
+      blockingReasons: [err instanceof Error ? err.message : String(err)],
+    }
+  }
+}
+
 export async function applyStaffOrderException(
   input: StaffExceptionActionInput
 ): Promise<StaffExceptionActionResult> {
@@ -450,6 +627,7 @@ export async function applyStaffOrderException(
     const staff = await requireStaffOperator()
     const order = await retrieveOrder(input.orderId)
     validateAction(input, order)
+    validateTypedConfirmation(input)
 
     const baseEntry = baseAuditEntry({
       staff,
