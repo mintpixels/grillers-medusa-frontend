@@ -10,18 +10,36 @@ import Nav from "@modules/layout/templates/nav"
 import FreeShippingPriceNudge from "@modules/shipping/components/free-shipping-price-nudge"
 import { CartProvider } from "@modules/layout/components/side-cart/cart-context"
 import SideCartWrapper from "@modules/layout/components/side-cart/side-cart-wrapper"
+import { withTimeout } from "@lib/util/promise-timeout"
 
 export const metadata: Metadata = {
   metadataBase: new URL(getBaseURL()),
 }
 
 export default async function PageLayout(props: { children: React.ReactNode }) {
-  const customer = await retrieveCustomer()
-  const cart = await retrieveCart()
+  const [customer, cart] = await Promise.all([
+    withTimeout(
+      retrieveCustomer().catch(() => null),
+      1000,
+      null,
+      "main layout customer"
+    ),
+    withTimeout(
+      retrieveCart().catch(() => null),
+      1000,
+      null,
+      "main layout cart"
+    ),
+  ])
   let shippingOptions: StoreCartShippingOption[] = []
 
   if (cart) {
-    const { shipping_options } = await listCartOptions()
+    const { shipping_options } = await withTimeout(
+      listCartOptions().catch(() => ({ shipping_options: [] })),
+      800,
+      { shipping_options: [] },
+      "main layout shipping options"
+    )
 
     shippingOptions = shipping_options
   }

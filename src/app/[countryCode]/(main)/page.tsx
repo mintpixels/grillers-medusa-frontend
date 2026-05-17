@@ -16,7 +16,6 @@ import HolidayBanner from "@modules/home/components/holiday-banner"
 import SpecialtyRow from "@modules/home/components/specialty-row"
 import DeliveryPromiseSection from "@modules/home/components/delivery-promise"
 import LazySection from "@modules/common/components/lazy-section"
-import { listCollections } from "@lib/data/collections"
 import { getRegion } from "@lib/data/regions"
 import { retrieveCustomer } from "@lib/data/customer"
 import { listOrders, listPurchaseHistory } from "@lib/data/orders"
@@ -24,7 +23,7 @@ import {
   getProductsByMedusaIds,
   type StrapiCollectionProduct,
 } from "@lib/data/strapi/collections"
-import { getCuratedCollections } from "@lib/data/strapi/curated-collections"
+import { getCuratedCollectionCards } from "@lib/data/strapi/curated-collections"
 import strapiClient from "@lib/strapi"
 import { GetHomePageQuery, type HomePageData } from "@lib/data/strapi/home"
 import {
@@ -35,6 +34,7 @@ import {
 } from "@lib/data/strapi/global"
 import { generateAlternates } from "@lib/util/seo"
 import { getBaseURL } from "@lib/util/env"
+import { withTimeout } from "@lib/util/promise-timeout"
 
 type PageProps = {
   params: Promise<{ countryCode: string }>
@@ -109,20 +109,42 @@ export default async function Home(props: {
 
   const { countryCode } = params
 
-  const region = await getRegion(countryCode)
+  const [region, customer, strapiData, globalData] = await Promise.all([
+    withTimeout(getRegion(countryCode), 1200, null, "home region"),
+    withTimeout(
+      retrieveCustomer().catch(() => null),
+      1000,
+      null,
+      "home customer"
+    ),
+    withTimeout(
+      strapiClient.request<HomePageData>(GetHomePageQuery).catch(() => null),
+      3000,
+      null,
+      "home Strapi data"
+    ),
+    withTimeout(
+      strapiClient.request<GlobalData>(GetGlobalQuery).catch(() => null),
+      1500,
+      null,
+      "home global data"
+    ),
+  ])
 
-  const { collections } = await listCollections({
-    fields: "id, handle, title",
-  })
-
-  if (!collections || !region) {
+  if (!region) {
     return null
   }
 
   // Customer state for the conditional Hero CTA (#57). Both calls swallow
   // errors — homepage must render for logged-out visitors too.
-  const customer = await retrieveCustomer().catch(() => null)
-  const orders = customer ? await listOrders().catch(() => null) : null
+  const orders = customer
+    ? await withTimeout(
+        listOrders().catch(() => null),
+        1000,
+        null,
+        "home orders"
+      )
+    : null
   const isLoggedIn = !!customer
   const hasOrders = (orders?.length || 0) > 0
   const customerZip =
@@ -136,7 +158,14 @@ export default async function Home(props: {
   // Guests + zero-order accounts skip both calls so the homepage RSC stays
   // fast for them. (#53)
   const purchaseHistory =
-    isLoggedIn && hasOrders ? await listPurchaseHistory().catch(() => []) : []
+    isLoggedIn && hasOrders
+      ? await withTimeout(
+          listPurchaseHistory().catch(() => []),
+          1200,
+          [],
+          "home purchase history"
+        )
+      : []
   const reorderStrapiMap: Record<string, StrapiCollectionProduct> = {}
   if (purchaseHistory.length > 0) {
     const ids = Array.from(
@@ -144,7 +173,12 @@ export default async function Home(props: {
     )
     if (ids.length > 0) {
       try {
-        const strapiProducts = await getProductsByMedusaIds(ids, strapiClient)
+        const strapiProducts = await withTimeout(
+          getProductsByMedusaIds(ids, strapiClient),
+          1200,
+          [],
+          "home reorder enrichment"
+        )
         for (const sp of strapiProducts) {
           if (sp.MedusaProduct?.ProductId) {
             reorderStrapiMap[sp.MedusaProduct.ProductId] = sp
@@ -156,13 +190,16 @@ export default async function Home(props: {
     }
   }
 
-  const strapiData = await strapiClient.request<HomePageData>(GetHomePageQuery)
-  const homeCuratedCollections = await getCuratedCollections({
-    countryCode,
-    surface: "homepage",
-    customerState: hasOrders ? "returning" : "guest_or_no_orders",
-    limit: 8,
-  })
+  const homeCuratedCollections = await withTimeout(
+    getCuratedCollectionCards({
+      surface: "homepage",
+      customerState: hasOrders ? "returning" : "guest_or_no_orders",
+      limit: 8,
+    }),
+    1800,
+    [],
+    "home curated collection cards"
+  )
   const hasShopCollectionsSection = Boolean(
     strapiData?.home?.Sections?.some(
       (section: any) => section.__typename === "ComponentHomeShopCollections"
@@ -171,14 +208,6 @@ export default async function Home(props: {
   const fallbackCollectionsSection = {
     CollectionsTitle: "Build a full table",
     Collections: [],
-  }
-
-  // Fetch global data for Organization JSON-LD
-  let globalData: GlobalData | null = null
-  try {
-    globalData = await strapiClient.request<GlobalData>(GetGlobalQuery)
-  } catch (error) {
-    console.error("Error fetching global data:", error)
   }
 
   const baseUrl = getBaseURL()
