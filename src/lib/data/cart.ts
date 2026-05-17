@@ -1,6 +1,8 @@
 "use server"
 
 import { sdk } from "@lib/config"
+import { getActiveStaffImpersonation } from "@lib/data/customer"
+import { staffAuditFields } from "@lib/data/staff/admin"
 import { isSameAddressKey } from "@lib/util/compare-addresses"
 import medusaError from "@lib/util/medusa-error"
 import { stripPhone } from "@lib/util/format-phone"
@@ -18,6 +20,34 @@ import {
 import { findShippingOptionByType } from "./fulfillment"
 import { getRegion } from "./regions"
 
+type ActiveStaffContext = Awaited<ReturnType<typeof getActiveStaffImpersonation>>
+
+async function getCartStaffContext(): Promise<ActiveStaffContext> {
+  return getActiveStaffImpersonation().catch(() => null)
+}
+
+async function cartHeadersForStaffContext(active: ActiveStaffContext) {
+  return active ? {} : { ...(await getAuthHeaders()) }
+}
+
+function withStaffCartMetadata<T extends Record<string, any>>(
+  data: T,
+  active: ActiveStaffContext,
+  action: string,
+  extra: Record<string, unknown> = {}
+): T & { metadata?: Record<string, unknown> } {
+  if (!active) return data
+
+  return {
+    ...data,
+    metadata: {
+      ...(data.metadata || {}),
+      ...staffAuditFields(active.session, action, extra),
+      source: "staff_impersonation",
+    },
+  }
+}
+
 /**
  * Retrieves a cart by its ID. If no ID is provided, it will use the cart ID from the cookies.
  * @param cartId - optional - The ID of the cart to retrieve.
@@ -30,9 +60,8 @@ export async function retrieveCart(cartId?: string) {
     return null
   }
 
-  const headers = {
-    ...(await getAuthHeaders()),
-  }
+  const active = await getCartStaffContext()
+  const headers = await cartHeadersForStaffContext(active)
 
   const next = {
     ...(await getCacheOptions("carts")),
@@ -60,15 +89,30 @@ export async function getOrSetCart(countryCode: string) {
     throw new Error(`Region not found for country code: ${countryCode}`)
   }
 
+  const active = await getCartStaffContext()
   let cart = await retrieveCart()
 
-  const headers = {
-    ...(await getAuthHeaders()),
+  if (
+    active &&
+    cart &&
+    cart.metadata?.staff_target_customer_id !== active.session.targetCustomerId
+  ) {
+    await removeCartId()
+    cart = null
   }
+
+  const headers = await cartHeadersForStaffContext(active)
 
   if (!cart) {
     const cartResp = await sdk.store.cart.create(
-      { region_id: region.id },
+      withStaffCartMetadata(
+        {
+          region_id: region.id,
+          ...(active ? { email: active.session.targetEmail } : {}),
+        },
+        active,
+        "cart_created"
+      ),
       {},
       headers
     )
@@ -81,7 +125,12 @@ export async function getOrSetCart(countryCode: string) {
   }
 
   if (cart && cart?.region_id !== region.id) {
-    await sdk.store.cart.update(cart.id, { region_id: region.id }, {}, headers)
+    await sdk.store.cart.update(
+      cart.id,
+      withStaffCartMetadata({ region_id: region.id }, active, "cart_region_update"),
+      {},
+      headers
+    )
     const cartCacheTag = await getCacheTag("carts")
     revalidateTag(cartCacheTag)
   }
@@ -96,12 +145,16 @@ export async function updateCart(data: HttpTypes.StoreUpdateCart) {
     throw new Error("No existing cart found, please create one before updating")
   }
 
-  const headers = {
-    ...(await getAuthHeaders()),
-  }
+  const active = await getCartStaffContext()
+  const headers = await cartHeadersForStaffContext(active)
 
   return sdk.store.cart
-    .update(cartId, data, {}, headers)
+    .update(
+      cartId,
+      withStaffCartMetadata(data, active, "cart_update"),
+      {},
+      headers
+    )
     .then(async ({ cart }) => {
       const cartCacheTag = await getCacheTag("carts")
       revalidateTag(cartCacheTag)
@@ -135,9 +188,8 @@ export async function addToCart({
     throw new Error("Error retrieving or creating cart")
   }
 
-  const headers = {
-    ...(await getAuthHeaders()),
-  }
+  const active = await getCartStaffContext()
+  const headers = await cartHeadersForStaffContext(active)
 
   await sdk.store.cart
     .createLineItem(
@@ -145,7 +197,16 @@ export async function addToCart({
       {
         variant_id: variantId,
         quantity,
-        ...(metadata ? { metadata } : {}),
+        metadata: {
+          ...(metadata || {}),
+          ...(active
+            ? staffAuditFields(active.session, "cart_line_add", {
+                variantId,
+                quantity,
+                source: "staff_impersonation",
+              })
+            : {}),
+        },
       },
       {},
       headers
@@ -177,12 +238,22 @@ export async function updateLineItem({
     throw new Error("Missing cart ID when updating line item")
   }
 
-  const headers = {
-    ...(await getAuthHeaders()),
-  }
+  const active = await getCartStaffContext()
+  const headers = await cartHeadersForStaffContext(active)
 
   await sdk.store.cart
-    .updateLineItem(cartId, lineId, { quantity }, {}, headers)
+    .updateLineItem(
+      cartId,
+      lineId,
+      withStaffCartMetadata(
+        { quantity },
+        active,
+        "cart_line_quantity_update",
+        { lineId, quantity }
+      ),
+      {},
+      headers
+    )
     .then(async () => {
       const cartCacheTag = await getCacheTag("carts")
       revalidateTag(cartCacheTag)
@@ -204,8 +275,16 @@ export async function deleteLineItem(lineId: string) {
     throw new Error("Missing cart ID when deleting line item")
   }
 
-  const headers = {
-    ...(await getAuthHeaders()),
+  const active = await getCartStaffContext()
+  const headers = await cartHeadersForStaffContext(active)
+
+  if (active) {
+    await sdk.store.cart.update(
+      cartId,
+      withStaffCartMetadata({}, active, "cart_line_delete", { lineId }),
+      {},
+      headers
+    )
   }
 
   await sdk.store.cart
@@ -316,9 +395,8 @@ export async function setFulfillmentDetails({
   scheduledTimeWindow?: string
   pickupLocationId?: string
 }) {
-  const headers = {
-    ...(await getAuthHeaders()),
-  }
+  const active = await getCartStaffContext()
+  const headers = await cartHeadersForStaffContext(active)
 
   const metadata: Record<string, string | undefined> = {
     fulfillmentType,
@@ -335,7 +413,12 @@ export async function setFulfillmentDetails({
   }
 
   return sdk.store.cart
-    .update(cartId, { metadata }, {}, headers)
+    .update(
+      cartId,
+      withStaffCartMetadata({ metadata }, active, "fulfillment_details_update"),
+      {},
+      headers
+    )
     .then(async () => {
       const cartCacheTag = await getCacheTag("carts")
       revalidateTag(cartCacheTag)
@@ -353,12 +436,20 @@ export async function setOrderNotes({
   cartId: string
   notes: string
 }) {
-  const headers = {
-    ...(await getAuthHeaders()),
-  }
+  const active = await getCartStaffContext()
+  const headers = await cartHeadersForStaffContext(active)
 
   return sdk.store.cart
-    .update(cartId, { metadata: { orderNotes: notes } }, {}, headers)
+    .update(
+      cartId,
+      withStaffCartMetadata(
+        { metadata: { orderNotes: notes } },
+        active,
+        "order_notes_update"
+      ),
+      {},
+      headers
+    )
     .then(async () => {
       const cartCacheTag = await getCacheTag("carts")
       revalidateTag(cartCacheTag)
@@ -370,22 +461,25 @@ export async function setOrderNotes({
  * Clears fulfillment details from cart metadata (for when user wants to change selection)
  */
 export async function clearFulfillmentDetails(cartId: string) {
-  const headers = {
-    ...(await getAuthHeaders()),
-  }
+  const active = await getCartStaffContext()
+  const headers = await cartHeadersForStaffContext(active)
 
   return sdk.store.cart
     .update(
       cartId,
-      {
-        metadata: {
-          fulfillmentType: "",
-          fulfillmentZip: "",
-          scheduledDate: "",
-          scheduledTimeWindow: "",
-          pickupLocationId: "",
+      withStaffCartMetadata(
+        {
+          metadata: {
+            fulfillmentType: "",
+            fulfillmentZip: "",
+            scheduledDate: "",
+            scheduledTimeWindow: "",
+            pickupLocationId: "",
+          },
         },
-      },
+        active,
+        "fulfillment_details_clear"
+      ),
       {},
       headers
     )
@@ -403,8 +497,21 @@ export async function setShippingMethod({
   cartId: string
   shippingMethodId: string
 }) {
-  const headers = {
-    ...(await getAuthHeaders()),
+  const active = await getCartStaffContext()
+  const headers = await cartHeadersForStaffContext(active)
+
+  if (active) {
+    await sdk.store.cart.update(
+      cartId,
+      withStaffCartMetadata(
+        {},
+        active,
+        "shipping_method_update",
+        { shippingMethodId }
+      ),
+      {},
+      headers
+    )
   }
 
   return sdk.store.cart
@@ -423,9 +530,8 @@ export async function initiatePaymentSession(
   cart: HttpTypes.StoreCart,
   data: HttpTypes.StoreInitializePaymentSession
 ) {
-  const headers = {
-    ...(await getAuthHeaders()),
-  }
+  const active = await getCartStaffContext()
+  const headers = await cartHeadersForStaffContext(active)
 
   return sdk.store.payment
     .initiatePaymentSession(cart, data, {}, headers)
@@ -444,12 +550,21 @@ export async function applyPromotions(codes: string[]) {
     throw new Error("No existing cart found")
   }
 
-  const headers = {
-    ...(await getAuthHeaders()),
-  }
+  const active = await getCartStaffContext()
+  const headers = await cartHeadersForStaffContext(active)
 
   return sdk.store.cart
-    .update(cartId, { promo_codes: codes }, {}, headers)
+    .update(
+      cartId,
+      withStaffCartMetadata(
+        { promo_codes: codes },
+        active,
+        "cart_promotions_update",
+        { codes }
+      ),
+      {},
+      headers
+    )
     .then(async () => {
       const cartCacheTag = await getCacheTag("carts")
       revalidateTag(cartCacheTag)
@@ -584,8 +699,60 @@ export async function setAddresses(currentState: unknown, formData: FormData) {
     // persistOrderShippingAddressToAccount below in placeOrder (Path B).
     // See issue #74.
     try {
-      const headers = { ...(await getAuthHeaders()) }
-      if ("authorization" in headers && (headers as any).authorization) {
+      const active = await getCartStaffContext()
+      if (active) {
+        const { adminFetch, appendStaffAuditLog, retrieveAdminCustomer } =
+          await import("@lib/data/staff/admin")
+        const current = await retrieveAdminCustomer(active.session.targetCustomerId)
+        const existingAddresses: any[] = current?.addresses || []
+        if (
+          data.shipping_address.address_1 &&
+          !existingAddresses.some((a) =>
+            isSameAddressKey(a, data.shipping_address)
+          )
+        ) {
+          await adminFetch(
+            `/admin/customers/${active.session.targetCustomerId}/addresses`,
+            {
+              method: "POST",
+              body: JSON.stringify({
+                first_name: data.shipping_address.first_name as string,
+                last_name: data.shipping_address.last_name as string,
+                address_1: data.shipping_address.address_1 as string,
+                address_2: "",
+                company: (data.shipping_address.company as string) || "",
+                city: data.shipping_address.city as string,
+                postal_code: data.shipping_address.postal_code as string,
+                province: (data.shipping_address.province as string) || "",
+                country_code: data.shipping_address.country_code as string,
+                phone: data.shipping_address.phone
+                  ? stripPhone(data.shipping_address.phone as string)
+                  : "",
+                is_default_shipping: existingAddresses.length === 0,
+                is_default_billing: existingAddresses.length === 0,
+              }),
+            }
+          )
+          await adminFetch(`/admin/customers/${active.session.targetCustomerId}`, {
+            method: "POST",
+            body: JSON.stringify({
+              metadata: {
+                ...appendStaffAuditLog(current?.metadata, {
+                  type: "staff_checkout_address_create",
+                  staffCustomerId: active.session.staffCustomerId,
+                  staffEmail: active.session.staffEmail,
+                  targetCustomerId: active.session.targetCustomerId,
+                }),
+                ...staffAuditFields(active.session, "checkout_address_create"),
+              },
+            }),
+          })
+          const customerCacheTag = await getCacheTag("customers")
+          revalidateTag(customerCacheTag)
+        }
+      } else {
+        const headers = { ...(await getAuthHeaders()) }
+        if ("authorization" in headers && (headers as any).authorization) {
         const { customer } = await sdk.store.customer.retrieve({}, headers)
         const existingAddresses: any[] = customer?.addresses || []
         if (
@@ -618,6 +785,7 @@ export async function setAddresses(currentState: unknown, formData: FormData) {
           const customerCacheTag = await getCacheTag("customers")
           revalidateTag(customerCacheTag)
         }
+      }
       }
     } catch {
       // Non-critical — don't block checkout if saving to account fails
@@ -657,8 +825,16 @@ export async function placeOrder(cartId?: string) {
     throw new Error("No existing cart found when placing an order")
   }
 
-  const headers = {
-    ...(await getAuthHeaders()),
+  const active = await getCartStaffContext()
+  const headers = await cartHeadersForStaffContext(active)
+
+  if (active) {
+    await sdk.store.cart.update(
+      id,
+      withStaffCartMetadata({}, active, "order_submit"),
+      {},
+      headers
+    )
   }
 
   const cartRes = await sdk.store.cart
@@ -702,6 +878,58 @@ async function persistOrderShippingAddressToAccount(
   order: HttpTypes.StoreOrder
 ): Promise<void> {
   try {
+    const active = await getCartStaffContext()
+    if (active) {
+      const { adminFetch, appendStaffAuditLog, retrieveAdminCustomer } =
+        await import("@lib/data/staff/admin")
+      const current = await retrieveAdminCustomer(active.session.targetCustomerId)
+      const existing: any[] = current?.addresses || []
+      const shipping = order?.shipping_address
+      if (!shipping?.address_1 || existing.some((a) => isSameAddressKey(a, shipping))) {
+        return
+      }
+
+      await adminFetch(
+        `/admin/customers/${active.session.targetCustomerId}/addresses`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            first_name: shipping.first_name || "",
+            last_name: shipping.last_name || "",
+            address_1: shipping.address_1 || "",
+            address_2: shipping.address_2 || "",
+            company: shipping.company || "",
+            city: shipping.city || "",
+            postal_code: shipping.postal_code || "",
+            province: shipping.province || "",
+            country_code: shipping.country_code || "",
+            phone: shipping.phone || "",
+            is_default_shipping: existing.length === 0,
+            is_default_billing: existing.length === 0,
+          }),
+        }
+      )
+      await adminFetch(`/admin/customers/${active.session.targetCustomerId}`, {
+        method: "POST",
+        body: JSON.stringify({
+          metadata: {
+            ...appendStaffAuditLog(current?.metadata, {
+              type: "staff_order_address_create",
+              staffCustomerId: active.session.staffCustomerId,
+              staffEmail: active.session.staffEmail,
+              targetCustomerId: active.session.targetCustomerId,
+              orderId: order.id,
+            }),
+            ...staffAuditFields(active.session, "order_address_create"),
+          },
+        }),
+      })
+
+      const customerCacheTag = await getCacheTag("customers")
+      revalidateTag(customerCacheTag)
+      return
+    }
+
     const headers = { ...(await getAuthHeaders()) }
     if (!("authorization" in headers) || !(headers as any).authorization) {
       return
@@ -773,9 +1001,8 @@ export async function updateRegion(countryCode: string, currentPath: string) {
 
 export async function listCartOptions() {
   const cartId = await getCartId()
-  const headers = {
-    ...(await getAuthHeaders()),
-  }
+  const active = await getCartStaffContext()
+  const headers = await cartHeadersForStaffContext(active)
   const next = {
     ...(await getCacheOptions("shippingOptions")),
   }

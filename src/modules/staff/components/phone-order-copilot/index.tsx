@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react"
 import type { HttpTypes } from "@medusajs/types"
+import { useRouter } from "next/navigation"
 import Button from "@modules/common/components/button"
 import { CardElement, Elements, useElements, useStripe } from "@stripe/react-stripe-js"
 import { loadStripe } from "@stripe/stripe-js"
@@ -192,6 +193,7 @@ export default function PhoneOrderCopilot({
   staffCustomer,
   initialImpersonation,
 }: Props) {
+  const router = useRouter()
   const [customerQuery, setCustomerQuery] = useState("")
   const [customerResults, setCustomerResults] = useState<StaffCustomerSummary[]>([])
   const [selectedContext, setSelectedContext] = useState<StaffCustomerContext | null>(null)
@@ -351,6 +353,7 @@ export default function PhoneOrderCopilot({
       }
       setImpersonation(result.session)
       setStatus(`Now acting as ${result.session.targetName}.`)
+      router.refresh()
     })
   }
 
@@ -359,6 +362,7 @@ export default function PhoneOrderCopilot({
       await stopStaffImpersonation()
       setImpersonation(null)
       setStatus("Exited customer context.")
+      router.refresh()
     })
   }
 
@@ -476,7 +480,7 @@ export default function PhoneOrderCopilot({
                 Acting as {impersonation.targetName}
               </p>
               <p className="text-sm font-maison-neue text-Charcoal/60">
-                Customer actions in this staff workspace are audited to {impersonation.staffName}.
+                Storefront, account, cart, and phone-order actions are audited to {impersonation.staffName}.
               </p>
             </div>
             <Button

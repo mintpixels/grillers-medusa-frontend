@@ -1,12 +1,39 @@
 "use server"
 
 import { sdk } from "@lib/config"
+import { getActiveStaffImpersonation } from "@lib/data/customer"
+import { adminFetch } from "@lib/data/staff/admin"
 import medusaError from "@lib/util/medusa-error"
 import { getAuthHeaders, getCacheOptions } from "./cookies"
 import { HttpTypes } from "@medusajs/types"
 import { getRegion } from "./regions"
 
 export const retrieveOrder = async (id: string) => {
+  const active = await getActiveStaffImpersonation()
+  if (active) {
+    const { order } = await adminFetch<{ order: HttpTypes.StoreOrder }>(
+      `/admin/orders/${id}`,
+      {
+        query: {
+          fields:
+            "*payment_collections.payments,*items,*items.metadata,*items.variant,*items.product,+metadata,*shipping_address,*billing_address",
+        },
+      }
+    )
+
+    const metadata = (order?.metadata || {}) as Record<string, unknown>
+    if (
+      order?.customer_id !== active.session.targetCustomerId &&
+      metadata.staff_target_customer_id !== active.session.targetCustomerId &&
+      metadata.staff_selected_customer_id !== active.session.targetCustomerId &&
+      order?.email !== active.session.targetEmail
+    ) {
+      throw new Error("Order does not belong to the impersonated customer.")
+    }
+
+    return order
+  }
+
   const headers = {
     ...(await getAuthHeaders()),
   }
@@ -35,6 +62,24 @@ export const listOrders = async (
   offset: number = 0,
   filters?: Record<string, any>
 ) => {
+  const active = await getActiveStaffImpersonation()
+  if (active) {
+    const { orders } = await adminFetch<{ orders: HttpTypes.StoreOrder[] }>(
+      "/admin/orders",
+      {
+        query: {
+          limit,
+          offset,
+          order: "-created_at",
+          customer_id: active.session.targetCustomerId,
+          fields: "*items,+items.metadata,*items.variant,*items.product,+metadata",
+          ...filters,
+        },
+      }
+    )
+    return orders || []
+  }
+
   const headers = {
     ...(await getAuthHeaders()),
   }

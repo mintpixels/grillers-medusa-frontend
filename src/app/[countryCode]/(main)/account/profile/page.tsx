@@ -7,6 +7,7 @@ import ProfilePassword from "@modules/account/components/profile-password"
 import ProfileBillingAddress from "@modules/account/components/profile-billing-address"
 import { notFound } from "next/navigation"
 import { retrieveCustomer } from "@lib/data/customer"
+import { getStaffImpersonationSession } from "@lib/data/staff/impersonation"
 import { listRegions } from "@lib/data/regions"
 import { Metadata } from "next"
 
@@ -17,6 +18,9 @@ export const metadata: Metadata = {
 
 export default async function Profile() {
   const customer = await retrieveCustomer()
+  const staffImpersonation = await getStaffImpersonationSession().catch(
+    () => null
+  )
   const regions = await listRegions()
 
   if (!customer || !regions) {
@@ -42,9 +46,11 @@ export default async function Profile() {
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           <ProfilePhone customer={customer} />
         </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <ProfilePassword customer={customer} />
-        </div>
+        {!staffImpersonation && (
+          <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <ProfilePassword customer={customer} />
+          </div>
+        )}
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           <ProfileBillingAddress customer={customer} regions={regions} />
         </div>

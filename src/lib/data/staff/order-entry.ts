@@ -3,7 +3,7 @@
 import "server-only"
 
 import { sdk } from "@lib/config"
-import { retrieveCustomer } from "@lib/data/customer"
+import { retrieveAuthenticatedCustomer } from "@lib/data/customer"
 import { getRegion } from "@lib/data/regions"
 import { sendEmail } from "@lib/postmark"
 import { staffDisplayName, isStaffCustomer } from "@lib/util/staff-access"
@@ -230,7 +230,7 @@ async function storeFetch<T>(
 }
 
 async function requireStaff() {
-  const customer = await retrieveCustomer()
+  const customer = await retrieveAuthenticatedCustomer()
   if (!customer) {
     throw new Error("Sign in with a staff account to use phone order entry.")
   }
@@ -893,6 +893,7 @@ export async function prepareStaffPhoneOrder(
       {
         region_id: region.id,
         email,
+        customer_id: input.customer.id || undefined,
         shipping_address: toStoreAddress(input.shippingAddress),
         billing_address: toStoreAddress(billingAddress),
         metadata,

@@ -6,12 +6,14 @@ import type { StaffImpersonationSession } from "@lib/data/staff/impersonation"
 
 interface AccountLayoutProps {
   customer: HttpTypes.StoreCustomer | null
+  staffCustomer?: HttpTypes.StoreCustomer | null
   staffImpersonation?: StaffImpersonationSession | null
   children: React.ReactNode
 }
 
 const AccountLayout: React.FC<AccountLayoutProps> = ({
   customer,
+  staffCustomer,
   staffImpersonation,
   children,
 }) => {
@@ -24,8 +26,8 @@ const AccountLayout: React.FC<AccountLayoutProps> = ({
               Staff account context active: acting as {staffImpersonation.targetName}
             </p>
             <p className="mt-1 text-sm font-maison-neue text-Charcoal/60">
-              Use Staff Orders for audited customer changes and phone orders.
-              Staff actor: {staffImpersonation.staffName}.
+              Storefront, account, cart, and phone-order actions are being audited
+              to staff actor {staffImpersonation.staffName}.
             </p>
           </div>
         )}
@@ -33,7 +35,11 @@ const AccountLayout: React.FC<AccountLayoutProps> = ({
         {customer && (
           <div className="flex flex-col small:flex-row gap-8">
             <aside className="small:w-[260px] shrink-0 small:sticky small:top-24 small:self-start">
-              <AccountNav customer={customer} />
+              <AccountNav
+                customer={customer}
+                staffCustomer={staffCustomer}
+                staffImpersonation={staffImpersonation}
+              />
             </aside>
             <main className="flex-1 min-w-0">{children}</main>
           </div>

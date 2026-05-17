@@ -1,5 +1,8 @@
 import { Metadata } from "next"
-import { retrieveCustomer } from "@lib/data/customer"
+import {
+  retrieveAuthenticatedCustomer,
+  retrieveCustomer,
+} from "@lib/data/customer"
 import { getStaffImpersonationSession } from "@lib/data/staff/impersonation"
 import { Toaster } from "@medusajs/ui"
 import AccountLayout from "@modules/account/templates/account-layout"
@@ -30,12 +33,17 @@ export default async function AccountPageLayout({
   children: React.ReactNode
 }) {
   const customer = await retrieveCustomer().catch(() => null)
+  const staffCustomer = await retrieveAuthenticatedCustomer().catch(() => null)
   const staffImpersonation = await getStaffImpersonationSession().catch(
     () => null
   )
 
   return (
-    <AccountLayout customer={customer} staffImpersonation={staffImpersonation}>
+    <AccountLayout
+      customer={customer}
+      staffCustomer={staffCustomer}
+      staffImpersonation={staffImpersonation}
+    >
       {children}
       <Toaster />
     </AccountLayout>

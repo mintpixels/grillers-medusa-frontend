@@ -6,6 +6,7 @@ import LocalizedClientLink from "@modules/common/components/localized-client-lin
 import { HttpTypes } from "@medusajs/types"
 import { signout } from "@lib/data/customer"
 import { isStaffCustomer } from "@lib/util/staff-access"
+import type { StaffImpersonationSession } from "@lib/data/staff/impersonation"
 
 const navItems = [
   {
@@ -83,12 +84,17 @@ const navItems = [
 
 const AccountNav = ({
   customer,
+  staffCustomer,
+  staffImpersonation,
 }: {
   customer: HttpTypes.StoreCustomer | null
+  staffCustomer?: HttpTypes.StoreCustomer | null
+  staffImpersonation?: StaffImpersonationSession | null
 }) => {
   const route = usePathname()
   const { countryCode } = useParams() as { countryCode: string }
-  const items = isStaffCustomer(customer)
+  const canUseStaffTools = isStaffCustomer(staffCustomer || customer) || !!staffImpersonation
+  const items = canUseStaffTools
     ? [
         ...navItems,
         {

@@ -2,6 +2,7 @@ import { Metadata } from "next"
 
 import { listCartOptions, retrieveCart } from "@lib/data/cart"
 import { retrieveCustomer } from "@lib/data/customer"
+import { getStaffImpersonationSession } from "@lib/data/staff/impersonation"
 import { getBaseURL } from "@lib/util/env"
 import { StoreCartShippingOption } from "@medusajs/types"
 import { Toaster } from "@medusajs/ui"
@@ -31,6 +32,9 @@ export default async function PageLayout(props: { children: React.ReactNode }) {
       "main layout cart"
     ),
   ])
+  const staffImpersonation = await getStaffImpersonationSession().catch(
+    () => null
+  )
   let shippingOptions: StoreCartShippingOption[] = []
 
   if (cart) {
@@ -47,6 +51,14 @@ export default async function PageLayout(props: { children: React.ReactNode }) {
   return (
     <CartProvider>
       <Nav customer={customer} />
+      {staffImpersonation && (
+        <div className="border-b border-Gold/30 bg-Gold/10 px-4 py-2 text-center text-xs font-maison-neue text-Charcoal">
+          <span className="font-semibold">
+            Staff context active: acting as {staffImpersonation.targetName}.
+          </span>{" "}
+          Actions are audited to {staffImpersonation.staffName}.
+        </div>
+      )}
       {cart && (
         <FreeShippingPriceNudge
           variant="popup"

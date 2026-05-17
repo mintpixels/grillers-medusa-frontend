@@ -1,4 +1,4 @@
-import { retrieveCustomer } from "@lib/data/customer"
+import { retrieveAuthenticatedCustomer } from "@lib/data/customer"
 import { getStaffImpersonationSession } from "@lib/data/staff/impersonation"
 import { isStaffCustomer } from "@lib/util/staff-access"
 import PhoneOrderCopilot from "@modules/staff/components/phone-order-copilot"
@@ -18,7 +18,7 @@ export default async function StaffPhoneOrdersPage({
   params: Promise<{ countryCode: string }>
 }) {
   const { countryCode } = await params
-  const customer = await retrieveCustomer()
+  const customer = await retrieveAuthenticatedCustomer()
 
   if (!customer) {
     redirect(`/${countryCode}/account`)

@@ -4,9 +4,21 @@ import { sdk } from "@lib/config"
 import medusaError from "@lib/util/medusa-error"
 import { isSameAddressKey } from "@lib/util/compare-addresses"
 import { isValidUSPhone, stripPhone } from "@lib/util/format-phone"
+import { isStaffCustomer } from "@lib/util/staff-access"
 import { HttpTypes } from "@medusajs/types"
 import { revalidateTag } from "next/cache"
 import { redirect } from "next/navigation"
+import {
+  adminFetch,
+  appendStaffAuditLog,
+  retrieveAdminCustomer,
+  staffAuditFields,
+} from "./staff/admin"
+import {
+  clearStaffImpersonationCookie,
+  readStaffImpersonationCookie,
+  type StaffImpersonationSession,
+} from "./staff/session-cookie"
 import {
   getAuthHeaders,
   getCacheOptions,
@@ -238,7 +250,7 @@ export async function checkEmailExists(email: string): Promise<boolean> {
   }
 }
 
-export const retrieveCustomer =
+export const retrieveAuthenticatedCustomer =
   async (): Promise<HttpTypes.StoreCustomer | null> => {
     const authHeaders = await getAuthHeaders()
 
@@ -270,7 +282,66 @@ export const retrieveCustomer =
       .catch(() => null)
   }
 
+export async function getActiveStaffImpersonation(): Promise<{
+  session: StaffImpersonationSession
+  staff: HttpTypes.StoreCustomer
+} | null> {
+  const session = await readStaffImpersonationCookie()
+  if (!session) return null
+
+  const staff = await retrieveAuthenticatedCustomer()
+  if (!staff || !isStaffCustomer(staff) || staff.id !== session.staffCustomerId) {
+    return null
+  }
+
+  return { session, staff }
+}
+
+export const retrieveCustomer =
+  async (): Promise<HttpTypes.StoreCustomer | null> => {
+    const active = await getActiveStaffImpersonation()
+    if (active) {
+      const target = await retrieveAdminCustomer(active.session.targetCustomerId)
+      if (!target) return null
+      return target as HttpTypes.StoreCustomer
+    }
+
+    return retrieveAuthenticatedCustomer()
+  }
+
 export const updateCustomer = async (body: HttpTypes.StoreUpdateCustomer) => {
+  const active = await getActiveStaffImpersonation()
+  if (active) {
+    const current = await retrieveAdminCustomer(active.session.targetCustomerId)
+    if (!current) throw new Error("Could not load impersonated customer.")
+
+    const metadata = appendStaffAuditLog(current.metadata, {
+      type: "staff_customer_profile_update",
+      staffCustomerId: active.session.staffCustomerId,
+      staffEmail: active.session.staffEmail,
+      targetCustomerId: active.session.targetCustomerId,
+      fields: Object.keys(body),
+    })
+
+    const { customer } = await adminFetch<{ customer: HttpTypes.StoreCustomer }>(
+      `/admin/customers/${active.session.targetCustomerId}`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          ...body,
+          metadata: {
+            ...metadata,
+            ...staffAuditFields(active.session, "customer_profile_update"),
+          },
+        }),
+      }
+    )
+
+    const cacheTag = await getCacheTag("customers")
+    revalidateTag(cacheTag)
+    return customer
+  }
+
   const headers = {
     ...(await getAuthHeaders()),
   }
@@ -366,6 +437,7 @@ export async function login(_currentState: unknown, formData: FormData) {
 export async function signout(countryCode: string, redirectTo?: string) {
   await sdk.auth.logout()
 
+  await clearStaffImpersonationCookie()
   await removeAuthToken()
 
   const customerCacheTag = await getCacheTag("customers")
@@ -386,6 +458,7 @@ export async function signout(countryCode: string, redirectTo?: string) {
  */
 export async function signoutKeepCart() {
   await sdk.auth.logout()
+  await clearStaffImpersonationCookie()
   await removeAuthToken()
 
   const customerCacheTag = await getCacheTag("customers")
@@ -497,6 +570,43 @@ export const addCustomerAddress = async (
     is_default_shipping: isDefaultShipping,
   }
 
+  const active = await getActiveStaffImpersonation()
+  if (active) {
+    try {
+      const current = await retrieveAdminCustomer(active.session.targetCustomerId)
+      if (!current) throw new Error("Could not load impersonated customer.")
+
+      await adminFetch(
+        `/admin/customers/${active.session.targetCustomerId}/addresses`,
+        {
+          method: "POST",
+          body: JSON.stringify(address),
+        }
+      )
+
+      await adminFetch(`/admin/customers/${active.session.targetCustomerId}`, {
+        method: "POST",
+        body: JSON.stringify({
+          metadata: {
+            ...appendStaffAuditLog(current.metadata, {
+              type: "staff_customer_address_create",
+              staffCustomerId: active.session.staffCustomerId,
+              staffEmail: active.session.staffEmail,
+              targetCustomerId: active.session.targetCustomerId,
+            }),
+            ...staffAuditFields(active.session, "customer_address_create"),
+          },
+        }),
+      })
+
+      const customerCacheTag = await getCacheTag("customers")
+      revalidateTag(customerCacheTag)
+      return { success: true, error: null }
+    } catch (err: any) {
+      return { success: false, error: err?.message || err.toString() }
+    }
+  }
+
   const headers = {
     ...(await getAuthHeaders()),
   }
@@ -548,6 +658,68 @@ export async function saveAddressToProfileAndCart(input: {
   }
 
   try {
+    const active = await getActiveStaffImpersonation()
+    if (active) {
+      const current = await retrieveAdminCustomer(active.session.targetCustomerId)
+      if (!current) throw new Error("Could not load impersonated customer.")
+
+      const alreadyOnFile = (current.addresses || []).some(
+        (a: any) =>
+          (a.address_1 || "").trim().toLowerCase() ===
+            input.address_1.trim().toLowerCase() &&
+          (a.postal_code || "").trim() === input.postal_code.trim()
+      )
+      const customerHadNoAddresses = (current.addresses || []).length === 0
+
+      if (!alreadyOnFile) {
+        await adminFetch(
+          `/admin/customers/${active.session.targetCustomerId}/addresses`,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              ...addressPayload,
+              is_default_shipping: customerHadNoAddresses,
+              is_default_billing: customerHadNoAddresses,
+            }),
+          }
+        )
+
+        await adminFetch(`/admin/customers/${active.session.targetCustomerId}`, {
+          method: "POST",
+          body: JSON.stringify({
+            metadata: {
+              ...appendStaffAuditLog(current.metadata, {
+                type: "staff_checkout_address_create",
+                staffCustomerId: active.session.staffCustomerId,
+                staffEmail: active.session.staffEmail,
+                targetCustomerId: active.session.targetCustomerId,
+              }),
+              ...staffAuditFields(active.session, "checkout_address_create"),
+            },
+          }),
+        })
+        revalidateTag(await getCacheTag("customers"))
+      }
+
+      const cartId = await getCartId()
+      if (cartId) {
+        await sdk.store.cart.update(
+          cartId,
+          {
+            shipping_address: addressPayload,
+            billing_address: addressPayload,
+            metadata: staffAuditFields(active.session, "checkout_address_saved"),
+          },
+          {},
+          {}
+        )
+        revalidateTag(await getCacheTag("carts"))
+        revalidateTag(await getCacheTag("fulfillment"))
+      }
+
+      return { success: true, error: null }
+    }
+
     const me = await retrieveCustomer()
     const alreadyOnFile = (me?.addresses || []).some(
       (a) =>
@@ -598,6 +770,33 @@ export async function saveAddressToProfileAndCart(input: {
 export const deleteCustomerAddress = async (
   addressId: string
 ): Promise<void> => {
+  const active = await getActiveStaffImpersonation()
+  if (active) {
+    const current = await retrieveAdminCustomer(active.session.targetCustomerId)
+    await adminFetch(
+      `/admin/customers/${active.session.targetCustomerId}/addresses/${addressId}`,
+      { method: "DELETE" }
+    )
+    await adminFetch(`/admin/customers/${active.session.targetCustomerId}`, {
+      method: "POST",
+      body: JSON.stringify({
+        metadata: {
+          ...appendStaffAuditLog(current?.metadata, {
+            type: "staff_customer_address_delete",
+            staffCustomerId: active.session.staffCustomerId,
+            staffEmail: active.session.staffEmail,
+            targetCustomerId: active.session.targetCustomerId,
+            addressId,
+          }),
+          ...staffAuditFields(active.session, "customer_address_delete"),
+        },
+      }),
+    })
+    const customerCacheTag = await getCacheTag("customers")
+    revalidateTag(customerCacheTag)
+    return
+  }
+
   const headers = {
     ...(await getAuthHeaders()),
   }
@@ -655,6 +854,44 @@ export const updateCustomerAddress = async (
   }
   if (formData.has("is_default_billing")) {
     address.is_default_billing = true
+  }
+
+  const active = await getActiveStaffImpersonation()
+  if (active) {
+    try {
+      const current = await retrieveAdminCustomer(active.session.targetCustomerId)
+      if (!current) throw new Error("Could not load impersonated customer.")
+
+      await adminFetch(
+        `/admin/customers/${active.session.targetCustomerId}/addresses/${addressId}`,
+        {
+          method: "POST",
+          body: JSON.stringify(address),
+        }
+      )
+
+      await adminFetch(`/admin/customers/${active.session.targetCustomerId}`, {
+        method: "POST",
+        body: JSON.stringify({
+          metadata: {
+            ...appendStaffAuditLog(current.metadata, {
+              type: "staff_customer_address_update",
+              staffCustomerId: active.session.staffCustomerId,
+              staffEmail: active.session.staffEmail,
+              targetCustomerId: active.session.targetCustomerId,
+              addressId,
+            }),
+            ...staffAuditFields(active.session, "customer_address_update"),
+          },
+        }),
+      })
+
+      const customerCacheTag = await getCacheTag("customers")
+      revalidateTag(customerCacheTag)
+      return { success: true, error: null }
+    } catch (err: any) {
+      return { success: false, error: err?.message || err.toString() }
+    }
   }
 
   const headers = {
