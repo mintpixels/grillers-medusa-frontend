@@ -9,6 +9,74 @@ import LocalizedClientLink from "@modules/common/components/localized-client-lin
 type SortOption = "recent" | "frequent" | "az" | "price"
 type DateFilter = "all" | "30" | "60" | "90"
 
+function historyKey(item: PurchaseHistoryItem) {
+  return (
+    item.productId ||
+    item.variantId ||
+    item.legacyItemId ||
+    item.sku ||
+    item.key ||
+    `${item.title}-${item.lastOrderedAt}`
+  )
+}
+
+function itemTitle(
+  item: PurchaseHistoryItem,
+  strapiProduct?: StrapiCollectionProduct
+) {
+  return strapiProduct?.Title || item.productTitle || item.title || "Past purchase"
+}
+
+function LegacyHistoryCard({ item }: { item: PurchaseHistoryItem }) {
+  const title = item.productTitle || item.title || "Past purchase"
+  const lastOrdered = item.lastOrderedAt
+    ? new Date(item.lastOrderedAt).toLocaleDateString()
+    : "Unknown"
+
+  return (
+    <div className="flex min-h-[260px] flex-col rounded-lg border border-gray-200 bg-white p-5">
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-maison-neue-mono uppercase text-Charcoal/45">
+            Historical item
+          </p>
+          <h3 className="mt-2 text-xl font-gyst font-bold leading-tight text-Charcoal">
+            {title}
+          </h3>
+        </div>
+        <span className="shrink-0 rounded-full bg-SilverPlate px-3 py-1 text-xs font-maison-neue text-Charcoal/70">
+          {item.mappingStatus === "mapped" ? "Unavailable" : "Unmapped"}
+        </span>
+      </div>
+
+      <dl className="mt-auto grid grid-cols-2 gap-x-4 gap-y-3 text-sm font-maison-neue">
+        {item.sku && (
+          <div>
+            <dt className="text-Charcoal/45">SKU</dt>
+            <dd className="text-Charcoal">{item.sku}</dd>
+          </div>
+        )}
+        <div>
+          <dt className="text-Charcoal/45">Last ordered</dt>
+          <dd className="text-Charcoal">{lastOrdered}</dd>
+        </div>
+        <div>
+          <dt className="text-Charcoal/45">Orders</dt>
+          <dd className="text-Charcoal">{item.orderCount || item.timesOrdered}</dd>
+        </div>
+        <div>
+          <dt className="text-Charcoal/45">Quantity</dt>
+          <dd className="text-Charcoal">{item.totalQuantity}</dd>
+        </div>
+      </dl>
+
+      <p className="mt-5 border-t border-gray-100 pt-4 text-sm font-maison-neue text-Charcoal/55">
+        This purchase is in your order history but is not currently available for online reorder.
+      </p>
+    </div>
+  )
+}
+
 export default function ReorderBrowser({
   history,
   strapiMap,
@@ -27,9 +95,10 @@ export default function ReorderBrowser({
     let items: Array<PurchaseHistoryItem & { strapiProduct?: StrapiCollectionProduct }> = []
 
     for (const h of history) {
-      if (seen.has(h.productId)) continue
-      seen.add(h.productId)
-      items.push({ ...h, strapiProduct: strapiMap[h.productId] })
+      const key = historyKey(h)
+      if (seen.has(key)) continue
+      seen.add(key)
+      items.push({ ...h, strapiProduct: h.productId ? strapiMap[h.productId] : undefined })
     }
 
     if (dateFilter !== "all") {
@@ -42,8 +111,13 @@ export default function ReorderBrowser({
     if (search.trim()) {
       const q = search.toLowerCase()
       items = items.filter((i) => {
-        const title = i.strapiProduct?.Title || i.productTitle
-        return title.toLowerCase().includes(q) || i.title.toLowerCase().includes(q)
+        const title = itemTitle(i, i.strapiProduct)
+        return (
+          title.toLowerCase().includes(q) ||
+          i.title.toLowerCase().includes(q) ||
+          (i.sku || "").toLowerCase().includes(q) ||
+          (i.lastOrderRef || "").toLowerCase().includes(q)
+        )
       })
     }
 
@@ -56,8 +130,8 @@ export default function ReorderBrowser({
         break
       case "az":
         items.sort((a, b) => {
-          const aTitle = a.strapiProduct?.Title || a.productTitle
-          const bTitle = b.strapiProduct?.Title || b.productTitle
+          const aTitle = itemTitle(a, a.strapiProduct)
+          const bTitle = itemTitle(b, b.strapiProduct)
           return aTitle.localeCompare(bTitle)
         })
         break
@@ -135,25 +209,24 @@ export default function ReorderBrowser({
         </div>
 
         <p className="mt-3 text-xs font-maison-neue text-Charcoal/40">
-          {filtered.length} product{filtered.length !== 1 ? "s" : ""} found
+          {filtered.length} item{filtered.length !== 1 ? "s" : ""} found
         </p>
       </div>
 
-      {/* Product Grid - uses same ProductCard as collection pages */}
       {filtered.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-8">
           {filtered.map((item) => {
             if (item.strapiProduct) {
               return (
                 <ProductCard
-                  key={item.productId}
+                  key={historyKey(item)}
                   product={item.strapiProduct}
                   countryCode={countryCode}
                 />
               )
             }
 
-            return null
+            return <LegacyHistoryCard key={historyKey(item)} item={item} />
           })}
         </div>
       ) : (
