@@ -105,6 +105,21 @@ const FOOTER_ASSURANCE_LINKS = [
   },
 ]
 
+const normalizeFooterUrl = (url?: string) => url?.replace(/\/+$/, "") || ""
+
+const DEFAULT_LEARNING_LINKS = [
+  {
+    id: "default-learning-hub",
+    Text: "Learning Hub",
+    Url: "/learn",
+  },
+  {
+    id: "default-recipe-hub",
+    Text: "Recipe Hub",
+    Url: "/recipes",
+  },
+]
+
 // Social media icons with built-in SVGs for common platforms
 const SocialIcon = ({ platform }: { platform: string }) => {
   const iconClass = "w-5 h-5 fill-current"
@@ -172,23 +187,53 @@ export default async function Footer() {
     `© ${new Date().getFullYear()} Grillers Pride. All rights reserved.`
 
   const navigationColumns = (() => {
-    const columns = footer?.NavigationColumns ?? []
-    const hasLearnLink = columns.some((column) =>
-      column.Links?.some((link) => link.Url?.replace(/\/+$/, "") === "/learn")
+    const sourceColumns = footer?.NavigationColumns ?? []
+    const existingLinks = sourceColumns.flatMap((column) => column.Links ?? [])
+    const learningLinks = DEFAULT_LEARNING_LINKS.map((defaultLink) => {
+      const existing = existingLinks.find(
+        (link) => normalizeFooterUrl(link.Url) === defaultLink.Url
+      )
+      return existing ?? defaultLink
+    })
+
+    const columns = sourceColumns.map((column) => ({
+      ...column,
+      Links: (column.Links ?? []).filter(
+        (link) => normalizeFooterUrl(link.Url) !== "/recipes"
+      ),
+    }))
+
+    const learningColumnIndex = columns.findIndex(
+      (column) =>
+        column.Title?.toLowerCase().includes("learn") ||
+        column.Links?.some((link) => normalizeFooterUrl(link.Url) === "/learn")
     )
-    if (hasLearnLink) return columns
+
+    if (learningColumnIndex >= 0) {
+      return columns.map((column, index) => {
+        if (index !== learningColumnIndex) return column
+        const presentUrls = new Set(
+          (column.Links ?? []).map((link) => normalizeFooterUrl(link.Url))
+        )
+        return {
+          ...column,
+          Title: column.Title || "Learning",
+          Links: [
+            ...(column.Links ?? []),
+            ...learningLinks.filter(
+              (link) => !presentUrls.has(normalizeFooterUrl(link.Url))
+            ),
+          ],
+        }
+      })
+    }
+
     return [
       ...columns,
       {
         id: "default-learning",
         Title: "Learning",
-        Links: [
-          {
-            id: "default-learning-hub",
-            Text: "Learning Hub",
-            Url: "/learn",
-          },
-        ],
+        Links: learningLinks,
       },
     ]
   })()
