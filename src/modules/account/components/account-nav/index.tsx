@@ -5,6 +5,7 @@ import { useParams, usePathname } from "next/navigation"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import { HttpTypes } from "@medusajs/types"
 import { signout } from "@lib/data/customer"
+import { isStaffCustomer } from "@lib/util/staff-access"
 
 const navItems = [
   {
@@ -87,6 +88,21 @@ const AccountNav = ({
 }) => {
   const route = usePathname()
   const { countryCode } = useParams() as { countryCode: string }
+  const items = isStaffCustomer(customer)
+    ? [
+        ...navItems,
+        {
+          label: "Staff Orders",
+          href: "/account/staff/orders",
+          testId: "staff-orders-link",
+          icon: (
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a8.7 8.7 0 003.75.78 7.5 7.5 0 00-15 0 8.7 8.7 0 003.75-.78m7.5 0a8.96 8.96 0 01-7.5 0m7.5 0V17.25A2.25 2.25 0 0015.75 15h-7.5A2.25 2.25 0 006 17.25v1.47m12 0A8.96 8.96 0 0112 21a8.96 8.96 0 01-6-2.28M15 7.5a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
+            </svg>
+          ),
+        },
+      ]
+    : navItems
 
   const handleLogout = async () => {
     await signout(countryCode)
@@ -103,7 +119,7 @@ const AccountNav = ({
       {/* Mobile: horizontal scrollable tabs */}
       <div className="small:hidden border-b border-gray-200 -mx-4 px-4" data-testid="mobile-account-nav">
         <nav className="flex gap-1 overflow-x-auto pb-px scrollbar-hide">
-          {navItems.map((item) => (
+          {items.map((item) => (
             <LocalizedClientLink
               key={item.href}
               href={item.href}
@@ -153,7 +169,7 @@ const AccountNav = ({
           </div>
 
           <nav className="flex flex-col gap-1">
-            {navItems.map((item) => (
+            {items.map((item) => (
               <LocalizedClientLink
                 key={item.href}
                 href={item.href}

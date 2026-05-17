@@ -2,19 +2,34 @@ import React from "react"
 import AccountNav from "../components/account-nav"
 import { HttpTypes } from "@medusajs/types"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
+import type { StaffImpersonationSession } from "@lib/data/staff/impersonation"
 
 interface AccountLayoutProps {
   customer: HttpTypes.StoreCustomer | null
+  staffImpersonation?: StaffImpersonationSession | null
   children: React.ReactNode
 }
 
 const AccountLayout: React.FC<AccountLayoutProps> = ({
   customer,
+  staffImpersonation,
   children,
 }) => {
   return (
     <div className="bg-gray-50 min-h-[calc(100vh-4rem)]" data-testid="account-page">
       <div className="content-container max-w-7xl mx-auto py-8 small:py-12">
+        {staffImpersonation && (
+          <div className="mb-6 rounded-md border border-Gold/40 bg-Gold/10 px-4 py-3">
+            <p className="text-sm font-maison-neue font-semibold text-Charcoal">
+              Staff account context active: acting as {staffImpersonation.targetName}
+            </p>
+            <p className="mt-1 text-sm font-maison-neue text-Charcoal/60">
+              Use Staff Orders for audited customer changes and phone orders.
+              Staff actor: {staffImpersonation.staffName}.
+            </p>
+          </div>
+        )}
+
         {customer && (
           <div className="flex flex-col small:flex-row gap-8">
             <aside className="small:w-[260px] shrink-0 small:sticky small:top-24 small:self-start">
