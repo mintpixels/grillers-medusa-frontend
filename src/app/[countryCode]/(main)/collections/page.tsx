@@ -3,7 +3,7 @@ import { Metadata } from "next"
 import { getBaseURL } from "@lib/util/env"
 import { generateAlternates } from "@lib/util/seo"
 import {
-  getCuratedCollectionsForHub,
+  getCuratedCollectionCards,
   type CuratedCollection,
 } from "@lib/data/strapi/curated-collections"
 import CollectionsHub from "@modules/collections/templates/collections-hub"
@@ -57,7 +57,8 @@ function dedupeCollections(collections: CuratedCollection[]) {
 }
 
 async function getCollections() {
-  const collections = await getCuratedCollectionsForHub({
+  const collections = await getCuratedCollectionCards({
+    customerState: "any",
     limit: 60,
   })
 
@@ -97,4 +98,4 @@ export default async function CollectionsPage({ params }: PageProps) {
   )
 }
 
-export const dynamic = "force-dynamic"
+export const revalidate = 300

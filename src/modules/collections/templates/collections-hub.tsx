@@ -1,17 +1,6 @@
-import Image from "next/image"
-
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
-import AddBundleButton from "@modules/products/components/pairs-well-with/add-bundle-button"
-import CuratedCollectionItems from "@modules/collections/components/curated-collection-items"
-import {
-  getCollectionProducts,
-  type CuratedCollection,
-} from "@lib/data/strapi/curated-collections"
-import {
-  collectionEstimatedSubtotals,
-  getCollectionSubstitutionGuardrails,
-  lineCartMetadata,
-} from "@lib/util/collection-substitutions"
+import CollectionHubCard from "@modules/collections/components/collection-hub-card"
+import type { CuratedCollection } from "@lib/data/strapi/curated-collections"
 
 type CollectionsHubProps = {
   collections: CuratedCollection[]
@@ -47,16 +36,6 @@ function sectionId(label: string) {
     .replace(/^-+|-+$/g, "")
 }
 
-function imageForCollection(collection: CuratedCollection) {
-  const products = getCollectionProducts(collection)
-  return (
-    collection.HeroImage?.url ||
-    products.find((item) => item.Product.FeaturedImage?.url)?.Product
-      .FeaturedImage?.url ||
-    null
-  )
-}
-
 function collectionGroups(collections: CuratedCollection[]) {
   const groups = new Map<string, CuratedCollection[]>()
 
@@ -66,141 +45,6 @@ function collectionGroups(collections: CuratedCollection[]) {
   }
 
   return Array.from(groups.entries())
-}
-
-function addItemsForCollection(collection: CuratedCollection) {
-  return getCollectionProducts(collection)
-    .map((collectionItem) => {
-      const variant = collectionItem.Product.MedusaProduct?.Variants?.[0]
-      return {
-        variantId: variant?.VariantId || "",
-        title: collectionItem.Product.Title,
-        quantity: collectionItem.Quantity || 1,
-        metadata: lineCartMetadata(collectionItem),
-      }
-    })
-    .filter((item) => item.variantId)
-}
-
-function CollectionCard({
-  collection,
-  countryCode,
-}: {
-  collection: CuratedCollection
-  countryCode: string
-}) {
-  const products = getCollectionProducts(collection)
-  const { total, eligible, excluded } = collectionEstimatedSubtotals(products)
-  const totalQuantity = products.reduce(
-    (sum, item) => sum + (item.Quantity || 1),
-    0
-  )
-  const imageUrl = imageForCollection(collection)
-  const guardrails = getCollectionSubstitutionGuardrails(products)
-  const disabledReason = guardrails.needsBusinessReview
-    ? "Needs substitution review before purchase."
-    : guardrails.requiresAcknowledgement
-    ? "Review substitution details first."
-    : undefined
-
-  return (
-    <article className="grid min-w-0 overflow-hidden rounded-[5px] border border-Charcoal/10 bg-white lg:grid-cols-[minmax(280px,0.9fr)_minmax(0,1.1fr)]">
-      <LocalizedClientLink
-        href={`/collections/${collection.Slug}`}
-        className="group relative block min-h-[260px] bg-Scroll"
-      >
-        {imageUrl && (
-          <Image
-            src={imageUrl}
-            alt={collection.HeroImageAlt || collection.Name}
-            fill
-            sizes="(min-width: 1024px) 38vw, 100vw"
-            className="object-cover transition-transform duration-500 group-hover:scale-[1.02]"
-          />
-        )}
-      </LocalizedClientLink>
-
-      <div className="flex min-w-0 flex-col p-5 md:p-6">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="font-maison-neue-mono text-[11px] font-bold uppercase tracking-wide text-VibrantRed">
-              {collection.Eyebrow || formatOccasion(collection.Occasion)}
-            </p>
-            <LocalizedClientLink href={`/collections/${collection.Slug}`}>
-              <h2 className="mt-2 font-gyst text-h3-mobile font-bold leading-tight text-Charcoal hover:text-VibrantRed md:text-h3">
-                {collection.Name}
-              </h2>
-            </LocalizedClientLink>
-          </div>
-          <div className="rounded-full bg-Scroll px-3 py-1 text-right font-maison-neue-mono text-[10px] font-bold uppercase leading-tight tracking-wide text-Charcoal/60">
-            {totalQuantity} {totalQuantity === 1 ? "item" : "items"}
-          </div>
-        </div>
-
-        <p className="mt-3 font-maison-neue text-sm leading-relaxed text-Charcoal/70">
-          {collection.ShortDescription}
-        </p>
-
-        <div className="mt-5 grid gap-3 border-y border-Charcoal/10 py-4 sm:grid-cols-3">
-          <div>
-            <p className="font-maison-neue-mono text-[10px] font-bold uppercase tracking-wide text-Charcoal/45">
-              Estimated subtotal
-            </p>
-            <p className="mt-1 font-gyst text-h4 leading-none text-Charcoal">
-              ${total.toFixed(2)}
-            </p>
-          </div>
-          <div>
-            <p className="font-maison-neue-mono text-[10px] font-bold uppercase tracking-wide text-Charcoal/45">
-              Eligible progress
-            </p>
-            <p className="mt-1 font-maison-neue text-sm font-semibold leading-tight text-Charcoal">
-              ${eligible.toFixed(2)}
-            </p>
-          </div>
-          <div>
-            <p className="font-maison-neue-mono text-[10px] font-bold uppercase tracking-wide text-Charcoal/45">
-              Excluded
-            </p>
-            <p className="mt-1 font-maison-neue text-sm font-semibold leading-tight text-Charcoal">
-              {excluded > 0 ? `$${excluded.toFixed(2)}` : "$0.00"}
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-5">
-          <p className="font-maison-neue-mono text-[10px] font-bold uppercase tracking-wide text-Charcoal/45">
-            What is inside
-          </p>
-          <CuratedCollectionItems
-            collection={collection}
-            countryCode={countryCode}
-            className="mt-3"
-            showDescriptions
-          />
-        </div>
-
-        <div className="mt-5 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
-          <AddBundleButton
-            items={addItemsForCollection(collection)}
-            countryCode={countryCode}
-            bundleId={collection.documentId}
-            bundleTitle={collection.Name}
-            bundleSlug={collection.Slug}
-            disabledReason={disabledReason}
-            className="space-y-2"
-            fullWidth
-          />
-          <LocalizedClientLink
-            href={`/collections/${collection.Slug}`}
-            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-[5px] border border-Charcoal px-5 py-3 font-rexton text-xs font-bold uppercase tracking-wide text-Charcoal hover:bg-Charcoal hover:text-white"
-          >
-            View details
-          </LocalizedClientLink>
-        </div>
-      </div>
-    </article>
-  )
 }
 
 export default function CollectionsHub({
@@ -290,10 +134,11 @@ export default function CollectionsHub({
                 </div>
                 <div className="space-y-6">
                   {groupedCollections.map((collection) => (
-                    <CollectionCard
+                    <CollectionHubCard
                       key={collection.documentId || collection.Slug}
                       collection={collection}
                       countryCode={countryCode}
+                      label={label}
                     />
                   ))}
                 </div>

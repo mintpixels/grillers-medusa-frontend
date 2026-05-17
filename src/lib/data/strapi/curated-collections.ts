@@ -542,36 +542,6 @@ const CuratedCollectionCardFields = gql`
     Slug
     Eyebrow
     ShortDescription
-    CustomerStateFilter
-    VisibilityStart
-    VisibilityEnd
-    HeroImage {
-      url
-    }
-    HeroImageAlt
-    Items {
-      Product {
-        documentId
-        Title
-        FeaturedImage {
-          url
-        }
-      }
-    }
-    SortOrder
-    IsFeatured
-    IsActive
-    SurfacePlacements
-  }
-`
-
-const CuratedCollectionHubFields = gql`
-  fragment CuratedCollectionHubFields on CuratedCollection {
-    documentId
-    Name
-    Slug
-    Eyebrow
-    ShortDescription
     CollectionType
     Occasion
     CustomerStateFilter
@@ -581,41 +551,6 @@ const CuratedCollectionHubFields = gql`
       url
     }
     HeroImageAlt
-    Items {
-      id
-      Quantity
-      Required
-      Role
-      Product {
-        documentId
-        Title
-        FeaturedImage {
-          url
-        }
-        Metadata {
-          AvgPackWeight
-          QualifiesForFreeDeliveryOffers
-          FreeDeliveryExclusionReason
-        }
-        MedusaProduct {
-          ProductId
-          Handle
-          ShortDescription
-          Variants {
-            VariantId
-            Sku
-            QualifiesForFreeDeliveryOffers
-            FreeDeliveryExclusionReason
-            Price {
-              CalculatedPriceNumber
-            }
-          }
-        }
-      }
-    }
-    TargetPriceCents
-    TargetMinWeightLb
-    TargetMaxWeightLb
     SortOrder
     IsFeatured
     IsActive
@@ -632,19 +567,6 @@ export const GetCuratedCollectionCardsQuery = gql`
       pagination: { limit: $limit, start: 0 }
     ) {
       ...CuratedCollectionCardFields
-    }
-  }
-`
-
-export const GetCuratedCollectionHubQuery = gql`
-  ${CuratedCollectionHubFields}
-  query GetCuratedCollectionHub($limit: Int = 100) {
-    curatedCollections(
-      filters: { IsActive: { eq: true } }
-      sort: ["SortOrder:asc", "Name:asc"]
-      pagination: { limit: $limit, start: 0 }
-    ) {
-      ...CuratedCollectionHubFields
     }
   }
 `
@@ -783,7 +705,7 @@ export async function getCuratedCollectionCards({
   limit = 50,
 }: {
   surface?: string
-  customerState?: "guest_or_no_orders" | "returning" | "all"
+  customerState?: "guest_or_no_orders" | "returning" | "all" | "any"
   limit?: number
 }): Promise<CuratedCollection[]> {
   try {
@@ -797,26 +719,6 @@ export async function getCuratedCollectionCards({
       .filter((collection) => matchesCustomerState(collection, customerState))
   } catch (error) {
     console.error("Error fetching curated collection cards:", error)
-    return []
-  }
-}
-
-export async function getCuratedCollectionsForHub({
-  limit = 100,
-}: {
-  limit?: number
-} = {}): Promise<CuratedCollection[]> {
-  try {
-    const data = await strapiClient.request<{
-      curatedCollections: CuratedCollection[]
-    }>(GetCuratedCollectionHubQuery, { limit })
-
-    return (data.curatedCollections || [])
-      .filter((collection) => isVisibleNow(collection))
-      .filter((collection) => matchesCustomerState(collection, "any"))
-      .slice(0, limit)
-  } catch (error) {
-    console.error("Error fetching curated collection hub:", error)
     return []
   }
 }
