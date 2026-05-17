@@ -154,10 +154,17 @@ export async function completePasswordReset(
   }
 }
 
+function normalizeLoginIdentifier(value: string) {
+  const trimmed = String(value ?? "").trim()
+  return trimmed.includes("@") ? trimmed.toLowerCase() : trimmed
+}
+
 export async function loginWithCredentials(email: string, password: string) {
+  const loginId = normalizeLoginIdentifier(email)
+
   try {
     const token = await sdk.auth.login("customer", "emailpass", {
-      email,
+      email: loginId,
       password,
     })
     await setAuthToken(token as string)
@@ -166,7 +173,7 @@ export async function loginWithCredentials(email: string, password: string) {
     await transferCart()
     return { success: true, error: null }
   } catch (error: any) {
-    return { success: false, error: "Invalid email or password" }
+    return { success: false, error: "Invalid login or password" }
   }
 }
 
@@ -334,12 +341,12 @@ export async function signup(_currentState: unknown, formData: FormData) {
 }
 
 export async function login(_currentState: unknown, formData: FormData) {
-  const email = formData.get("email") as string
+  const loginId = normalizeLoginIdentifier(formData.get("email") as string)
   const password = formData.get("password") as string
 
   try {
     await sdk.auth
-      .login("customer", "emailpass", { email, password })
+      .login("customer", "emailpass", { email: loginId, password })
       .then(async (token) => {
         await setAuthToken(token as string)
         const customerCacheTag = await getCacheTag("customers")

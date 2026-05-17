@@ -102,7 +102,9 @@ export async function listOrdersWithPrices(
     new Set(
       orders
         .flatMap((order) =>
-          (order.items ?? []).map((item) => item.variant.product_id)
+          (order.items ?? []).map(
+            (item) => item.variant?.product_id || item.product_id
+          )
         )
         .filter((id): id is string => !!id)
     )
@@ -127,11 +129,12 @@ export async function listOrdersWithPrices(
     return {
       ...order,
       items: items.map((item) => {
-        if (!item.variant) {
+        const productId = item.variant?.product_id || item.product_id
+        if (!item.variant || !productId) {
           return item
         }
 
-        const prod = productMap.get(item.variant.product_id)
+        const prod = productMap.get(productId)
         const variant = prod?.variants?.find((v) => v.id === item.variant_id)
 
         return {
@@ -144,7 +147,7 @@ export async function listOrdersWithPrices(
         }
       }),
     }
-  })
+  }) as HttpTypes.StoreOrder[]
 }
 
 export const createTransferRequest = async (
@@ -199,8 +202,12 @@ export const declineTransferRequest = async (id: string, token: string) => {
 }
 
 export type PurchaseHistoryItem = {
+  source?: "medusa" | "legacy" | "medusa+legacy"
+  key?: string
   variantId: string
   productId: string
+  legacyItemId?: string | null
+  sku?: string | null
   title: string
   productTitle: string
   thumbnail: string | null
@@ -209,8 +216,83 @@ export type PurchaseHistoryItem = {
   totalQuantity: number
   unitPrice: number
   currencyCode: string
+  reorderable?: boolean
+  mappingStatus?: string | null
+  lastOrderRef?: string | null
+  orderCount?: number
   product?: any
   variant?: any
+}
+
+type LegacyPurchaseHistoryResponse = {
+  purchase_history?: PurchaseHistoryItem[]
+}
+
+async function listLegacyPurchaseHistory(): Promise<PurchaseHistoryItem[]> {
+  const headers = {
+    ...(await getAuthHeaders()),
+  }
+
+  if (!("authorization" in headers)) {
+    return []
+  }
+
+  return sdk.client
+    .fetch<LegacyPurchaseHistoryResponse>(
+      `/store/legacy-order-history/purchase-history`,
+      {
+        method: "GET",
+        headers,
+        cache: "no-store",
+      }
+    )
+    .then(({ purchase_history }) => purchase_history ?? [])
+    .catch(() => [])
+}
+
+function purchaseHistoryKey(item: PurchaseHistoryItem) {
+  if (item.variantId) return `variant:${item.variantId}`
+  if (item.legacyItemId) return `legacy-item:${item.legacyItemId}`
+  if (item.sku) return `sku:${item.sku.toLowerCase()}`
+  return item.key || `${item.title}:${item.lastOrderedAt}`
+}
+
+function mergePurchaseHistoryItem(
+  map: Map<string, PurchaseHistoryItem>,
+  item: PurchaseHistoryItem
+) {
+  const key = purchaseHistoryKey(item)
+  const existing = map.get(key)
+
+  if (!existing) {
+    map.set(key, item)
+    return
+  }
+
+  existing.timesOrdered += item.timesOrdered
+  existing.totalQuantity += item.totalQuantity
+  existing.orderCount = (existing.orderCount || 0) + (item.orderCount || 0)
+  existing.source =
+    existing.source === item.source ? existing.source : "medusa+legacy"
+
+  if (new Date(item.lastOrderedAt) > new Date(existing.lastOrderedAt)) {
+    existing.lastOrderedAt = item.lastOrderedAt
+    existing.unitPrice = item.unitPrice || existing.unitPrice
+    existing.lastOrderRef = item.lastOrderRef || existing.lastOrderRef
+  }
+
+  existing.productId ||= item.productId
+  existing.variantId ||= item.variantId
+  existing.productTitle ||= item.productTitle
+  existing.title ||= item.title
+  existing.thumbnail ||= item.thumbnail
+  existing.product ||= item.product
+  existing.variant ||= item.variant
+  existing.reorderable = Boolean(existing.reorderable || item.reorderable)
+  existing.mappingStatus =
+    existing.mappingStatus === "mapped" || item.mappingStatus === "mapped"
+      ? "mapped"
+      : existing.mappingStatus || item.mappingStatus
 }
 
 /**
@@ -218,19 +300,23 @@ export type PurchaseHistoryItem = {
  * Returns a list of unique products the customer has ordered, sorted by most recent.
  */
 export async function listPurchaseHistory(): Promise<PurchaseHistoryItem[]> {
-  const orders = await listOrders(100, 0)
-
-  if (!orders?.length) return []
+  const [orders, legacyHistory] = await Promise.all([
+    listOrders(100, 0),
+    listLegacyPurchaseHistory(),
+  ])
 
   const variantMap = new Map<string, PurchaseHistoryItem>()
 
-  for (const order of orders) {
+  for (const order of orders || []) {
     for (const item of order.items || []) {
       const variantId = item.variant_id
       if (!variantId) continue
 
-      const existing = variantMap.get(variantId)
-      const orderDate = order.created_at
+      const existing = variantMap.get(`variant:${variantId}`)
+      const orderDate =
+        typeof order.created_at === "string"
+          ? order.created_at
+          : new Date(order.created_at).toISOString()
 
       if (existing) {
         existing.timesOrdered += 1
@@ -240,7 +326,9 @@ export async function listPurchaseHistory(): Promise<PurchaseHistoryItem[]> {
           existing.unitPrice = item.unit_price || existing.unitPrice
         }
       } else {
-        variantMap.set(variantId, {
+        mergePurchaseHistoryItem(variantMap, {
+          source: "medusa",
+          key: `variant:${variantId}`,
           variantId,
           productId: item.product_id || "",
           title: item.title || "",
@@ -251,11 +339,30 @@ export async function listPurchaseHistory(): Promise<PurchaseHistoryItem[]> {
           totalQuantity: item.quantity,
           unitPrice: item.unit_price || 0,
           currencyCode: order.currency_code || "usd",
+          reorderable: true,
+          mappingStatus: "mapped",
+          orderCount: 1,
           product: item.product,
           variant: item.variant,
         })
       }
     }
+  }
+
+  for (const item of legacyHistory) {
+    mergePurchaseHistoryItem(variantMap, {
+      ...item,
+      source: item.source || "legacy",
+      variantId: item.variantId || "",
+      productId: item.productId || "",
+      title: item.title || item.productTitle || "Legacy item",
+      productTitle: item.productTitle || item.title || "Legacy item",
+      thumbnail: item.thumbnail || null,
+      reorderable: Boolean(item.reorderable && item.variantId),
+      mappingStatus:
+        item.mappingStatus || (item.variantId ? "mapped" : "unmapped"),
+      orderCount: item.orderCount || item.timesOrdered,
+    })
   }
 
   return Array.from(variantMap.values()).sort(
