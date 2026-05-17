@@ -132,7 +132,7 @@ function ShopCollectionCard({
             {card.title}
           </h4>
           {card.description && (
-            <p className="mt-4 line-clamp-2 min-h-[44px] font-maison-neue text-sm leading-relaxed text-Charcoal/65">
+            <p className="mt-4 min-h-[66px] font-maison-neue text-sm leading-relaxed text-Charcoal/65 text-pretty">
               {card.description}
             </p>
           )}
