@@ -11,11 +11,11 @@ type DateFilter = "all" | "30" | "60" | "90"
 
 function historyKey(item: PurchaseHistoryItem) {
   return (
-    item.productId ||
+    item.key ||
     item.variantId ||
+    item.productId ||
     item.legacyItemId ||
     item.sku ||
-    item.key ||
     `${item.title}-${item.lastOrderedAt}`
   )
 }

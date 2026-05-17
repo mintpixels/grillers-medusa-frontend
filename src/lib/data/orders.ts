@@ -296,10 +296,11 @@ async function listLegacyPurchaseHistory(): Promise<PurchaseHistoryItem[]> {
 }
 
 function purchaseHistoryKey(item: PurchaseHistoryItem) {
+  if (item.key) return item.key
   if (item.variantId) return `variant:${item.variantId}`
   if (item.legacyItemId) return `legacy-item:${item.legacyItemId}`
   if (item.sku) return `sku:${item.sku.toLowerCase()}`
-  return item.key || `${item.title}:${item.lastOrderedAt}`
+  return `${item.title}:${item.lastOrderedAt}`
 }
 
 function mergePurchaseHistoryItem(
