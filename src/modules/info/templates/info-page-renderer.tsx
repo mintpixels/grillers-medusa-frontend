@@ -13,7 +13,7 @@ import type { InfoSupplementalData } from "./supplemental-modules"
 import { SupplementalInfoModule } from "./supplemental-modules"
 
 const richProse =
-  "font-maison-neue text-Charcoal/90 [&_h2]:font-gyst [&_h2]:text-Charcoal [&_h2]:mt-10 [&_h2]:mb-4 [&_h2]:text-h3-mobile md:[&_h2]:text-h3 [&_h2]:text-balance [&_h3]:font-gyst [&_h3]:text-Charcoal [&_h3]:mt-7 [&_h3]:mb-3 [&_h3]:text-balance [&_a]:text-RichGold [&_a:hover]:text-RichGold/80 [&_strong]:text-Charcoal [&_blockquote]:border-l-4 [&_blockquote]:border-RichGold/40 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-Charcoal/70 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_li]:my-2 [&_p]:my-5 [&_p]:leading-[1.68] [&_p]:text-pretty"
+  "font-maison-neue text-Charcoal/90 [&_h2]:font-gyst [&_h2]:text-Charcoal [&_h2]:mt-8 [&_h2]:mb-3 [&_h2]:text-h3-mobile md:[&_h2]:text-h3 [&_h2]:text-balance [&_h3]:font-gyst [&_h3]:text-Charcoal [&_h3]:mt-6 [&_h3]:mb-2.5 [&_h3]:text-balance [&_a]:text-RichGold [&_a:hover]:text-RichGold/80 [&_strong]:text-Charcoal [&_blockquote]:border-l-4 [&_blockquote]:border-RichGold/40 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-Charcoal/70 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_li]:my-1.5 [&_p]:my-4 [&_p]:leading-[1.62] [&_p]:text-pretty"
 
 type RichTextChild = {
   type?: string
@@ -706,7 +706,7 @@ function HeroBlock({ hero }: { hero: InfoHero }) {
 
   return (
     <section className="bg-Charcoal text-Scroll border-b border-Scroll/15">
-      <div className="mx-auto max-w-7xl px-6 py-10 md:py-14">
+      <div className="mx-auto max-w-7xl px-6 py-9 md:py-12">
         <div
           className={`grid gap-8 lg:gap-12 ${
             hasImage
@@ -806,7 +806,7 @@ function SectionBlock({
     return (
       <section
         id={anchorId}
-        className="scroll-mt-32 border-t border-Charcoal/20 py-8 md:py-10"
+        className="scroll-mt-32 border-t border-Charcoal/20 py-6 md:py-8"
       >
         <div
           className={`grid gap-8 md:grid-cols-[minmax(0,0.88fr)_minmax(300px,0.72fr)] md:items-start ${
@@ -815,7 +815,7 @@ function SectionBlock({
         >
           <div>
             {block.SectionTitle && (
-              <h2 className="mb-5 font-gyst text-h3-mobile text-Charcoal text-balance md:text-h3">
+              <h2 className="mb-4 font-gyst text-h3-mobile text-Charcoal text-balance md:text-h3">
                 {block.SectionTitle}
               </h2>
             )}
@@ -837,11 +837,11 @@ function SectionBlock({
   return (
     <section
       id={anchorId}
-      className="scroll-mt-32 border-t border-Charcoal/20 py-8 md:py-10"
+      className="scroll-mt-32 border-t border-Charcoal/20 py-6 md:py-8"
     >
       <div>
         {block.SectionTitle && (
-          <h2 className="mb-5 font-gyst text-h3-mobile text-Charcoal text-balance md:text-h3">
+          <h2 className="mb-4 font-gyst text-h3-mobile text-Charcoal text-balance md:text-h3">
             {block.SectionTitle}
           </h2>
         )}
@@ -875,11 +875,11 @@ function FeatureGridBlock({
   return (
     <section
       id={anchorId}
-      className="scroll-mt-32 border-t border-Charcoal/20 py-8 md:py-10"
+      className="scroll-mt-32 border-t border-Charcoal/20 py-6 md:py-8"
     >
       <div>
         {(block.Heading || block.Intro) && (
-          <div className="mb-8 max-w-3xl">
+          <div className="mb-6 max-w-3xl">
             {block.Heading && (
               <h2 className="mb-4 font-gyst text-h3-mobile text-Charcoal text-balance md:text-h3">
                 {block.Heading}
@@ -969,7 +969,7 @@ function RichTextBlock({
   return (
     <section
       id={anchorId}
-      className="scroll-mt-32 border-t border-Charcoal/20 py-8 md:py-10"
+      className="scroll-mt-32 border-t border-Charcoal/20 py-6 md:py-8"
     >
       <div
         className={`${richProse}`}
@@ -1005,7 +1005,7 @@ function TableBlockComponent({
   return (
     <section
       id={anchorId}
-      className="scroll-mt-32 border-t border-Charcoal/20 py-8 md:py-10"
+      className="scroll-mt-32 border-t border-Charcoal/20 py-6 md:py-8"
     >
       {(block.Heading || block.Intro) && (
         <div className="mb-6 max-w-3xl">
@@ -1105,7 +1105,7 @@ function ComparisonTableBlock({
   return (
     <section
       id={anchorId}
-      className="scroll-mt-32 border-t border-Charcoal/20 py-8 md:py-10"
+      className="scroll-mt-32 border-t border-Charcoal/20 py-6 md:py-8"
     >
       {(block.Heading || block.Intro) && (
         <div className="mb-6 max-w-3xl">
@@ -1225,7 +1225,7 @@ export function StructuredInfoBody({
     .filter(Boolean) as { label: string; id: string }[]
 
   return (
-    <div className="mx-auto grid max-w-7xl grid-cols-1 gap-10 px-6 pb-16 pt-8 md:pb-24 lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-16">
+    <div className="mx-auto grid max-w-7xl grid-cols-1 gap-8 px-6 pb-10 pt-5 md:pb-16 lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-14">
       <aside className="hidden lg:block">
         <div className="sticky top-28 border-t border-Charcoal/20 pt-5">
           <p className="mb-4 font-maison-neue-mono text-p-ex-sm-mono uppercase tracking-[0.14em] text-RichGold">

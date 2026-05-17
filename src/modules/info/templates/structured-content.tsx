@@ -194,9 +194,9 @@ const detectFeaturePattern = (blocks: Block[]): { lead: string; body: AnyChild[]
 const Hero: React.FC<{ data: HeroData }> = ({ data }) => {
   if (!data.eyebrow && !data.headline && !data.subhead && !data.image) return null
   return (
-    <section className="not-prose mb-14 pb-12 border-b border-Charcoal/10">
+    <section className="not-prose mb-10 pb-8 border-b border-Charcoal/10">
       {data.image && (
-        <figure className="relative aspect-[16/9] md:aspect-[21/9] w-full overflow-hidden rounded-lg bg-Scroll/40 mb-10">
+        <figure className="relative aspect-[16/9] md:aspect-[21/9] w-full overflow-hidden rounded-lg bg-Scroll/40 mb-8">
           <Image
             src={data.image.src}
             alt={data.image.alt || data.headline || ""}
@@ -208,12 +208,12 @@ const Hero: React.FC<{ data: HeroData }> = ({ data }) => {
         </figure>
       )}
       {data.eyebrow && (
-        <p className="text-p-sm-mono font-maison-neue-mono uppercase tracking-[0.25em] text-Gold mb-5">
+        <p className="text-p-sm-mono font-maison-neue-mono uppercase tracking-[0.25em] text-Gold mb-4">
           {data.eyebrow}
         </p>
       )}
       {data.headline && (
-        <h2 className="text-h2-mobile md:text-h2 font-gyst text-Charcoal leading-tight mb-5">
+        <h2 className="text-h2-mobile md:text-h2 font-gyst text-Charcoal leading-tight mb-4">
           {data.headline}
         </h2>
       )}
@@ -223,7 +223,7 @@ const Hero: React.FC<{ data: HeroData }> = ({ data }) => {
         </p>
       )}
       {(data.primaryCta || data.secondaryCta) && (
-        <div className="mt-8 flex flex-wrap gap-3">
+        <div className="mt-6 flex flex-wrap gap-3">
           {data.primaryCta && <CtaButton cta={data.primaryCta} variant="primary" />}
           {data.secondaryCta && <CtaButton cta={data.secondaryCta} variant="secondary" />}
         </div>
@@ -313,7 +313,7 @@ const renderBlocks = (
       nodes.push(
         <p
           key={k}
-          className="text-p-md font-maison-neue text-Charcoal/85 leading-[1.7] my-5"
+          className="text-p-md font-maison-neue text-Charcoal/85 leading-[1.65] my-4"
         >
           {renderInline(b.children, k)}
         </p>
@@ -324,10 +324,10 @@ const renderBlocks = (
       const level = Math.min(Math.max(Number(b.level) || 2, 2), 4)
       const className =
         level === 2
-          ? "font-gyst text-Charcoal text-h3-mobile md:text-h3 mt-12 mb-5"
+          ? "font-gyst text-Charcoal text-h3-mobile md:text-h3 mt-9 mb-4"
           : level === 3
-            ? "font-gyst text-Charcoal text-h4-mobile md:text-h4 mt-8 mb-3"
-            : "font-gyst text-Charcoal text-h5 mt-6 mb-2"
+            ? "font-gyst text-Charcoal text-h4-mobile md:text-h4 mt-6 mb-3"
+            : "font-gyst text-Charcoal text-h5 mt-5 mb-2"
       const Tag = `h${level}` as any
       nodes.push(
         <Tag key={k} className={className}>
@@ -340,8 +340,8 @@ const renderBlocks = (
       const isOrdered = b.format === "ordered"
       const ListTag = isOrdered ? "ol" : "ul"
       const className = isOrdered
-        ? "list-decimal pl-6 space-y-2 my-6 text-Charcoal/85 font-maison-neue marker:text-Gold"
-        : "list-disc pl-6 space-y-2 my-6 text-Charcoal/85 font-maison-neue marker:text-Gold"
+        ? "list-decimal pl-6 space-y-2 my-5 text-Charcoal/85 font-maison-neue marker:text-Gold"
+        : "list-disc pl-6 space-y-2 my-5 text-Charcoal/85 font-maison-neue marker:text-Gold"
       nodes.push(
         <ListTag key={k} className={className}>
           {(b.children || []).map((li: any, j: number) => (
@@ -357,7 +357,7 @@ const renderBlocks = (
       nodes.push(
         <blockquote
           key={k}
-          className="border-l-4 border-Gold/40 pl-5 my-8 italic text-Charcoal/75 font-maison-neue"
+          className="border-l-4 border-Gold/40 pl-5 my-6 italic text-Charcoal/75 font-maison-neue"
         >
           {renderInline(b.children, k)}
         </blockquote>
@@ -387,8 +387,8 @@ const SectionView: React.FC<{ section: Section; idx: number }> = ({ section, idx
 
   if (features) {
     return (
-      <section className="my-12">
-        <h2 className="font-gyst text-Charcoal text-h3-mobile md:text-h3 mb-8">{section.title}</h2>
+      <section className="my-9">
+        <h2 className="font-gyst text-Charcoal text-h3-mobile md:text-h3 mb-6">{section.title}</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {features.map((f, i) => (
             <div
@@ -410,8 +410,8 @@ const SectionView: React.FC<{ section: Section; idx: number }> = ({ section, idx
 
   const { nodes } = renderBlocks(section.blocks, `sec-${idx}`)
   return (
-    <section className="my-10">
-      <h2 className="font-gyst text-Charcoal text-h3-mobile md:text-h3 mt-2 mb-6">
+    <section className="my-8">
+      <h2 className="font-gyst text-Charcoal text-h3-mobile md:text-h3 mt-2 mb-4">
         {section.title}
       </h2>
       {nodes}
@@ -508,7 +508,7 @@ export const StructuredInfoContent: React.FC<{ content: Block[] | null | undefin
     <div className="info-page-content">
       {parsed.hero && <Hero data={parsed.hero} />}
       {parsed.intro.length > 0 && (
-        <div className="mb-6">{renderBlocks(parsed.intro, "intro").nodes}</div>
+        <div className="mb-5">{renderBlocks(parsed.intro, "intro").nodes}</div>
       )}
       {parsed.sections.map((s, i) => (
         <SectionView key={i} section={s} idx={i} />
