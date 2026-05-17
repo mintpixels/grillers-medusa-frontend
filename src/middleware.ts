@@ -118,7 +118,17 @@ export async function middleware(request: NextRequest) {
 
   let cacheId = cacheIdCookie?.value || crypto.randomUUID()
 
-  const regionMap = await getRegionMap(cacheId)
+  let regionMap: Map<string, HttpTypes.StoreRegion | number>
+  try {
+    regionMap = await getRegionMap(cacheId)
+  } catch (error) {
+    // Do not let a transient Medusa /store/regions failure take down every
+    // storefront route at the edge. Page-level data loaders already have
+    // their own fallbacks; the middleware only needs enough information to
+    // keep localized URLs such as /us/... moving.
+    console.error("Middleware.ts: Region lookup failed; falling back to default region.", error)
+    regionMap = new Map([[DEFAULT_REGION, 1]])
+  }
 
   const countryCode = regionMap && (await getCountryCode(request, regionMap))
 
