@@ -306,9 +306,8 @@ export async function setRequestedDeliveryDate({
   cartId: string
   date: string
 }) {
-  const headers = {
-    ...(await getAuthHeaders()),
-  }
+  const active = await getCartStaffContext()
+  const headers = await cartHeadersForStaffContext(active)
 
   // Server-side eligibility check — defends against #36 / #72 in case the UI
   // ever lets a customer click an impossible date. An empty string is allowed
@@ -359,7 +358,17 @@ export async function setRequestedDeliveryDate({
   }
 
   return sdk.store.cart
-    .update(cartId, { metadata: { requestedDeliveryDate: date } }, {}, headers)
+    .update(
+      cartId,
+      withStaffCartMetadata(
+        { metadata: { requestedDeliveryDate: date } },
+        active,
+        "requested_delivery_date_update",
+        { requestedDeliveryDate: date }
+      ),
+      {},
+      headers
+    )
     .then(async () => {
       const cartCacheTag = await getCacheTag("carts")
       revalidateTag(cartCacheTag)
@@ -532,6 +541,20 @@ export async function initiatePaymentSession(
 ) {
   const active = await getCartStaffContext()
   const headers = await cartHeadersForStaffContext(active)
+
+  if (active) {
+    await sdk.store.cart.update(
+      cart.id,
+      withStaffCartMetadata(
+        {},
+        active,
+        "payment_session_initiate",
+        { provider_id: data.provider_id }
+      ),
+      {},
+      headers
+    )
+  }
 
   return sdk.store.payment
     .initiatePaymentSession(cart, data, {}, headers)
