@@ -283,17 +283,58 @@ export type LegacyReorderRequestResult = {
 export async function requestLegacyReorderAssistance(input: {
   key: string
 }): Promise<LegacyReorderRequestResult> {
+  const key = input.key?.trim()
+  if (!key) {
+    return { success: false, error: "Missing purchase history item." }
+  }
+
+  const active = await getActiveStaffImpersonation()
+  if (active) {
+    try {
+      const response = await adminFetch<{
+        ok?: boolean
+        status?: string
+        request_id?: string
+        message?: string
+      }>(`/admin/legacy-order-history/reorder-request`, {
+        method: "POST",
+        body: JSON.stringify({
+          customer_id: active.session.targetCustomerId,
+          key,
+          staff_actor_customer_id: active.session.staffCustomerId,
+          staff_actor_email: active.session.staffEmail,
+          staff_actor_name: active.session.staffName,
+        }),
+      })
+
+      if (!response.ok) {
+        return {
+          success: false,
+          status: response.status,
+          requestId: response.request_id,
+          error: response.message || "Could not send request.",
+        }
+      }
+
+      return {
+        success: true,
+        status: response.status,
+        requestId: response.request_id,
+      }
+    } catch (err: any) {
+      return {
+        success: false,
+        error: err?.message || "Could not send request.",
+      }
+    }
+  }
+
   const headers = {
     ...(await getAuthHeaders()),
   }
 
   if (!("authorization" in headers)) {
     return { success: false, error: "Sign in to request this item." }
-  }
-
-  const key = input.key?.trim()
-  if (!key) {
-    return { success: false, error: "Missing purchase history item." }
   }
 
   try {
@@ -332,6 +373,20 @@ export async function requestLegacyReorderAssistance(input: {
 }
 
 async function listLegacyPurchaseHistory(): Promise<PurchaseHistoryItem[]> {
+  const active = await getActiveStaffImpersonation()
+  if (active) {
+    return adminFetch<LegacyPurchaseHistoryResponse>(
+      `/admin/legacy-order-history/purchase-history`,
+      {
+        query: {
+          customer_id: active.session.targetCustomerId,
+        },
+      }
+    )
+      .then(({ purchase_history }) => purchase_history ?? [])
+      .catch(() => [])
+  }
+
   const headers = {
     ...(await getAuthHeaders()),
   }
