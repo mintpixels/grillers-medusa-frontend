@@ -17,7 +17,7 @@ import DeliveryPromiseSection from "@modules/home/components/delivery-promise"
 import LazySection from "@modules/common/components/lazy-section"
 import { getRegion } from "@lib/data/regions"
 import { retrieveCustomer } from "@lib/data/customer"
-import { listOrders, listPurchaseHistory } from "@lib/data/orders"
+import { listPurchaseHistory } from "@lib/data/orders"
 import {
   getProductsByMedusaIds,
   type StrapiCollectionProduct,
@@ -134,30 +134,21 @@ export default async function Home(props: {
     return null
   }
 
-  // Customer state for the conditional Hero CTA (#57). Both calls swallow
-  // errors — homepage must render for logged-out visitors too.
-  const orders = customer
-    ? await withTimeout(
-        listOrders().catch(() => null),
-        1000,
-        null,
-        "home orders"
-      )
-    : null
+  // Customer state for the conditional Hero CTA (#57). Legacy QuickBooks
+  // history counts here, not just native Medusa orders, so migrated customers
+  // immediately get the reorder path on first login.
   const isLoggedIn = !!customer
-  const hasOrders = (orders?.length || 0) > 0
   const customerZip =
     customer?.addresses?.find((address) => address.is_default_shipping)
       ?.postal_code ||
     customer?.addresses?.[0]?.postal_code ||
     null
 
-  // Reorder-row data: only fetch purchase history (and the Strapi enrichment
-  // for product images / clean titles) for logged-in customers with orders.
-  // Guests + zero-order accounts skip both calls so the homepage RSC stays
-  // fast for them. (#53)
+  // Reorder-row data: fetch purchase history for logged-in customers. This
+  // combines native Medusa orders and the QuickBooks-backed legacy projection.
+  // Guests skip the call so the homepage RSC stays fast for them. (#53)
   const purchaseHistory =
-    isLoggedIn && hasOrders
+    isLoggedIn
       ? await withTimeout(
           listPurchaseHistory().catch(() => []),
           1200,
@@ -165,6 +156,7 @@ export default async function Home(props: {
           "home purchase history"
         )
       : []
+  const hasOrders = purchaseHistory.length > 0
   const reorderStrapiMap: Record<string, StrapiCollectionProduct> = {}
   if (purchaseHistory.length > 0) {
     const ids = Array.from(
