@@ -1,9 +1,13 @@
+"use client"
+
+import { useEffect, useMemo, useState } from "react"
+
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import CollectionHubCard from "@modules/collections/components/collection-hub-card"
 import type { CuratedCollection } from "@lib/data/strapi/curated-collections"
 
 type CollectionsHubProps = {
-  collections: CuratedCollection[]
+  collections?: CuratedCollection[]
   countryCode: string
 }
 
@@ -48,10 +52,45 @@ function collectionGroups(collections: CuratedCollection[]) {
 }
 
 export default function CollectionsHub({
-  collections,
+  collections: initialCollections = [],
   countryCode,
 }: CollectionsHubProps) {
-  const groups = collectionGroups(collections)
+  const [collections, setCollections] =
+    useState<CuratedCollection[]>(initialCollections)
+  const [isLoading, setIsLoading] = useState(initialCollections.length === 0)
+  const [error, setError] = useState<string | null>(null)
+  const groups = useMemo(() => collectionGroups(collections), [collections])
+
+  useEffect(() => {
+    if (initialCollections.length > 0) return
+
+    let isMounted = true
+    setIsLoading(true)
+    setError(null)
+
+    fetch("/api/curated-collections?limit=60")
+      .then((response) => {
+        if (!response.ok) throw new Error("Failed to load collections")
+        return response.json() as Promise<{ collections: CuratedCollection[] }>
+      })
+      .then((data) => {
+        if (!isMounted) return
+        setCollections(data.collections || [])
+      })
+      .catch((err) => {
+        console.error(err)
+        if (isMounted) {
+          setError("Collections are taking too long to load.")
+        }
+      })
+      .finally(() => {
+        if (isMounted) setIsLoading(false)
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [initialCollections.length])
 
   return (
     <main className="bg-Scroll">
@@ -104,7 +143,9 @@ export default function CollectionsHub({
               Browse paths
             </p>
             <h2 className="mt-2 font-maison-neue text-p-lg font-semibold leading-tight text-Charcoal">
-              {collections.length} collections available.
+              {isLoading
+                ? "Loading collections..."
+                : `${collections.length} collections available.`}
             </h2>
           </div>
           <p className="font-maison-neue text-sm leading-relaxed text-Charcoal/60 md:max-w-sm md:text-right">
@@ -112,7 +153,24 @@ export default function CollectionsHub({
           </p>
         </div>
 
-        {groups.length > 0 ? (
+        {isLoading ? (
+          <div className="grid gap-6">
+            {[0, 1, 2].map((index) => (
+              <div
+                key={index}
+                className="grid min-h-[280px] animate-pulse rounded-[5px] border border-Charcoal/10 bg-white lg:grid-cols-[minmax(280px,0.9fr)_minmax(0,1.1fr)]"
+              >
+                <div className="bg-Charcoal/10" />
+                <div className="space-y-4 p-5 md:p-6">
+                  <div className="h-3 w-24 rounded bg-Charcoal/10" />
+                  <div className="h-10 w-2/3 rounded bg-Charcoal/10" />
+                  <div className="h-16 rounded bg-Charcoal/10" />
+                  <div className="h-11 w-40 rounded bg-Charcoal/10" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : groups.length > 0 ? (
           <div className="space-y-12">
             {groups.map(([label, groupedCollections]) => (
               <div key={label} id={sectionId(label)} className="scroll-mt-24">
@@ -148,11 +206,11 @@ export default function CollectionsHub({
         ) : (
           <div className="rounded-[5px] border border-Charcoal/10 bg-white p-6">
             <h2 className="font-gyst text-h3-mobile font-bold text-Charcoal md:text-h3">
-              Collections are being restocked.
+              {error ? "Collections are taking too long." : "Collections are being restocked."}
             </h2>
             <p className="mt-3 max-w-xl font-maison-neue text-sm leading-relaxed text-Charcoal/65">
-              The curated collection feed is temporarily unavailable. You can
-              still shop the butcher counter while this page refreshes.
+              {error ||
+                "The curated collection feed is temporarily unavailable. You can still shop the butcher counter while this page refreshes."}
             </p>
             <LocalizedClientLink
               href="/store"

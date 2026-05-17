@@ -2,10 +2,6 @@ import { Metadata } from "next"
 
 import { getBaseURL } from "@lib/util/env"
 import { generateAlternates } from "@lib/util/seo"
-import {
-  getCuratedCollectionCards,
-  type CuratedCollection,
-} from "@lib/data/strapi/curated-collections"
 import CollectionsHub from "@modules/collections/templates/collections-hub"
 
 type PageProps = {
@@ -42,32 +38,8 @@ export async function generateMetadata({
   }
 }
 
-function dedupeCollections(collections: CuratedCollection[]) {
-  const seen = new Set<string>()
-  const result: CuratedCollection[] = []
-
-  for (const collection of collections) {
-    const key = collection.documentId || collection.Slug
-    if (!key || seen.has(key)) continue
-    seen.add(key)
-    result.push(collection)
-  }
-
-  return result.sort((a, b) => (a.SortOrder || 999) - (b.SortOrder || 999))
-}
-
-async function getCollections() {
-  const collections = await getCuratedCollectionCards({
-    customerState: "any",
-    limit: 60,
-  })
-
-  return dedupeCollections(collections)
-}
-
 export default async function CollectionsPage({ params }: PageProps) {
   const { countryCode } = await params
-  const collections = await getCollections()
   const pageUrl = `${getBaseURL()}/${countryCode}/collections`
   const jsonLd = {
     "@context": "https://schema.org",
@@ -80,11 +52,6 @@ export default async function CollectionsPage({ params }: PageProps) {
       name: "Grillers Pride",
       url: getBaseURL(),
     },
-    hasPart: collections.map((collection) => ({
-      "@type": "CollectionPage",
-      name: collection.Name,
-      url: `${getBaseURL()}/${countryCode}/collections/${collection.Slug}`,
-    })),
   }
 
   return (
@@ -93,7 +60,7 @@ export default async function CollectionsPage({ params }: PageProps) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <CollectionsHub collections={collections} countryCode={countryCode} />
+      <CollectionsHub countryCode={countryCode} />
     </>
   )
 }
