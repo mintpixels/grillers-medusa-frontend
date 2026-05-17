@@ -8,7 +8,6 @@ import KosherPromiseSection from "@modules/home/components/kosher-promise"
 import WholesaleBand from "@modules/home/components/wholesale-band"
 import ShopCollectionsSection from "@modules/home/components/shop-collections"
 import LearnEntrySection from "@modules/home/components/learn-entry"
-import TestimonialSection from "@modules/home/components/testimonial"
 import FollowUsSection from "@modules/home/components/follow-us"
 import BlogExploreSection from "@modules/home/components/blog-explore"
 import ReorderRow from "@modules/home/components/reorder-row"
@@ -305,14 +304,10 @@ export default async function Home(props: {
               </React.Fragment>
             )
           case "ComponentHomeTestimonial":
-            // Lazy load testimonial section (typically below fold)
-            return isAboveFold ? (
-              <TestimonialSection key={section.__typename} data={section} />
-            ) : (
-              <LazySection key={section.__typename} minHeight="500px">
-                <TestimonialSection data={section} />
-              </LazySection>
-            )
+            // The oversized single-quote testimonial block is intentionally
+            // suppressed on the homepage. Real review proof should come back
+            // later as compact, sourced proof attached to shopping decisions.
+            return null
           case "ComponentHomeFollowUs":
             // Lazy load follow us section (typically below fold)
             return isAboveFold ? (
