@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useRef, useState } from "react"
 import { Swiper, SwiperSlide } from "swiper/react"
 import "swiper/css"
 import Image from "next/image"
@@ -14,6 +15,218 @@ import {
   getCollectionSubstitutionGuardrails,
   lineCartMetadata,
 } from "@lib/util/collection-substitutions"
+
+type ShopCollectionCardData = {
+  id: string | number
+  title: string
+  slug: string
+  collection: CuratedCollection | null
+  imageUrl: string
+  alt: string
+  description: string
+  eyebrow?: string | null
+}
+
+function addItemsForCollection(collection: CuratedCollection) {
+  return getResolvedCollectionItems(collection)
+    .map((item) => {
+      const variant = item.Product.MedusaProduct?.Variants?.[0]
+      return {
+        variantId: variant?.VariantId || "",
+        title: item.Product.Title,
+        quantity: item.Quantity || 1,
+        metadata: lineCartMetadata(item),
+      }
+    })
+    .filter((item) => item.variantId)
+}
+
+function ShopCollectionCard({
+  card,
+  countryCode,
+}: {
+  card: ShopCollectionCardData
+  countryCode: string
+}) {
+  const articleRef = useRef<HTMLElement | null>(null)
+  const [detail, setDetail] = useState<CuratedCollection | null>(null)
+  const [isLoading, setIsLoading] = useState(Boolean(card.collection))
+  const [error, setError] = useState<string | null>(null)
+
+  const loadDetail = async () => {
+    if (!card.collection || detail || error) return
+
+    setIsLoading(true)
+    try {
+      const response = await fetch(
+        `/api/curated-collections/${encodeURIComponent(card.collection.Slug)}?countryCode=${countryCode}`
+      )
+      if (!response.ok) {
+        throw new Error(`Failed to load ${card.collection.Slug}`)
+      }
+      const data = (await response.json()) as {
+        collection: CuratedCollection | null
+      }
+      if (!data.collection) {
+        throw new Error(`Missing collection ${card.collection.Slug}`)
+      }
+      setDetail(data.collection)
+    } catch (err) {
+      console.error(err)
+      setError("Items are taking too long to load.")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!card.collection || detail || error) return
+    const node = articleRef.current
+    if (!node) return
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          observer.disconnect()
+          loadDetail()
+        }
+      },
+      { rootMargin: "600px" }
+    )
+
+    observer.observe(node)
+    return () => observer.disconnect()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [card.collection, detail, error])
+
+  const products = detail ? getResolvedCollectionItems(detail) : []
+  const { total } = collectionEstimatedSubtotals(products)
+  const guardrails = detail ? getCollectionSubstitutionGuardrails(products) : null
+  const disabledReason = guardrails?.needsBusinessReview
+    ? "Needs substitution review before purchase."
+    : guardrails?.requiresAcknowledgement
+    ? "Review substitution details first."
+    : undefined
+
+  return (
+    <article ref={articleRef} className="flex h-full min-w-0 flex-col">
+      <LocalizedClientLink href={card.slug}>
+        <figure className="relative w-full aspect-square bg-gray-50">
+          {card.imageUrl && (
+            <Image src={card.imageUrl} alt={card.alt} fill className="object-cover" />
+          )}
+        </figure>
+      </LocalizedClientLink>
+
+      <div className="flex flex-1 flex-col py-8">
+        <LocalizedClientLink href={card.slug} className="block">
+          {card.eyebrow && (
+            <p className="mb-2 min-h-[14px] font-maison-neue-mono text-[11px] font-bold uppercase tracking-wide text-VibrantRed">
+              {card.eyebrow}
+            </p>
+          )}
+          <h4
+            id={`collection-${card.id}-title`}
+            className="min-h-[72px] border-b border-Charcoal pb-6 font-gyst text-h4 font-bold leading-tight text-Charcoal"
+          >
+            {card.title}
+          </h4>
+          {card.description && (
+            <p className="mt-4 line-clamp-2 min-h-[44px] font-maison-neue text-sm leading-relaxed text-Charcoal/65">
+              {card.description}
+            </p>
+          )}
+        </LocalizedClientLink>
+
+        {card.collection ? (
+          <div className="mt-5 border-t border-Charcoal/15 pt-4">
+            {isLoading && !detail && (
+              <div className="space-y-2" aria-live="polite">
+                <div className="h-4 w-32 animate-pulse rounded bg-Charcoal/10" />
+                <div className="h-12 animate-pulse rounded bg-Charcoal/10" />
+                <div className="h-12 animate-pulse rounded bg-Charcoal/10" />
+                <div className="h-12 animate-pulse rounded bg-Charcoal/10" />
+              </div>
+            )}
+
+            {error && !detail && (
+              <div>
+                <p className="font-maison-neue text-sm leading-relaxed text-VibrantRed">
+                  {error}
+                </p>
+                <button
+                  type="button"
+                  onClick={loadDetail}
+                  className="mt-3 inline-flex min-h-[40px] items-center rounded-[5px] border border-Charcoal px-4 font-rexton text-[11px] font-bold uppercase tracking-wide text-Charcoal"
+                >
+                  Try again
+                </button>
+              </div>
+            )}
+
+            {detail && products.length > 0 && (
+              <>
+                <div className="mb-3 grid grid-cols-[minmax(0,1fr)_auto] gap-3">
+                  <div>
+                    <p className="font-maison-neue-mono text-[10px] font-bold uppercase tracking-wide text-Charcoal/55">
+                      Collection subtotal
+                    </p>
+                    <p className="mt-1 font-maison-neue text-sm font-semibold text-Charcoal">
+                      ${total.toFixed(2)} estimated
+                    </p>
+                  </div>
+                  <LocalizedClientLink
+                    href={card.slug}
+                    className="mt-[19px] inline-flex min-h-[16px] items-center gap-2 font-rexton text-[11px] font-bold uppercase leading-none tracking-wide text-Charcoal hover:text-VibrantRed"
+                  >
+                    View items
+                    <Image
+                      src="/images/icons/arrow-right.svg"
+                      width={16}
+                      height={10}
+                      alt=""
+                      aria-hidden="true"
+                    />
+                  </LocalizedClientLink>
+                </div>
+
+                <CuratedCollectionItems
+                  collection={detail}
+                  countryCode={countryCode}
+                  className="mt-4"
+                />
+
+                <AddBundleButton
+                  items={addItemsForCollection(detail)}
+                  countryCode={countryCode}
+                  bundleId={detail.documentId}
+                  bundleTitle={detail.Name}
+                  bundleSlug={detail.Slug}
+                  disabledReason={disabledReason}
+                  className="mt-4 space-y-2"
+                  fullWidth
+                />
+              </>
+            )}
+          </div>
+        ) : (
+          <LocalizedClientLink href={card.slug} className="pt-4 inline-flex items-center gap-2">
+            <span className="text-p-sm-mono font-rexton uppercase font-bold">
+              Explore
+            </span>
+            <Image
+              src="/images/icons/arrow-right.svg"
+              width={20}
+              height={12}
+              alt=""
+              aria-hidden="true"
+            />
+          </LocalizedClientLink>
+        )}
+      </div>
+    </article>
+  )
+}
 
 export default function ShopCollectionsSection({
   data,
@@ -35,34 +248,16 @@ export default function ShopCollectionsSection({
   collections?: CuratedCollection[]
 }) {
   const title = data?.CollectionsTitle || "Curated collections"
-  const cards =
+  const cards: ShopCollectionCardData[] =
     collections.length > 0
       ? collections.map((collection) => {
-          const firstProduct = collection.Items?.find(
-            (item) => item.Product
-          )?.Product
-          const products = getResolvedCollectionItems(collection)
-          const guardrails = getCollectionSubstitutionGuardrails(products)
-          const totalQuantity = products.reduce(
-            (sum, item) => sum + (item.Quantity || 1),
-            0
-          )
-          const { total } = collectionEstimatedSubtotals(products)
           return {
             id: collection.documentId,
             title: collection.Name,
             slug: `/collections/${collection.Slug}`,
             collection,
-            products,
-            totalQuantity,
-            estimatedSubtotal: total,
-            guardrails,
-            imageUrl:
-              collection.HeroImage?.url ||
-              firstProduct?.FeaturedImage?.url ||
-              "",
-            alt:
-              collection.HeroImageAlt || firstProduct?.Title || collection.Name,
+            imageUrl: collection.HeroImage?.url || "",
+            alt: collection.HeroImageAlt || collection.Name,
             description: collection.ShortDescription,
             eyebrow: collection.Eyebrow,
           }
@@ -72,10 +267,6 @@ export default function ShopCollectionsSection({
           title: collection.Title,
           slug: collection.Slug,
           collection: null,
-          products: [],
-          totalQuantity: 0,
-          estimatedSubtotal: null,
-          guardrails: null,
           imageUrl: collection.Image?.url || "",
           alt: collection.Title,
           description: "",
@@ -119,124 +310,7 @@ export default function ShopCollectionsSection({
         >
           {cards.map((col) => (
             <SwiperSlide key={col.id} className="pb-4">
-              <article className="flex h-full min-w-0 flex-col overflow-hidden">
-                <LocalizedClientLink href={col.slug}>
-                  <figure className="relative w-full aspect-square bg-gray-50">
-                    {col.imageUrl && (
-                      <Image
-                        src={col.imageUrl}
-                        alt={col.alt}
-                        fill
-                        className="object-cover"
-                      />
-                    )}
-                  </figure>
-                </LocalizedClientLink>
-
-                <div className="flex flex-1 flex-col py-8">
-                  <LocalizedClientLink
-                    href={col.slug}
-                    className="block min-h-[168px] md:min-h-[178px]"
-                  >
-                    {col.eyebrow && (
-                      <p className="mb-2 min-h-[14px] font-maison-neue-mono text-[11px] font-bold uppercase tracking-wide text-VibrantRed">
-                        {col.eyebrow}
-                      </p>
-                    )}
-                    <h4
-                      id={`collection-${col.id}-title`}
-                      className="min-h-[72px] border-b border-Charcoal pb-6 font-gyst text-h4 font-bold leading-tight text-Charcoal"
-                    >
-                      {col.title}
-                    </h4>
-                    {col.description && (
-                      <p className="mt-4 line-clamp-2 font-maison-neue text-sm leading-relaxed text-Charcoal/65">
-                        {col.description}
-                      </p>
-                    )}
-                  </LocalizedClientLink>
-
-                  {col.collection && col.products.length > 0 && (
-                    <div className="mt-5 border-t border-Charcoal/15 pt-4">
-                      <div className="mb-3 grid grid-cols-[minmax(0,1fr)_auto] gap-3">
-                        <div>
-                          <p className="font-maison-neue-mono text-[10px] font-bold uppercase tracking-wide text-Charcoal/55">
-                            Collection subtotal
-                          </p>
-                          <p className="mt-1 font-maison-neue text-sm font-semibold text-Charcoal">
-                            ${col.estimatedSubtotal?.toFixed(2)} estimated
-                          </p>
-                        </div>
-                        <LocalizedClientLink
-                          href={col.slug}
-                          className="mt-[19px] inline-flex min-h-[16px] items-center gap-2 font-rexton text-[11px] font-bold uppercase leading-none tracking-wide text-Charcoal hover:text-VibrantRed"
-                        >
-                          View items
-                          <Image
-                            src="/images/icons/arrow-right.svg"
-                            width={16}
-                            height={10}
-                            alt=""
-                            aria-hidden="true"
-                          />
-                        </LocalizedClientLink>
-                      </div>
-
-                      <AddBundleButton
-                        items={col.products
-                          .map((item) => {
-                            const variant =
-                              item.Product.MedusaProduct?.Variants?.[0]
-                            return {
-                              variantId: variant?.VariantId || "",
-                              title: item.Product.Title,
-                              quantity: item.Quantity || 1,
-                              metadata: lineCartMetadata(item),
-                            }
-                          })
-                          .filter((item) => item.variantId)}
-                        countryCode={countryCode}
-                        bundleId={col.collection.documentId}
-                        bundleTitle={col.collection.Name}
-                        bundleSlug={col.collection.Slug}
-                        disabledReason={
-                          col.guardrails?.needsBusinessReview
-                            ? "Needs substitution review before purchase."
-                            : col.guardrails?.requiresAcknowledgement
-                            ? "Review substitution details first."
-                            : undefined
-                        }
-                        className="space-y-2"
-                        fullWidth
-                      />
-
-                      <CuratedCollectionItems
-                        collection={col.collection}
-                        countryCode={countryCode}
-                        className="mt-4"
-                      />
-                    </div>
-                  )}
-
-                  {!col.collection && (
-                    <LocalizedClientLink
-                      href={col.slug}
-                      className="pt-4 inline-flex items-center gap-2"
-                    >
-                      <span className="text-p-sm-mono font-rexton uppercase font-bold">
-                        Explore
-                      </span>
-                      <Image
-                        src="/images/icons/arrow-right.svg"
-                        width={20}
-                        height={12}
-                        alt=""
-                        aria-hidden="true"
-                      />
-                    </LocalizedClientLink>
-                  )}
-                </div>
-              </article>
+              <ShopCollectionCard card={col} countryCode={countryCode} />
             </SwiperSlide>
           ))}
         </Swiper>
