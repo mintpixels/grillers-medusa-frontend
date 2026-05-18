@@ -132,7 +132,7 @@ function sourceLabel(source: StaffCustomerSummary["source"]) {
 }
 
 function fieldClass() {
-  return "min-h-[44px] rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-maison-neue text-Charcoal outline-none transition focus:border-Gold focus:ring-1 focus:ring-Gold"
+  return "min-h-[44px] rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-maison-neue text-Charcoal outline-none transition focus:border-Gold focus:ring-1 focus:ring-Gold disabled:cursor-not-allowed disabled:bg-SilverPlate/40 disabled:text-Charcoal/40"
 }
 
 function labelClass() {
@@ -287,6 +287,15 @@ export default function PhoneOrderCopilot({
     "phone_order" | "exceptions" | "team_access"
   >("phone_order")
   const canManageTeamAccess = isSuperAdminCustomer(staffCustomer)
+  const hasSelectedCustomer = Boolean(draftCustomer.id)
+  const hasOrderLines = lines.length > 0
+  const canEditShippingAddress = hasSelectedCustomer
+  const canEditOrderControls = hasSelectedCustomer && hasOrderLines
+  const prepareDisabled =
+    !hasSelectedCustomer ||
+    !hasOrderLines ||
+    !customerVerified ||
+    (paymentMode === "collect_card_now" && !paymentConsent)
 
   const staffName = useMemo(
     () =>
@@ -876,12 +885,26 @@ export default function PhoneOrderCopilot({
                   Address for this order
                 </h2>
                 <p className="mt-1 text-sm font-maison-neue text-Charcoal/55">
-                  Editable for the phone order. It starts from the customer's
-                  saved address when available; Save Address to Customer is the
-                  only action that writes it back to the account.
+                  Select or create the customer first. Their saved address
+                  loads here when available. Edits apply to this order only
+                  unless you explicitly save them back to the customer account.
                 </p>
               </div>
-              <div className="grid gap-3 md:grid-cols-2">
+              {!canEditShippingAddress && (
+                <div className="mb-4 rounded-md border border-Gold/30 bg-Gold/10 px-4 py-3">
+                  <p className="text-sm font-maison-neue font-semibold text-Charcoal">
+                    Address unlocks after customer selection.
+                  </p>
+                  <p className="mt-1 text-sm font-maison-neue text-Charcoal/60">
+                    Search or create a customer above, then confirm the shipping
+                    address for this specific phone order.
+                  </p>
+                </div>
+              )}
+              <fieldset
+                className="grid gap-3 md:grid-cols-2"
+                disabled={!canEditShippingAddress}
+              >
                 <label className="flex flex-col gap-1">
                   <span className={labelClass()}>First name</span>
                   <input
@@ -962,7 +985,7 @@ export default function PhoneOrderCopilot({
                     }
                   />
                 </label>
-              </div>
+              </fieldset>
               {draftCustomer.id && (
                 <Button
                   className="mt-4 min-h-[44px] rounded-md border border-Charcoal px-4 text-sm font-rexton font-bold uppercase text-Charcoal"
@@ -1053,11 +1076,38 @@ export default function PhoneOrderCopilot({
                   Order controls
                 </h2>
                 <p className="mt-1 text-sm font-maison-neue text-Charcoal/55">
-                  These fields apply to this order only. Preparing payment
-                  creates a cart using the customer, address, line items, and
-                  fulfillment choices on this page.
+                  These fields apply to this order only. They unlock after a
+                  customer and at least one product are selected, then preparing
+                  payment creates the staff cart.
                 </p>
               </div>
+              {!canEditOrderControls && (
+                <div className="mb-4 rounded-md border border-Gold/30 bg-Gold/10 px-4 py-3">
+                  <p className="text-sm font-maison-neue font-semibold text-Charcoal">
+                    Build the draft before choosing fulfillment.
+                  </p>
+                  <div className="mt-3 space-y-2 text-sm font-maison-neue text-Charcoal/70">
+                    <div className="flex items-center justify-between gap-3">
+                      <span>Customer selected</span>
+                      <span className="font-semibold text-Charcoal">
+                        {hasSelectedCustomer ? "Done" : "Needed"}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <span>Products added</span>
+                      <span className="font-semibold text-Charcoal">
+                        {hasOrderLines ? "Done" : "Needed"}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <span>Order verified</span>
+                      <span className="font-semibold text-Charcoal">
+                        {customerVerified ? "Done" : "After items"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
               {lines.length ? (
                 <div className="divide-y border-y border-gray-100">
                   {lines.map((line) => (
@@ -1096,152 +1146,163 @@ export default function PhoneOrderCopilot({
                 </p>
               )}
 
-              <div className="mt-4 space-y-3">
-                <label className="flex flex-col gap-1">
-                  <span className={labelClass()}>Fulfillment</span>
-                  <select
-                    className={fieldClass()}
-                    value={fulfillmentType}
-                    onChange={(event) =>
-                      setFulfillmentType(
-                        event.target.value as typeof fulfillmentType
-                      )
-                    }
-                  >
-                    <option value="plant_pickup">Plant pickup</option>
-                    <option value="atlanta_delivery">Atlanta delivery</option>
-                    <option value="southeast_pickup">Southeast pickup</option>
-                    <option value="ups_shipping">UPS shipping</option>
-                  </select>
-                </label>
-                <label className="flex flex-col gap-1">
-                  <span className={labelClass()}>Scheduled date</span>
-                  <input
-                    className={fieldClass()}
-                    type="date"
-                    value={scheduledDate}
-                    onChange={(event) => setScheduledDate(event.target.value)}
-                  />
-                </label>
-                <label className="flex flex-col gap-1">
-                  <span className={labelClass()}>Time window</span>
-                  <input
-                    className={fieldClass()}
-                    value={scheduledTimeWindow}
-                    onChange={(event) =>
-                      setScheduledTimeWindow(event.target.value)
-                    }
-                  />
-                </label>
-                <label className="flex flex-col gap-1">
-                  <span className={labelClass()}>Substitutions</span>
-                  <input
-                    className={fieldClass()}
-                    value={substitutionPreference}
-                    onChange={(event) =>
-                      setSubstitutionPreference(event.target.value)
-                    }
-                  />
-                </label>
-                <label className="flex flex-col gap-1">
-                  <span className={labelClass()}>Delivery notes</span>
-                  <textarea
-                    className={`${fieldClass()} min-h-[90px]`}
-                    value={deliveryInstructions}
-                    onChange={(event) =>
-                      setDeliveryInstructions(event.target.value)
-                    }
-                  />
-                </label>
-                <label className="flex flex-col gap-1">
-                  <span className={labelClass()}>Order notes</span>
-                  <textarea
-                    className={`${fieldClass()} min-h-[90px]`}
-                    value={orderNotes}
-                    onChange={(event) => setOrderNotes(event.target.value)}
-                  />
-                </label>
-                <label className="flex items-start gap-3 text-sm font-maison-neue text-Charcoal">
-                  <input
-                    checked={sameAsShipping}
-                    className="mt-1"
-                    onChange={(event) =>
-                      setSameAsShipping(event.target.checked)
-                    }
-                    type="checkbox"
-                  />
-                  Billing address matches shipping
-                </label>
-                <label className="flex items-start gap-3 text-sm font-maison-neue text-Charcoal">
-                  <input
-                    checked={customerVerified}
-                    className="mt-1"
-                    onChange={(event) =>
-                      setCustomerVerified(event.target.checked)
-                    }
-                    type="checkbox"
-                  />
-                  Customer identity and order details verified
-                </label>
-                <label className="flex flex-col gap-1">
-                  <span className={labelClass()}>Payment handling</span>
-                  <select
-                    className={fieldClass()}
-                    value={paymentMode}
-                    onChange={(event) =>
-                      setPaymentMode(event.target.value as StaffPaymentMode)
-                    }
-                  >
-                    <option value="collect_card_now">
-                      Collect card by phone
-                    </option>
-                    <option value="send_checkout_link">
-                      Send customer checkout link
-                    </option>
-                  </select>
-                </label>
-                {paymentMode === "collect_card_now" && (
-                  <label className="flex items-start gap-3 rounded-md border border-Gold/35 bg-Gold/10 p-3 text-sm font-maison-neue text-Charcoal">
-                    <input
-                      checked={paymentConsent}
-                      className="mt-1"
-                      onChange={(event) =>
-                        setPaymentConsent(event.target.checked)
-                      }
-                      type="checkbox"
-                    />
-                    Customer explicitly authorized this staff member to enter
-                    and process card details for this order.
-                  </label>
-                )}
-                <label className="flex items-start gap-3 text-sm font-maison-neue text-Charcoal">
-                  <input
-                    checked={sendConfirmation}
-                    className="mt-1"
-                    onChange={(event) =>
-                      setSendConfirmation(event.target.checked)
-                    }
-                    type="checkbox"
-                  />
-                  Email checkout link to customer
-                </label>
-              </div>
+              {canEditOrderControls ? (
+                <>
+                  <fieldset className="mt-4 space-y-3">
+                    <label className="flex flex-col gap-1">
+                      <span className={labelClass()}>Fulfillment</span>
+                      <select
+                        className={fieldClass()}
+                        value={fulfillmentType}
+                        onChange={(event) =>
+                          setFulfillmentType(
+                            event.target.value as typeof fulfillmentType
+                          )
+                        }
+                      >
+                        <option value="plant_pickup">Plant pickup</option>
+                        <option value="atlanta_delivery">
+                          Atlanta delivery
+                        </option>
+                        <option value="southeast_pickup">
+                          Southeast pickup
+                        </option>
+                        <option value="ups_shipping">UPS shipping</option>
+                      </select>
+                    </label>
+                    <label className="flex flex-col gap-1">
+                      <span className={labelClass()}>Scheduled date</span>
+                      <input
+                        className={fieldClass()}
+                        type="date"
+                        value={scheduledDate}
+                        onChange={(event) =>
+                          setScheduledDate(event.target.value)
+                        }
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1">
+                      <span className={labelClass()}>Time window</span>
+                      <input
+                        className={fieldClass()}
+                        value={scheduledTimeWindow}
+                        onChange={(event) =>
+                          setScheduledTimeWindow(event.target.value)
+                        }
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1">
+                      <span className={labelClass()}>Substitutions</span>
+                      <input
+                        className={fieldClass()}
+                        value={substitutionPreference}
+                        onChange={(event) =>
+                          setSubstitutionPreference(event.target.value)
+                        }
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1">
+                      <span className={labelClass()}>Delivery notes</span>
+                      <textarea
+                        className={`${fieldClass()} min-h-[90px]`}
+                        value={deliveryInstructions}
+                        onChange={(event) =>
+                          setDeliveryInstructions(event.target.value)
+                        }
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1">
+                      <span className={labelClass()}>Order notes</span>
+                      <textarea
+                        className={`${fieldClass()} min-h-[90px]`}
+                        value={orderNotes}
+                        onChange={(event) => setOrderNotes(event.target.value)}
+                      />
+                    </label>
+                    <label className="flex items-start gap-3 text-sm font-maison-neue text-Charcoal">
+                      <input
+                        checked={sameAsShipping}
+                        className="mt-1"
+                        onChange={(event) =>
+                          setSameAsShipping(event.target.checked)
+                        }
+                        type="checkbox"
+                      />
+                      Billing address matches shipping
+                    </label>
+                    <label className="flex items-start gap-3 text-sm font-maison-neue text-Charcoal">
+                      <input
+                        checked={customerVerified}
+                        className="mt-1"
+                        onChange={(event) =>
+                          setCustomerVerified(event.target.checked)
+                        }
+                        type="checkbox"
+                      />
+                      Customer identity and order details verified
+                    </label>
+                    <label className="flex flex-col gap-1">
+                      <span className={labelClass()}>Payment handling</span>
+                      <select
+                        className={fieldClass()}
+                        value={paymentMode}
+                        onChange={(event) =>
+                          setPaymentMode(event.target.value as StaffPaymentMode)
+                        }
+                      >
+                        <option value="collect_card_now">
+                          Collect card by phone
+                        </option>
+                        <option value="send_checkout_link">
+                          Send customer checkout link
+                        </option>
+                      </select>
+                    </label>
+                    {paymentMode === "collect_card_now" && (
+                      <label className="flex items-start gap-3 rounded-md border border-Gold/35 bg-Gold/10 p-3 text-sm font-maison-neue text-Charcoal">
+                        <input
+                          checked={paymentConsent}
+                          className="mt-1"
+                          onChange={(event) =>
+                            setPaymentConsent(event.target.checked)
+                          }
+                          type="checkbox"
+                        />
+                        Customer explicitly authorized this staff member to
+                        enter and process card details for this order.
+                      </label>
+                    )}
+                    <label className="flex items-start gap-3 text-sm font-maison-neue text-Charcoal">
+                      <input
+                        checked={sendConfirmation}
+                        className="mt-1"
+                        onChange={(event) =>
+                          setSendConfirmation(event.target.checked)
+                        }
+                        type="checkbox"
+                      />
+                      Email checkout link to customer
+                    </label>
+                  </fieldset>
 
-              <Button
-                className="mt-5 min-h-[48px] w-full rounded-md bg-Gold px-4 text-sm font-rexton font-bold uppercase text-Charcoal"
-                disabled={
-                  !lines.length ||
-                  !customerVerified ||
-                  (paymentMode === "collect_card_now" && !paymentConsent)
-                }
-                isLoading={isPending}
-                onClick={prepareOrder}
-                type="button"
-              >
-                {paymentMode === "collect_card_now"
-                  ? "Prepare Payment"
-                  : "Prepare Checkout Link"}
-              </Button>
+                  <Button
+                    className="mt-5 min-h-[48px] w-full rounded-md bg-Gold px-4 text-sm font-rexton font-bold uppercase text-Charcoal disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-Charcoal/40"
+                    disabled={prepareDisabled}
+                    isLoading={isPending}
+                    onClick={prepareOrder}
+                    type="button"
+                  >
+                    {paymentMode === "collect_card_now"
+                      ? "Prepare Payment"
+                      : "Prepare Checkout Link"}
+                  </Button>
+                </>
+              ) : (
+                <p className="mt-4 rounded-md border border-gray-100 bg-SilverPlate/30 px-3 py-3 text-sm font-maison-neue text-Charcoal/60">
+                  Fulfillment, verification, and payment controls appear after
+                  the staff draft has a customer and at least one product.
+                </p>
+              )}
 
               {checkoutUrl && (
                 <a
