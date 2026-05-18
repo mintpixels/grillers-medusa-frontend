@@ -5,6 +5,8 @@ import {
   requestLegacyReorderAssistance,
   type PurchaseHistoryItem,
 } from "@lib/data/orders"
+import { addToCart } from "@lib/data/cart"
+import { dispatchCartUpdated } from "@lib/util/cart-events"
 import type { StrapiCollectionProduct } from "@lib/data/strapi/collections"
 import { ProductCard } from "@modules/collections/components/strapi-product-grid"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
@@ -13,6 +15,7 @@ import { toast } from "@medusajs/ui"
 type SortOption = "recent" | "frequent" | "az" | "price"
 type DateFilter = "all" | "30" | "60" | "90"
 type RequestState = "idle" | "submitting" | "sent" | "error"
+type AddState = "idle" | "adding" | "added" | "error"
 
 function historyKey(item: PurchaseHistoryItem) {
   return (
@@ -121,6 +124,80 @@ function LegacyHistoryCard({
   )
 }
 
+function MappedHistoryCard({
+  item,
+  addState,
+  onAdd,
+}: {
+  item: PurchaseHistoryItem
+  addState: AddState
+  onAdd: () => void
+}) {
+  const title = item.productTitle || item.title || "Past purchase"
+  const lastOrdered = item.lastOrderedAt
+    ? new Date(item.lastOrderedAt).toLocaleDateString()
+    : "Unknown"
+  const addLabel =
+    addState === "adding"
+      ? "Adding..."
+      : addState === "added"
+        ? "Added"
+        : "Add to cart"
+
+  return (
+    <div className="flex min-h-[260px] flex-col rounded-lg border border-gray-200 bg-white p-5">
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs font-maison-neue-mono uppercase text-Charcoal/45">
+            Past purchase
+          </p>
+          <h3 className="mt-2 text-xl font-gyst font-bold leading-tight text-Charcoal">
+            {title}
+          </h3>
+        </div>
+        <span className="shrink-0 rounded-full bg-Gold px-3 py-1 text-xs font-maison-neue text-Charcoal/80">
+          Reorderable
+        </span>
+      </div>
+
+      <dl className="mt-auto grid grid-cols-2 gap-x-4 gap-y-3 text-sm font-maison-neue">
+        {item.sku && (
+          <div>
+            <dt className="text-Charcoal/45">SKU</dt>
+            <dd className="break-words text-Charcoal">{item.sku}</dd>
+          </div>
+        )}
+        <div>
+          <dt className="text-Charcoal/45">Last ordered</dt>
+          <dd className="text-Charcoal">{lastOrdered}</dd>
+        </div>
+        <div>
+          <dt className="text-Charcoal/45">Orders</dt>
+          <dd className="text-Charcoal">{item.orderCount || item.timesOrdered}</dd>
+        </div>
+        <div>
+          <dt className="text-Charcoal/45">Quantity</dt>
+          <dd className="text-Charcoal">{item.totalQuantity}</dd>
+        </div>
+      </dl>
+
+      <div className="mt-5 border-t border-gray-100 pt-4">
+        <button
+          type="button"
+          onClick={onAdd}
+          disabled={addState === "adding" || addState === "added" || !item.variantId}
+          className="inline-flex min-h-[42px] w-full items-center justify-center rounded-[5px] bg-Gold px-4 py-2 text-sm font-rexton font-bold uppercase text-Charcoal transition-opacity hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-55"
+        >
+          {addLabel}
+        </button>
+        <p className="mt-3 text-xs font-maison-neue text-Charcoal/50">
+          This item is mapped from your historical orders and can be added directly.
+        </p>
+      </div>
+    </div>
+  )
+}
+
 export default function ReorderBrowser({
   history,
   strapiMap,
@@ -134,6 +211,41 @@ export default function ReorderBrowser({
   const [sort, setSort] = useState<SortOption>("recent")
   const [dateFilter, setDateFilter] = useState<DateFilter>("all")
   const [requestStates, setRequestStates] = useState<Record<string, RequestState>>({})
+  const [addStates, setAddStates] = useState<Record<string, AddState>>({})
+
+  const handleMappedAddToCart = async (item: PurchaseHistoryItem) => {
+    const key = historyKey(item)
+    const current = addStates[key] || "idle"
+    if (current === "adding" || current === "added" || !item.variantId) {
+      return
+    }
+
+    setAddStates((states) => ({ ...states, [key]: "adding" }))
+
+    try {
+      await addToCart({
+        variantId: item.variantId,
+        quantity: 1,
+        countryCode,
+        metadata: {
+          source: "legacy_purchase_history",
+          legacy_purchase_history_key: key,
+          legacy_item_id: item.legacyItemId || undefined,
+          legacy_sku: item.sku || undefined,
+          legacy_last_order_ref: item.lastOrderRef || undefined,
+        },
+      })
+      dispatchCartUpdated({ action: "add", variantId: item.variantId, quantity: 1 })
+      setAddStates((states) => ({ ...states, [key]: "added" }))
+      toast.success("Added to cart", { description: item.productTitle || item.title })
+    } catch (error) {
+      console.error("Failed to add legacy mapped item to cart:", error)
+      setAddStates((states) => ({ ...states, [key]: "error" }))
+      toast.error("Couldn't add to cart", {
+        description: "Please try again in a moment.",
+      })
+    }
+  }
 
   const handleLegacyReorderRequest = async (item: PurchaseHistoryItem) => {
     const key = historyKey(item)
@@ -299,6 +411,17 @@ export default function ReorderBrowser({
             }
 
             const key = historyKey(item)
+            if (item.reorderable && item.variantId) {
+              return (
+                <MappedHistoryCard
+                  key={key}
+                  item={item}
+                  addState={addStates[key] || "idle"}
+                  onAdd={() => handleMappedAddToCart(item)}
+                />
+              )
+            }
+
             return (
               <LegacyHistoryCard
                 key={key}
