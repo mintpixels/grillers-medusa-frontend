@@ -139,7 +139,11 @@ async function fetchMedusaProductInventory(
   // admin token is missing — that path can't see draft/archived products
   // but suffices to read `variants.inventory_quantity` for published ones.
   const headers: Record<string, string> = MEDUSA_ADMIN_TOKEN
-    ? { "x-medusa-access-token": MEDUSA_ADMIN_TOKEN }
+    ? {
+        Authorization: `Basic ${Buffer.from(`${MEDUSA_ADMIN_TOKEN}:`).toString(
+          "base64"
+        )}`,
+      }
     : {
         "x-publishable-api-key":
           process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY || "",

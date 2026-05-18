@@ -202,9 +202,10 @@ function storeHeaders(): HeadersInit {
 }
 
 function adminHeaders(): HeadersInit {
+  const token = adminToken()
   return {
     "Content-Type": "application/json",
-    Authorization: `Bearer ${adminToken()}`,
+    Authorization: `Basic ${Buffer.from(`${token}:`).toString("base64")}`,
   }
 }
 
