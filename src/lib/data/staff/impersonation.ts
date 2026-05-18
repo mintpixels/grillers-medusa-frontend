@@ -2,7 +2,7 @@
 
 import "server-only"
 
-import { retrieveAuthenticatedCustomer } from "@lib/data/customer"
+import { retrieveAuthenticatedCustomerForStaffAccess } from "@lib/data/customer"
 import { isStaffCustomer, staffDisplayName } from "@lib/util/staff-access"
 import {
   clearStaffImpersonationCookie,
@@ -12,7 +12,7 @@ import {
 import type { StaffImpersonationSession } from "./impersonation-types"
 
 async function requireStaffForImpersonation() {
-  const staff = await retrieveAuthenticatedCustomer()
+  const staff = await retrieveAuthenticatedCustomerForStaffAccess()
   if (!staff || !isStaffCustomer(staff)) {
     throw new Error("Staff access required.")
   }
@@ -23,7 +23,9 @@ export async function getStaffImpersonationSession(): Promise<StaffImpersonation
   const session = await readStaffImpersonationCookie()
   if (!session) return null
 
-  const staff = await retrieveAuthenticatedCustomer().catch(() => null)
+  const staff = await retrieveAuthenticatedCustomerForStaffAccess().catch(
+    () => null
+  )
   if (!staff || !isStaffCustomer(staff) || staff.id !== session.staffCustomerId) {
     return null
   }

@@ -2,7 +2,7 @@
 
 import "server-only"
 
-import { retrieveAuthenticatedCustomer } from "@lib/data/customer"
+import { retrieveAuthenticatedCustomerForStaffAccess } from "@lib/data/customer"
 import { isStaffCustomer, staffDisplayName } from "@lib/util/staff-access"
 import { adminFetch, appendStaffAuditLog } from "./admin"
 import {
@@ -284,7 +284,7 @@ function detailOrder(order: AnyRecord): StaffExceptionOrderDetail {
 }
 
 async function requireStaffOperator() {
-  const staff = await retrieveAuthenticatedCustomer()
+  const staff = await retrieveAuthenticatedCustomerForStaffAccess()
   if (!staff) {
     throw new Error("Sign in with a staff account to use staff exceptions.")
   }
@@ -538,21 +538,96 @@ export async function searchStaffExceptionOrders(
 ): Promise<StaffExceptionOrderSummary[]> {
   await requireStaffOperator()
   const trimmed = query.trim()
-  const params: Record<string, unknown> = {
+  const baseParams: Record<string, unknown> = {
     limit: 20,
     order: "-created_at",
     fields: ORDER_LIST_FIELDS,
   }
 
-  if (trimmed) {
-    params.q = trimmed.replace(/^#/, "")
+  if (!trimmed) {
+    const { orders } = await adminFetch<{ orders: AnyRecord[] }>("/admin/orders", {
+      query: baseParams,
+    })
+
+    return (orders || []).map(summarizeOrder)
   }
 
-  const { orders } = await adminFetch<{ orders: AnyRecord[] }>("/admin/orders", {
-    query: params,
-  })
+  const seenOrders = new Set<string>()
+  const orders: AnyRecord[] = []
+  const addOrders = (items: AnyRecord[] | undefined) => {
+    ;(items || []).forEach((order) => {
+      if (!order?.id || seenOrders.has(order.id)) return
+      seenOrders.add(order.id)
+      orders.push(order)
+    })
+  }
 
-  return (orders || []).map(summarizeOrder)
+  const q = trimmed.replace(/^#/, "")
+  let lastError: unknown = null
+
+  try {
+    const direct = await adminFetch<{ orders: AnyRecord[] }>("/admin/orders", {
+      query: {
+        ...baseParams,
+        q,
+      },
+    })
+    addOrders(direct.orders)
+  } catch (err) {
+    lastError = err
+  }
+
+  const customerAttempts: Array<Record<string, string | number>> = [
+    { q, limit: 10 },
+  ]
+  if (q.includes("@")) customerAttempts.push({ email: q, limit: 10 })
+  if (q.includes("+")) customerAttempts.push({ q: q.split("+")[0], limit: 10 })
+
+  const seenCustomers = new Set<string>()
+  for (const attempt of customerAttempts) {
+    try {
+      const { customers } = await adminFetch<{ customers: AnyRecord[] }>(
+        "/admin/customers",
+        {
+          query: {
+            ...attempt,
+            fields: "id,email,first_name,last_name,phone",
+          },
+        }
+      )
+
+      for (const customer of customers || []) {
+        if (!customer?.id || seenCustomers.has(customer.id)) continue
+        seenCustomers.add(customer.id)
+        try {
+          const byCustomer = await adminFetch<{ orders: AnyRecord[] }>(
+            "/admin/orders",
+            {
+              query: {
+                ...baseParams,
+                customer_id: customer.id,
+                limit: 10,
+              },
+            }
+          )
+          addOrders(byCustomer.orders)
+        } catch (err) {
+          lastError = err
+        }
+      }
+    } catch (err) {
+      lastError = err
+    }
+  }
+
+  if (!orders.length && lastError) {
+    console.error("[staff-order-support] order search failed", lastError)
+    throw new Error(
+      "Order lookup failed. Try searching by order number, email, or customer name, then try again."
+    )
+  }
+
+  return orders.slice(0, 20).map(summarizeOrder)
 }
 
 export async function getStaffExceptionOrderDetail(

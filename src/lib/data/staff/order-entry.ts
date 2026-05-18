@@ -3,7 +3,7 @@
 import "server-only"
 
 import { sdk } from "@lib/config"
-import { retrieveAuthenticatedCustomer } from "@lib/data/customer"
+import { retrieveAuthenticatedCustomerForStaffAccess } from "@lib/data/customer"
 import { getRegion } from "@lib/data/regions"
 import { sendEmail } from "@lib/postmark"
 import { staffDisplayName, isStaffCustomer } from "@lib/util/staff-access"
@@ -270,7 +270,7 @@ async function storeFetch<T>(
 }
 
 async function requireStaff() {
-  const customer = await retrieveAuthenticatedCustomer()
+  const customer = await retrieveAuthenticatedCustomerForStaffAccess()
   if (!customer) {
     throw new Error("Sign in with a staff account to use phone order entry.")
   }
@@ -701,18 +701,39 @@ export async function searchStaffCustomers(
     addSummary(customerSummary(customer, source))
   }
 
-  const customerResp = await adminFetch<{ customers: AnyRecord[] }>(
-    "/admin/customers",
-    {
-      query: {
-        q,
-        limit: 12,
-        fields:
-          "id,email,first_name,last_name,phone,company_name,metadata,*addresses",
-      },
+  const customerAttempts: Array<Record<string, string | number>> = [
+    { q, limit: 12 },
+  ]
+  if (q.includes("@")) customerAttempts.push({ email: q, limit: 12 })
+  if (q.includes("+")) customerAttempts.push({ q: q.split("+")[0], limit: 12 })
+
+  const digitsOnly = stripPhone(q)
+  if (digitsOnly.length >= 7) {
+    customerAttempts.push({ q: digitsOnly, limit: 12 })
+    customerAttempts.push({ phone: digitsOnly, limit: 12 })
+  }
+
+  let customerSearchWorked = false
+  let lastCustomerError: unknown = null
+
+  for (const attempt of customerAttempts) {
+    try {
+      const customerResp = await adminFetch<{ customers: AnyRecord[] }>(
+        "/admin/customers",
+        {
+          query: {
+            ...attempt,
+            fields:
+              "id,email,first_name,last_name,phone,company_name,metadata,*addresses",
+          },
+        }
+      )
+      customerSearchWorked = true
+      customerResp.customers?.forEach((customer) => add(customer, "customer"))
+    } catch (err) {
+      lastCustomerError = err
     }
-  )
-  customerResp.customers?.forEach((customer) => add(customer, "customer"))
+  }
 
   const orderResp = await adminFetch<{ orders: AnyRecord[] }>("/admin/orders", {
     query: {
@@ -751,6 +772,13 @@ export async function searchStaffCustomers(
     const summary = legacyOrderCustomerSummary(order)
     if (summary) addSummary(summary)
   })
+
+  if (!results.length && !customerSearchWorked && lastCustomerError) {
+    console.error("[staff-phone-order] customer search failed", lastCustomerError)
+    throw new Error(
+      "Customer lookup failed. Try searching by name, email, or phone, then try again."
+    )
+  }
 
   return results.slice(0, 15)
 }

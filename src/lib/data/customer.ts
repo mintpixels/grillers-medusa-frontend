@@ -419,7 +419,7 @@ export async function getActiveStaffImpersonation(): Promise<{
   const session = await readStaffImpersonationCookie()
   if (!session) return null
 
-  const staff = await retrieveAuthenticatedCustomer()
+  const staff = await retrieveAuthenticatedCustomerForStaffAccess()
   if (!staff || !isStaffCustomer(staff) || staff.id !== session.staffCustomerId) {
     return null
   }
