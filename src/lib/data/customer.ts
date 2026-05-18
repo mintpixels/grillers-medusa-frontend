@@ -165,6 +165,60 @@ export async function completePasswordReset(
   }
 }
 
+export async function updateCustomerPassword(
+  _currentState: Record<string, unknown>,
+  formData: FormData
+): Promise<{ success: boolean; error: string | null }> {
+  const currentPassword = String(formData.get("old_password") ?? "")
+  const newPassword = String(formData.get("new_password") ?? "")
+  const confirmPassword = String(formData.get("confirm_password") ?? "")
+
+  if (!currentPassword || !newPassword || !confirmPassword) {
+    return { success: false, error: "All password fields are required." }
+  }
+
+  if (newPassword.length < 8) {
+    return {
+      success: false,
+      error: "New password must be at least 8 characters.",
+    }
+  }
+
+  if (newPassword !== confirmPassword) {
+    return { success: false, error: "New passwords do not match." }
+  }
+
+  const headers = {
+    ...(await getAuthHeaders()),
+  }
+
+  if (!("authorization" in headers)) {
+    return { success: false, error: "Sign in again to update your password." }
+  }
+
+  try {
+    await sdk.client.fetch<{ ok?: boolean }>(`/store/customers/me/password`, {
+      method: "POST",
+      headers,
+      body: {
+        current_password: currentPassword,
+        new_password: newPassword,
+      },
+      cache: "no-store",
+    })
+
+    return { success: true, error: null }
+  } catch (err: any) {
+    return {
+      success: false,
+      error:
+        err?.data?.message ||
+        err?.message ||
+        "Could not update password. Please try again.",
+    }
+  }
+}
+
 function normalizeLoginIdentifier(value: string) {
   const trimmed = String(value ?? "").trim()
   return trimmed.includes("@") ? trimmed.toLowerCase() : trimmed
