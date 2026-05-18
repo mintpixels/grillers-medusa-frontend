@@ -8,6 +8,13 @@ import { getAuthHeaders, getCacheOptions } from "./cookies"
 import { getRegion, retrieveRegion } from "./regions"
 import type { StrapiCollectionProduct } from "@lib/data/strapi/collections"
 
+function isLegacyReorderOnlyProduct(product: HttpTypes.StoreProduct) {
+  const metadata = product.metadata as Record<string, unknown> | null | undefined
+  const flag = metadata?.legacy_reorder_only
+
+  return flag === true || String(flag).toLowerCase() === "true"
+}
+
 export const listProducts = async ({
   pageParam = 1,
   queryParams,
@@ -73,12 +80,15 @@ export const listProducts = async ({
       }
     )
     .then(({ products, count }) => {
+      const visibleProducts = products.filter(
+        (product) => !isLegacyReorderOnlyProduct(product)
+      )
       const nextPage = count > offset + limit ? pageParam + 1 : null
 
       return {
         response: {
-          products,
-          count,
+          products: visibleProducts,
+          count: Math.max(0, count - (products.length - visibleProducts.length)),
         },
         nextPage: nextPage,
         queryParams,
