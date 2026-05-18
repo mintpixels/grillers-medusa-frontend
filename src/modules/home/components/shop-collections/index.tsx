@@ -274,14 +274,14 @@ export default function ShopCollectionsSection({
           <div
             className={
               supportingCards.length
-                ? "grid gap-4 lg:grid-cols-[minmax(0,1.08fr)_minmax(380px,0.92fr)] lg:items-stretch"
+                ? "grid gap-4 lg:grid-cols-[minmax(0,1.08fr)_minmax(380px,0.92fr)] lg:items-start"
                 : "max-w-3xl"
             }
           >
             <FeaturedCollectionCard card={featuredCard} />
 
             {supportingCards.length > 0 && (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+              <div className="grid self-start gap-4 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
                 {supportingCards.map((card) => (
                   <SupportingCollectionCard key={card.id} card={card} />
                 ))}
