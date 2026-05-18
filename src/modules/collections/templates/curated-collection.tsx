@@ -50,37 +50,60 @@ export default function CuratedCollectionTemplate({
 
   return (
     <main className="bg-white">
-      <section className="content-container grid gap-10 py-12 md:grid-cols-[minmax(0,1fr)_420px] md:py-16">
-        <div>
-          <p className="font-maison-neue-mono text-p-sm-mono font-bold uppercase tracking-wide text-VibrantRed">
-            {collection.Eyebrow || collection.Occasion.replace(/_/g, " ")}
-          </p>
-          <h1 className="mt-3 font-gyst text-h1-mobile font-bold leading-none text-Charcoal md:text-h1">
-            {collection.Name}
-          </h1>
-          <p className="mt-5 max-w-2xl font-maison-neue text-p-lg leading-relaxed text-Charcoal/75">
-            {collection.ShortDescription}
-          </p>
+      <section className="content-container grid max-w-[1260px] gap-8 py-10 md:grid-cols-[minmax(0,1fr)_380px] md:items-start md:gap-10 md:py-12 lg:grid-cols-[minmax(0,760px)_400px] xl:grid-cols-[minmax(0,780px)_420px]">
+        <div className="contents md:block md:min-w-0">
+          <div className="order-1">
+            <p className="font-maison-neue-mono text-p-sm-mono font-bold uppercase tracking-wide text-VibrantRed">
+              {collection.Eyebrow || collection.Occasion.replace(/_/g, " ")}
+            </p>
+            <h1 className="mt-3 max-w-[760px] font-gyst text-h1-mobile font-bold leading-none text-Charcoal md:text-h1">
+              {collection.Name}
+            </h1>
+            <p className="mt-5 max-w-[660px] font-maison-neue text-p-lg leading-relaxed text-Charcoal/75">
+              {collection.ShortDescription}
+            </p>
 
-          <div className="mt-6 flex flex-wrap gap-2">
-            <span className="rounded-full bg-Scroll px-3 py-1 font-maison-neue-mono text-[11px] font-bold uppercase tracking-wide text-Charcoal">
-              {collection.CollectionType === "curation_profile"
-                ? "Curated profile"
-                : "SKU-backed"}
-            </span>
-            <span className="rounded-full bg-Scroll px-3 py-1 font-maison-neue-mono text-[11px] font-bold uppercase tracking-wide text-Charcoal">
-              {totalQuantity} items
-            </span>
-            {collection.TargetMinWeightLb && collection.TargetMaxWeightLb && (
+            <div className="mt-6 flex flex-wrap gap-2">
               <span className="rounded-full bg-Scroll px-3 py-1 font-maison-neue-mono text-[11px] font-bold uppercase tracking-wide text-Charcoal">
-                {collection.TargetMinWeightLb}-{collection.TargetMaxWeightLb} lb
-                target
+                {collection.CollectionType === "curation_profile"
+                  ? "Curated profile"
+                  : "SKU-backed"}
               </span>
-            )}
+              <span className="rounded-full bg-Scroll px-3 py-1 font-maison-neue-mono text-[11px] font-bold uppercase tracking-wide text-Charcoal">
+                {totalQuantity} items
+              </span>
+              {collection.TargetMinWeightLb && collection.TargetMaxWeightLb && (
+                <span className="rounded-full bg-Scroll px-3 py-1 font-maison-neue-mono text-[11px] font-bold uppercase tracking-wide text-Charcoal">
+                  {collection.TargetMinWeightLb}-{collection.TargetMaxWeightLb}{" "}
+                  lb target
+                </span>
+              )}
+            </div>
           </div>
+
+          <section className="order-3 mt-0 border-t border-Charcoal/10 pt-8 md:mt-10 md:pt-8">
+            <div className="mb-5">
+              <p className="font-maison-neue-mono text-p-sm-mono font-bold uppercase tracking-wide text-VibrantRed">
+                What is included
+              </p>
+              <h2 className="mt-2 font-gyst text-h3-mobile font-bold leading-tight text-Charcoal md:text-h3">
+                Transparent by item
+              </h2>
+            </div>
+
+            <div className="rounded-[5px] border border-Charcoal/10 bg-white p-4">
+              <CuratedCollectionItems
+                collection={collection}
+                countryCode={countryCode}
+                previewCount={Math.min(products.length, 6)}
+                showDescriptions
+                showImages
+              />
+            </div>
+          </section>
         </div>
 
-        <aside className="md:sticky md:top-24 md:self-start">
+        <aside className="order-2 md:sticky md:top-24 md:self-start">
           <div className="overflow-hidden rounded-[5px] border border-Charcoal/10 bg-Scroll">
             {heroImage && (
               <div className="relative aspect-[4/3] bg-gray-100">
@@ -156,26 +179,6 @@ export default function CuratedCollectionTemplate({
             </div>
           </div>
         </aside>
-      </section>
-
-      <section className="content-container border-t border-Charcoal/10 py-12">
-        <div className="mb-8 max-w-3xl">
-          <p className="font-maison-neue-mono text-p-sm-mono font-bold uppercase tracking-wide text-VibrantRed">
-            What is included
-          </p>
-          <h2 className="mt-2 font-gyst text-h2-mobile font-bold leading-tight text-Charcoal md:text-h2">
-            Transparent by item
-          </h2>
-        </div>
-
-        <div className="rounded-[5px] border border-Charcoal/10 bg-white p-4">
-          <CuratedCollectionItems
-            collection={collection}
-            countryCode={countryCode}
-            showDescriptions
-            showImages
-          />
-        </div>
       </section>
 
       {substitutionItems.length > 0 && (
