@@ -20,7 +20,9 @@ const Login = ({ setCurrentView }: Props) => {
   useEffect(() => {
     if (hasSubmitted.current && !message) {
       const loginId = formRef.current?.querySelector<HTMLInputElement>('input[name="email"]')?.value?.trim()
-      jitsuTrack("login_completed", { method: "email" })
+      jitsuTrack("login_completed", {
+        method: loginId?.includes("@") ? "email" : "legacy_username",
+      })
       if (loginId?.includes("@")) {
         const email = loginId.toLowerCase()
         jitsuIdentify(email, { email })

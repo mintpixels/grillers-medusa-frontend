@@ -170,17 +170,75 @@ function normalizeLoginIdentifier(value: string) {
   return trimmed.includes("@") ? trimmed.toLowerCase() : trimmed
 }
 
+function isEmailLoginIdentifier(value: string) {
+  return value.includes("@")
+}
+
+async function requestLegacyAuthToken(loginId: string, password: string) {
+  const backendUrl = (
+    process.env.MEDUSA_BACKEND_URL || "http://localhost:9000"
+  ).replace(/\/+$/, "")
+  const publishableKey = process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY || ""
+
+  try {
+    const res = await fetch(`${backendUrl}/store/legacy-auth/login`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-publishable-api-key": publishableKey,
+      },
+      body: JSON.stringify({ identifier: loginId, password }),
+      cache: "no-store",
+    })
+
+    if (!res.ok) {
+      return null
+    }
+
+    const body = (await res.json()) as { token?: unknown }
+    return typeof body.token === "string" && body.token ? body.token : null
+  } catch {
+    return null
+  }
+}
+
+async function getCustomerAuthToken(loginId: string, password: string) {
+  if (!isEmailLoginIdentifier(loginId)) {
+    const legacyToken = await requestLegacyAuthToken(loginId, password)
+    if (legacyToken) {
+      return legacyToken
+    }
+
+    throw new Error("Invalid login or password")
+  }
+
+  try {
+    return (await sdk.auth.login("customer", "emailpass", {
+      email: loginId,
+      password,
+    })) as string
+  } catch (error) {
+    const legacyToken = await requestLegacyAuthToken(loginId, password)
+    if (legacyToken) {
+      return legacyToken
+    }
+
+    throw error
+  }
+}
+
+async function setCustomerSessionToken(token: string) {
+  await setAuthToken(token)
+  const customerCacheTag = await getCacheTag("customers")
+  revalidateTag(customerCacheTag)
+}
+
 export async function loginWithCredentials(email: string, password: string) {
   const loginId = normalizeLoginIdentifier(email)
 
   try {
-    const token = await sdk.auth.login("customer", "emailpass", {
-      email: loginId,
-      password,
-    })
-    await setAuthToken(token as string)
-    const customerCacheTag = await getCacheTag("customers")
-    revalidateTag(customerCacheTag)
+    const token = await getCustomerAuthToken(loginId, password)
+    await setCustomerSessionToken(token)
     await transferCart()
     return { success: true, error: null }
   } catch (error: any) {
@@ -434,15 +492,10 @@ export async function login(_currentState: unknown, formData: FormData) {
   const password = formData.get("password") as string
 
   try {
-    await sdk.auth
-      .login("customer", "emailpass", { email: loginId, password })
-      .then(async (token) => {
-        await setAuthToken(token as string)
-        const customerCacheTag = await getCacheTag("customers")
-        revalidateTag(customerCacheTag)
-      })
+    const token = await getCustomerAuthToken(loginId, password)
+    await setCustomerSessionToken(token)
   } catch (error: any) {
-    return error.toString()
+    return "Invalid login or password"
   }
 
   try {

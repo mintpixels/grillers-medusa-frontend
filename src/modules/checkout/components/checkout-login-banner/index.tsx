@@ -224,11 +224,12 @@ const CheckoutLoginBanner: React.FC<Props> = ({ customer }) => {
 
             <form onSubmit={handleSignIn} className="space-y-3">
               <input
-                type="email"
+                type="text"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="Email address"
+                placeholder="Email or username"
                 required
+                autoComplete="username"
                 autoFocus
                 className="w-full h-10 px-3 text-sm bg-ui-bg-field border border-ui-border-base rounded-md focus:outline-none focus:ring-1 focus:ring-Gold focus:border-Gold"
               />
