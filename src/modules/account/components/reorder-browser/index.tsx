@@ -245,9 +245,7 @@ function LegacyHistoryCard({
 }) {
   const title = item.productTitle || item.title || "Past purchase"
   const staffAssisted = isStaffAssistedHistoryItem(item)
-  const lastOrdered = item.lastOrderedAt
-    ? new Date(item.lastOrderedAt).toLocaleDateString()
-    : "Unknown"
+  const lastOrdered = formatLegacyDate(item.lastOrderedAt)
   const phoneDisplay = "(770) 454-8108"
   const phoneHref = "tel:+17704548108"
   const requestLabel =
@@ -338,9 +336,7 @@ function MappedHistoryCard({
   onAdd: () => void
 }) {
   const title = item.productTitle || item.title || "Past purchase"
-  const lastOrdered = item.lastOrderedAt
-    ? new Date(item.lastOrderedAt).toLocaleDateString()
-    : "Unknown"
+  const lastOrdered = formatLegacyDate(item.lastOrderedAt)
   const addLabel =
     addState === "adding"
       ? "Adding..."
