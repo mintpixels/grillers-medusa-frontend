@@ -117,7 +117,7 @@ export async function retrieveAdminCustomer(customerId: string): Promise<AnyReco
     {
       query: {
         fields:
-          "id,email,first_name,last_name,phone,company_name,metadata,*addresses,*orders",
+          "id,email,first_name,last_name,phone,company_name,metadata,*addresses",
       },
     }
   )

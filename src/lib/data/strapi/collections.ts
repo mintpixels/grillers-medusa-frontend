@@ -927,6 +927,132 @@ const LegacyGetProductsWithImagesQuery = legacyProductQuery(
   GetProductsWithImagesQuery
 )
 
+function normalizeLookupSku(value?: string | null) {
+  return value?.trim().toLowerCase() || ""
+}
+
+function productMatchesMedusaLookup(
+  product: StrapiCollectionProduct,
+  refs: {
+    productIds: Set<string>
+    variantIds: Set<string>
+    skus: Set<string>
+  }
+) {
+  const medusaProduct = product.MedusaProduct
+  if (!medusaProduct) return false
+
+  if (medusaProduct.ProductId && refs.productIds.has(medusaProduct.ProductId)) {
+    return true
+  }
+
+  return (medusaProduct.Variants || []).some((variant) => {
+    return (
+      (variant.VariantId && refs.variantIds.has(variant.VariantId)) ||
+      (variant.Sku && refs.skus.has(normalizeLookupSku(variant.Sku)))
+    )
+  })
+}
+
+function uniqueProductsByDocumentId(products: StrapiCollectionProduct[]) {
+  const seen = new Set<string>()
+  return products.filter((product) => {
+    const key = product.documentId || product.MedusaProduct?.ProductId
+    if (!key || seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
+
+export async function getProductsByMedusaLookupRefs(
+  input: {
+    productIds?: string[]
+    variantIds?: string[]
+    skus?: string[]
+  },
+  client: any
+): Promise<StrapiCollectionProduct[]> {
+  const productIds = Array.from(new Set((input.productIds || []).filter(Boolean)))
+  const variantIds = Array.from(new Set((input.variantIds || []).filter(Boolean)))
+  const skus = Array.from(
+    new Set((input.skus || []).map(normalizeLookupSku).filter(Boolean))
+  )
+
+  if (!productIds.length && !variantIds.length && !skus.length) {
+    return []
+  }
+
+  const refs = {
+    productIds: new Set(productIds),
+    variantIds: new Set(variantIds),
+    skus: new Set(skus),
+  }
+
+  const directProducts = productIds.length
+    ? await getProductsByMedusaIds(productIds, client)
+    : []
+  const directMatches = uniqueProductsByDocumentId(directProducts)
+
+  const hasMissingVariantMatch = variantIds.some(
+    (variantId) =>
+      !directMatches.some((product) =>
+        product.MedusaProduct?.Variants?.some(
+          (variant) => variant.VariantId === variantId
+        )
+      )
+  )
+  const hasMissingSkuMatch = skus.some(
+    (sku) =>
+      !directMatches.some((product) =>
+        product.MedusaProduct?.Variants?.some(
+          (variant) => normalizeLookupSku(variant.Sku) === sku
+        )
+      )
+  )
+
+  if (!hasMissingVariantMatch && !hasMissingSkuMatch) {
+    return directMatches
+  }
+
+  try {
+    const catalogProducts = await fetchPaginatedProducts(
+      client,
+      GetProductsWithImagesQuery,
+      {},
+      100
+    )
+    return uniqueProductsByDocumentId([
+      ...directMatches,
+      ...catalogProducts.filter((product) =>
+        productMatchesMedusaLookup(product, refs)
+      ),
+    ])
+  } catch (error) {
+    console.error("Error fetching products for Medusa lookup refs:", error)
+  }
+
+  try {
+    const catalogProducts = await fetchPaginatedProducts(
+      client,
+      LegacyGetProductsWithImagesQuery,
+      {},
+      100
+    )
+    return uniqueProductsByDocumentId([
+      ...directMatches,
+      ...catalogProducts.filter((product) =>
+        productMatchesMedusaLookup(product, refs)
+      ),
+    ])
+  } catch (error) {
+    console.error(
+      "Error fetching legacy products for Medusa lookup refs:",
+      error
+    )
+    return directMatches
+  }
+}
+
 // ── Cached pool of eligible products for "related products" ──
 // Fetches the full catalog once, caches in server memory, refreshes every 5 min.
 // Each PDP just picks randomly from the cache — no per-request catalog scan.

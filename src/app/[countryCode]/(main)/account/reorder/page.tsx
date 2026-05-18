@@ -7,12 +7,16 @@ import {
   listPurchaseHistory,
 } from "@lib/data/orders"
 import {
-  getProductsByMedusaIds,
+  getProductsByMedusaLookupRefs,
   type StrapiCollectionProduct,
 } from "@lib/data/strapi/collections"
 import strapiClient from "@lib/strapi"
 import ReorderBrowser from "@modules/account/components/reorder-browser"
 import LoginTemplate from "@modules/account/templates/login-template"
+
+function presentString(value: string | null | undefined): value is string {
+  return Boolean(value)
+}
 
 export const metadata: Metadata = {
   title: "Reorder | Grillers Pride",
@@ -36,15 +40,32 @@ export default async function ReorderPage({
     listAllLegacyCustomerOrders(),
   ])
   const productIds = Array.from(
-    new Set(history.map((h) => h.productId).filter(Boolean))
+    new Set(history.map((h) => h.productId).filter(presentString))
+  )
+  const variantIds = Array.from(
+    new Set(history.map((h) => h.variantId).filter(presentString))
+  )
+  const skus = Array.from(
+    new Set(history.map((h) => h.sku).filter(presentString))
   )
 
-  const strapiProducts = await getProductsByMedusaIds(productIds, strapiClient)
+  const strapiProducts = await getProductsByMedusaLookupRefs(
+    { productIds, variantIds, skus },
+    strapiClient
+  )
 
   const strapiMap: Record<string, StrapiCollectionProduct> = {}
   for (const sp of strapiProducts) {
     if (sp.MedusaProduct?.ProductId) {
       strapiMap[sp.MedusaProduct.ProductId] = sp
+    }
+    for (const variant of sp.MedusaProduct?.Variants || []) {
+      if (variant.VariantId) {
+        strapiMap[variant.VariantId] = sp
+      }
+      if (variant.Sku) {
+        strapiMap[variant.Sku.trim().toLowerCase()] = sp
+      }
     }
   }
 

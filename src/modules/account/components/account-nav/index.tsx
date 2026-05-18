@@ -7,6 +7,7 @@ import { HttpTypes } from "@medusajs/types"
 import { signout } from "@lib/data/customer"
 import { isStaffCustomer } from "@lib/util/staff-access"
 import type { StaffImpersonationSession } from "@lib/data/staff/impersonation-types"
+import StaffContextActions from "@modules/staff/components/staff-context-actions"
 
 const navItems = [
   {
@@ -173,6 +174,20 @@ const AccountNav = ({
           </div>
 
           <nav className="flex flex-col gap-1">
+            {staffImpersonation && (
+              <div className="mb-4 rounded-lg border border-Gold/35 bg-Gold/10 p-3">
+                <p className="text-xs font-maison-neue-mono uppercase text-Charcoal/45">
+                  Staff context
+                </p>
+                <p className="mt-1 text-sm font-maison-neue font-semibold text-Charcoal">
+                  Acting as {staffImpersonation.targetName}
+                </p>
+                <div className="mt-3">
+                  <StaffContextActions compact />
+                </div>
+              </div>
+            )}
+
             {items.map((item) => (
               <LocalizedClientLink
                 key={item.href}

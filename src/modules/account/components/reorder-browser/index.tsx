@@ -33,8 +33,45 @@ function itemTitle(
   item: PurchaseHistoryItem,
   strapiProduct?: StrapiCollectionProduct
 ) {
+  if (strapiProduct?.Title) return strapiProduct.Title
+
+  const productTitle = normalizedHistoryTitle(item.productTitle)
+  if (productTitle) return productTitle
+
+  const title = normalizedHistoryTitle(item.title)
+  if (title) return title
+
+  return item.sku ? `Past purchase ${item.sku}` : "Past purchase"
+}
+
+function normalizedHistoryTitle(value?: string | null) {
+  const title = value?.trim()
+  if (!title) return ""
+
+  const normalized = title.toLowerCase()
+  if (
+    normalized === "standard" ||
+    normalized === "default" ||
+    normalized === "default title"
+  ) {
+    return ""
+  }
+
+  return title
+}
+
+function normalizedSku(value?: string | null) {
+  return value?.trim().toLowerCase() || ""
+}
+
+function lookupStrapiProductForHistory(
+  item: PurchaseHistoryItem,
+  strapiMap: Record<string, StrapiCollectionProduct>
+) {
   return (
-    strapiProduct?.Title || item.productTitle || item.title || "Past purchase"
+    (item.productId ? strapiMap[item.productId] : undefined) ||
+    (item.variantId ? strapiMap[item.variantId] : undefined) ||
+    (item.sku ? strapiMap[normalizedSku(item.sku)] : undefined)
   )
 }
 
@@ -244,7 +281,7 @@ function LegacyHistoryCard({
   requestState: RequestState
   onRequest: () => void
 }) {
-  const title = item.productTitle || item.title || "Past purchase"
+  const title = itemTitle(item)
   const staffAssisted = isStaffAssistedHistoryItem(item)
   const lastOrdered = formatLegacyDate(item.lastOrderedAt)
   const phoneDisplay = "(770) 454-8108"
@@ -336,7 +373,7 @@ function MappedHistoryCard({
   addState: AddState
   onAdd: () => void
 }) {
-  const title = item.productTitle || item.title || "Past purchase"
+  const title = itemTitle(item)
   const lastOrdered = formatLegacyDate(item.lastOrderedAt)
   const addLabel =
     addState === "adding"
@@ -454,7 +491,7 @@ export default function ReorderBrowser({
       })
       setAddStates((states) => ({ ...states, [key]: "added" }))
       toast.success("Added to cart", {
-        description: item.productTitle || item.title,
+        description: itemTitle(item),
       })
     } catch (error) {
       console.error("Failed to add legacy mapped item to cart:", error)
@@ -590,7 +627,7 @@ export default function ReorderBrowser({
       seen.add(key)
       items.push({
         ...h,
-        strapiProduct: h.productId ? strapiMap[h.productId] : undefined,
+        strapiProduct: lookupStrapiProductForHistory(h, strapiMap),
       })
     }
 
