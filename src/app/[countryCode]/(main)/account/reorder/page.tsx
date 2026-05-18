@@ -1,8 +1,11 @@
 export const dynamic = "force-dynamic"
 
 import { Metadata } from "next"
-import { listPurchaseHistory } from "@lib/data/orders"
-import { getProductsByMedusaIds, type StrapiCollectionProduct } from "@lib/data/strapi/collections"
+import { listLegacyCustomerOrders, listPurchaseHistory } from "@lib/data/orders"
+import {
+  getProductsByMedusaIds,
+  type StrapiCollectionProduct,
+} from "@lib/data/strapi/collections"
 import strapiClient from "@lib/strapi"
 import ReorderBrowser from "@modules/account/components/reorder-browser"
 
@@ -17,8 +20,13 @@ export default async function ReorderPage({
   params: Promise<{ countryCode: string }>
 }) {
   const { countryCode } = await params
-  const history = await listPurchaseHistory()
-  const productIds = [...new Set(history.map((h) => h.productId).filter(Boolean))]
+  const [history, legacyOrderHistory] = await Promise.all([
+    listPurchaseHistory(),
+    listLegacyCustomerOrders(100, 0),
+  ])
+  const productIds = Array.from(
+    new Set(history.map((h) => h.productId).filter(Boolean))
+  )
 
   const strapiProducts = await getProductsByMedusaIds(productIds, strapiClient)
 
@@ -32,13 +40,17 @@ export default async function ReorderPage({
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-h3 font-gyst font-bold text-Charcoal">Quick Reorder</h1>
+        <h1 className="text-h3 font-gyst font-bold text-Charcoal">
+          Quick Reorder
+        </h1>
         <p className="text-sm font-maison-neue text-Charcoal/50 mt-1">
           Browse and reorder from your purchase history
         </p>
       </div>
       <ReorderBrowser
         history={history}
+        legacyOrders={legacyOrderHistory.orders || []}
+        legacyOrderCount={legacyOrderHistory.count || 0}
         strapiMap={strapiMap}
         countryCode={countryCode}
       />

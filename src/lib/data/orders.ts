@@ -72,7 +72,8 @@ export const listOrders = async (
           offset,
           order: "-created_at",
           customer_id: active.session.targetCustomerId,
-          fields: "*items,+items.metadata,*items.variant,*items.product,+metadata",
+          fields:
+            "*items,+items.metadata,*items.variant,*items.product,+metadata",
           ...filters,
         },
       }
@@ -95,7 +96,8 @@ export const listOrders = async (
         limit,
         offset,
         order: "-created_at",
-        fields: "*items,+items.metadata,*items.variant,*items.product,+metadata",
+        fields:
+          "*items,+items.metadata,*items.variant,*items.product,+metadata",
         ...filters,
       },
       headers,
@@ -129,7 +131,8 @@ export async function listOrdersWithPrices(
           limit,
           offset,
           order: "-created_at",
-          fields: "*items,+items.metadata,*items.variant,*items.product,+metadata",
+          fields:
+            "*items,+items.metadata,*items.variant,*items.product,+metadata",
           ...filters,
         },
         headers,
@@ -271,6 +274,62 @@ export type PurchaseHistoryItem = {
 
 type LegacyPurchaseHistoryResponse = {
   purchase_history?: PurchaseHistoryItem[]
+}
+
+export type LegacyCustomerOrderLine = {
+  id: string
+  legacy_order_id: string
+  qbd_txn_line_id?: string | null
+  qbd_item_list_id?: string | null
+  sku?: string | null
+  title?: string | null
+  description?: string | null
+  quantity: number
+  unit_price: number
+  line_total: number
+  currency_code: string
+  medusa_product_id?: string | null
+  medusa_variant_id?: string | null
+  medusa_product_title?: string | null
+  medusa_variant_title?: string | null
+  mapping_status?: string | null
+  line_kind?: string | null
+  customer_visible?: boolean
+  display_title?: string | null
+}
+
+export type LegacyCustomerOrder = {
+  id: string
+  source?: string | null
+  source_order_id?: string | null
+  qbd_txn_id?: string | null
+  ref_number?: string | null
+  legacy_order_id?: string | null
+  legacy_customer_id?: string | null
+  qbd_customer_list_id?: string | null
+  medusa_customer_id?: string | null
+  email_lower?: string | null
+  customer_name?: string | null
+  placed_at?: string | null
+  ship_date?: string | null
+  status?: string | null
+  subtotal: number
+  tax_total: number
+  shipping_total: number
+  discount_total: number
+  total: number
+  currency_code: string
+  line_count: number
+  customer_visible_line_count?: number
+  imported_at?: string | null
+  lines: LegacyCustomerOrderLine[]
+}
+
+type LegacyCustomerOrdersResponse = {
+  orders?: LegacyCustomerOrder[]
+  count?: number
+  limit?: number
+  offset?: number
 }
 
 export type LegacyReorderRequestResult = {
@@ -454,6 +513,67 @@ function mergePurchaseHistoryItem(
       : existing.mappingStatus || item.mappingStatus
 }
 
+export async function listLegacyCustomerOrders(
+  limit = 100,
+  offset = 0
+): Promise<LegacyCustomerOrdersResponse> {
+  const active = await getActiveStaffImpersonation()
+  if (active) {
+    const response = await adminFetch<LegacyCustomerOrdersResponse>(
+      `/admin/legacy-orders`,
+      {
+        query: {
+          customer_id: active.session.targetCustomerId,
+          limit,
+          offset,
+        },
+      }
+    ).catch(() => ({ orders: [], count: 0, limit, offset }))
+
+    const detailedOrders = await Promise.all(
+      (response.orders || []).map((order) =>
+        adminFetch<{ order: LegacyCustomerOrder }>(
+          `/admin/legacy-orders/${order.id}`
+        )
+          .then(({ order: detailed }) => detailed || order)
+          .catch(() => order)
+      )
+    )
+
+    return {
+      ...response,
+      orders: detailedOrders.map((order) => ({
+        ...order,
+        customer_visible_line_count:
+          order.customer_visible_line_count ??
+          (order.lines || []).filter((line) => line.customer_visible !== false)
+            .length,
+        lines: (order.lines || []).filter(
+          (line) => line.customer_visible !== false
+        ),
+      })),
+    }
+  }
+
+  const headers = {
+    ...(await getAuthHeaders()),
+  }
+
+  if (!("authorization" in headers)) {
+    return { orders: [], count: 0, limit, offset }
+  }
+
+  return sdk.client
+    .fetch<LegacyCustomerOrdersResponse>(`/store/legacy-order-history/orders`, {
+      method: "GET",
+      headers,
+      query: { limit, offset },
+      cache: "no-store",
+    })
+    .then((response) => response)
+    .catch(() => ({ orders: [], count: 0, limit, offset }))
+}
+
 /**
  * Fetch all past orders and deduplicate items by variant_id.
  * Returns a list of unique products the customer has ordered, sorted by most recent.
@@ -525,6 +645,7 @@ export async function listPurchaseHistory(): Promise<PurchaseHistoryItem[]> {
   }
 
   return Array.from(variantMap.values()).sort(
-    (a, b) => new Date(b.lastOrderedAt).getTime() - new Date(a.lastOrderedAt).getTime()
+    (a, b) =>
+      new Date(b.lastOrderedAt).getTime() - new Date(a.lastOrderedAt).getTime()
   )
 }
