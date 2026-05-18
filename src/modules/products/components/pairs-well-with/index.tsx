@@ -163,7 +163,7 @@ export default async function PairsWellWith({
             )
             const quickAddDisabledReason =
               substitutionGuardrails.needsBusinessReview
-                ? "This collection is temporarily unavailable while we confirm substitution weight and shipping costs."
+                ? "This collection is temporarily unavailable while we confirm the final item mix."
                 : substitutionGuardrails.requiresAcknowledgement
                 ? "Review substitution details on the collection page before adding."
                 : undefined

@@ -254,16 +254,6 @@ const CuratedCollectionFields = gql`
         ...CuratedProductFields
       }
     }
-    CurationSlots {
-      Label
-      CategoryRule
-      MinWeightLb
-      MaxWeightLb
-      MinPricePerLb
-      MaxPricePerLb
-      Required
-      Notes
-    }
     RecommendationRules {
       Surface
       Trigger
@@ -280,7 +270,6 @@ const CuratedCollectionFields = gql`
     IsActive
     SurfacePlacements
     PdpMatchKeywords
-    StrategySignals
     SEO {
       metaTitle
       metaDescription
@@ -456,16 +445,6 @@ const LegacyCuratedCollectionFields = gql`
         ...LegacyCuratedProductFields
       }
     }
-    CurationSlots {
-      Label
-      CategoryRule
-      MinWeightLb
-      MaxWeightLb
-      MinPricePerLb
-      MaxPricePerLb
-      Required
-      Notes
-    }
     RecommendationRules {
       Surface
       Trigger
@@ -482,7 +461,6 @@ const LegacyCuratedCollectionFields = gql`
     IsActive
     SurfacePlacements
     PdpMatchKeywords
-    StrategySignals
     SEO {
       metaTitle
       metaDescription

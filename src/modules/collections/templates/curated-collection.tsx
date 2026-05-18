@@ -47,6 +47,12 @@ export default function CuratedCollectionTemplate({
     collection.HeroImage?.url ||
     products.find((item) => item.Product.FeaturedImage?.url)?.Product
       .FeaturedImage?.url
+  const itemListCollection = {
+    documentId: collection.documentId,
+    Name: collection.Name,
+    Slug: collection.Slug,
+    Items: collection.Items,
+  }
 
   return (
     <main className="bg-white">
@@ -66,8 +72,8 @@ export default function CuratedCollectionTemplate({
             <div className="mt-6 flex flex-wrap gap-2">
               <span className="rounded-full bg-Scroll px-3 py-1 font-maison-neue-mono text-[11px] font-bold uppercase tracking-wide text-Charcoal">
                 {collection.CollectionType === "curation_profile"
-                  ? "Curated profile"
-                  : "SKU-backed"}
+                  ? "Flexible picks"
+                  : "Exact items"}
               </span>
               <span className="rounded-full bg-Scroll px-3 py-1 font-maison-neue-mono text-[11px] font-bold uppercase tracking-wide text-Charcoal">
                 {totalQuantity} items
@@ -93,7 +99,7 @@ export default function CuratedCollectionTemplate({
 
             <div className="rounded-[5px] border border-Charcoal/10 bg-white p-4">
               <CuratedCollectionItems
-                collection={collection}
+                collection={itemListCollection}
                 countryCode={countryCode}
                 previewCount={Math.min(products.length, 6)}
                 showDescriptions
@@ -144,14 +150,8 @@ export default function CuratedCollectionTemplate({
 
               {needsBusinessReview && (
                 <div className="mb-4 rounded-[5px] border border-VibrantRed/30 bg-VibrantRed/10 p-3 font-maison-neue text-xs leading-relaxed text-Charcoal/70">
-                  This collection has a substitution marked for business review.
-                  Editors should confirm weight, margin, and shipping cost
-                  before promoting it.
-                  {substitutionGuardrails.reviewReasons.length > 0 && (
-                    <span className="mt-1 block text-Charcoal/60">
-                      {substitutionGuardrails.reviewReasons[0]}
-                    </span>
-                  )}
+                  This collection is temporarily unavailable while we confirm
+                  the final item mix.
                 </div>
               )}
 
@@ -168,7 +168,7 @@ export default function CuratedCollectionTemplate({
                 }
                 disabledReason={
                   needsBusinessReview
-                    ? "This collection is temporarily unavailable while we confirm substitution weight and shipping costs."
+                    ? "This collection is temporarily unavailable while we confirm the final item mix."
                     : undefined
                 }
               />
@@ -208,8 +208,8 @@ export default function CuratedCollectionTemplate({
                   >
                     <p className="font-maison-neue-mono text-[10px] font-bold uppercase tracking-wide text-VibrantRed">
                       {item.SubstitutionStatus === "out_of_stock_substituted"
-                        ? "Out of stock substitution"
-                        : "Editor substitution"}
+                        ? "Out of stock swap"
+                        : "Updated item"}
                     </p>
                     <p className="mt-2 font-maison-neue text-sm font-semibold text-Charcoal">
                       {item.OriginalQuantity && item.OriginalQuantity > 1
@@ -235,7 +235,7 @@ export default function CuratedCollectionTemplate({
                       {item.ShippingCostRisk &&
                         item.ShippingCostRisk !== "normal" && (
                           <span className="rounded-full bg-white px-2 py-1 font-maison-neue-mono text-[10px] font-bold uppercase tracking-wide text-VibrantRed">
-                            Shipping review
+                            Delivery check
                           </span>
                         )}
                     </div>

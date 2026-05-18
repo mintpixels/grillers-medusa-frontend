@@ -24,8 +24,13 @@ type ResolvedCollectionItem = CuratedCollectionItem & {
   Product: StrapiCollectionProduct
 }
 
+type CollectionItemListCollection = Pick<
+  CuratedCollection,
+  "documentId" | "Name" | "Slug" | "Items"
+>
+
 type CuratedCollectionItemsProps = {
-  collection: CuratedCollection
+  collection: CollectionItemListCollection
   countryCode: string
   previewCount?: number
   showDescriptions?: boolean
@@ -36,7 +41,7 @@ type CuratedCollectionItemsProps = {
 }
 
 export function getResolvedCollectionItems(
-  collection: CuratedCollection
+  collection: CollectionItemListCollection
 ): ResolvedCollectionItem[] {
   return (collection.Items || []).filter(
     (item): item is ResolvedCollectionItem =>
@@ -119,7 +124,7 @@ function CollectionItemRow({
   compactRows,
 }: {
   item: ResolvedCollectionItem
-  collection: CuratedCollection
+  collection: CollectionItemListCollection
   countryCode: string
   showDescriptions: boolean
   showImages: boolean
@@ -233,7 +238,7 @@ function CollectionItemAddButton({
   countryCode,
 }: {
   item: ResolvedCollectionItem
-  collection: CuratedCollection
+  collection: CollectionItemListCollection
   countryCode: string
 }) {
   const [isAdding, setIsAdding] = React.useState(false)
