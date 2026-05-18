@@ -64,15 +64,15 @@ function cardFromCuratedCollection(
 
 function FeaturedCollectionCard({ card }: { card: ShopCollectionCardData }) {
   return (
-    <article className="group flex h-full min-w-0 flex-col overflow-hidden rounded-[5px] border border-Charcoal/10 bg-white">
-      <LocalizedClientLink href={card.slug} className="block">
-        <figure className="relative aspect-[16/10] w-full overflow-hidden bg-gray-50">
+    <article className="group flex min-w-0 flex-col overflow-hidden rounded-[5px] border border-Charcoal/10 bg-white xl:grid xl:min-h-[388px] xl:grid-cols-[minmax(0,1.1fr)_minmax(300px,0.9fr)]">
+      <LocalizedClientLink href={card.slug} className="block xl:h-full">
+        <figure className="relative aspect-[16/10] w-full overflow-hidden bg-gray-50 xl:h-full xl:aspect-auto">
           {card.imageUrl && (
             <Image
               src={card.imageUrl}
               alt={card.alt}
               fill
-              sizes="(min-width: 1024px) 56vw, 100vw"
+              sizes="(min-width: 1280px) 34vw, 100vw"
               className="object-cover transition-transform duration-500 group-hover:scale-[1.02]"
             />
           )}
