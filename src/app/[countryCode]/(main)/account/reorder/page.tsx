@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic"
 
 import { Metadata } from "next"
+import { retrieveCustomer } from "@lib/data/customer"
 import {
   listAllLegacyCustomerOrders,
   listPurchaseHistory,
@@ -11,6 +12,7 @@ import {
 } from "@lib/data/strapi/collections"
 import strapiClient from "@lib/strapi"
 import ReorderBrowser from "@modules/account/components/reorder-browser"
+import LoginTemplate from "@modules/account/templates/login-template"
 
 export const metadata: Metadata = {
   title: "Reorder | Grillers Pride",
@@ -23,6 +25,12 @@ export default async function ReorderPage({
   params: Promise<{ countryCode: string }>
 }) {
   const { countryCode } = await params
+  const customer = await retrieveCustomer().catch(() => null)
+
+  if (!customer) {
+    return <LoginTemplate />
+  }
+
   const [history, legacyOrderHistory] = await Promise.all([
     listPurchaseHistory(),
     listAllLegacyCustomerOrders(),

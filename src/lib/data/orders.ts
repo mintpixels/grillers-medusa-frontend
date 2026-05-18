@@ -683,8 +683,8 @@ export async function listAllLegacyCustomerOrders(
  */
 export async function listPurchaseHistory(): Promise<PurchaseHistoryItem[]> {
   const [orders, legacyHistory] = await Promise.all([
-    listAllOrders(),
-    listLegacyPurchaseHistory(),
+    listAllOrders().catch(() => []),
+    listLegacyPurchaseHistory().catch(() => []),
   ])
 
   const variantMap = new Map<string, PurchaseHistoryItem>()
