@@ -24,7 +24,9 @@ export type StaffCustomerSummary = {
   phone: string
   company: string
   defaultAddress?: StaffAddressInput
-  source: "customer" | "order"
+  source: "customer" | "order" | "legacy_order"
+  matchedLegacyOrderId?: string
+  matchedLegacyOrderDisplayId?: string
 }
 
 export type StaffRecentOrder = {
@@ -45,8 +47,35 @@ export type StaffRecentOrderItem = {
   sku?: string
 }
 
+export type StaffLegacyOrderItem = {
+  id: string
+  title: string
+  description?: string
+  quantity: number
+  unitPrice: number
+  lineTotal: number
+  sku?: string
+  mappingStatus?: string
+  lineKind?: string
+  variantId?: string
+}
+
+export type StaffLegacyOrder = {
+  id: string
+  displayId: string
+  placedAt: string
+  status: string
+  total: number
+  currencyCode: string
+  lineCount: number
+  customerName: string
+  email: string
+  items: StaffLegacyOrderItem[]
+}
+
 export type StaffCustomerContext = StaffCustomerSummary & {
   recentOrders: StaffRecentOrder[]
+  legacyOrders: StaffLegacyOrder[]
 }
 
 export type StaffProductSearchResult = {
@@ -101,7 +130,11 @@ export type StaffPrepareOrderInput = {
   billingAddress?: StaffAddressInput
   sameAsShipping: boolean
   lines: StaffOrderLineInput[]
-  fulfillmentType: "plant_pickup" | "atlanta_delivery" | "ups_shipping" | "southeast_pickup"
+  fulfillmentType:
+    | "plant_pickup"
+    | "atlanta_delivery"
+    | "ups_shipping"
+    | "southeast_pickup"
   scheduledDate?: string
   scheduledTimeWindow?: string
   pickupLocationId?: string
@@ -240,7 +273,9 @@ async function requireStaff() {
   return customer
 }
 
-function toStaffAddress(address: AnyRecord | null | undefined): StaffAddressInput | undefined {
+function toStaffAddress(
+  address: AnyRecord | null | undefined
+): StaffAddressInput | undefined {
   if (!address) return undefined
   return {
     id: address.id,
@@ -294,7 +329,10 @@ function toStoreAddress(address: StaffAddressInput): AnyRecord {
   }
 }
 
-function customerSummary(customer: AnyRecord, source: StaffCustomerSummary["source"]): StaffCustomerSummary {
+function customerSummary(
+  customer: AnyRecord,
+  source: StaffCustomerSummary["source"]
+): StaffCustomerSummary {
   const defaultAddress =
     customer.addresses?.find((addr: AnyRecord) => addr.is_default_shipping) ||
     customer.addresses?.[0] ||
@@ -309,6 +347,96 @@ function customerSummary(customer: AnyRecord, source: StaffCustomerSummary["sour
     company: customer.company_name || defaultAddress?.company || "",
     defaultAddress: toStaffAddress(defaultAddress),
     source,
+  }
+}
+
+function splitLegacyCustomerName(name: string | null | undefined) {
+  const parts = String(name || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+
+  if (!parts.length) {
+    return { firstName: "", lastName: "" }
+  }
+
+  if (parts.length === 1) {
+    return { firstName: parts[0], lastName: "" }
+  }
+
+  return {
+    firstName: parts.slice(0, -1).join(" "),
+    lastName: parts[parts.length - 1],
+  }
+}
+
+function legacyOrderCustomerSummary(
+  order: AnyRecord
+): StaffCustomerSummary | null {
+  const medusaCustomerId = String(order.medusa_customer_id || "").trim()
+  const fallbackEmail = String(order.email_lower || "").trim()
+  const fallbackName = splitLegacyCustomerName(order.customer_name)
+
+  if (!medusaCustomerId && !fallbackEmail && !order.customer_name) {
+    return null
+  }
+
+  return {
+    id: medusaCustomerId || `legacy-order:${order.id}`,
+    email: fallbackEmail,
+    firstName: fallbackName.firstName,
+    lastName: fallbackName.lastName,
+    phone: "",
+    company: "",
+    source: "legacy_order",
+    matchedLegacyOrderId: order.id,
+    matchedLegacyOrderDisplayId:
+      order.ref_number || order.qbd_txn_id || order.legacy_order_id || order.id,
+  }
+}
+
+function lineKind(
+  metadata: AnyRecord | null | undefined,
+  mappingStatus?: string
+) {
+  return (
+    metadata?.line_kind ||
+    (mappingStatus === "non_product" ? "non_product" : "product")
+  )
+}
+
+function legacyOrderSummary(order: AnyRecord): StaffLegacyOrder {
+  return {
+    id: order.id,
+    displayId:
+      order.ref_number || order.qbd_txn_id || order.legacy_order_id || order.id,
+    placedAt: order.placed_at || "",
+    status: order.status || "imported",
+    total: currencyAmount(order.total),
+    currencyCode: order.currency_code || "usd",
+    lineCount: Number(order.line_count || order.lines?.length || 0),
+    customerName: order.customer_name || "",
+    email: order.email_lower || "",
+    items: (order.lines || []).map((line: AnyRecord) => ({
+      id: line.id,
+      title:
+        line.medusa_variant_title ||
+        line.medusa_product_title ||
+        line.title ||
+        line.description ||
+        "Legacy item",
+      description:
+        line.description && line.description !== line.title
+          ? line.description
+          : undefined,
+      quantity: Number(line.quantity || 0),
+      unitPrice: currencyAmount(line.unit_price),
+      lineTotal: currencyAmount(line.line_total),
+      sku: line.sku || undefined,
+      mappingStatus: line.mapping_status || undefined,
+      lineKind: lineKind(line.metadata, line.mapping_status),
+      variantId: line.medusa_variant_id || undefined,
+    })),
   }
 }
 
@@ -336,7 +464,11 @@ function validateAddress(address: StaffAddressInput, label: string) {
   if (!address.address1.trim()) {
     throw new Error(`${label} needs a street address.`)
   }
-  if (!address.city.trim() || !address.province.trim() || !address.postalCode.trim()) {
+  if (
+    !address.city.trim() ||
+    !address.province.trim() ||
+    !address.postalCode.trim()
+  ) {
     throw new Error(`${label} needs city, state, and ZIP.`)
   }
 }
@@ -346,7 +478,9 @@ function metadataText(value?: string): string | undefined {
   return trimmed ? trimmed : undefined
 }
 
-function serviceCodesForFulfillment(type: StaffPrepareOrderInput["fulfillmentType"]) {
+function serviceCodesForFulfillment(
+  type: StaffPrepareOrderInput["fulfillmentType"]
+) {
   switch (type) {
     case "plant_pickup":
       return ["PICKUP"]
@@ -363,15 +497,15 @@ async function findStaffShippingOption(
   cartId: string,
   type: StaffPrepareOrderInput["fulfillmentType"]
 ): Promise<AnyRecord> {
-  const { shipping_options } = await storeFetch<{ shipping_options: AnyRecord[] }>(
-    "/store/shipping-options",
-    {
-      query: {
-        cart_id: cartId,
-        fields: "*service_zone.fulfillment_set.*,*service_zone.fulfillment_set.location.*,*shipping_profile.*",
-      },
-    }
-  )
+  const { shipping_options } = await storeFetch<{
+    shipping_options: AnyRecord[]
+  }>("/store/shipping-options", {
+    query: {
+      cart_id: cartId,
+      fields:
+        "*service_zone.fulfillment_set.*,*service_zone.fulfillment_set.location.*,*shipping_profile.*",
+    },
+  })
 
   const serviceCodes = serviceCodesForFulfillment(type)
   const byServiceCode = shipping_options.find((option) => {
@@ -382,10 +516,15 @@ async function findStaffShippingOption(
 
   const byName = shipping_options.find((option) => {
     const name = String(option.name || "").toLowerCase()
-    if (type === "plant_pickup") return name.includes("pickup") || name.includes("plant")
-    if (type === "atlanta_delivery") return name.includes("atlanta") || name.includes("local")
-    if (type === "southeast_pickup") return name.includes("southeast") || name.includes("scheduled")
-    return name.includes("ground") || name.includes("ups") || name.includes("ship")
+    if (type === "plant_pickup")
+      return name.includes("pickup") || name.includes("plant")
+    if (type === "atlanta_delivery")
+      return name.includes("atlanta") || name.includes("local")
+    if (type === "southeast_pickup")
+      return name.includes("southeast") || name.includes("scheduled")
+    return (
+      name.includes("ground") || name.includes("ups") || name.includes("ship")
+    )
   })
   if (byName) return byName
 
@@ -396,7 +535,9 @@ async function findStaffShippingOption(
     if (nonPickup) return nonPickup
   }
 
-  throw new Error(`No Medusa shipping option is available for ${type.replace(/_/g, " ")}.`)
+  throw new Error(
+    `No Medusa shipping option is available for ${type.replace(/_/g, " ")}.`
+  )
 }
 
 async function retrieveStaffCart(cartId: string): Promise<HttpTypes.StoreCart> {
@@ -413,10 +554,9 @@ async function retrieveStaffCart(cartId: string): Promise<HttpTypes.StoreCart> {
 }
 
 async function listPaymentProviders(regionId: string): Promise<AnyRecord[]> {
-  const { payment_providers } = await storeFetch<{ payment_providers: AnyRecord[] }>(
-    "/store/payment-providers",
-    { query: { region_id: regionId } }
-  )
+  const { payment_providers } = await storeFetch<{
+    payment_providers: AnyRecord[]
+  }>("/store/payment-providers", { query: { region_id: regionId } })
   return payment_providers || []
 }
 
@@ -426,12 +566,17 @@ function buildCheckoutUrl(countryCode: string, token: string): string {
     process.env.NEXT_PUBLIC_VERCEL_URL ||
     "https://grillers-medusa-frontend.vercel.app"
   const origin = base.startsWith("http") ? base : `https://${base}`
-  return `${origin}/api/staff/phone-order/handoff?token=${encodeURIComponent(token)}`
+  return `${origin}/api/staff/phone-order/handoff?token=${encodeURIComponent(
+    token
+  )}`
 }
 
 function linesSummary(lines: StaffOrderLineInput[]) {
   return lines
-    .map((line) => `${line.quantity} x ${line.title}${line.sku ? ` (${line.sku})` : ""}`)
+    .map(
+      (line) =>
+        `${line.quantity} x ${line.title}${line.sku ? ` (${line.sku})` : ""}`
+    )
     .join("\n")
 }
 
@@ -456,7 +601,9 @@ async function sendReviewLinkEmail({
     htmlBody: `
       <p>Grillers Pride entered this order on your behalf while speaking with you.</p>
       <p><strong>Staff representative:</strong> ${staffName}</p>
-      <pre style="font-family:inherit;white-space:pre-wrap">${linesSummary(lines)}</pre>
+      <pre style="font-family:inherit;white-space:pre-wrap">${linesSummary(
+        lines
+      )}</pre>
       <p>Please review the items, quantities, fulfillment details, and estimated total before payment.</p>
       <p>Catch-weight items are authorized at the estimate and finalized after packing by actual weight.</p>
       <p><a href="${checkoutUrl}">Review and pay for your order</a></p>
@@ -497,7 +644,9 @@ async function sendStaffPaidConfirmation({
     metadata: {
       order_id: order.id,
       display_id: String(order.display_id || ""),
-      staff_actor_customer_id: String(order.metadata?.staff_actor_customer_id || ""),
+      staff_actor_customer_id: String(
+        order.metadata?.staff_actor_customer_id || ""
+      ),
       source: "staff_phone_order",
     },
     htmlBody: `
@@ -532,10 +681,15 @@ export async function searchStaffCustomers(
   const seen = new Set<string>()
   const results: StaffCustomerSummary[] = []
 
+  const addSummary = (summary: StaffCustomerSummary) => {
+    if (!summary.id || seen.has(summary.id)) return
+    seen.add(summary.id)
+    results.push(summary)
+  }
+
   const add = (customer: AnyRecord, source: StaffCustomerSummary["source"]) => {
     if (!customer?.id || seen.has(customer.id)) return
-    seen.add(customer.id)
-    results.push(customerSummary(customer, source))
+    addSummary(customerSummary(customer, source))
   }
 
   const customerResp = await adminFetch<{ customers: AnyRecord[] }>(
@@ -551,17 +705,14 @@ export async function searchStaffCustomers(
   )
   customerResp.customers?.forEach((customer) => add(customer, "customer"))
 
-  const orderResp = await adminFetch<{ orders: AnyRecord[] }>(
-    "/admin/orders",
-    {
-      query: {
-        q,
-        limit: 8,
-        fields:
-          "id,display_id,email,customer_id,*customer,*shipping_address,*billing_address",
-      },
-    }
-  ).catch(() => ({ orders: [] }))
+  const orderResp = await adminFetch<{ orders: AnyRecord[] }>("/admin/orders", {
+    query: {
+      q,
+      limit: 8,
+      fields:
+        "id,display_id,email,customer_id,*customer,*shipping_address,*billing_address",
+    },
+  }).catch(() => ({ orders: [] }))
 
   orderResp.orders?.forEach((order) => {
     if (order.customer) add(order.customer, "order")
@@ -575,6 +726,21 @@ export async function searchStaffCustomers(
         "order"
       )
     }
+  })
+
+  const legacyOrderResp = await adminFetch<{ orders: AnyRecord[] }>(
+    "/admin/legacy-orders",
+    {
+      query: {
+        q,
+        limit: 8,
+      },
+    }
+  ).catch(() => ({ orders: [] }))
+
+  legacyOrderResp.orders?.forEach((order) => {
+    const summary = legacyOrderCustomerSummary(order)
+    if (summary) addSummary(summary)
   })
 
   return results.slice(0, 15)
@@ -614,7 +780,8 @@ export async function createStaffCustomer(input: {
 }
 
 export async function getStaffCustomerContext(
-  customerId: string
+  customerId: string,
+  options: { includeLegacyOrderId?: string } = {}
 ): Promise<StaffCustomerContext> {
   await requireStaff()
 
@@ -641,6 +808,37 @@ export async function getStaffCustomerContext(
     }
   ).catch(() => ({ orders: [] }))
 
+  const legacyOrderList = await adminFetch<{ orders: AnyRecord[] }>(
+    "/admin/legacy-orders",
+    {
+      query: {
+        customer_id: customerId,
+        limit: 5,
+        offset: 0,
+      },
+    }
+  ).catch(() => ({ orders: [] }))
+
+  const legacyOrderStubs = [...(legacyOrderList.orders || []).slice(0, 5)]
+  const includeLegacyOrderId = options.includeLegacyOrderId?.trim()
+  if (
+    includeLegacyOrderId &&
+    !legacyOrderStubs.some((order) => order.id === includeLegacyOrderId)
+  ) {
+    legacyOrderStubs.unshift({ id: includeLegacyOrderId })
+  }
+
+  const legacyOrders = await Promise.all(
+    legacyOrderStubs.slice(0, 6).map(async (order) => {
+      const id = String(order.id || "")
+      if (!id) return order
+
+      return adminFetch<{ order: AnyRecord }>(`/admin/legacy-orders/${id}`)
+        .then((response) => response.order || order)
+        .catch(() => order)
+    })
+  )
+
   return {
     ...customerSummary(customer, "customer"),
     recentOrders: (orders || []).map((order) => ({
@@ -658,6 +856,7 @@ export async function getStaffCustomerContext(
         sku: item.variant?.sku || item.variant_sku,
       })),
     })),
+    legacyOrders: legacyOrders.map(legacyOrderSummary),
   }
 }
 
@@ -826,7 +1025,9 @@ export async function prepareStaffPhoneOrder(
     if (!region) throw new Error(`No Medusa region found for ${countryCode}.`)
 
     if (!input.customerVerified) {
-      throw new Error("Mark the customer as verified before preparing a staff order.")
+      throw new Error(
+        "Mark the customer as verified before preparing a staff order."
+      )
     }
     if (input.paymentMode === "collect_card_now" && !input.paymentConsent) {
       throw new Error("Card collection requires explicit customer consent.")
@@ -866,7 +1067,9 @@ export async function prepareStaffPhoneOrder(
           ? "staff_collect_card_by_phone"
           : "customer_checkout_link",
       staff_confirmation_status:
-        input.paymentMode === "collect_card_now" ? "pending_order_complete" : "pending_review",
+        input.paymentMode === "collect_card_now"
+          ? "pending_order_complete"
+          : "pending_review",
       staff_audit_log: JSON.stringify([
         {
           at: createdAt,
@@ -921,7 +1124,10 @@ export async function prepareStaffPhoneOrder(
       )
     }
 
-    const shippingOption = await findStaffShippingOption(cart.id, input.fulfillmentType)
+    const shippingOption = await findStaffShippingOption(
+      cart.id,
+      input.fulfillmentType
+    )
     await sdk.store.cart.addShippingMethod(
       cart.id,
       { option_id: shippingOption.id },
@@ -940,7 +1146,9 @@ export async function prepareStaffPhoneOrder(
         providers.find((p) => !String(p.id).startsWith("pp_system_default"))
 
       if (!provider?.id) {
-        throw new Error("No card payment provider is configured for this region.")
+        throw new Error(
+          "No card payment provider is configured for this region."
+        )
       }
 
       paymentProviderId = provider.id
@@ -1002,9 +1210,13 @@ export async function prepareStaffPhoneOrder(
             metadata: {
               staff_confirmation_status: result.ok ? "sent" : "send_failed",
               staff_confirmation_channel: "email",
-              staff_confirmation_sent_at: result.ok ? new Date().toISOString() : "",
+              staff_confirmation_sent_at: result.ok
+                ? new Date().toISOString()
+                : "",
               staff_confirmation_message_id: result.messageId || "",
-              staff_confirmation_error: result.ok ? "" : result.message || "unknown",
+              staff_confirmation_error: result.ok
+                ? ""
+                : result.message || "unknown",
             },
           } as any,
           {},
@@ -1044,7 +1256,9 @@ export async function completeStaffPhoneOrder(
       throw new Error("This cart is not a staff phone order.")
     }
     if (metadata.staff_actor_customer_id !== staff.id) {
-      throw new Error("Only the staff member who prepared this cart can complete it.")
+      throw new Error(
+        "Only the staff member who prepared this cart can complete it."
+      )
     }
 
     await sdk.store.cart.update(

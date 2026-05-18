@@ -4,7 +4,12 @@ import { useMemo, useState, useTransition } from "react"
 import type { HttpTypes } from "@medusajs/types"
 import { useRouter } from "next/navigation"
 import Button from "@modules/common/components/button"
-import { CardElement, Elements, useElements, useStripe } from "@stripe/react-stripe-js"
+import {
+  CardElement,
+  Elements,
+  useElements,
+  useStripe,
+} from "@stripe/react-stripe-js"
 import { loadStripe } from "@stripe/stripe-js"
 import { getStripePublishableKey } from "@lib/util/stripe-key"
 import {
@@ -67,7 +72,7 @@ const emptyAddress: StaffAddressInput = {
 
 function draftFromCustomer(customer: StaffCustomerSummary): DraftCustomer {
   return {
-    id: customer.id.startsWith("order:") ? undefined : customer.id,
+    id: isSyntheticCustomerId(customer.id) ? undefined : customer.id,
     email: customer.email,
     firstName: customer.firstName,
     lastName: customer.lastName,
@@ -76,7 +81,9 @@ function draftFromCustomer(customer: StaffCustomerSummary): DraftCustomer {
   }
 }
 
-function addressFromCustomer(customer: StaffCustomerSummary): StaffAddressInput {
+function addressFromCustomer(
+  customer: StaffCustomerSummary
+): StaffAddressInput {
   return customer.defaultAddress
     ? { ...emptyAddress, ...customer.defaultAddress }
     : {
@@ -88,12 +95,31 @@ function addressFromCustomer(customer: StaffCustomerSummary): StaffAddressInput 
       }
 }
 
+function isSyntheticCustomerId(id?: string) {
+  return Boolean(id?.startsWith("order:") || id?.startsWith("legacy-order:"))
+}
+
 function formatPrice(value?: number, currencyCode = "usd") {
   if (typeof value !== "number") return "Price unavailable"
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: currencyCode.toUpperCase(),
   }).format(value)
+}
+
+function formatDate(value?: string) {
+  if (!value) return "Unknown date"
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(new Date(value))
+}
+
+function sourceLabel(source: StaffCustomerSummary["source"]) {
+  if (source === "legacy_order") return "Legacy order"
+  if (source === "order") return "Order"
+  return "Customer"
 }
 
 function fieldClass() {
@@ -132,29 +158,34 @@ function StaffChargeCard({
     }
 
     startTransition(async () => {
-      const payment = await stripe.confirmCardPayment(result.paymentClientSecret!, {
-        payment_method: {
-          card,
-          billing_details: {
-            name: [billingAddress.firstName, billingAddress.lastName]
-              .filter(Boolean)
-              .join(" "),
-            email: result.cart?.email || undefined,
-            phone: billingAddress.phone || undefined,
-            address: {
-              line1: billingAddress.address1 || undefined,
-              line2: billingAddress.address2 || undefined,
-              city: billingAddress.city || undefined,
-              state: billingAddress.province || undefined,
-              postal_code: billingAddress.postalCode || undefined,
-              country: billingAddress.countryCode || undefined,
+      const payment = await stripe.confirmCardPayment(
+        result.paymentClientSecret!,
+        {
+          payment_method: {
+            card,
+            billing_details: {
+              name: [billingAddress.firstName, billingAddress.lastName]
+                .filter(Boolean)
+                .join(" "),
+              email: result.cart?.email || undefined,
+              phone: billingAddress.phone || undefined,
+              address: {
+                line1: billingAddress.address1 || undefined,
+                line2: billingAddress.address2 || undefined,
+                city: billingAddress.city || undefined,
+                state: billingAddress.province || undefined,
+                postal_code: billingAddress.postalCode || undefined,
+                country: billingAddress.countryCode || undefined,
+              },
             },
           },
-        },
-      })
+        }
+      )
 
       if (payment.error) {
-        setCardError(payment.error.message || "Stripe could not authorize the card.")
+        setCardError(
+          payment.error.message || "Stripe could not authorize the card."
+        )
         return
       }
 
@@ -176,7 +207,9 @@ function StaffChargeCard({
         />
       </div>
       {cardError && (
-        <p className="mt-2 text-sm font-maison-neue text-red-700">{cardError}</p>
+        <p className="mt-2 text-sm font-maison-neue text-red-700">
+          {cardError}
+        </p>
       )}
       <Button
         className="mt-3 min-h-[44px] w-full rounded-md bg-Charcoal px-4 text-sm font-rexton font-bold uppercase text-white"
@@ -198,8 +231,11 @@ export default function PhoneOrderCopilot({
 }: Props) {
   const router = useRouter()
   const [customerQuery, setCustomerQuery] = useState("")
-  const [customerResults, setCustomerResults] = useState<StaffCustomerSummary[]>([])
-  const [selectedContext, setSelectedContext] = useState<StaffCustomerContext | null>(null)
+  const [customerResults, setCustomerResults] = useState<
+    StaffCustomerSummary[]
+  >([])
+  const [selectedContext, setSelectedContext] =
+    useState<StaffCustomerContext | null>(null)
   const [draftCustomer, setDraftCustomer] = useState<DraftCustomer>({
     email: "",
     firstName: "",
@@ -212,30 +248,35 @@ export default function PhoneOrderCopilot({
   const [sameAsShipping, setSameAsShipping] = useState(true)
   const [customerVerified, setCustomerVerified] = useState(false)
   const [productQuery, setProductQuery] = useState("")
-  const [productResults, setProductResults] = useState<StaffProductSearchResult[]>([])
+  const [productResults, setProductResults] = useState<
+    StaffProductSearchResult[]
+  >([])
   const [lines, setLines] = useState<StaffOrderLineInput[]>([])
-  const [fulfillmentType, setFulfillmentType] =
-    useState<"plant_pickup" | "atlanta_delivery" | "ups_shipping" | "southeast_pickup">(
-      "plant_pickup"
-    )
+  const [fulfillmentType, setFulfillmentType] = useState<
+    "plant_pickup" | "atlanta_delivery" | "ups_shipping" | "southeast_pickup"
+  >("plant_pickup")
   const [scheduledDate, setScheduledDate] = useState("")
   const [scheduledTimeWindow, setScheduledTimeWindow] = useState("")
-  const [paymentMode, setPaymentMode] = useState<StaffPaymentMode>("collect_card_now")
+  const [paymentMode, setPaymentMode] =
+    useState<StaffPaymentMode>("collect_card_now")
   const [paymentConsent, setPaymentConsent] = useState(false)
   const [sendConfirmation, setSendConfirmation] = useState(true)
   const [orderNotes, setOrderNotes] = useState("")
   const [substitutionPreference, setSubstitutionPreference] = useState("")
   const [deliveryInstructions, setDeliveryInstructions] = useState("")
   const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null)
-  const [prepareResult, setPrepareResult] = useState<StaffPrepareOrderResult | null>(null)
-  const [completeResult, setCompleteResult] = useState<StaffCompleteOrderResult | null>(null)
+  const [prepareResult, setPrepareResult] =
+    useState<StaffPrepareOrderResult | null>(null)
+  const [completeResult, setCompleteResult] =
+    useState<StaffCompleteOrderResult | null>(null)
   const [impersonation, setImpersonation] =
     useState<StaffImpersonationSession | null>(initialImpersonation)
   const [status, setStatus] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
-  const [activeWorkspace, setActiveWorkspace] =
-    useState<"phone_order" | "exceptions" | "team_access">("phone_order")
+  const [activeWorkspace, setActiveWorkspace] = useState<
+    "phone_order" | "exceptions" | "team_access"
+  >("phone_order")
   const canManageTeamAccess = isSuperAdminCustomer(staffCustomer)
 
   const staffName = useMemo(
@@ -274,14 +315,16 @@ export default function PhoneOrderCopilot({
     setDraftCustomer(draftFromCustomer(customer))
     setShippingAddress(addressFromCustomer(customer))
     setCustomerVerified(false)
-    if (customer.id.startsWith("order:")) {
+    if (isSyntheticCustomerId(customer.id)) {
       setSelectedContext(null)
       return
     }
 
     startTransition(async () => {
       try {
-        const context = await getStaffCustomerContext(customer.id)
+        const context = await getStaffCustomerContext(customer.id, {
+          includeLegacyOrderId: customer.matchedLegacyOrderId,
+        })
         setSelectedContext(context)
         setDraftCustomer(draftFromCustomer(context))
         setShippingAddress(addressFromCustomer(context))
@@ -387,7 +430,9 @@ export default function PhoneOrderCopilot({
 
   function addProduct(product: StaffProductSearchResult) {
     setLines((current) => {
-      const existing = current.find((line) => line.variantId === product.variantId)
+      const existing = current.find(
+        (line) => line.variantId === product.variantId
+      )
       if (existing) {
         return current.map((line) =>
           line.variantId === product.variantId
@@ -412,7 +457,9 @@ export default function PhoneOrderCopilot({
 
   function updateLineQuantity(variantId: string, quantity: number) {
     if (quantity <= 0) {
-      setLines((current) => current.filter((line) => line.variantId !== variantId))
+      setLines((current) =>
+        current.filter((line) => line.variantId !== variantId)
+      )
       return
     }
     setLines((current) =>
@@ -458,8 +505,8 @@ export default function PhoneOrderCopilot({
           paymentMode === "collect_card_now"
             ? "Payment session prepared. Enter the customer's card with consent."
             : result.confirmationSent
-              ? "Checkout link prepared and emailed."
-              : "Checkout link prepared."
+            ? "Checkout link prepared and emailed."
+            : "Checkout link prepared."
         )
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err))
@@ -479,8 +526,8 @@ export default function PhoneOrderCopilot({
               Help a customer
             </h1>
             <p className="mt-1 max-w-2xl text-sm font-maison-neue text-Charcoal/60">
-              Start a phone order, enter a customer account context, or resolve an
-              existing order with an auditable staff action.
+              Start a phone order, enter a customer account context, or resolve
+              an existing order with an auditable staff action.
             </p>
           </div>
           <div className="rounded-md border border-Gold/35 bg-Gold/10 px-4 py-3">
@@ -502,7 +549,8 @@ export default function PhoneOrderCopilot({
                 Acting as {impersonation.targetName}
               </p>
               <p className="text-sm font-maison-neue text-Charcoal/60">
-                Storefront, account, cart, and phone-order actions are audited to {impersonation.staffName}.
+                Storefront, account, cart, and phone-order actions are audited
+                to {impersonation.staffName}.
               </p>
             </div>
             <Button
@@ -550,8 +598,8 @@ export default function PhoneOrderCopilot({
             Phone order
           </span>
           <span className="mt-2 block text-sm font-maison-neue opacity-75">
-            Find or create the customer, build the cart, and collect card details
-            only after explicit authorization.
+            Find or create the customer, build the cart, and collect card
+            details only after explicit authorization.
           </span>
         </button>
         <button
@@ -591,8 +639,8 @@ export default function PhoneOrderCopilot({
               Team access
             </span>
             <span className="mt-2 block text-sm font-maison-neue opacity-75">
-              Search customer accounts, make staff members, promote super admins,
-              and audit every permission change.
+              Search customer accounts, make staff members, promote super
+              admins, and audit every permission change.
             </span>
           </button>
         )}
@@ -601,514 +649,658 @@ export default function PhoneOrderCopilot({
       {activeWorkspace === "team_access" && canManageTeamAccess ? (
         <StaffTeamAccessConsole />
       ) : activeWorkspace === "phone_order" ? (
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
-        <div className="space-y-6">
-          <section className="rounded-lg border border-gray-200 bg-white p-5">
-            <div className="mb-4 flex flex-col gap-3 small:flex-row small:items-end">
-              <label className="flex flex-1 flex-col gap-1">
-                <span className={labelClass()}>Customer search</span>
-                <input
-                  className={fieldClass()}
-                  value={customerQuery}
-                  onChange={(event) => setCustomerQuery(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") runCustomerSearch()
-                  }}
-                  type="search"
-                />
-              </label>
-              <Button
-                className="min-h-[44px] rounded-md bg-Charcoal px-4 text-sm font-rexton font-bold uppercase text-white"
-                isLoading={isPending}
-                onClick={runCustomerSearch}
-                type="button"
-              >
-                Search
-              </Button>
-            </div>
-
-            {customerResults.length > 0 && (
-              <div className="mb-5 divide-y rounded-md border border-gray-100">
-                {customerResults.map((customer) => (
-                  <button
-                    className="flex w-full items-center justify-between gap-4 px-4 py-3 text-left hover:bg-SilverPlate/40"
-                    key={customer.id}
-                    onClick={() => selectCustomer(customer)}
-                    type="button"
-                  >
-                    <span>
-                      <span className="block text-sm font-maison-neue font-semibold text-Charcoal">
-                        {[customer.firstName, customer.lastName]
-                          .filter(Boolean)
-                          .join(" ") || customer.email}
-                      </span>
-                      <span className="block text-xs font-maison-neue text-Charcoal/55">
-                        {customer.email}
-                      </span>
-                    </span>
-                    <span className="text-xs font-maison-neue-mono uppercase text-Charcoal/45">
-                      {customer.source}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            )}
-
-            <div className="grid gap-3 md:grid-cols-2">
-              <label className="flex flex-col gap-1">
-                <span className={labelClass()}>Email</span>
-                <input
-                  className={fieldClass()}
-                  type="email"
-                  value={draftCustomer.email}
-                  onChange={(event) => updateDraftCustomer({ email: event.target.value })}
-                />
-              </label>
-              <label className="flex flex-col gap-1">
-                <span className={labelClass()}>Phone</span>
-                <input
-                  className={fieldClass()}
-                  value={draftCustomer.phone}
-                  onChange={(event) => updateDraftCustomer({ phone: event.target.value })}
-                />
-              </label>
-              <label className="flex flex-col gap-1">
-                <span className={labelClass()}>First name</span>
-                <input
-                  className={fieldClass()}
-                  value={draftCustomer.firstName}
-                  onChange={(event) => updateDraftCustomer({ firstName: event.target.value })}
-                />
-              </label>
-              <label className="flex flex-col gap-1">
-                <span className={labelClass()}>Last name</span>
-                <input
-                  className={fieldClass()}
-                  value={draftCustomer.lastName}
-                  onChange={(event) => updateDraftCustomer({ lastName: event.target.value })}
-                />
-              </label>
-              <label className="flex flex-col gap-1 md:col-span-2">
-                <span className={labelClass()}>Company</span>
-                <input
-                  className={fieldClass()}
-                  value={draftCustomer.company}
-                  onChange={(event) => updateDraftCustomer({ company: event.target.value })}
-                />
-              </label>
-            </div>
-
-            {!draftCustomer.id && (
-              <Button
-                className="mt-4 min-h-[44px] rounded-md border border-Charcoal px-4 text-sm font-rexton font-bold uppercase text-Charcoal"
-                isLoading={isPending}
-                onClick={createCustomer}
-                type="button"
-              >
-                Create Customer
-              </Button>
-            )}
-
-            {draftCustomer.id && (
-              <div className="mt-4 grid gap-3 small:grid-cols-2">
-                <Button
-                  className="min-h-[44px] rounded-md border border-Charcoal px-4 text-sm font-rexton font-bold uppercase text-Charcoal"
-                  isLoading={isPending}
-                  onClick={saveCustomerProfile}
-                  type="button"
-                >
-                  Save Customer
-                </Button>
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
+          <div className="space-y-6">
+            <section className="rounded-lg border border-gray-200 bg-white p-5">
+              <div className="mb-4 flex flex-col gap-3 small:flex-row small:items-end">
+                <label className="flex flex-1 flex-col gap-1">
+                  <span className={labelClass()}>Customer search</span>
+                  <input
+                    className={fieldClass()}
+                    value={customerQuery}
+                    onChange={(event) => setCustomerQuery(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") runCustomerSearch()
+                    }}
+                    type="search"
+                  />
+                </label>
                 <Button
                   className="min-h-[44px] rounded-md bg-Charcoal px-4 text-sm font-rexton font-bold uppercase text-white"
                   isLoading={isPending}
-                  onClick={beginImpersonation}
+                  onClick={runCustomerSearch}
                   type="button"
                 >
-                  {impersonation?.targetCustomerId === draftCustomer.id
-                    ? "Context Active"
-                    : "Enter Account Context"}
+                  Search
                 </Button>
               </div>
-            )}
-          </section>
 
-          <section className="rounded-lg border border-gray-200 bg-white p-5">
-            <h2 className="mb-4 text-xl font-gyst font-bold text-Charcoal">
-              Address
-            </h2>
-            <div className="grid gap-3 md:grid-cols-2">
-              <label className="flex flex-col gap-1">
-                <span className={labelClass()}>First name</span>
-                <input
-                  className={fieldClass()}
-                  value={shippingAddress.firstName}
-                  onChange={(event) => updateShippingAddress({ firstName: event.target.value })}
-                />
-              </label>
-              <label className="flex flex-col gap-1">
-                <span className={labelClass()}>Last name</span>
-                <input
-                  className={fieldClass()}
-                  value={shippingAddress.lastName}
-                  onChange={(event) => updateShippingAddress({ lastName: event.target.value })}
-                />
-              </label>
-              <label className="flex flex-col gap-1 md:col-span-2">
-                <span className={labelClass()}>Address 1</span>
-                <input
-                  className={fieldClass()}
-                  value={shippingAddress.address1}
-                  onChange={(event) => updateShippingAddress({ address1: event.target.value })}
-                />
-              </label>
-              <label className="flex flex-col gap-1 md:col-span-2">
-                <span className={labelClass()}>Address 2</span>
-                <input
-                  className={fieldClass()}
-                  value={shippingAddress.address2 || ""}
-                  onChange={(event) => updateShippingAddress({ address2: event.target.value })}
-                />
-              </label>
-              <label className="flex flex-col gap-1">
-                <span className={labelClass()}>City</span>
-                <input
-                  className={fieldClass()}
-                  value={shippingAddress.city}
-                  onChange={(event) => updateShippingAddress({ city: event.target.value })}
-                />
-              </label>
-              <label className="flex flex-col gap-1">
-                <span className={labelClass()}>State</span>
-                <input
-                  className={fieldClass()}
-                  value={shippingAddress.province}
-                  onChange={(event) => updateShippingAddress({ province: event.target.value })}
-                />
-              </label>
-              <label className="flex flex-col gap-1">
-                <span className={labelClass()}>ZIP</span>
-                <input
-                  className={fieldClass()}
-                  value={shippingAddress.postalCode}
-                  onChange={(event) => updateShippingAddress({ postalCode: event.target.value })}
-                />
-              </label>
-              <label className="flex flex-col gap-1">
-                <span className={labelClass()}>Phone</span>
-                <input
-                  className={fieldClass()}
-                  value={shippingAddress.phone || ""}
-                  onChange={(event) => updateShippingAddress({ phone: event.target.value })}
-                />
-              </label>
-            </div>
-            {draftCustomer.id && (
-              <Button
-                className="mt-4 min-h-[44px] rounded-md border border-Charcoal px-4 text-sm font-rexton font-bold uppercase text-Charcoal"
-                isLoading={isPending}
-                onClick={saveCustomerAddress}
-                type="button"
-              >
-                Save Address to Customer
-              </Button>
-            )}
-          </section>
+              {customerResults.length > 0 && (
+                <div className="mb-5 divide-y rounded-md border border-gray-100">
+                  {customerResults.map((customer) => (
+                    <button
+                      className="flex w-full items-center justify-between gap-4 px-4 py-3 text-left hover:bg-SilverPlate/40"
+                      key={customer.id}
+                      onClick={() => selectCustomer(customer)}
+                      type="button"
+                    >
+                      <span>
+                        <span className="block text-sm font-maison-neue font-semibold text-Charcoal">
+                          {[customer.firstName, customer.lastName]
+                            .filter(Boolean)
+                            .join(" ") || customer.email}
+                        </span>
+                        <span className="block text-xs font-maison-neue text-Charcoal/55">
+                          {[
+                            customer.email,
+                            customer.matchedLegacyOrderDisplayId
+                              ? `Legacy ${customer.matchedLegacyOrderDisplayId}`
+                              : "",
+                          ]
+                            .filter(Boolean)
+                            .join(" | ")}
+                        </span>
+                      </span>
+                      <span className="text-xs font-maison-neue-mono uppercase text-Charcoal/45">
+                        {sourceLabel(customer.source)}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
 
-          <section className="rounded-lg border border-gray-200 bg-white p-5">
-            <div className="mb-4 flex flex-col gap-3 small:flex-row small:items-end">
-              <label className="flex flex-1 flex-col gap-1">
-                <span className={labelClass()}>Product search</span>
-                <input
-                  className={fieldClass()}
-                  value={productQuery}
-                  onChange={(event) => setProductQuery(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") runProductSearch()
-                  }}
-                  type="search"
-                />
-              </label>
-              <Button
-                className="min-h-[44px] rounded-md bg-Charcoal px-4 text-sm font-rexton font-bold uppercase text-white"
-                isLoading={isPending}
-                onClick={runProductSearch}
-                type="button"
-              >
-                Search
-              </Button>
-            </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <label className="flex flex-col gap-1">
+                  <span className={labelClass()}>Email</span>
+                  <input
+                    className={fieldClass()}
+                    type="email"
+                    value={draftCustomer.email}
+                    onChange={(event) =>
+                      updateDraftCustomer({ email: event.target.value })
+                    }
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className={labelClass()}>Phone</span>
+                  <input
+                    className={fieldClass()}
+                    value={draftCustomer.phone}
+                    onChange={(event) =>
+                      updateDraftCustomer({ phone: event.target.value })
+                    }
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className={labelClass()}>First name</span>
+                  <input
+                    className={fieldClass()}
+                    value={draftCustomer.firstName}
+                    onChange={(event) =>
+                      updateDraftCustomer({ firstName: event.target.value })
+                    }
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className={labelClass()}>Last name</span>
+                  <input
+                    className={fieldClass()}
+                    value={draftCustomer.lastName}
+                    onChange={(event) =>
+                      updateDraftCustomer({ lastName: event.target.value })
+                    }
+                  />
+                </label>
+                <label className="flex flex-col gap-1 md:col-span-2">
+                  <span className={labelClass()}>Company</span>
+                  <input
+                    className={fieldClass()}
+                    value={draftCustomer.company}
+                    onChange={(event) =>
+                      updateDraftCustomer({ company: event.target.value })
+                    }
+                  />
+                </label>
+              </div>
 
-            {productResults.length > 0 && (
-              <div className="divide-y rounded-md border border-gray-100">
-                {productResults.map((product) => (
-                  <button
-                    className="flex w-full items-center justify-between gap-4 px-4 py-3 text-left hover:bg-SilverPlate/40"
-                    key={product.variantId}
-                    onClick={() => addProduct(product)}
+              {!draftCustomer.id && (
+                <Button
+                  className="mt-4 min-h-[44px] rounded-md border border-Charcoal px-4 text-sm font-rexton font-bold uppercase text-Charcoal"
+                  isLoading={isPending}
+                  onClick={createCustomer}
+                  type="button"
+                >
+                  Create Customer
+                </Button>
+              )}
+
+              {draftCustomer.id && (
+                <div className="mt-4 grid gap-3 small:grid-cols-2">
+                  <Button
+                    className="min-h-[44px] rounded-md border border-Charcoal px-4 text-sm font-rexton font-bold uppercase text-Charcoal"
+                    isLoading={isPending}
+                    onClick={saveCustomerProfile}
                     type="button"
                   >
-                    <span>
-                      <span className="block text-sm font-maison-neue font-semibold text-Charcoal">
-                        {product.title}
-                      </span>
-                      <span className="block text-xs font-maison-neue text-Charcoal/55">
-                        {[product.variantTitle, product.sku].filter(Boolean).join(" | ")}
-                      </span>
-                    </span>
-                    <span className="text-sm font-maison-neue text-Charcoal">
-                      {formatPrice(product.calculatedAmount, product.currencyCode)}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </section>
-        </div>
-
-        <aside className="space-y-6">
-          <section className="rounded-lg border border-gray-200 bg-white p-5">
-            <h2 className="mb-4 text-xl font-gyst font-bold text-Charcoal">
-              Order
-            </h2>
-            {lines.length ? (
-              <div className="divide-y border-y border-gray-100">
-                {lines.map((line) => (
-                  <div className="py-3" key={line.variantId}>
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-maison-neue font-semibold text-Charcoal">
-                          {line.title}
-                        </p>
-                        {line.sku && (
-                          <p className="text-xs font-maison-neue text-Charcoal/50">
-                            {line.sku}
-                          </p>
-                        )}
-                      </div>
-                      <input
-                        aria-label={`Quantity for ${line.title}`}
-                        className="h-10 w-20 rounded-md border border-gray-200 px-2 text-center text-sm"
-                        min={0}
-                        type="number"
-                        value={line.quantity}
-                        onChange={(event) =>
-                          updateLineQuantity(
-                            line.variantId,
-                            Number(event.target.value)
-                          )
-                        }
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm font-maison-neue text-Charcoal/55">
-                No products added yet.
-              </p>
-            )}
-
-            <div className="mt-4 space-y-3">
-              <label className="flex flex-col gap-1">
-                <span className={labelClass()}>Fulfillment</span>
-                <select
-                  className={fieldClass()}
-                  value={fulfillmentType}
-                  onChange={(event) => setFulfillmentType(event.target.value as typeof fulfillmentType)}
-                >
-                  <option value="plant_pickup">Plant pickup</option>
-                  <option value="atlanta_delivery">Atlanta delivery</option>
-                  <option value="southeast_pickup">Southeast pickup</option>
-                  <option value="ups_shipping">UPS shipping</option>
-                </select>
-              </label>
-              <label className="flex flex-col gap-1">
-                <span className={labelClass()}>Scheduled date</span>
-                <input
-                  className={fieldClass()}
-                  type="date"
-                  value={scheduledDate}
-                  onChange={(event) => setScheduledDate(event.target.value)}
-                />
-              </label>
-              <label className="flex flex-col gap-1">
-                <span className={labelClass()}>Time window</span>
-                <input
-                  className={fieldClass()}
-                  value={scheduledTimeWindow}
-                  onChange={(event) => setScheduledTimeWindow(event.target.value)}
-                />
-              </label>
-              <label className="flex flex-col gap-1">
-                <span className={labelClass()}>Substitutions</span>
-                <input
-                  className={fieldClass()}
-                  value={substitutionPreference}
-                  onChange={(event) => setSubstitutionPreference(event.target.value)}
-                />
-              </label>
-              <label className="flex flex-col gap-1">
-                <span className={labelClass()}>Delivery notes</span>
-                <textarea
-                  className={`${fieldClass()} min-h-[90px]`}
-                  value={deliveryInstructions}
-                  onChange={(event) => setDeliveryInstructions(event.target.value)}
-                />
-              </label>
-              <label className="flex flex-col gap-1">
-                <span className={labelClass()}>Order notes</span>
-                <textarea
-                  className={`${fieldClass()} min-h-[90px]`}
-                  value={orderNotes}
-                  onChange={(event) => setOrderNotes(event.target.value)}
-                />
-              </label>
-              <label className="flex items-start gap-3 text-sm font-maison-neue text-Charcoal">
-                <input
-                  checked={sameAsShipping}
-                  className="mt-1"
-                  onChange={(event) => setSameAsShipping(event.target.checked)}
-                  type="checkbox"
-                />
-                Billing address matches shipping
-              </label>
-              <label className="flex items-start gap-3 text-sm font-maison-neue text-Charcoal">
-                <input
-                  checked={customerVerified}
-                  className="mt-1"
-                  onChange={(event) => setCustomerVerified(event.target.checked)}
-                  type="checkbox"
-                />
-                Customer identity and order details verified
-              </label>
-              <label className="flex flex-col gap-1">
-                <span className={labelClass()}>Payment handling</span>
-                <select
-                  className={fieldClass()}
-                  value={paymentMode}
-                  onChange={(event) =>
-                    setPaymentMode(event.target.value as StaffPaymentMode)
-                  }
-                >
-                  <option value="collect_card_now">Collect card by phone</option>
-                  <option value="send_checkout_link">Send customer checkout link</option>
-                </select>
-              </label>
-              {paymentMode === "collect_card_now" && (
-                <label className="flex items-start gap-3 rounded-md border border-Gold/35 bg-Gold/10 p-3 text-sm font-maison-neue text-Charcoal">
-                  <input
-                    checked={paymentConsent}
-                    className="mt-1"
-                    onChange={(event) => setPaymentConsent(event.target.checked)}
-                    type="checkbox"
-                  />
-                  Customer explicitly authorized this staff member to enter and
-                  process card details for this order.
-                </label>
-              )}
-              <label className="flex items-start gap-3 text-sm font-maison-neue text-Charcoal">
-                <input
-                  checked={sendConfirmation}
-                  className="mt-1"
-                  onChange={(event) => setSendConfirmation(event.target.checked)}
-                  type="checkbox"
-                />
-                Email checkout link to customer
-              </label>
-            </div>
-
-            <Button
-              className="mt-5 min-h-[48px] w-full rounded-md bg-Gold px-4 text-sm font-rexton font-bold uppercase text-Charcoal"
-              disabled={
-                !lines.length ||
-                !customerVerified ||
-                (paymentMode === "collect_card_now" && !paymentConsent)
-              }
-              isLoading={isPending}
-              onClick={prepareOrder}
-              type="button"
-            >
-              {paymentMode === "collect_card_now"
-                ? "Prepare Payment"
-                : "Prepare Checkout Link"}
-            </Button>
-
-            {checkoutUrl && (
-              <a
-                className="mt-4 block break-words rounded-md border border-Gold/40 bg-Gold/10 px-3 py-3 text-sm font-maison-neue text-Charcoal underline"
-                href={checkoutUrl}
-                target="_blank"
-                rel="noreferrer"
-              >
-                {checkoutUrl}
-              </a>
-            )}
-
-            {prepareResult?.ok &&
-              prepareResult.paymentClientSecret &&
-              paymentMode === "collect_card_now" &&
-              (stripePromise ? (
-                <Elements
-                  stripe={stripePromise}
-                  options={{ clientSecret: prepareResult.paymentClientSecret }}
-                >
-                  <StaffChargeCard
-                    result={prepareResult}
-                    billingAddress={shippingAddress}
-                    onComplete={(result) => {
-                      setCompleteResult(result)
-                      setStatus(
-                        result.ok
-                          ? `Order ${result.displayId || result.orderId} placed.`
-                          : null
-                      )
-                      if (!result.ok) setError(result.error || "Could not complete order.")
-                    }}
-                  />
-                </Elements>
-              ) : (
-                <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-3 text-sm font-maison-neue text-red-700">
-                  Stripe publishable key is not configured for this deploy.
+                    Save Customer
+                  </Button>
+                  <Button
+                    className="min-h-[44px] rounded-md bg-Charcoal px-4 text-sm font-rexton font-bold uppercase text-white"
+                    isLoading={isPending}
+                    onClick={beginImpersonation}
+                    type="button"
+                  >
+                    {impersonation?.targetCustomerId === draftCustomer.id
+                      ? "Context Active"
+                      : "Enter Account Context"}
+                  </Button>
                 </div>
-              ))}
+              )}
+            </section>
 
-            {completeResult?.ok && (
-              <div className="mt-4 rounded-md border border-green-200 bg-green-50 px-3 py-3 text-sm font-maison-neue text-green-700">
-                Order {completeResult.displayId || completeResult.orderId} placed
-                and marked as staff-entered.
-              </div>
-            )}
-          </section>
-
-          {selectedContext?.recentOrders?.length ? (
             <section className="rounded-lg border border-gray-200 bg-white p-5">
               <h2 className="mb-4 text-xl font-gyst font-bold text-Charcoal">
-                Recent orders
+                Address
               </h2>
-              <div className="space-y-3">
-                {selectedContext.recentOrders.map((order) => (
-                  <div className="rounded-md border border-gray-100 p-3" key={order.id}>
-                    <p className="text-sm font-maison-neue font-semibold text-Charcoal">
-                      {order.displayId}
-                    </p>
-                    <p className="text-xs font-maison-neue text-Charcoal/55">
-                      {new Date(order.createdAt).toLocaleDateString()} | {order.status}
-                    </p>
-                    <ul className="mt-2 space-y-1 text-xs font-maison-neue text-Charcoal/70">
-                      {order.items.slice(0, 4).map((item, index) => (
-                        <li key={`${order.id}-${index}`}>
-                          {item.quantity} x {item.title}
-                        </li>
-                      ))}
-                    </ul>
+              <div className="grid gap-3 md:grid-cols-2">
+                <label className="flex flex-col gap-1">
+                  <span className={labelClass()}>First name</span>
+                  <input
+                    className={fieldClass()}
+                    value={shippingAddress.firstName}
+                    onChange={(event) =>
+                      updateShippingAddress({ firstName: event.target.value })
+                    }
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className={labelClass()}>Last name</span>
+                  <input
+                    className={fieldClass()}
+                    value={shippingAddress.lastName}
+                    onChange={(event) =>
+                      updateShippingAddress({ lastName: event.target.value })
+                    }
+                  />
+                </label>
+                <label className="flex flex-col gap-1 md:col-span-2">
+                  <span className={labelClass()}>Address 1</span>
+                  <input
+                    className={fieldClass()}
+                    value={shippingAddress.address1}
+                    onChange={(event) =>
+                      updateShippingAddress({ address1: event.target.value })
+                    }
+                  />
+                </label>
+                <label className="flex flex-col gap-1 md:col-span-2">
+                  <span className={labelClass()}>Address 2</span>
+                  <input
+                    className={fieldClass()}
+                    value={shippingAddress.address2 || ""}
+                    onChange={(event) =>
+                      updateShippingAddress({ address2: event.target.value })
+                    }
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className={labelClass()}>City</span>
+                  <input
+                    className={fieldClass()}
+                    value={shippingAddress.city}
+                    onChange={(event) =>
+                      updateShippingAddress({ city: event.target.value })
+                    }
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className={labelClass()}>State</span>
+                  <input
+                    className={fieldClass()}
+                    value={shippingAddress.province}
+                    onChange={(event) =>
+                      updateShippingAddress({ province: event.target.value })
+                    }
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className={labelClass()}>ZIP</span>
+                  <input
+                    className={fieldClass()}
+                    value={shippingAddress.postalCode}
+                    onChange={(event) =>
+                      updateShippingAddress({ postalCode: event.target.value })
+                    }
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className={labelClass()}>Phone</span>
+                  <input
+                    className={fieldClass()}
+                    value={shippingAddress.phone || ""}
+                    onChange={(event) =>
+                      updateShippingAddress({ phone: event.target.value })
+                    }
+                  />
+                </label>
+              </div>
+              {draftCustomer.id && (
+                <Button
+                  className="mt-4 min-h-[44px] rounded-md border border-Charcoal px-4 text-sm font-rexton font-bold uppercase text-Charcoal"
+                  isLoading={isPending}
+                  onClick={saveCustomerAddress}
+                  type="button"
+                >
+                  Save Address to Customer
+                </Button>
+              )}
+            </section>
+
+            <section className="rounded-lg border border-gray-200 bg-white p-5">
+              <div className="mb-4 flex flex-col gap-3 small:flex-row small:items-end">
+                <label className="flex flex-1 flex-col gap-1">
+                  <span className={labelClass()}>Product search</span>
+                  <input
+                    className={fieldClass()}
+                    value={productQuery}
+                    onChange={(event) => setProductQuery(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") runProductSearch()
+                    }}
+                    type="search"
+                  />
+                </label>
+                <Button
+                  className="min-h-[44px] rounded-md bg-Charcoal px-4 text-sm font-rexton font-bold uppercase text-white"
+                  isLoading={isPending}
+                  onClick={runProductSearch}
+                  type="button"
+                >
+                  Search
+                </Button>
+              </div>
+
+              {productResults.length > 0 && (
+                <div className="divide-y rounded-md border border-gray-100">
+                  {productResults.map((product) => (
+                    <button
+                      className="flex w-full items-center justify-between gap-4 px-4 py-3 text-left hover:bg-SilverPlate/40"
+                      key={product.variantId}
+                      onClick={() => addProduct(product)}
+                      type="button"
+                    >
+                      <span>
+                        <span className="block text-sm font-maison-neue font-semibold text-Charcoal">
+                          {product.title}
+                        </span>
+                        <span className="block text-xs font-maison-neue text-Charcoal/55">
+                          {[product.variantTitle, product.sku]
+                            .filter(Boolean)
+                            .join(" | ")}
+                        </span>
+                      </span>
+                      <span className="text-sm font-maison-neue text-Charcoal">
+                        {formatPrice(
+                          product.calculatedAmount,
+                          product.currencyCode
+                        )}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </section>
+          </div>
+
+          <aside className="space-y-6">
+            <section className="rounded-lg border border-gray-200 bg-white p-5">
+              <h2 className="mb-4 text-xl font-gyst font-bold text-Charcoal">
+                Order
+              </h2>
+              {lines.length ? (
+                <div className="divide-y border-y border-gray-100">
+                  {lines.map((line) => (
+                    <div className="py-3" key={line.variantId}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-maison-neue font-semibold text-Charcoal">
+                            {line.title}
+                          </p>
+                          {line.sku && (
+                            <p className="text-xs font-maison-neue text-Charcoal/50">
+                              {line.sku}
+                            </p>
+                          )}
+                        </div>
+                        <input
+                          aria-label={`Quantity for ${line.title}`}
+                          className="h-10 w-20 rounded-md border border-gray-200 px-2 text-center text-sm"
+                          min={0}
+                          type="number"
+                          value={line.quantity}
+                          onChange={(event) =>
+                            updateLineQuantity(
+                              line.variantId,
+                              Number(event.target.value)
+                            )
+                          }
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm font-maison-neue text-Charcoal/55">
+                  No products added yet.
+                </p>
+              )}
+
+              <div className="mt-4 space-y-3">
+                <label className="flex flex-col gap-1">
+                  <span className={labelClass()}>Fulfillment</span>
+                  <select
+                    className={fieldClass()}
+                    value={fulfillmentType}
+                    onChange={(event) =>
+                      setFulfillmentType(
+                        event.target.value as typeof fulfillmentType
+                      )
+                    }
+                  >
+                    <option value="plant_pickup">Plant pickup</option>
+                    <option value="atlanta_delivery">Atlanta delivery</option>
+                    <option value="southeast_pickup">Southeast pickup</option>
+                    <option value="ups_shipping">UPS shipping</option>
+                  </select>
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className={labelClass()}>Scheduled date</span>
+                  <input
+                    className={fieldClass()}
+                    type="date"
+                    value={scheduledDate}
+                    onChange={(event) => setScheduledDate(event.target.value)}
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className={labelClass()}>Time window</span>
+                  <input
+                    className={fieldClass()}
+                    value={scheduledTimeWindow}
+                    onChange={(event) =>
+                      setScheduledTimeWindow(event.target.value)
+                    }
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className={labelClass()}>Substitutions</span>
+                  <input
+                    className={fieldClass()}
+                    value={substitutionPreference}
+                    onChange={(event) =>
+                      setSubstitutionPreference(event.target.value)
+                    }
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className={labelClass()}>Delivery notes</span>
+                  <textarea
+                    className={`${fieldClass()} min-h-[90px]`}
+                    value={deliveryInstructions}
+                    onChange={(event) =>
+                      setDeliveryInstructions(event.target.value)
+                    }
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className={labelClass()}>Order notes</span>
+                  <textarea
+                    className={`${fieldClass()} min-h-[90px]`}
+                    value={orderNotes}
+                    onChange={(event) => setOrderNotes(event.target.value)}
+                  />
+                </label>
+                <label className="flex items-start gap-3 text-sm font-maison-neue text-Charcoal">
+                  <input
+                    checked={sameAsShipping}
+                    className="mt-1"
+                    onChange={(event) =>
+                      setSameAsShipping(event.target.checked)
+                    }
+                    type="checkbox"
+                  />
+                  Billing address matches shipping
+                </label>
+                <label className="flex items-start gap-3 text-sm font-maison-neue text-Charcoal">
+                  <input
+                    checked={customerVerified}
+                    className="mt-1"
+                    onChange={(event) =>
+                      setCustomerVerified(event.target.checked)
+                    }
+                    type="checkbox"
+                  />
+                  Customer identity and order details verified
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className={labelClass()}>Payment handling</span>
+                  <select
+                    className={fieldClass()}
+                    value={paymentMode}
+                    onChange={(event) =>
+                      setPaymentMode(event.target.value as StaffPaymentMode)
+                    }
+                  >
+                    <option value="collect_card_now">
+                      Collect card by phone
+                    </option>
+                    <option value="send_checkout_link">
+                      Send customer checkout link
+                    </option>
+                  </select>
+                </label>
+                {paymentMode === "collect_card_now" && (
+                  <label className="flex items-start gap-3 rounded-md border border-Gold/35 bg-Gold/10 p-3 text-sm font-maison-neue text-Charcoal">
+                    <input
+                      checked={paymentConsent}
+                      className="mt-1"
+                      onChange={(event) =>
+                        setPaymentConsent(event.target.checked)
+                      }
+                      type="checkbox"
+                    />
+                    Customer explicitly authorized this staff member to enter
+                    and process card details for this order.
+                  </label>
+                )}
+                <label className="flex items-start gap-3 text-sm font-maison-neue text-Charcoal">
+                  <input
+                    checked={sendConfirmation}
+                    className="mt-1"
+                    onChange={(event) =>
+                      setSendConfirmation(event.target.checked)
+                    }
+                    type="checkbox"
+                  />
+                  Email checkout link to customer
+                </label>
+              </div>
+
+              <Button
+                className="mt-5 min-h-[48px] w-full rounded-md bg-Gold px-4 text-sm font-rexton font-bold uppercase text-Charcoal"
+                disabled={
+                  !lines.length ||
+                  !customerVerified ||
+                  (paymentMode === "collect_card_now" && !paymentConsent)
+                }
+                isLoading={isPending}
+                onClick={prepareOrder}
+                type="button"
+              >
+                {paymentMode === "collect_card_now"
+                  ? "Prepare Payment"
+                  : "Prepare Checkout Link"}
+              </Button>
+
+              {checkoutUrl && (
+                <a
+                  className="mt-4 block break-words rounded-md border border-Gold/40 bg-Gold/10 px-3 py-3 text-sm font-maison-neue text-Charcoal underline"
+                  href={checkoutUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {checkoutUrl}
+                </a>
+              )}
+
+              {prepareResult?.ok &&
+                prepareResult.paymentClientSecret &&
+                paymentMode === "collect_card_now" &&
+                (stripePromise ? (
+                  <Elements
+                    stripe={stripePromise}
+                    options={{
+                      clientSecret: prepareResult.paymentClientSecret,
+                    }}
+                  >
+                    <StaffChargeCard
+                      result={prepareResult}
+                      billingAddress={shippingAddress}
+                      onComplete={(result) => {
+                        setCompleteResult(result)
+                        setStatus(
+                          result.ok
+                            ? `Order ${
+                                result.displayId || result.orderId
+                              } placed.`
+                            : null
+                        )
+                        if (!result.ok)
+                          setError(result.error || "Could not complete order.")
+                      }}
+                    />
+                  </Elements>
+                ) : (
+                  <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-3 text-sm font-maison-neue text-red-700">
+                    Stripe publishable key is not configured for this deploy.
                   </div>
                 ))}
-              </div>
+
+              {completeResult?.ok && (
+                <div className="mt-4 rounded-md border border-green-200 bg-green-50 px-3 py-3 text-sm font-maison-neue text-green-700">
+                  Order {completeResult.displayId || completeResult.orderId}{" "}
+                  placed and marked as staff-entered.
+                </div>
+              )}
             </section>
-          ) : null}
-        </aside>
-      </div>
+
+            {selectedContext?.recentOrders?.length ? (
+              <section className="rounded-lg border border-gray-200 bg-white p-5">
+                <h2 className="mb-4 text-xl font-gyst font-bold text-Charcoal">
+                  Recent orders
+                </h2>
+                <div className="space-y-3">
+                  {selectedContext.recentOrders.map((order) => (
+                    <div
+                      className="rounded-md border border-gray-100 p-3"
+                      key={order.id}
+                    >
+                      <p className="text-sm font-maison-neue font-semibold text-Charcoal">
+                        {order.displayId}
+                      </p>
+                      <p className="text-xs font-maison-neue text-Charcoal/55">
+                        {new Date(order.createdAt).toLocaleDateString()} |{" "}
+                        {order.status}
+                      </p>
+                      <ul className="mt-2 space-y-1 text-xs font-maison-neue text-Charcoal/70">
+                        {order.items.slice(0, 4).map((item, index) => (
+                          <li key={`${order.id}-${index}`}>
+                            {item.quantity} x {item.title}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
+            {selectedContext?.legacyOrders?.length ? (
+              <section className="rounded-lg border border-gray-200 bg-white p-5">
+                <h2 className="mb-4 text-xl font-gyst font-bold text-Charcoal">
+                  QuickBooks history
+                </h2>
+                <div className="space-y-3">
+                  {selectedContext.legacyOrders.map((order) => (
+                    <div
+                      className="rounded-md border border-gray-100 p-3"
+                      key={order.id}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="break-words text-sm font-maison-neue font-semibold text-Charcoal">
+                            {order.displayId}
+                          </p>
+                          <p className="text-xs font-maison-neue text-Charcoal/55">
+                            {formatDate(order.placedAt)} | {order.status}
+                          </p>
+                        </div>
+                        <p className="shrink-0 text-right text-xs font-maison-neue font-semibold text-Charcoal">
+                          {formatPrice(order.total, order.currencyCode)}
+                        </p>
+                      </div>
+
+                      <ul className="mt-2 space-y-2 text-xs font-maison-neue text-Charcoal/70">
+                        {order.items.slice(0, 6).map((item) => (
+                          <li
+                            className="border-t border-gray-100 pt-2"
+                            key={item.id}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <span className="min-w-0 break-words">
+                                {item.quantity} x {item.title}
+                              </span>
+                              <span className="shrink-0 text-Charcoal/55">
+                                {formatPrice(
+                                  item.lineTotal,
+                                  order.currencyCode
+                                )}
+                              </span>
+                            </div>
+                            {(item.sku || item.lineKind !== "product") && (
+                              <p className="mt-1 text-[11px] uppercase tracking-normal text-Charcoal/45">
+                                {[
+                                  item.sku,
+                                  item.lineKind !== "product"
+                                    ? item.lineKind
+                                    : "",
+                                ]
+                                  .filter(Boolean)
+                                  .join(" | ")}
+                              </p>
+                            )}
+                            {item.description && (
+                              <p className="mt-1 line-clamp-2 text-Charcoal/50">
+                                {item.description}
+                              </p>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+
+                      {order.lineCount > order.items.slice(0, 6).length && (
+                        <p className="mt-2 text-xs font-maison-neue text-Charcoal/45">
+                          +{order.lineCount - order.items.slice(0, 6).length}{" "}
+                          more lines
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </section>
+            ) : null}
+          </aside>
+        </div>
       ) : (
         <StaffOrderExceptionConsole />
       )}
