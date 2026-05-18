@@ -1,7 +1,7 @@
 import Overview from "@modules/account/components/overview"
 import LoginTemplate from "@modules/account/templates/login-template"
 import { retrieveCustomer } from "@lib/data/customer"
-import { listLegacyCustomerOrders, listOrders } from "@lib/data/orders"
+import { listAllOrders, listLegacyCustomerOrders } from "@lib/data/orders"
 
 // /us/account branches on session: signed-in customers see the account
 // overview, everyone else sees the sign-in form. Previously this was a
@@ -20,7 +20,7 @@ export default async function AccountPage() {
   }
 
   const [orders, legacyOrderHistory] = await Promise.all([
-    listOrders().catch(() => null),
+    listAllOrders().catch(() => null),
     listLegacyCustomerOrders(5, 0).catch(() => ({ orders: [], count: 0 })),
   ])
 

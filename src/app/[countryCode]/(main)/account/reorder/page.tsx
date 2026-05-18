@@ -1,7 +1,10 @@
 export const dynamic = "force-dynamic"
 
 import { Metadata } from "next"
-import { listLegacyCustomerOrders, listPurchaseHistory } from "@lib/data/orders"
+import {
+  listAllLegacyCustomerOrders,
+  listPurchaseHistory,
+} from "@lib/data/orders"
 import {
   getProductsByMedusaIds,
   type StrapiCollectionProduct,
@@ -22,7 +25,7 @@ export default async function ReorderPage({
   const { countryCode } = await params
   const [history, legacyOrderHistory] = await Promise.all([
     listPurchaseHistory(),
-    listLegacyCustomerOrders(100, 0),
+    listAllLegacyCustomerOrders(),
   ])
   const productIds = Array.from(
     new Set(history.map((h) => h.productId).filter(Boolean))

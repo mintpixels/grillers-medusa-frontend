@@ -57,28 +57,46 @@ export const retrieveOrder = async (id: string) => {
     .catch((err) => medusaError(err))
 }
 
-export const listOrders = async (
+type OrderListPageResponse = HttpTypes.StoreOrderListResponse & {
+  count?: number | string
+  limit?: number | string
+  offset?: number | string
+}
+
+function numericPaginationValue(value: unknown): number | null {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : null
+  }
+
+  if (typeof value === "string") {
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? parsed : null
+  }
+
+  return null
+}
+
+async function listOrdersPage(
   limit: number = 10,
   offset: number = 0,
   filters?: Record<string, any>
-) => {
+): Promise<OrderListPageResponse> {
   const active = await getActiveStaffImpersonation()
   if (active) {
-    const { orders } = await adminFetch<{ orders: HttpTypes.StoreOrder[] }>(
-      "/admin/orders",
-      {
-        query: {
-          limit,
-          offset,
-          order: "-created_at",
-          customer_id: active.session.targetCustomerId,
-          fields:
-            "*items,+items.metadata,*items.variant,*items.product,+metadata",
-          ...filters,
-        },
-      }
-    )
-    return orders || []
+    return adminFetch<OrderListPageResponse>("/admin/orders", {
+      query: {
+        limit,
+        offset,
+        order: "-created_at",
+        customer_id: active.session.targetCustomerId,
+        fields:
+          "*items,+items.metadata,*items.variant,*items.product,+metadata",
+        ...filters,
+      },
+    }).then((response) => ({
+      ...response,
+      orders: response.orders || [],
+    }))
   }
 
   const headers = {
@@ -104,8 +122,54 @@ export const listOrders = async (
       next,
       cache: "force-cache",
     })
-    .then(({ orders }) => orders)
+    .then((response) => ({
+      ...response,
+      orders: response.orders || [],
+    }))
     .catch((err) => medusaError(err))
+}
+
+export const listOrders = async (
+  limit: number = 10,
+  offset: number = 0,
+  filters?: Record<string, any>
+) => {
+  const { orders } = await listOrdersPage(limit, offset, filters)
+  return orders || []
+}
+
+export async function listAllOrders(
+  filters?: Record<string, any>,
+  pageSize = 100
+): Promise<HttpTypes.StoreOrder[]> {
+  const limit = Math.min(Math.max(Number(pageSize) || 100, 1), 100)
+  const orders: HttpTypes.StoreOrder[] = []
+  let offset = 0
+  let total: number | null = null
+
+  for (let page = 0; page < 1000; page += 1) {
+    const response = await listOrdersPage(limit, offset, filters)
+    const pageOrders = response.orders || []
+
+    if (!pageOrders.length) {
+      break
+    }
+
+    orders.push(...pageOrders)
+
+    const responseCount = numericPaginationValue(response.count)
+    if (responseCount !== null) {
+      total = responseCount
+    }
+
+    offset += pageOrders.length
+
+    if ((total !== null && offset >= total) || pageOrders.length < limit) {
+      break
+    }
+  }
+
+  return orders
 }
 
 export async function listOrdersWithPrices(
@@ -574,13 +638,51 @@ export async function listLegacyCustomerOrders(
     .catch(() => ({ orders: [], count: 0, limit, offset }))
 }
 
+export async function listAllLegacyCustomerOrders(
+  pageSize = 100
+): Promise<LegacyCustomerOrdersResponse> {
+  const limit = Math.min(Math.max(Number(pageSize) || 100, 1), 100)
+  const orders: LegacyCustomerOrder[] = []
+  let offset = 0
+  let total: number | null = null
+
+  for (let page = 0; page < 1000; page += 1) {
+    const response = await listLegacyCustomerOrders(limit, offset)
+    const pageOrders = response.orders || []
+
+    if (!pageOrders.length) {
+      break
+    }
+
+    orders.push(...pageOrders)
+
+    const responseCount = numericPaginationValue(response.count)
+    if (responseCount !== null) {
+      total = responseCount
+    }
+
+    offset += pageOrders.length
+
+    if ((total !== null && offset >= total) || pageOrders.length < limit) {
+      break
+    }
+  }
+
+  return {
+    orders,
+    count: total ?? orders.length,
+    limit: orders.length,
+    offset: 0,
+  }
+}
+
 /**
  * Fetch all past orders and deduplicate items by variant_id.
  * Returns a list of unique products the customer has ordered, sorted by most recent.
  */
 export async function listPurchaseHistory(): Promise<PurchaseHistoryItem[]> {
   const [orders, legacyHistory] = await Promise.all([
-    listOrders(100, 0),
+    listAllOrders(),
     listLegacyPurchaseHistory(),
   ])
 
