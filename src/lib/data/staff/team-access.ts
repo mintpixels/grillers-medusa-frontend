@@ -38,6 +38,12 @@ export type StaffRoleUpdateInput = {
   confirmation: string
 }
 
+export type StaffTeamSearchResult = {
+  ok: boolean
+  users: StaffTeamUser[]
+  error?: string
+}
+
 const VALID_ROLES = new Set<StaffAccessRole>(["customer", "staff", "super_admin"])
 const LEGACY_STAFF_ROLES = new Set([
   "staff",
@@ -127,24 +133,58 @@ function roleMetadata(
 
 export async function searchStaffTeamUsers(
   query: string
-): Promise<StaffTeamUser[]> {
-  await requireSuperAdmin()
+): Promise<StaffTeamSearchResult> {
+  try {
+    await requireSuperAdmin()
 
-  const q = query.trim()
-  if (q.length < 2) return []
+    const q = query.trim()
+    if (q.length < 2) return { ok: true, users: [] }
 
-  const { customers } = await adminFetch<{ customers: AnyRecord[] }>(
-    "/admin/customers",
-    {
-      query: {
-        q,
-        limit: 20,
-        fields: "id,email,first_name,last_name,phone,company_name,metadata",
-      },
+    const attempts: Array<Record<string, string | number>> = [{ q }]
+    if (q.includes("@")) attempts.push({ email: q })
+    if (q.includes("+")) attempts.push({ q: q.split("+")[0] })
+
+    const seen = new Set<string>()
+    const users: StaffTeamUser[] = []
+    let lastError: unknown = null
+
+    for (const attempt of attempts) {
+      try {
+        const { customers } = await adminFetch<{ customers: AnyRecord[] }>(
+          "/admin/customers",
+          {
+            query: {
+              ...attempt,
+              limit: 20,
+              fields: "id,email,first_name,last_name,phone,company_name,metadata",
+            },
+          }
+        )
+
+        ;(customers || []).forEach((customer) => {
+          if (!customer?.id || seen.has(customer.id)) return
+          seen.add(customer.id)
+          users.push(summarizeCustomer(customer))
+        })
+      } catch (err) {
+        lastError = err
+      }
     }
-  )
 
-  return (customers || []).map(summarizeCustomer)
+    if (!users.length && lastError) {
+      throw lastError
+    }
+
+    return { ok: true, users }
+  } catch (err) {
+    console.error("[staff-team-access] customer search failed", err)
+    return {
+      ok: false,
+      users: [],
+      error:
+        "Customer lookup failed. Try searching by name or the email before the plus sign, then try again.",
+    }
+  }
 }
 
 export async function updateStaffTeamRole(

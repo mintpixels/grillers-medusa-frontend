@@ -71,13 +71,19 @@ export default function StaffTeamAccessConsole() {
     setStatus(null)
     startTransition(async () => {
       try {
-        const users = await searchStaffTeamUsers(query)
-        setResults(users)
-        if (!users.length) {
+        const result = await searchStaffTeamUsers(query)
+        if (!result.ok) {
+          setResults([])
+          setError(result.error || "Customer lookup failed.")
+          return
+        }
+
+        setResults(result.users)
+        if (!result.users.length) {
           setStatus("No matching customers found.")
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : String(err))
+        setError("Customer lookup failed. Try again.")
       }
     })
   }
