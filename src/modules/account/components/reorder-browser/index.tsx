@@ -47,6 +47,7 @@ function formatLegacyDate(value?: string | null) {
     month: "short",
     day: "numeric",
     year: "numeric",
+    timeZone: "UTC",
   }).format(date)
 }
 
