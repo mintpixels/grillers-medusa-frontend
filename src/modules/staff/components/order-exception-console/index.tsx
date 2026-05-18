@@ -41,13 +41,23 @@ function formatMoney(value?: number, currencyCode = "usd") {
   }).format(amount)
 }
 
-function statusChip(value: string, tone: "neutral" | "gold" | "red" = "neutral") {
+function formatOrderDate(value?: string) {
+  if (!value) return ""
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ""
+  return date.toLocaleDateString()
+}
+
+function statusChip(
+  value: string,
+  tone: "neutral" | "gold" | "red" = "neutral"
+) {
   const toneClass =
     tone === "red"
       ? "border-red-200 bg-red-50 text-red-700"
       : tone === "gold"
-        ? "border-Gold/35 bg-Gold/10 text-Charcoal"
-        : "border-gray-200 bg-white text-Charcoal/65"
+      ? "border-Gold/35 bg-Gold/10 text-Charcoal"
+      : "border-gray-200 bg-white text-Charcoal/65"
 
   return (
     <span
@@ -93,7 +103,9 @@ export default function StaffOrderExceptionConsole() {
   const [actionDraft, setActionDraft] = useState<StaffExceptionActionInput>(
     emptyAction()
   )
-  const [preview, setPreview] = useState<StaffExceptionActionPreview | null>(null)
+  const [preview, setPreview] = useState<StaffExceptionActionPreview | null>(
+    null
+  )
   const [typedConfirmation, setTypedConfirmation] = useState("")
   const [acknowledged, setAcknowledged] = useState(false)
   const [status, setStatus] = useState<string | null>(null)
@@ -101,6 +113,7 @@ export default function StaffOrderExceptionConsole() {
   const [isPending, startTransition] = useTransition()
 
   const selectedAction = actionDraft.action
+  const selectedIsLegacy = selectedOrder?.source === "legacy"
   const requiresConsent = actionRequiresCustomerConsent(selectedAction)
   const movesMoney = actionMovesMoney(selectedAction)
   const needsAmount =
@@ -114,6 +127,7 @@ export default function StaffOrderExceptionConsole() {
     typedConfirmation.trim().toUpperCase() === destructiveConfirmation
 
   const canSubmit = useMemo(() => {
+    if (selectedIsLegacy) return false
     if (!selectedOrder || !acknowledged) return false
     if (!preview?.ok) return false
     if (!typedConfirmationMatches) return false
@@ -147,6 +161,7 @@ export default function StaffOrderExceptionConsole() {
     preview,
     requiresConsent,
     selectedAction,
+    selectedIsLegacy,
     selectedOrder,
     typedConfirmationMatches,
   ])
@@ -165,7 +180,9 @@ export default function StaffOrderExceptionConsole() {
       try {
         const results = await searchStaffExceptionOrders(query)
         setOrders(results)
-        if (!results.length) setStatus("No matching orders found.")
+        if (!results.length) {
+          setStatus("No matching current or historical orders found.")
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err))
       }
@@ -326,15 +343,18 @@ export default function StaffOrderExceptionConsole() {
                       {order.displayId} | {order.customerName}
                     </span>
                     <span className="block text-xs font-maison-neue text-Charcoal/55">
-                      {[order.email, new Date(order.createdAt).toLocaleDateString()]
+                      {[order.email, formatOrderDate(order.createdAt)]
                         .filter(Boolean)
                         .join(" | ")}
                     </span>
                   </span>
                   <span className="flex flex-wrap gap-2">
+                    {order.source === "legacy" &&
+                      statusChip("historical qbd", "gold")}
                     {statusChip(order.paymentStatus)}
                     {statusChip(order.fulfillmentStatus)}
-                    {statusChip(order.operationalState, "gold")}
+                    {order.source === "medusa" &&
+                      statusChip(order.operationalState, "gold")}
                   </span>
                 </button>
               ))}
@@ -355,35 +375,49 @@ export default function StaffOrderExceptionConsole() {
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
+                {selectedOrder.source === "legacy" &&
+                  statusChip("historical qbd", "gold")}
                 {statusChip(selectedOrder.status)}
                 {statusChip(selectedOrder.paymentStatus)}
-                {statusChip(selectedOrder.operationalState, "gold")}
+                {selectedOrder.source === "medusa" &&
+                  statusChip(selectedOrder.operationalState, "gold")}
               </div>
             </div>
 
-            <div className="mt-4 flex flex-wrap gap-2">
-              {[
-                ["record_note", "Add note"],
-                ["refund_payment", "Refund"],
-                ["shipping_override", "Shipping"],
-                ["record_offline_payment", "Offline payment"],
-                ["credit_memo", "Credit"],
-                ["cancel_order", "Cancel"],
-              ].map(([action, label]) => (
-                <button
-                  className={`min-h-[40px] rounded-md border px-3 text-sm font-maison-neue font-semibold transition ${
-                    selectedAction === action
-                      ? "border-Charcoal bg-Charcoal text-white"
-                      : "border-gray-200 bg-white text-Charcoal hover:border-Gold/50"
-                  }`}
-                  key={action}
-                  onClick={() => chooseAction(action as StaffExceptionActionType)}
-                  type="button"
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
+            {selectedIsLegacy ? (
+              <div className="mt-4 rounded-md border border-Gold/35 bg-Gold/10 p-4 text-sm font-maison-neue text-Charcoal/75">
+                This is imported QuickBooks history. It is available for lookup
+                and customer context, but storefront staff actions are read-only
+                here. Handle refunds, credits, and shipping exceptions in
+                QuickBooks or the operations workflow.
+              </div>
+            ) : (
+              <div className="mt-4 flex flex-wrap gap-2">
+                {[
+                  ["record_note", "Add note"],
+                  ["refund_payment", "Refund"],
+                  ["shipping_override", "Shipping"],
+                  ["record_offline_payment", "Offline payment"],
+                  ["credit_memo", "Credit"],
+                  ["cancel_order", "Cancel"],
+                ].map(([action, label]) => (
+                  <button
+                    className={`min-h-[40px] rounded-md border px-3 text-sm font-maison-neue font-semibold transition ${
+                      selectedAction === action
+                        ? "border-Charcoal bg-Charcoal text-white"
+                        : "border-gray-200 bg-white text-Charcoal hover:border-Gold/50"
+                    }`}
+                    key={action}
+                    onClick={() =>
+                      chooseAction(action as StaffExceptionActionType)
+                    }
+                    type="button"
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
 
             <div className="grid gap-6 py-5 lg:grid-cols-[minmax(0,1fr)_260px]">
               <div>
@@ -399,7 +433,9 @@ export default function StaffOrderExceptionConsole() {
                             {item.quantity} x {item.title}
                           </p>
                           <p className="text-xs font-maison-neue text-Charcoal/55">
-                            {[item.subtitle, item.sku].filter(Boolean).join(" | ")}
+                            {[item.subtitle, item.sku]
+                              .filter(Boolean)
+                              .join(" | ")}
                           </p>
                         </div>
                         <p className="text-sm font-maison-neue text-Charcoal">
@@ -414,7 +450,10 @@ export default function StaffOrderExceptionConsole() {
               <dl className="space-y-3 rounded-md border border-gray-100 p-4">
                 <DetailRow
                   label="Subtotal"
-                  value={formatMoney(selectedOrder.subtotal, selectedOrder.currencyCode)}
+                  value={formatMoney(
+                    selectedOrder.subtotal,
+                    selectedOrder.currencyCode
+                  )}
                 />
                 <DetailRow
                   label="Shipping"
@@ -425,7 +464,10 @@ export default function StaffOrderExceptionConsole() {
                 />
                 <DetailRow
                   label="Tax"
-                  value={formatMoney(selectedOrder.taxTotal, selectedOrder.currencyCode)}
+                  value={formatMoney(
+                    selectedOrder.taxTotal,
+                    selectedOrder.currencyCode
+                  )}
                 />
                 <DetailRow
                   label="Discounts"
@@ -436,7 +478,10 @@ export default function StaffOrderExceptionConsole() {
                 />
                 <DetailRow
                   label="Total"
-                  value={formatMoney(selectedOrder.total, selectedOrder.currencyCode)}
+                  value={formatMoney(
+                    selectedOrder.total,
+                    selectedOrder.currencyCode
+                  )}
                 />
               </dl>
             </div>
@@ -457,9 +502,17 @@ export default function StaffOrderExceptionConsole() {
                           {formatMoney(payment.amount, payment.currencyCode)}
                         </p>
                         <p className="text-xs font-maison-neue text-Charcoal/55">
-                          Captured {formatMoney(payment.capturedAmount, payment.currencyCode)}
+                          Captured{" "}
+                          {formatMoney(
+                            payment.capturedAmount,
+                            payment.currencyCode
+                          )}
                           {" | "}
-                          Refunded {formatMoney(payment.refundedAmount, payment.currencyCode)}
+                          Refunded{" "}
+                          {formatMoney(
+                            payment.refundedAmount,
+                            payment.currencyCode
+                          )}
                         </p>
                       </div>
                     ))}
@@ -477,26 +530,33 @@ export default function StaffOrderExceptionConsole() {
                 </h3>
                 {selectedOrder.auditLog.length ? (
                   <div className="space-y-3">
-                    {selectedOrder.auditLog.slice(-6).reverse().map((entry, index) => (
-                      <div className="border-l border-Gold pl-3" key={`${entry.at}-${index}`}>
-                        <p className="text-sm font-maison-neue font-semibold text-Charcoal">
-                          {(entry.action || entry.staff_action || "staff action").replace(
-                            /_/g,
-                            " "
-                          )}
-                        </p>
-                        <p className="text-xs font-maison-neue text-Charcoal/55">
-                          {[entry.status, entry.staff_actor_name, entry.at]
-                            .filter(Boolean)
-                            .join(" | ")}
-                        </p>
-                        {entry.staff_note && (
-                          <p className="mt-1 text-xs font-maison-neue text-Charcoal/70">
-                            {entry.staff_note}
+                    {selectedOrder.auditLog
+                      .slice(-6)
+                      .reverse()
+                      .map((entry, index) => (
+                        <div
+                          className="border-l border-Gold pl-3"
+                          key={`${entry.at}-${index}`}
+                        >
+                          <p className="text-sm font-maison-neue font-semibold text-Charcoal">
+                            {(
+                              entry.action ||
+                              entry.staff_action ||
+                              "staff action"
+                            ).replace(/_/g, " ")}
                           </p>
-                        )}
-                      </div>
-                    ))}
+                          <p className="text-xs font-maison-neue text-Charcoal/55">
+                            {[entry.status, entry.staff_actor_name, entry.at]
+                              .filter(Boolean)
+                              .join(" | ")}
+                          </p>
+                          {entry.staff_note && (
+                            <p className="mt-1 text-xs font-maison-neue text-Charcoal/70">
+                              {entry.staff_note}
+                            </p>
+                          )}
+                        </div>
+                      ))}
                   </div>
                 ) : (
                   <p className="text-sm font-maison-neue text-Charcoal/55">
@@ -524,6 +584,17 @@ export default function StaffOrderExceptionConsole() {
                 header. Required fields appear here.
               </p>
             </div>
+          ) : selectedIsLegacy ? (
+            <div className="rounded-md border border-Gold/35 bg-Gold/10 p-4">
+              <p className="text-sm font-maison-neue font-semibold text-Charcoal">
+                Historical order selected
+              </p>
+              <p className="mt-1 text-sm font-maison-neue text-Charcoal/60">
+                This QuickBooks-imported order is read-only in the storefront.
+                Use it for customer context, then handle adjustments in
+                QuickBooks or operations.
+              </p>
+            </div>
           ) : (
             <div className="space-y-4">
               <label className="flex flex-col gap-1">
@@ -534,12 +605,11 @@ export default function StaffOrderExceptionConsole() {
                   onChange={(event) =>
                     updateActionDraft({
                       action: event.target.value as StaffExceptionActionType,
-                      customerConsentMethod:
-                        actionRequiresCustomerConsent(
-                          event.target.value as StaffExceptionActionType
-                        )
-                          ? "phone"
-                          : "not_applicable",
+                      customerConsentMethod: actionRequiresCustomerConsent(
+                        event.target.value as StaffExceptionActionType
+                      )
+                        ? "phone"
+                        : "not_applicable",
                     })
                   }
                 >
@@ -558,7 +628,8 @@ export default function StaffOrderExceptionConsole() {
                   value={actionDraft.reasonCode}
                   onChange={(event) =>
                     updateActionDraft({
-                      reasonCode: event.target.value as StaffExceptionReasonCode,
+                      reasonCode: event.target
+                        .value as StaffExceptionReasonCode,
                     })
                   }
                 >
@@ -578,7 +649,8 @@ export default function StaffOrderExceptionConsole() {
                     value={actionDraft.customerConsentMethod}
                     onChange={(event) =>
                       updateActionDraft({
-                        customerConsentMethod: event.target.value as StaffConsentMethod,
+                        customerConsentMethod: event.target
+                          .value as StaffConsentMethod,
                       })
                     }
                   >
@@ -625,7 +697,8 @@ export default function StaffOrderExceptionConsole() {
                       <option value="">Auto select</option>
                       {selectedOrder.payments.map((payment) => (
                         <option key={payment.id} value={payment.id}>
-                          {payment.id} | {formatMoney(payment.amount, payment.currencyCode)}
+                          {payment.id} |{" "}
+                          {formatMoney(payment.amount, payment.currencyCode)}
                         </option>
                       ))}
                     </select>
@@ -641,7 +714,9 @@ export default function StaffOrderExceptionConsole() {
                       placeholder="Check, ACH, Zelle, cash"
                       value={actionDraft.offlinePaymentMethod || ""}
                       onChange={(event) =>
-                        updateActionDraft({ offlinePaymentMethod: event.target.value })
+                        updateActionDraft({
+                          offlinePaymentMethod: event.target.value,
+                        })
                       }
                     />
                   </label>
@@ -667,7 +742,9 @@ export default function StaffOrderExceptionConsole() {
                     className={`${fieldClass()} min-h-[96px]`}
                     value={actionDraft.shippingChangeSummary || ""}
                     onChange={(event) =>
-                      updateActionDraft({ shippingChangeSummary: event.target.value })
+                      updateActionDraft({
+                        shippingChangeSummary: event.target.value,
+                      })
                     }
                   />
                 </label>
@@ -690,7 +767,9 @@ export default function StaffOrderExceptionConsole() {
                   className={`${fieldClass()} min-h-[88px]`}
                   value={actionDraft.customerVisibleNote || ""}
                   onChange={(event) =>
-                    updateActionDraft({ customerVisibleNote: event.target.value })
+                    updateActionDraft({
+                      customerVisibleNote: event.target.value,
+                    })
                   }
                 />
               </label>
@@ -706,8 +785,8 @@ export default function StaffOrderExceptionConsole() {
 
               {actionMutatesMedusa(selectedAction) && (
                 <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm font-maison-neue text-red-700">
-                  This action can change Medusa order or payment state. Review it
-                  first, then type the confirmation word before applying it.
+                  This action can change Medusa order or payment state. Review
+                  it first, then type the confirmation word before applying it.
                 </div>
               )}
 
@@ -734,7 +813,9 @@ export default function StaffOrderExceptionConsole() {
                       </h3>
                     </div>
                     {statusChip(
-                      preview.willMutateMedusa ? "external action" : "audit only",
+                      preview.willMutateMedusa
+                        ? "external action"
+                        : "audit only",
                       preview.willMutateMedusa ? "red" : "gold"
                     )}
                   </div>
@@ -806,7 +887,9 @@ export default function StaffOrderExceptionConsole() {
                   <input
                     className={fieldClass()}
                     value={typedConfirmation}
-                    onChange={(event) => setTypedConfirmation(event.target.value)}
+                    onChange={(event) =>
+                      setTypedConfirmation(event.target.value)
+                    }
                   />
                 </label>
               )}
@@ -819,8 +902,8 @@ export default function StaffOrderExceptionConsole() {
                   onChange={(event) => setAcknowledged(event.target.checked)}
                   type="checkbox"
                 />
-                I reviewed the action, the customer authorized it where required,
-                and the audit trail should attribute it to me.
+                I reviewed the action, the customer authorized it where
+                required, and the audit trail should attribute it to me.
               </label>
 
               <Button
@@ -879,9 +962,9 @@ export default function StaffOrderExceptionConsole() {
               {selectedOrder.operationalState !== "confirmed" &&
                 selectedOrder.operationalState !== "open" && (
                   <div className="rounded-md border border-Gold/35 bg-Gold/10 px-3 py-3 text-sm font-maison-neue text-Charcoal">
-                    Fulfillment is locked or already shipped. Shipping changes are
-                    recorded for operations review instead of silently mutating the
-                    shipment.
+                    Fulfillment is locked or already shipped. Shipping changes
+                    are recorded for operations review instead of silently
+                    mutating the shipment.
                   </div>
                 )}
             </div>

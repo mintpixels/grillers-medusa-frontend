@@ -709,6 +709,18 @@ export default function PhoneOrderCopilot({
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
           <div className="space-y-6">
             <section className="rounded-lg border border-gray-200 bg-white p-5">
+              <div className="mb-4">
+                <p className="text-xs font-maison-neue-mono uppercase text-Gold">
+                  Customer profile
+                </p>
+                <h2 className="text-xl font-gyst font-bold text-Charcoal">
+                  Find or create the customer
+                </h2>
+                <p className="mt-1 text-sm font-maison-neue text-Charcoal/55">
+                  Search fills the editable profile fields below. Save Customer
+                  persists profile changes with a staff audit entry.
+                </p>
+              </div>
               <div className="mb-4 flex flex-col gap-3 small:flex-row small:items-end">
                 <label className="flex flex-1 flex-col gap-1">
                   <span className={labelClass()}>Customer search</span>
@@ -856,9 +868,19 @@ export default function PhoneOrderCopilot({
             </section>
 
             <section className="rounded-lg border border-gray-200 bg-white p-5">
-              <h2 className="mb-4 text-xl font-gyst font-bold text-Charcoal">
-                Address
-              </h2>
+              <div className="mb-4">
+                <p className="text-xs font-maison-neue-mono uppercase text-Gold">
+                  Shipping address
+                </p>
+                <h2 className="text-xl font-gyst font-bold text-Charcoal">
+                  Address for this order
+                </h2>
+                <p className="mt-1 text-sm font-maison-neue text-Charcoal/55">
+                  Editable for the phone order. It starts from the customer's
+                  saved address when available; Save Address to Customer is the
+                  only action that writes it back to the account.
+                </p>
+              </div>
               <div className="grid gap-3 md:grid-cols-2">
                 <label className="flex flex-col gap-1">
                   <span className={labelClass()}>First name</span>
@@ -954,6 +976,18 @@ export default function PhoneOrderCopilot({
             </section>
 
             <section className="rounded-lg border border-gray-200 bg-white p-5">
+              <div className="mb-4">
+                <p className="text-xs font-maison-neue-mono uppercase text-Gold">
+                  Order items
+                </p>
+                <h2 className="text-xl font-gyst font-bold text-Charcoal">
+                  Add products
+                </h2>
+                <p className="mt-1 text-sm font-maison-neue text-Charcoal/55">
+                  Product results add line items to this staff-prepared cart.
+                  Quantities are edited in the order panel.
+                </p>
+              </div>
               <div className="mb-4 flex flex-col gap-3 small:flex-row small:items-end">
                 <label className="flex flex-1 flex-col gap-1">
                   <span className={labelClass()}>Product search</span>
@@ -1011,9 +1045,19 @@ export default function PhoneOrderCopilot({
 
           <aside className="space-y-6">
             <section className="rounded-lg border border-gray-200 bg-white p-5">
-              <h2 className="mb-4 text-xl font-gyst font-bold text-Charcoal">
-                Order
-              </h2>
+              <div className="mb-4">
+                <p className="text-xs font-maison-neue-mono uppercase text-Gold">
+                  Staff-prepared cart
+                </p>
+                <h2 className="text-xl font-gyst font-bold text-Charcoal">
+                  Order controls
+                </h2>
+                <p className="mt-1 text-sm font-maison-neue text-Charcoal/55">
+                  These fields apply to this order only. Preparing payment
+                  creates a cart using the customer, address, line items, and
+                  fulfillment choices on this page.
+                </p>
+              </div>
               {lines.length ? (
                 <div className="divide-y border-y border-gray-100">
                   {lines.map((line) => (

@@ -26,6 +26,7 @@ type AnyRecord = Record<string, any>
 
 export type StaffExceptionOrderSummary = {
   id: string
+  source: "medusa" | "legacy"
   displayId: string
   email: string
   customerName: string
@@ -141,6 +142,10 @@ function amount(value: unknown): number {
   return Number.isFinite(number) ? number : 0
 }
 
+function dollarsToMinorUnits(value: unknown): number {
+  return Math.round(amount(value) * 100)
+}
+
 function minorUnitsFromDollars(value: unknown): number {
   const number = Number(value)
   if (!Number.isFinite(number) || number <= 0) {
@@ -169,7 +174,9 @@ function customerName(order: AnyRecord): string {
   return fromCustomer || fromShipping || order.email || "Customer"
 }
 
-function latestStaffAction(metadata: AnyRecord | null | undefined): string | undefined {
+function latestStaffAction(
+  metadata: AnyRecord | null | undefined
+): string | undefined {
   const latest = parseStaffAuditLog(metadata).slice(-1)[0]
   return latest?.action || latest?.staff_action
 }
@@ -178,6 +185,7 @@ function summarizeOrder(order: AnyRecord): StaffExceptionOrderSummary {
   const items = Array.isArray(order.items) ? order.items : []
   return {
     id: order.id,
+    source: "medusa",
     displayId: displayId(order),
     email: order.email || order.customer?.email || "",
     customerName: customerName(order),
@@ -196,7 +204,80 @@ function summarizeOrder(order: AnyRecord): StaffExceptionOrderSummary {
   }
 }
 
-function toAddress(address: AnyRecord | null | undefined): StaffExceptionAddress | undefined {
+function legacyDisplayId(order: AnyRecord): string {
+  return (
+    order.ref_number || order.qbd_txn_id || order.legacy_order_id || order.id
+  )
+}
+
+function summarizeLegacyOrder(order: AnyRecord): StaffExceptionOrderSummary {
+  const lines = Array.isArray(order.lines) ? order.lines : []
+  return {
+    id: order.id,
+    source: "legacy",
+    displayId: `Legacy ${legacyDisplayId(order)}`,
+    email: order.email_lower || "",
+    customerName: order.customer_name || order.email_lower || "Legacy customer",
+    createdAt: order.placed_at || order.imported_at || "",
+    updatedAt: order.imported_at || "",
+    status: order.status || "imported",
+    fulfillmentStatus: "historical",
+    paymentStatus: "historical",
+    total: dollarsToMinorUnits(order.total),
+    currencyCode: order.currency_code || "usd",
+    itemCount:
+      Number(order.line_count || 0) ||
+      lines.reduce(
+        (sum: number, line: AnyRecord) => sum + amount(line.quantity),
+        0
+      ),
+    operationalState: "completed_or_shipped",
+  }
+}
+
+function detailLegacyOrder(order: AnyRecord): StaffExceptionOrderDetail {
+  const summary = summarizeLegacyOrder(order)
+  const lines = Array.isArray(order.lines) ? order.lines : []
+
+  return {
+    ...summary,
+    subtotal: dollarsToMinorUnits(order.subtotal),
+    shippingTotal: dollarsToMinorUnits(order.shipping_total),
+    taxTotal: dollarsToMinorUnits(order.tax_total),
+    discountTotal: dollarsToMinorUnits(order.discount_total),
+    items: lines.map((line: AnyRecord) => ({
+      id: line.id,
+      title:
+        line.display_title ||
+        line.medusa_variant_title ||
+        line.medusa_product_title ||
+        line.title ||
+        line.description ||
+        "Legacy item",
+      subtitle:
+        line.description && line.description !== line.title
+          ? line.description
+          : line.medusa_variant_title,
+      sku: line.sku || undefined,
+      quantity: amount(line.quantity),
+      total: dollarsToMinorUnits(line.line_total),
+    })),
+    payments: [],
+    shippingMethods: [],
+    fulfillments: [],
+    metadata: {
+      legacy_order_id: order.id,
+      legacy_ref_number: order.ref_number || "",
+      qbd_txn_id: order.qbd_txn_id || "",
+      staff_exception_status: "historical_quickbooks_order",
+    },
+    auditLog: [],
+  }
+}
+
+function toAddress(
+  address: AnyRecord | null | undefined
+): StaffExceptionAddress | undefined {
   if (!address) return undefined
   const cityLine = [
     address.city,
@@ -222,20 +303,27 @@ function collectPayments(order: AnyRecord): StaffExceptionPayment[] {
     : []
 
   return collections.flatMap((collection: AnyRecord) => {
-    const payments = Array.isArray(collection.payments) ? collection.payments : []
+    const payments = Array.isArray(collection.payments)
+      ? collection.payments
+      : []
     return payments.map((payment: AnyRecord) => {
       const refunds = Array.isArray(payment.refunds) ? payment.refunds : []
       const refundedAmount =
         amount(payment.refunded_amount) ||
-        refunds.reduce((sum: number, refund: AnyRecord) => sum + amount(refund.amount), 0)
+        refunds.reduce(
+          (sum: number, refund: AnyRecord) => sum + amount(refund.amount),
+          0
+        )
 
       return {
         id: payment.id,
         amount: amount(payment.amount),
         capturedAmount: amount(payment.captured_amount || payment.amount),
         refundedAmount,
-        currencyCode: payment.currency_code || collection.currency_code || "usd",
-        providerId: payment.provider_id || payment.provider || collection.provider_id,
+        currencyCode:
+          payment.currency_code || collection.currency_code || "usd",
+        providerId:
+          payment.provider_id || payment.provider || collection.provider_id,
         status: payment.status,
       }
     })
@@ -267,7 +355,11 @@ function detailOrder(order: AnyRecord): StaffExceptionOrderDetail {
     discountTotal: amount(order.discount_total),
     items: items.map((item: AnyRecord) => ({
       id: item.id,
-      title: item.title || item.product_title || item.variant?.product?.title || "Item",
+      title:
+        item.title ||
+        item.product_title ||
+        item.variant?.product?.title ||
+        "Item",
       subtitle: item.subtitle || item.variant_title || item.variant?.title,
       sku: item.variant?.sku || item.sku,
       quantity: amount(item.quantity),
@@ -295,9 +387,12 @@ async function requireStaffOperator() {
 }
 
 async function retrieveOrder(orderId: string): Promise<AnyRecord> {
-  const { order } = await adminFetch<{ order: AnyRecord }>(`/admin/orders/${orderId}`, {
-    query: { fields: ORDER_DETAIL_FIELDS },
-  })
+  const { order } = await adminFetch<{ order: AnyRecord }>(
+    `/admin/orders/${orderId}`,
+    {
+      query: { fields: ORDER_DETAIL_FIELDS },
+    }
+  )
   if (!order) throw new Error("Order not found.")
   return order
 }
@@ -366,7 +461,8 @@ function baseAuditEntry({
       ? "recorded_only_not_sent"
       : "not_requested",
     medusa_mutation: actionMutatesMedusa(input.action),
-    typed_confirmation_required: actionRequiredConfirmation(input.action) || undefined,
+    typed_confirmation_required:
+      actionRequiredConfirmation(input.action) || undefined,
     typed_confirmation_received: actionRequiredConfirmation(input.action)
       ? true
       : undefined,
@@ -447,7 +543,10 @@ function previewWarnings(
 }
 
 function previewAmount(input: StaffExceptionActionInput): number | undefined {
-  if (!actionMovesMoney(input.action) && input.action !== "record_offline_payment") {
+  if (
+    !actionMovesMoney(input.action) &&
+    input.action !== "record_offline_payment"
+  ) {
     return undefined
   }
 
@@ -478,7 +577,10 @@ function validateAction(input: StaffExceptionActionInput, order: AnyRecord) {
     throw new Error("Record how the customer authorized this action.")
   }
 
-  if (actionMovesMoney(input.action) && input.action !== "record_offline_payment") {
+  if (
+    actionMovesMoney(input.action) &&
+    input.action !== "record_offline_payment"
+  ) {
     minorUnitsFromDollars(input.amount)
   }
 
@@ -489,7 +591,10 @@ function validateAction(input: StaffExceptionActionInput, order: AnyRecord) {
     }
   }
 
-  if (input.action === "shipping_override" && !input.shippingChangeSummary?.trim()) {
+  if (
+    input.action === "shipping_override" &&
+    !input.shippingChangeSummary?.trim()
+  ) {
     throw new Error("Summarize the shipping change.")
   }
 }
@@ -510,7 +615,9 @@ function refundablePayment(
   const payments = collectPayments(order)
   const selected = paymentId
     ? payments.find((payment) => payment.id === paymentId)
-    : payments.find((payment) => payment.capturedAmount > payment.refundedAmount)
+    : payments.find(
+        (payment) => payment.capturedAmount > payment.refundedAmount
+      )
 
   if (!selected) {
     throw new Error("No refundable captured payment was found for this order.")
@@ -524,7 +631,9 @@ function capturablePayment(
   paymentId?: string
 ): StaffExceptionPayment {
   const payments = collectPayments(order)
-  const selected = paymentId ? payments.find((payment) => payment.id === paymentId) : payments[0]
+  const selected = paymentId
+    ? payments.find((payment) => payment.id === paymentId)
+    : payments[0]
 
   if (!selected) {
     throw new Error("No payment was found for this order.")
@@ -545,20 +654,32 @@ export async function searchStaffExceptionOrders(
   }
 
   if (!trimmed) {
-    const { orders } = await adminFetch<{ orders: AnyRecord[] }>("/admin/orders", {
-      query: baseParams,
-    })
+    const { orders } = await adminFetch<{ orders: AnyRecord[] }>(
+      "/admin/orders",
+      {
+        query: baseParams,
+      }
+    )
 
     return (orders || []).map(summarizeOrder)
   }
 
   const seenOrders = new Set<string>()
+  const seenLegacyOrders = new Set<string>()
   const orders: AnyRecord[] = []
+  const legacyOrders: AnyRecord[] = []
   const addOrders = (items: AnyRecord[] | undefined) => {
     ;(items || []).forEach((order) => {
       if (!order?.id || seenOrders.has(order.id)) return
       seenOrders.add(order.id)
       orders.push(order)
+    })
+  }
+  const addLegacyOrders = (items: AnyRecord[] | undefined) => {
+    ;(items || []).forEach((order) => {
+      if (!order?.id || seenLegacyOrders.has(order.id)) return
+      seenLegacyOrders.add(order.id)
+      legacyOrders.push(order)
     })
   }
 
@@ -573,6 +694,21 @@ export async function searchStaffExceptionOrders(
       },
     })
     addOrders(direct.orders)
+  } catch (err) {
+    lastError = err
+  }
+
+  try {
+    const legacy = await adminFetch<{ orders: AnyRecord[] }>(
+      "/admin/legacy-orders",
+      {
+        query: {
+          q,
+          limit: 20,
+        },
+      }
+    )
+    addLegacyOrders(legacy.orders)
   } catch (err) {
     lastError = err
   }
@@ -614,26 +750,53 @@ export async function searchStaffExceptionOrders(
         } catch (err) {
           lastError = err
         }
+
+        try {
+          const legacyByCustomer = await adminFetch<{ orders: AnyRecord[] }>(
+            "/admin/legacy-orders",
+            {
+              query: {
+                customer_id: customer.id,
+                limit: 10,
+              },
+            }
+          )
+          addLegacyOrders(legacyByCustomer.orders)
+        } catch (err) {
+          lastError = err
+        }
       }
     } catch (err) {
       lastError = err
     }
   }
 
-  if (!orders.length && lastError) {
+  if (!orders.length && !legacyOrders.length && lastError) {
     console.error("[staff-order-support] order search failed", lastError)
     throw new Error(
       "Order lookup failed. Try searching by order number, email, or customer name, then try again."
     )
   }
 
-  return orders.slice(0, 20).map(summarizeOrder)
+  return [
+    ...orders.map(summarizeOrder),
+    ...legacyOrders.map(summarizeLegacyOrder),
+  ].slice(0, 20)
 }
 
 export async function getStaffExceptionOrderDetail(
   orderId: string
 ): Promise<StaffExceptionOrderDetail> {
   await requireStaffOperator()
+
+  if (orderId.startsWith("lgord_")) {
+    const { order } = await adminFetch<{ order: AnyRecord }>(
+      `/admin/legacy-orders/${orderId}`
+    )
+    if (!order) throw new Error("Historical order not found.")
+    return detailLegacyOrder(order)
+  }
+
   return detailOrder(await retrieveOrder(orderId))
 }
 
@@ -644,6 +807,29 @@ export async function previewStaffOrderException(
 
   try {
     await requireStaffOperator()
+    if (input.orderId.startsWith("lgord_")) {
+      return {
+        ok: false,
+        error:
+          "Historical QuickBooks orders are read-only in this console. Use this result for context, then handle money or shipping changes in QuickBooks/operations.",
+        action: fallbackAction,
+        actionLabel: actionLabel(fallbackAction),
+        operationalState: "completed_or_shipped",
+        orderDisplayId: input.orderId,
+        willWriteAuditLog: false,
+        willMutateMedusa: false,
+        qbdReconciliationNeeded: false,
+        customerNotificationStatus: "not_requested",
+        requiredConfirmation: null,
+        summary:
+          "This is imported order history, not a live Medusa order. Staff actions cannot be applied here.",
+        warnings: [
+          "Use QuickBooks or operations workflows for historical order adjustments.",
+        ],
+        blockingReasons: ["Historical order is read-only."],
+      }
+    }
+
     const order = await retrieveOrder(input.orderId)
     const state = staffOrderOperationalState(order)
     const blockingReasons: string[] = []
@@ -700,6 +886,12 @@ export async function applyStaffOrderException(
 ): Promise<StaffExceptionActionResult> {
   try {
     const staff = await requireStaffOperator()
+    if (input.orderId.startsWith("lgord_")) {
+      throw new Error(
+        "Historical QuickBooks orders are read-only in this console. Use QuickBooks or operations workflows for adjustments."
+      )
+    }
+
     const order = await retrieveOrder(input.orderId)
     validateAction(input, order)
     validateTypedConfirmation(input)
@@ -731,7 +923,8 @@ export async function applyStaffOrderException(
             ...baseEntry,
             amount: minorUnitsFromDollars(input.amount),
             offline_payment_method: input.offlinePaymentMethod?.trim(),
-            offline_payment_reference: input.offlinePaymentReference?.trim() || undefined,
+            offline_payment_reference:
+              input.offlinePaymentReference?.trim() || undefined,
           },
           {
             staff_exception_status: "offline_payment_needs_qbd_reconcile",
@@ -772,9 +965,12 @@ export async function applyStaffOrderException(
         await appendOrderAudit(order.id, baseEntry, {
           staff_exception_status: "cancel_requested",
         })
-        await adminFetch<{ order: AnyRecord }>(`/admin/orders/${order.id}/cancel`, {
-          method: "POST",
-        })
+        await adminFetch<{ order: AnyRecord }>(
+          `/admin/orders/${order.id}/cancel`,
+          {
+            method: "POST",
+          }
+        )
         await appendOrderAudit(
           order.id,
           {

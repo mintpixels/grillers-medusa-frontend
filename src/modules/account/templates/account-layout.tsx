@@ -3,7 +3,6 @@ import AccountNav from "../components/account-nav"
 import { HttpTypes } from "@medusajs/types"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import type { StaffImpersonationSession } from "@lib/data/staff/impersonation-types"
-import StaffContextActions from "@modules/staff/components/staff-context-actions"
 
 interface AccountLayoutProps {
   customer: HttpTypes.StoreCustomer | null
@@ -21,25 +20,11 @@ const AccountLayout: React.FC<AccountLayoutProps> = ({
   const layoutCustomer = customer || staffCustomer
 
   return (
-    <div className="bg-gray-50 min-h-[calc(100vh-4rem)]" data-testid="account-page">
+    <div
+      className="bg-gray-50 min-h-[calc(100vh-4rem)]"
+      data-testid="account-page"
+    >
       <div className="content-container max-w-7xl mx-auto py-8 small:py-12">
-        {staffImpersonation && (
-          <div className="mb-6 rounded-md border border-Gold/40 bg-Gold/10 px-4 py-3">
-            <div className="flex flex-col gap-3 small:flex-row small:items-center small:justify-between">
-              <div>
-                <p className="text-sm font-maison-neue font-semibold text-Charcoal">
-                  Staff account context active: acting as {staffImpersonation.targetName}
-                </p>
-                <p className="mt-1 text-sm font-maison-neue text-Charcoal/60">
-                  Storefront, account, cart, and phone-order actions are being audited
-                  to staff actor {staffImpersonation.staffName}.
-                </p>
-              </div>
-              <StaffContextActions />
-            </div>
-          </div>
-        )}
-
         {layoutCustomer && (
           <div className="flex flex-col small:flex-row gap-8">
             <aside className="small:w-[260px] shrink-0 small:sticky small:top-24 small:self-start">
@@ -53,9 +38,7 @@ const AccountLayout: React.FC<AccountLayoutProps> = ({
           </div>
         )}
 
-        {!layoutCustomer && (
-          <div className="max-w-lg mx-auto">{children}</div>
-        )}
+        {!layoutCustomer && <div className="max-w-lg mx-auto">{children}</div>}
 
         <div className="mt-16 pt-8 border-t border-gray-200">
           <div className="flex flex-col small:flex-row items-start small:items-center justify-between gap-4">
@@ -72,8 +55,18 @@ const AccountLayout: React.FC<AccountLayoutProps> = ({
               className="min-h-[44px] inline-flex items-center gap-2 text-sm font-maison-neue font-semibold text-Gold hover:text-Gold/80 transition-colors"
             >
               Customer Service
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"
+                />
               </svg>
             </LocalizedClientLink>
           </div>
