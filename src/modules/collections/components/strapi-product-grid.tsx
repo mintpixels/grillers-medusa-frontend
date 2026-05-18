@@ -254,7 +254,7 @@ export function ProductCard({
     // auto-sizes to the longest title in that row, etc. — no fixed
     // line-clamp needed. Falls back to a regular grid container when
     // the parent isn't a CSS grid (e.g. the PDP swiper).
-    <article className="grid min-w-0 grid-cols-1 grid-rows-subgrid row-span-6 gap-y-0 pb-8">
+    <article className="grid h-full min-w-0 grid-cols-1 grid-rows-subgrid row-span-6 gap-y-0 pb-8">
       <LocalizedClientLink
         href={`/products/${product?.MedusaProduct?.Handle}`}
         className="block min-w-0"

@@ -83,13 +83,12 @@ export default function SpecialtySwiper({
           swiperRef.current = s
         }}
         spaceBetween={28}
-        // Mobile: show 1.15 slides so a sliver of the next card peeks at
-        // the right edge — visual cue that the row is swipable. ≥520 we
-        // already show 2+ slides so the cue is implicit.
+        // Keep a sliver of the next card visible at every breakpoint so
+        // the row reads as a carousel, not a static three-card grid.
         slidesPerView={1.15}
         breakpoints={{
-          520: { slidesPerView: 2 },
-          900: { slidesPerView: 3 },
+          520: { slidesPerView: 2.15 },
+          900: { slidesPerView: 3.15 },
         }}
         className="swiper-visible"
       >
@@ -97,7 +96,7 @@ export default function SpecialtySwiper({
           const handle = product?.MedusaProduct?.Handle || ""
           const tag = tagByHandle[handle]
           return (
-            <SwiperSlide key={product.documentId} className="pb-4">
+            <SwiperSlide key={product.documentId} className="!h-auto pb-4">
               <div className="relative">
                 {tag && (
                   <span className="absolute top-3 left-3 z-10 inline-block bg-Charcoal text-Scroll text-p-ex-sm-mono font-maison-neue-mono uppercase tracking-widest px-2.5 py-1 rounded-sm pointer-events-none">

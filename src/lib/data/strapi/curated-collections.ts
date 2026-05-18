@@ -708,15 +708,21 @@ export async function getCuratedCollectionCards({
   customerState?: "guest_or_no_orders" | "returning" | "all" | "any"
   limit?: number
 }): Promise<CuratedCollection[]> {
+  // Strapi pagination happens before the app-level placement/customer filters.
+  // Fetch a wider window so narrow surfaces like the homepage are not starved
+  // by earlier cards intended for PDP, cart, or collection-hub surfaces.
+  const queryLimit = Math.max(limit, 100)
+
   try {
     const data = await strapiClient.request<{
       curatedCollections: CuratedCollection[]
-    }>(GetCuratedCollectionCardsQuery, { limit })
+    }>(GetCuratedCollectionCardsQuery, { limit: queryLimit })
 
     return (data.curatedCollections || [])
       .filter((collection) => isVisibleNow(collection))
       .filter((collection) => !surface || matchesSurface(collection, surface))
       .filter((collection) => matchesCustomerState(collection, customerState))
+      .slice(0, limit)
   } catch (error) {
     console.error("Error fetching curated collection cards:", error)
     return []
