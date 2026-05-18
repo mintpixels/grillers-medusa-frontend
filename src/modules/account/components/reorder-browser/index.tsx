@@ -90,6 +90,18 @@ function legacyLineStateKey(line: LegacyCustomerOrder["lines"][number]) {
   return `line:${line.id}`
 }
 
+function isStaffAssistedHistoryItem(item: PurchaseHistoryItem) {
+  return item.mappingStatus === "staff_assisted"
+}
+
+function historyUnitPriceForSort(item: PurchaseHistoryItem) {
+  if (item.source === "legacy" || item.source === "medusa+legacy") {
+    return item.unitPrice
+  }
+
+  return item.unitPrice / 100
+}
+
 function LegacyOrdersSection({
   orders,
   totalCount,
@@ -232,6 +244,7 @@ function LegacyHistoryCard({
   onRequest: () => void
 }) {
   const title = item.productTitle || item.title || "Past purchase"
+  const staffAssisted = isStaffAssistedHistoryItem(item)
   const lastOrdered = item.lastOrderedAt
     ? new Date(item.lastOrderedAt).toLocaleDateString()
     : "Unknown"
@@ -249,7 +262,7 @@ function LegacyHistoryCard({
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
           <p className="text-xs font-maison-neue-mono uppercase text-Charcoal/45">
-            Past purchase
+            {staffAssisted ? "Staff-assisted item" : "Past purchase"}
           </p>
           <h3 className="mt-2 text-xl font-gyst font-bold leading-tight text-Charcoal">
             {title}
@@ -285,8 +298,9 @@ function LegacyHistoryCard({
 
       <div className="mt-5 border-t border-gray-100 pt-4">
         <p className="text-sm font-maison-neue text-Charcoal/55">
-          This item is in your order history. Ask our staff to match it to
-          today's catalog, or call us for immediate help.
+          {staffAssisted
+            ? "This historical item needs staff pricing before it can be reordered online."
+            : "This item is in your order history. Ask our staff to match it to today's catalog, or call us for immediate help."}
         </p>
         <div className="mt-3 flex flex-col gap-2 xsmall:flex-row">
           <button
@@ -625,10 +639,10 @@ export default function ReorderBrowser({
         items.sort((a, b) => {
           const aPrice =
             a.strapiProduct?.MedusaProduct?.Variants?.[0]?.Price
-              ?.CalculatedPriceNumber ?? a.unitPrice / 100
+              ?.CalculatedPriceNumber ?? historyUnitPriceForSort(a)
           const bPrice =
             b.strapiProduct?.MedusaProduct?.Variants?.[0]?.Price
-              ?.CalculatedPriceNumber ?? b.unitPrice / 100
+              ?.CalculatedPriceNumber ?? historyUnitPriceForSort(b)
           return aPrice - bPrice
         })
         break
