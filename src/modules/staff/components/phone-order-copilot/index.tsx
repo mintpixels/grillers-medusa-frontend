@@ -16,6 +16,7 @@ import {
   completeStaffPhoneOrder,
   createStaffCustomer,
   getStaffCustomerContext,
+  getStaffLegacyOrderContext,
   prepareStaffPhoneOrder,
   searchStaffCustomers,
   searchStaffProducts,
@@ -97,6 +98,14 @@ function addressFromCustomer(
 
 function isSyntheticCustomerId(id?: string) {
   return Boolean(id?.startsWith("order:") || id?.startsWith("legacy-order:"))
+}
+
+function legacySyntheticOrderId(customer: StaffCustomerSummary) {
+  if (customer.matchedLegacyOrderId) return customer.matchedLegacyOrderId
+  if (customer.id?.startsWith("legacy-order:")) {
+    return customer.id.slice("legacy-order:".length)
+  }
+  return ""
 }
 
 function formatPrice(value?: number, currencyCode = "usd") {
@@ -316,7 +325,23 @@ export default function PhoneOrderCopilot({
     setShippingAddress(addressFromCustomer(customer))
     setCustomerVerified(false)
     if (isSyntheticCustomerId(customer.id)) {
-      setSelectedContext(null)
+      const legacyOrderId = legacySyntheticOrderId(customer)
+      if (!legacyOrderId) {
+        setSelectedContext(null)
+        return
+      }
+
+      startTransition(async () => {
+        try {
+          const context = await getStaffLegacyOrderContext(legacyOrderId)
+          setSelectedContext(context)
+          setDraftCustomer(draftFromCustomer(context))
+          setShippingAddress(addressFromCustomer(context))
+        } catch (err) {
+          setSelectedContext(null)
+          setError(err instanceof Error ? err.message : String(err))
+        }
+      })
       return
     }
 
@@ -450,6 +475,38 @@ export default function PhoneOrderCopilot({
               ? `${product.title} - ${product.variantTitle}`
               : product.title,
           sku: product.sku,
+        },
+      ]
+    })
+  }
+
+  function addLegacyItem(
+    item: StaffCustomerContext["legacyOrders"][number]["items"][number]
+  ) {
+    if (!item.variantId) return
+
+    const quantity = Math.max(1, Math.round(Number(item.quantity || 1)))
+    setLines((current) => {
+      const existing = current.find((line) => line.variantId === item.variantId)
+      if (existing) {
+        return current.map((line) =>
+          line.variantId === item.variantId
+            ? { ...line, quantity: line.quantity + quantity }
+            : line
+        )
+      }
+
+      return [
+        ...current,
+        {
+          variantId: item.variantId!,
+          quantity,
+          title: item.title,
+          sku: item.sku,
+          source: "legacy_order_history",
+          legacyPurchaseHistoryKey: item.purchaseHistoryKey,
+          legacyOrderId: item.legacyOrderId,
+          legacyOrderLineId: item.id,
         },
       ]
     })
@@ -1284,6 +1341,19 @@ export default function PhoneOrderCopilot({
                                 {item.description}
                               </p>
                             )}
+                            {item.variantId ? (
+                              <button
+                                className="mt-2 inline-flex min-h-[32px] items-center justify-center rounded-md bg-Gold px-3 text-[11px] font-rexton font-bold uppercase text-Charcoal transition-opacity hover:opacity-95"
+                                onClick={() => addLegacyItem(item)}
+                                type="button"
+                              >
+                                Add to Order
+                              </button>
+                            ) : item.lineKind === "product" ? (
+                              <p className="mt-2 text-[11px] font-maison-neue-mono uppercase text-Charcoal/45">
+                                Needs catalog match
+                              </p>
+                            ) : null}
                           </li>
                         ))}
                       </ul>

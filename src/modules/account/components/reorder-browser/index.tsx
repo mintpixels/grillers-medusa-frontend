@@ -76,12 +76,37 @@ function legacyLineDisplayTitle(line: LegacyCustomerOrder["lines"][number]) {
   )
 }
 
+function legacyLineActionKey(line: LegacyCustomerOrder["lines"][number]) {
+  return (
+    line.purchase_history_key ||
+    (line.medusa_variant_id ? `variant:${line.medusa_variant_id}` : "") ||
+    line.qbd_item_list_id ||
+    line.sku ||
+    line.id
+  )
+}
+
+function legacyLineStateKey(line: LegacyCustomerOrder["lines"][number]) {
+  return `line:${line.id}`
+}
+
 function LegacyOrdersSection({
   orders,
   totalCount,
+  addStates,
+  requestStates,
+  onAddLine,
+  onRequestLine,
 }: {
   orders: LegacyCustomerOrder[]
   totalCount?: number
+  addStates: Record<string, AddState>
+  requestStates: Record<string, RequestState>
+  onAddLine: (
+    order: LegacyCustomerOrder,
+    line: LegacyCustomerOrder["lines"][number]
+  ) => void
+  onRequestLine: (line: LegacyCustomerOrder["lines"][number]) => void
 }) {
   const visibleOrders = orders.filter((order) => order.lines?.length)
   if (!visibleOrders.length) return null
@@ -133,7 +158,7 @@ function LegacyOrdersSection({
               <ul className="space-y-2 border-t border-gray-100 pt-3">
                 {order.lines.map((line) => (
                   <li
-                    className="grid gap-1 text-sm font-maison-neue text-Charcoal/75 small:grid-cols-[minmax(0,1fr)_90px]"
+                    className="grid gap-2 text-sm font-maison-neue text-Charcoal/75 small:grid-cols-[minmax(0,1fr)_90px_130px] small:items-start"
                     key={line.id}
                   >
                     <span className="min-w-0 break-words">
@@ -147,6 +172,45 @@ function LegacyOrdersSection({
                     <span className="text-Charcoal/55 small:text-right">
                       {formatLegacyMoney(line.line_total, line.currency_code)}
                     </span>
+                    {line.medusa_variant_id ? (
+                      <button
+                        type="button"
+                        onClick={() => onAddLine(order, line)}
+                        disabled={
+                          addStates[legacyLineStateKey(line)] === "adding" ||
+                          addStates[legacyLineStateKey(line)] === "added"
+                        }
+                        className="inline-flex min-h-[34px] items-center justify-center rounded-[5px] bg-Gold px-3 text-xs font-rexton font-bold uppercase text-Charcoal transition-opacity hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-55"
+                      >
+                        {addStates[legacyLineStateKey(line)] === "adding"
+                          ? "Adding"
+                          : addStates[legacyLineStateKey(line)] === "added"
+                          ? "Added"
+                          : "Add"}
+                      </button>
+                    ) : line.purchase_history_key ? (
+                      <button
+                        type="button"
+                        onClick={() => onRequestLine(line)}
+                        disabled={
+                          requestStates[legacyLineStateKey(line)] ===
+                            "submitting" ||
+                          requestStates[legacyLineStateKey(line)] === "sent"
+                        }
+                        className="inline-flex min-h-[34px] items-center justify-center rounded-[5px] border border-Charcoal px-3 text-xs font-rexton font-bold uppercase text-Charcoal transition-colors hover:bg-Charcoal hover:text-white disabled:cursor-not-allowed disabled:border-Charcoal/30 disabled:text-Charcoal/35"
+                      >
+                        {requestStates[legacyLineStateKey(line)] ===
+                        "submitting"
+                          ? "Sending"
+                          : requestStates[legacyLineStateKey(line)] === "sent"
+                          ? "Sent"
+                          : "Ask Staff"}
+                      </button>
+                    ) : (
+                      <span className="text-xs font-maison-neue text-Charcoal/40 small:text-right">
+                        On file
+                      </span>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -390,6 +454,55 @@ export default function ReorderBrowser({
     }
   }
 
+  const handleLegacyLineAddToCart = async (
+    order: LegacyCustomerOrder,
+    line: LegacyCustomerOrder["lines"][number]
+  ) => {
+    const stateKey = legacyLineStateKey(line)
+    const current = addStates[stateKey] || "idle"
+    if (
+      current === "adding" ||
+      current === "added" ||
+      !line.medusa_variant_id
+    ) {
+      return
+    }
+
+    setAddStates((states) => ({ ...states, [stateKey]: "adding" }))
+
+    try {
+      await addToCart({
+        variantId: line.medusa_variant_id,
+        quantity: 1,
+        countryCode,
+        metadata: {
+          source: "legacy_order_line",
+          legacy_purchase_history_key: legacyLineActionKey(line),
+          legacy_order_id: order.id,
+          legacy_order_ref: legacyOrderDisplayId(order),
+          legacy_order_line_id: line.id,
+          legacy_item_id: line.qbd_item_list_id || undefined,
+          legacy_sku: line.sku || undefined,
+        },
+      })
+      dispatchCartUpdated({
+        action: "add",
+        variantId: line.medusa_variant_id,
+        quantity: 1,
+      })
+      setAddStates((states) => ({ ...states, [stateKey]: "added" }))
+      toast.success("Added to cart", {
+        description: legacyLineDisplayTitle(line),
+      })
+    } catch (error) {
+      console.error("Failed to add legacy order line to cart:", error)
+      setAddStates((states) => ({ ...states, [stateKey]: "error" }))
+      toast.error("Couldn't add to cart", {
+        description: "Please try again in a moment.",
+      })
+    }
+  }
+
   const handleLegacyReorderRequest = async (item: PurchaseHistoryItem) => {
     const key = historyKey(item)
     const current = requestStates[key] || "idle"
@@ -415,6 +528,40 @@ export default function ReorderBrowser({
     }
 
     setRequestStates((states) => ({ ...states, [key]: "error" }))
+    toast.error("Couldn't send request", {
+      description: result.error || "Please call the store and we'll help.",
+    })
+  }
+
+  const handleLegacyLineReorderRequest = async (
+    line: LegacyCustomerOrder["lines"][number]
+  ) => {
+    const stateKey = legacyLineStateKey(line)
+    const current = requestStates[stateKey] || "idle"
+    if (current === "submitting" || current === "sent") {
+      return
+    }
+
+    setRequestStates((states) => ({ ...states, [stateKey]: "submitting" }))
+
+    const result = await requestLegacyReorderAssistance({
+      key: legacyLineActionKey(line),
+    })
+    if (result.success) {
+      setRequestStates((states) => ({ ...states, [stateKey]: "sent" }))
+      toast.success(
+        result.status === "already_requested"
+          ? "Request already sent"
+          : "Request sent",
+        {
+          description:
+            "Our staff will use this exact order line to match the item.",
+        }
+      )
+      return
+    }
+
+    setRequestStates((states) => ({ ...states, [stateKey]: "error" }))
     toast.error("Couldn't send request", {
       description: result.error || "Please call the store and we'll help.",
     })
@@ -528,6 +675,10 @@ export default function ReorderBrowser({
       <LegacyOrdersSection
         orders={legacyOrders}
         totalCount={legacyOrderCount}
+        addStates={addStates}
+        requestStates={requestStates}
+        onAddLine={handleLegacyLineAddToCart}
+        onRequestLine={handleLegacyLineReorderRequest}
       />
 
       {/* Search + Filters Bar */}

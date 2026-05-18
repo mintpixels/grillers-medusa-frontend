@@ -58,6 +58,8 @@ export type StaffLegacyOrderItem = {
   mappingStatus?: string
   lineKind?: string
   variantId?: string
+  purchaseHistoryKey?: string
+  legacyOrderId?: string
 }
 
 export type StaffLegacyOrder = {
@@ -112,6 +114,10 @@ export type StaffOrderLineInput = {
   quantity: number
   title: string
   sku?: string
+  source?: "product_search" | "legacy_order_history"
+  legacyPurchaseHistoryKey?: string
+  legacyOrderId?: string
+  legacyOrderLineId?: string
 }
 
 export type StaffPaymentMode = "send_checkout_link" | "collect_card_now"
@@ -436,6 +442,8 @@ function legacyOrderSummary(order: AnyRecord): StaffLegacyOrder {
       mappingStatus: line.mapping_status || undefined,
       lineKind: lineKind(line.metadata, line.mapping_status),
       variantId: line.medusa_variant_id || undefined,
+      purchaseHistoryKey: line.purchase_history_key || undefined,
+      legacyOrderId: line.legacy_order_id || order.id,
     })),
   }
 }
@@ -860,6 +868,31 @@ export async function getStaffCustomerContext(
   }
 }
 
+export async function getStaffLegacyOrderContext(
+  legacyOrderId: string
+): Promise<StaffCustomerContext> {
+  await requireStaff()
+
+  const id = legacyOrderId.trim()
+  if (!id) {
+    throw new Error("Missing legacy order ID.")
+  }
+
+  const { order } = await adminFetch<{ order: AnyRecord }>(
+    `/admin/legacy-orders/${id}`
+  )
+  const summary = legacyOrderCustomerSummary(order)
+  if (!summary) {
+    throw new Error("Legacy order has no customer context.")
+  }
+
+  return {
+    ...summary,
+    recentOrders: [],
+    legacyOrders: [legacyOrderSummary(order)],
+  }
+}
+
 export async function updateStaffCustomerProfile(input: {
   customerId: string
   email: string
@@ -1117,6 +1150,10 @@ export async function prepareStaffPhoneOrder(
             staff_selected_customer_id: input.customer.id || "",
             staff_line_title: line.title,
             staff_line_sku: line.sku || "",
+            staff_line_source: line.source || "product_search",
+            legacy_purchase_history_key: line.legacyPurchaseHistoryKey || "",
+            legacy_order_id: line.legacyOrderId || "",
+            legacy_order_line_id: line.legacyOrderLineId || "",
           },
         },
         {},

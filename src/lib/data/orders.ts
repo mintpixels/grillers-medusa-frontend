@@ -343,6 +343,7 @@ type LegacyPurchaseHistoryResponse = {
 export type LegacyCustomerOrderLine = {
   id: string
   legacy_order_id: string
+  purchase_history_key?: string | null
   qbd_txn_line_id?: string | null
   qbd_item_list_id?: string | null
   sku?: string | null
