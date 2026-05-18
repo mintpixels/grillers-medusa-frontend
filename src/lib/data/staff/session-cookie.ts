@@ -2,19 +2,9 @@ import "server-only"
 
 import crypto from "crypto"
 import { cookies } from "next/headers"
+import type { StaffImpersonationSession } from "./impersonation-types"
 
 export const STAFF_IMPERSONATION_COOKIE = "_gp_staff_impersonation"
-
-export type StaffImpersonationSession = {
-  staffCustomerId: string
-  staffEmail: string
-  staffName: string
-  targetCustomerId: string
-  targetEmail: string
-  targetName: string
-  startedAt: string
-  expiresAt: number
-}
 
 function getSecret(): string {
   const secret =

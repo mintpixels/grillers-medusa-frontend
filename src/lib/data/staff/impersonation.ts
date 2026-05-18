@@ -8,10 +8,8 @@ import {
   clearStaffImpersonationCookie,
   readStaffImpersonationCookie,
   writeStaffImpersonationCookie,
-  type StaffImpersonationSession,
 } from "./session-cookie"
-
-export type { StaffImpersonationSession } from "./session-cookie"
+import type { StaffImpersonationSession } from "./impersonation-types"
 
 async function requireStaffForImpersonation() {
   const staff = await retrieveAuthenticatedCustomer()

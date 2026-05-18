@@ -6,7 +6,7 @@ import LocalizedClientLink from "@modules/common/components/localized-client-lin
 import { HttpTypes } from "@medusajs/types"
 import { signout } from "@lib/data/customer"
 import { isStaffCustomer } from "@lib/util/staff-access"
-import type { StaffImpersonationSession } from "@lib/data/staff/impersonation"
+import type { StaffImpersonationSession } from "@lib/data/staff/impersonation-types"
 
 const navItems = [
   {

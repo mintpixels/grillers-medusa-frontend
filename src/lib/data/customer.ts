@@ -17,8 +17,8 @@ import {
 import {
   clearStaffImpersonationCookie,
   readStaffImpersonationCookie,
-  type StaffImpersonationSession,
 } from "./staff/session-cookie"
+import type { StaffImpersonationSession } from "./staff/impersonation-types"
 import {
   getAuthHeaders,
   getCacheTag,

@@ -35,8 +35,8 @@ import { isSuperAdminCustomer } from "@lib/util/staff-access"
 import {
   startStaffImpersonation,
   stopStaffImpersonation,
-  type StaffImpersonationSession,
 } from "@lib/data/staff/impersonation"
+import type { StaffImpersonationSession } from "@lib/data/staff/impersonation-types"
 import StaffOrderExceptionConsole from "@modules/staff/components/order-exception-console"
 import StaffTeamAccessConsole from "@modules/staff/components/team-access-console"
 

@@ -1,6 +1,6 @@
 import "server-only"
 
-import type { StaffImpersonationSession } from "./session-cookie"
+import type { StaffImpersonationSession } from "./impersonation-types"
 
 type AnyRecord = Record<string, any>
 

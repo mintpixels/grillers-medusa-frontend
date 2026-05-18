@@ -2,7 +2,7 @@ import React from "react"
 import AccountNav from "../components/account-nav"
 import { HttpTypes } from "@medusajs/types"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
-import type { StaffImpersonationSession } from "@lib/data/staff/impersonation"
+import type { StaffImpersonationSession } from "@lib/data/staff/impersonation-types"
 
 interface AccountLayoutProps {
   customer: HttpTypes.StoreCustomer | null
