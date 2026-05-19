@@ -315,7 +315,7 @@ export default function StaffOrderExceptionConsole() {
   }
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
+    <div className="grid gap-6">
       <div className="space-y-6">
         <section className="rounded-lg border border-gray-200 bg-white p-5">
           <div className="mb-4">
