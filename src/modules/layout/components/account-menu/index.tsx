@@ -7,9 +7,14 @@ import { signout } from "@lib/data/customer"
 type AccountMenuProps = {
   initials: string
   firstName: string
+  canUseStaffTools?: boolean
 }
 
-export default function AccountMenu({ initials, firstName }: AccountMenuProps) {
+export default function AccountMenu({
+  initials,
+  firstName,
+  canUseStaffTools = false,
+}: AccountMenuProps) {
   const [isOpen, setIsOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
@@ -23,13 +28,23 @@ export default function AccountMenu({ initials, firstName }: AccountMenuProps) {
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [])
 
-  const links = [
+  const customerLinks = [
     { href: "/account/profile", label: "Profile", icon: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" },
     { href: "/account/orders", label: "Orders", icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" },
     { href: "/account/reorder", label: "Reorder", icon: "M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" },
     { href: "/account/addresses", label: "Addresses", icon: "M15 10.5a3 3 0 11-6 0 3 3 0 016 0zM19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" },
     { href: "/account/payment-methods", label: "Payment Methods", icon: "M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" },
   ]
+  const links = canUseStaffTools
+    ? [
+        {
+          href: "/account/staff/orders",
+          label: "Staff",
+          icon: "M18 18.72a8.7 8.7 0 003.75.78 7.5 7.5 0 00-15 0 8.7 8.7 0 003.75-.78m7.5 0a8.96 8.96 0 01-7.5 0m7.5 0V17.25A2.25 2.25 0 0015.75 15h-7.5A2.25 2.25 0 006 17.25v1.47m12 0A8.96 8.96 0 0112 21a8.96 8.96 0 01-6-2.28M15 7.5a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z",
+        },
+        ...customerLinks,
+      ]
+    : customerLinks
 
   return (
     <div className="relative" ref={menuRef}>
@@ -52,7 +67,7 @@ export default function AccountMenu({ initials, firstName }: AccountMenuProps) {
             onMouseDown={() => setIsOpen(false)}
           />
           <div className="absolute right-0 top-full mt-3 z-50 origin-top-right animate-[fadeIn_0.15s_ease-out]">
-            <div className="w-[180px] bg-[#FAFAF8] rounded-lg shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-Gold/30 overflow-hidden">
+            <div className="w-[200px] bg-[#FAFAF8] rounded-lg shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-Gold/30 overflow-hidden">
               <div className="px-4 pt-3 pb-2">
                 <p className="text-[10px] font-maison-neue-mono font-semibold uppercase tracking-[0.1em] text-Gold">
                   Welcome Back, {firstName}

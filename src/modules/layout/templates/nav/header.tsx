@@ -10,6 +10,7 @@ import type { HttpTypes } from "@medusajs/types"
 import { MobileNavMenu } from "./menu"
 import SearchBar from "./search-bar"
 import MobileSearch from "./mobile-search"
+import { isStaffCustomer } from "@lib/util/staff-access"
 
 type HeaderProps = {
   navLinks: HeaderNavLink[]
@@ -23,6 +24,7 @@ const Header = ({ navLinks, regions, phoneNumber, customer, navCounts }: HeaderP
   const initials = customer
     ? `${(customer.first_name?.[0] || "").toUpperCase()}${(customer.last_name?.[0] || "").toUpperCase()}`
     : null
+  const canUseStaffTools = isStaffCustomer(customer)
   return (
     <header className="relative inset-x-0 z-40 bg-white border-b border-[#000/25]">
       <a
@@ -102,7 +104,11 @@ const Header = ({ navLinks, regions, phoneNumber, customer, navCounts }: HeaderP
 
             <div className="h-full flex items-center">
               {initials ? (
-                <AccountMenu initials={initials} firstName={customer?.first_name || ""} />
+                <AccountMenu
+                  initials={initials}
+                  firstName={customer?.first_name || ""}
+                  canUseStaffTools={canUseStaffTools}
+                />
               ) : (
                 <LocalizedClientLink
                   className="min-w-[44px] min-h-[44px] inline-flex items-center justify-center hover:text-ui-fg-base focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold rounded"
