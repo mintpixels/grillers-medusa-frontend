@@ -349,8 +349,8 @@ export default function StaffOrderExceptionConsole() {
             </div>
           </div>
 
-          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_160px_180px_150px]">
-            <label className="flex flex-1 flex-col gap-1">
+          <div className="grid gap-3">
+            <label className="flex flex-col gap-1">
               <span className={labelClass()}>Order, email, or customer</span>
               <input
                 className={fieldClass()}
@@ -363,78 +363,82 @@ export default function StaffOrderExceptionConsole() {
                 type="search"
               />
             </label>
-            <label className="flex flex-col gap-1">
-              <span className={labelClass()}>Queue</span>
-              <select
-                className={fieldClass()}
-                value={queueFilter}
-                onChange={(event) => {
-                  const value = event.target
-                    .value as StaffExceptionOrderQueueFilter
-                  setQueueFilter(value)
-                  const nextFulfillment =
-                    value === "open" && fulfillmentFilter === "fulfilled"
-                      ? "all"
-                      : fulfillmentFilter
-                  if (nextFulfillment !== fulfillmentFilter) {
-                    setFulfillmentFilter(nextFulfillment)
-                  }
-                  runOrderSearch({
-                    queue: value,
-                    fulfillmentStatus: nextFulfillment,
-                  })
-                }}
-              >
-                <option value="open">Open only</option>
-                <option value="all">All current</option>
-              </select>
-            </label>
-            <label className="flex flex-col gap-1">
-              <span className={labelClass()}>Fulfillment</span>
-              <select
-                className={fieldClass()}
-                value={fulfillmentFilter}
-                onChange={(event) => {
-                  const value = event.target
-                    .value as StaffExceptionFulfillmentFilter
-                  setFulfillmentFilter(value)
-                  const nextQueue =
-                    value === "fulfilled" && queueFilter === "open"
-                      ? "all"
-                      : queueFilter
-                  if (nextQueue !== queueFilter) {
-                    setQueueFilter(nextQueue)
-                  }
-                  runOrderSearch({
-                    queue: nextQueue,
-                    fulfillmentStatus: value,
-                  })
-                }}
-              >
-                <option value="all">All fulfillment</option>
-                <option value="unfulfilled">Unfulfilled</option>
-                <option value="partially_fulfilled">Partially fulfilled</option>
-                <option value="fulfilled">Fulfilled</option>
-              </select>
-            </label>
-            <label className="flex flex-col gap-1">
-              <span className={labelClass()}>Payment</span>
-              <select
-                className={fieldClass()}
-                value={paymentFilter}
-                onChange={(event) => {
-                  const value = event.target
-                    .value as StaffExceptionPaymentFilter
-                  setPaymentFilter(value)
-                  runOrderSearch({ paymentStatus: value })
-                }}
-              >
-                <option value="all">All payment</option>
-                <option value="awaiting_payment">Awaiting</option>
-                <option value="paid">Paid</option>
-                <option value="refunded">Refunded</option>
-              </select>
-            </label>
+            <div className="flex flex-wrap gap-3">
+              <label className="flex min-w-[145px] flex-1 flex-col gap-1">
+                <span className={labelClass()}>Queue</span>
+                <select
+                  className={fieldClass()}
+                  value={queueFilter}
+                  onChange={(event) => {
+                    const value = event.target
+                      .value as StaffExceptionOrderQueueFilter
+                    setQueueFilter(value)
+                    const nextFulfillment =
+                      value === "open" && fulfillmentFilter === "fulfilled"
+                        ? "all"
+                        : fulfillmentFilter
+                    if (nextFulfillment !== fulfillmentFilter) {
+                      setFulfillmentFilter(nextFulfillment)
+                    }
+                    runOrderSearch({
+                      queue: value,
+                      fulfillmentStatus: nextFulfillment,
+                    })
+                  }}
+                >
+                  <option value="open">Open only</option>
+                  <option value="all">All current</option>
+                </select>
+              </label>
+              <label className="flex min-w-[170px] flex-1 flex-col gap-1">
+                <span className={labelClass()}>Fulfillment</span>
+                <select
+                  className={fieldClass()}
+                  value={fulfillmentFilter}
+                  onChange={(event) => {
+                    const value = event.target
+                      .value as StaffExceptionFulfillmentFilter
+                    setFulfillmentFilter(value)
+                    const nextQueue =
+                      value === "fulfilled" && queueFilter === "open"
+                        ? "all"
+                        : queueFilter
+                    if (nextQueue !== queueFilter) {
+                      setQueueFilter(nextQueue)
+                    }
+                    runOrderSearch({
+                      queue: nextQueue,
+                      fulfillmentStatus: value,
+                    })
+                  }}
+                >
+                  <option value="all">All fulfillment</option>
+                  <option value="unfulfilled">Unfulfilled</option>
+                  <option value="partially_fulfilled">
+                    Partially fulfilled
+                  </option>
+                  <option value="fulfilled">Fulfilled</option>
+                </select>
+              </label>
+              <label className="flex min-w-[145px] flex-1 flex-col gap-1">
+                <span className={labelClass()}>Payment</span>
+                <select
+                  className={fieldClass()}
+                  value={paymentFilter}
+                  onChange={(event) => {
+                    const value = event.target
+                      .value as StaffExceptionPaymentFilter
+                    setPaymentFilter(value)
+                    runOrderSearch({ paymentStatus: value })
+                  }}
+                >
+                  <option value="all">All payment</option>
+                  <option value="awaiting_payment">Awaiting</option>
+                  <option value="paid">Paid</option>
+                  <option value="refunded">Refunded</option>
+                </select>
+              </label>
+            </div>
           </div>
 
           <div className="mt-3 flex flex-col gap-3 small:flex-row small:items-center small:justify-between">
@@ -479,56 +483,45 @@ export default function StaffOrderExceptionConsole() {
 
           {orders.length > 0 && (
             <div className="mt-5 overflow-hidden rounded-md border border-gray-100">
-              <div className="hidden grid-cols-[120px_minmax(0,1.4fr)_105px_120px_140px_90px] gap-3 border-b border-gray-100 bg-SilverPlate/30 px-4 py-2 text-xs font-maison-neue-mono uppercase text-Charcoal/55 md:grid">
-                <span>Order</span>
-                <span>Customer</span>
-                <span>Date</span>
-                <span>Payment</span>
-                <span>Fulfillment</span>
-                <span className="text-right">Total</span>
-              </div>
               {orders.map((order) => (
                 <button
-                  className={`grid w-full gap-2 px-4 py-3 text-left transition hover:bg-SilverPlate/40 md:grid-cols-[120px_minmax(0,1.4fr)_105px_120px_140px_90px] md:items-center md:gap-3 ${
+                  className={`grid w-full gap-3 border-b border-gray-100 px-4 py-3 text-left transition last:border-b-0 hover:bg-SilverPlate/40 md:grid-cols-[minmax(0,1fr)_auto] md:items-start ${
                     selectedOrder?.id === order.id ? "bg-Gold/10" : ""
                   }`}
                   key={order.id}
                   onClick={() => selectOrder(order.id)}
                   type="button"
                 >
-                  <span className="min-w-0">
-                    <span className="block text-sm font-maison-neue font-semibold text-Charcoal">
-                      {order.displayId}
+                  <span className="min-w-0 space-y-1">
+                    <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <span className="text-sm font-maison-neue font-semibold text-Charcoal">
+                        {order.displayId}
+                      </span>
+                      <span className="text-xs font-maison-neue text-Charcoal/45">
+                        {formatOrderDate(order.createdAt) || "No date"}
+                      </span>
                     </span>
-                    <span className="block text-xs font-maison-neue text-Charcoal/55">
-                      {order.itemCount} items
-                    </span>
-                  </span>
-                  <span className="min-w-0">
                     <span className="block truncate text-sm font-maison-neue font-semibold text-Charcoal">
                       {order.customerName}
                     </span>
                     <span className="block truncate text-xs font-maison-neue text-Charcoal/55">
                       {order.email || "No email"}
                     </span>
-                  </span>
-                  <span className="text-xs font-maison-neue text-Charcoal/55">
-                    {formatOrderDate(order.createdAt) || "No date"}
-                  </span>
-                  <span className="flex flex-wrap gap-2">
-                    {statusChip(order.paymentStatus)}
-                  </span>
-                  <span className="flex flex-wrap gap-2">
-                    {order.source === "legacy" &&
-                      statusChip("historical qbd", "gold")}
-                    {statusChip(order.fulfillmentStatus)}
-                    {order.source === "medusa" &&
-                      statusChip(order.operationalState, "gold")}
-                  </span>
-                  <span className="text-left text-sm font-maison-neue font-semibold text-Charcoal md:text-right">
-                    {formatMoney(order.total, order.currencyCode)}
                     <span className="block text-xs font-maison-neue text-Charcoal/55">
-                      {order.source === "legacy" ? "Historical" : "Current"}
+                      {order.itemCount} items
+                    </span>
+                  </span>
+                  <span className="space-y-2 md:min-w-[190px] md:text-right">
+                    <span className="block text-sm font-maison-neue font-semibold text-Charcoal">
+                      {formatMoney(order.total, order.currencyCode)}
+                    </span>
+                    <span className="flex flex-wrap gap-2 md:justify-end">
+                      {order.source === "legacy" &&
+                        statusChip("historical qbd", "gold")}
+                      {statusChip(order.paymentStatus)}
+                      {statusChip(order.fulfillmentStatus)}
+                      {order.source === "medusa" &&
+                        statusChip(order.operationalState, "gold")}
                     </span>
                   </span>
                 </button>
