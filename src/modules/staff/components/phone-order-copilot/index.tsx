@@ -592,8 +592,8 @@ export default function PhoneOrderCopilot({
               Help a customer
             </h1>
             <p className="mt-1 max-w-2xl text-sm font-maison-neue text-Charcoal/60">
-              Start a phone order, enter a customer account context, or resolve
-              an existing order with an auditable staff action.
+              Search for a customer, enter their account context, then use the
+              storefront exactly as they would. Staff actions remain auditable.
             </p>
           </div>
           <div className="rounded-md border border-Gold/35 bg-Gold/10 px-4 py-3">
@@ -658,14 +658,14 @@ export default function PhoneOrderCopilot({
           type="button"
         >
           <span className="block text-xs font-maison-neue-mono uppercase opacity-70">
-            New order
+            Customer context
           </span>
           <span className="mt-2 block text-xl font-gyst font-bold">
-            Phone order
+            Enter account
           </span>
           <span className="mt-2 block text-sm font-maison-neue opacity-75">
-            Find or create the customer, build the cart, and collect card
-            details only after explicit authorization.
+            Find the customer, enter their account, then shop, reorder, edit
+            addresses, and check out from the customer-facing flow.
           </span>
         </button>
         <button
@@ -715,6 +715,120 @@ export default function PhoneOrderCopilot({
       {activeWorkspace === "team_access" && canManageTeamAccess ? (
         <StaffTeamAccessConsole />
       ) : activeWorkspace === "phone_order" ? (
+        <>
+          <section className="rounded-lg border border-gray-200 bg-white p-5">
+            <div className="grid gap-6 large:grid-cols-[minmax(0,1fr)_320px]">
+              <div>
+                <p className="text-xs font-maison-neue-mono uppercase text-Gold">
+                  Customer lookup
+                </p>
+                <h2 className="mt-1 text-2xl font-gyst font-bold text-Charcoal">
+                  Enter a customer account
+                </h2>
+                <p className="mt-2 max-w-2xl text-sm font-maison-neue text-Charcoal/60">
+                  Search by name, email, phone, or legacy order. Pick the
+                  customer, then enter their account context. From there staff
+                  can use the same account, cart, address, reorder, and checkout
+                  surfaces the customer uses.
+                </p>
+
+                <div className="mt-5 flex flex-col gap-3 small:flex-row small:items-end">
+                  <label className="flex flex-1 flex-col gap-1">
+                    <span className={labelClass()}>Customer search</span>
+                    <input
+                      className={fieldClass()}
+                      value={customerQuery}
+                      onChange={(event) => setCustomerQuery(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") runCustomerSearch()
+                      }}
+                      placeholder="Name, email, phone, or order number"
+                      type="search"
+                    />
+                  </label>
+                  <Button
+                    className="min-h-[44px] rounded-md bg-Charcoal px-4 text-sm font-rexton font-bold uppercase text-white"
+                    isLoading={isPending}
+                    onClick={runCustomerSearch}
+                    type="button"
+                  >
+                    Search
+                  </Button>
+                </div>
+
+                {customerResults.length > 0 && (
+                  <div className="mt-5 divide-y rounded-md border border-gray-100">
+                    {customerResults.map((customer) => (
+                      <button
+                        className="flex w-full items-center justify-between gap-4 px-4 py-3 text-left transition hover:bg-SilverPlate/40"
+                        key={customer.id}
+                        onClick={() => selectCustomer(customer)}
+                        type="button"
+                      >
+                        <span className="min-w-0">
+                          <span className="block text-sm font-maison-neue font-semibold text-Charcoal">
+                            {[customer.firstName, customer.lastName]
+                              .filter(Boolean)
+                              .join(" ") || customer.email}
+                          </span>
+                          <span className="block break-words text-xs font-maison-neue text-Charcoal/55">
+                            {[
+                              customer.email,
+                              customer.phone,
+                              customer.matchedLegacyOrderDisplayId
+                                ? `Legacy ${customer.matchedLegacyOrderDisplayId}`
+                                : "",
+                            ]
+                              .filter(Boolean)
+                              .join(" | ")}
+                          </span>
+                        </span>
+                        <span className="shrink-0 text-xs font-maison-neue-mono uppercase text-Charcoal/45">
+                          {sourceLabel(customer.source)}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <aside className="rounded-md border border-Gold/30 bg-Gold/10 p-4">
+                <p className="text-xs font-maison-neue-mono uppercase text-Charcoal/55">
+                  Selected customer
+                </p>
+                {draftCustomer.id ? (
+                  <>
+                    <h3 className="mt-2 text-xl font-gyst font-bold text-Charcoal">
+                      {[draftCustomer.firstName, draftCustomer.lastName]
+                        .filter(Boolean)
+                        .join(" ") || draftCustomer.email}
+                    </h3>
+                    <p className="mt-1 break-words text-sm font-maison-neue text-Charcoal/60">
+                      {draftCustomer.email}
+                    </p>
+                    <Button
+                      className="mt-4 min-h-[44px] w-full rounded-md bg-Charcoal px-4 text-sm font-rexton font-bold uppercase text-white"
+                      isLoading={isPending}
+                      onClick={beginImpersonation}
+                      type="button"
+                    >
+                      {impersonation?.targetCustomerId === draftCustomer.id
+                        ? "Context Active"
+                        : "Enter Account Context"}
+                    </Button>
+                  </>
+                ) : (
+                  <p className="mt-2 text-sm font-maison-neue text-Charcoal/60">
+                    Search and select a storefront customer to begin. Legacy
+                    records without a linked storefront account can be reviewed
+                    in Order Support, but cannot be impersonated.
+                  </p>
+                )}
+              </aside>
+            </div>
+          </section>
+
+          <div className="hidden" aria-hidden="true">
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
           <div className="space-y-6">
             <section className="rounded-lg border border-gray-200 bg-white p-5">
@@ -1476,6 +1590,8 @@ export default function PhoneOrderCopilot({
             ) : null}
           </aside>
         </div>
+          </div>
+        </>
       ) : (
         <StaffOrderExceptionConsole />
       )}
