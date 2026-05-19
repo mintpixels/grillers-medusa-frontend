@@ -566,14 +566,14 @@ function RestockHero({
           </p>
         </div>
 
-        <div className="grid gap-2 xsmall:grid-cols-2 large:w-[360px]">
+        <div className="grid gap-2 large:w-[320px]">
           <button
             type="button"
             onClick={onSelectUsuals}
             className="inline-flex min-h-[46px] items-center justify-center gap-2 rounded-[5px] bg-Gold px-4 py-3 text-sm font-rexton font-bold uppercase text-Charcoal transition-opacity hover:opacity-95"
           >
             <ShoppingCart className="h-4 w-4" />
-            Build usual cart
+            <span className="whitespace-nowrap">Build usual cart</span>
           </button>
           <button
             type="button"
@@ -582,7 +582,7 @@ function RestockHero({
             className="inline-flex min-h-[46px] items-center justify-center gap-2 rounded-[5px] border border-Charcoal px-4 py-3 text-sm font-rexton font-bold uppercase text-Charcoal transition-colors hover:bg-Charcoal hover:text-white disabled:cursor-not-allowed disabled:border-Charcoal/25 disabled:text-Charcoal/35 disabled:hover:bg-transparent"
           >
             <RotateCcw className="h-4 w-4" />
-            Repeat last order
+            <span className="whitespace-nowrap">Repeat last order</span>
           </button>
         </div>
       </div>
@@ -1538,7 +1538,7 @@ export default function ReorderBrowser({
       <div className="grid gap-5 large:grid-cols-[minmax(0,1fr)_330px]">
         <div className="min-w-0 space-y-4">
           <nav
-            className="flex gap-2 overflow-x-auto rounded-xl border border-gray-200 bg-white p-2"
+            className="grid grid-cols-2 gap-2 rounded-xl border border-gray-200 bg-white p-2 small:grid-cols-4"
             aria-label="Reorder views"
           >
             {RESTOCK_TABS.map((tab) => (
@@ -1550,7 +1550,7 @@ export default function ReorderBrowser({
                   if (tab.id === "due") setSort("due")
                   if (tab.id !== "due" && sort === "due") setSort("recent")
                 }}
-                className={`min-h-[40px] shrink-0 rounded-lg px-4 text-xs font-rexton font-bold uppercase transition-colors ${
+                className={`min-h-[40px] rounded-lg px-3 text-xs font-rexton font-bold uppercase transition-colors ${
                   activeTab === tab.id
                     ? "bg-Charcoal text-white"
                     : "text-Charcoal/60 hover:bg-SilverPlate hover:text-Charcoal"
