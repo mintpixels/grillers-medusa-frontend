@@ -2,6 +2,8 @@
 
 import { convertToLocale } from "@lib/util/money"
 import React, { useState } from "react"
+import { FreeShippingHelper } from "@modules/common/components/cart-helpers"
+import type { FulfillmentType } from "@lib/data/cart"
 
 type CartTotalsProps = {
   totals: {
@@ -15,6 +17,8 @@ type CartTotalsProps = {
     shipping_subtotal?: number | null
   }
   hasNetWeightItems?: boolean
+  shipState?: string | null
+  fulfillmentType?: FulfillmentType
 }
 
 // Net-weight info tooltip component
@@ -61,6 +65,8 @@ const NetWeightTooltip = () => {
 const CartTotals: React.FC<CartTotalsProps> = ({
   totals,
   hasNetWeightItems = false,
+  shipState,
+  fulfillmentType,
 }) => {
   const {
     currency_code,
