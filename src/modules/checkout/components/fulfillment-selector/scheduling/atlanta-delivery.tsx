@@ -7,6 +7,7 @@ import { ATLANTA_DELIVERY_ZIP_DAYS } from "@lib/data/strapi/checkout"
 import {
   computeEligibleArrivalDates,
   toIsoDate,
+  type AtlantaZipDayConfig,
 } from "@lib/util/eligible-arrival-dates"
 
 type AtlantaDeliverySchedulingProps = {
@@ -17,6 +18,7 @@ type AtlantaDeliverySchedulingProps = {
   onTimeWindowChange: (timeWindow: string) => void
   /** Destination zip — drives the per-zip weekday + cutoff rules. */
   destinationZip?: string
+  atlantaZipConfig?: Record<string, AtlantaZipDayConfig>
 }
 
 // Default time windows if none configured in Strapi
@@ -33,6 +35,7 @@ export default function AtlantaDeliveryScheduling({
   onDateChange,
   onTimeWindowChange,
   destinationZip,
+  atlantaZipConfig = config?.AtlantaDeliveryZipDays || ATLANTA_DELIVERY_ZIP_DAYS,
 }: AtlantaDeliverySchedulingProps) {
   const timeWindows = config?.AtlantaDeliveryTimeWindows?.length
     ? config.AtlantaDeliveryTimeWindows
@@ -43,9 +46,9 @@ export default function AtlantaDeliveryScheduling({
       computeEligibleArrivalDates({
         method: "atlanta_delivery",
         destinationZip: (destinationZip || "").trim(),
-        atlantaZipConfig: ATLANTA_DELIVERY_ZIP_DAYS,
+        atlantaZipConfig,
       }),
-    [destinationZip]
+    [destinationZip, atlantaZipConfig]
   )
 
   const minDate = eligibility.earliest ?? undefined

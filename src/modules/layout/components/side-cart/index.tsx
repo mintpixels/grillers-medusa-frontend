@@ -22,12 +22,25 @@ import { updateLineItem } from "@lib/data/cart"
 import { jitsuTrack } from "@lib/jitsu"
 import Spinner from "@modules/common/icons/spinner"
 import {
-  CartLevelEstimateNote,
   CatchWeightBadge,
-  FreeShippingHelper,
 } from "@modules/common/components/cart-helpers"
 import CartUpsells from "@modules/cart/components/cart-upsells"
 import type { CartUpsellProduct } from "@modules/cart/components/cart-upsells/types"
+import FulfillmentProgress from "@modules/common/components/fulfillment-progress"
+import type { AtlantaZipDayConfig } from "@lib/util/eligible-arrival-dates"
+import {
+  getExcludedFreeDeliverySubtotal,
+  getFreeDeliveryEligibleSubtotal,
+  getLineItemFreeDeliveryExclusionReason,
+  getLineItemSubtotal,
+  isLineItemFreeDeliveryEligible,
+} from "@lib/util/free-delivery-eligibility"
+import {
+  DELIVERY_ZIP_EVENT,
+  getStoredDeliveryZip,
+  normalizeDeliveryZip,
+} from "@lib/util/delivery-zip"
+import { dispatchCartUpdated } from "@lib/util/cart-events"
 
 // Cart item image with Strapi fallback
 const CartItemImage = ({ item }: { item: HttpTypes.StoreCartLineItem }) => {
@@ -88,6 +101,7 @@ const CartItemPrice = ({
           {display.secondary}
         </p>
       )}
+      {display.mode === "per_lb" && <CatchWeightBadge className="mt-1.5" />}
     </div>
   )
 }
@@ -119,9 +133,11 @@ const CartItemTitle = ({
 const QuantitySelector = ({
   item,
   onOptimisticDelta,
+  countsTowardFreeDelivery,
 }: {
   item: HttpTypes.StoreCartLineItem
-  onOptimisticDelta: (delta: number) => void
+  onOptimisticDelta: (delta: number, eligibleDelta: number) => void
+  countsTowardFreeDelivery: boolean
 }) => {
   const router = useRouter()
   const [isUpdating, setIsUpdating] = useState(false)
@@ -136,13 +152,19 @@ const QuantitySelector = ({
 
     const qtyDelta = newQuantity - optimisticQuantity
     const priceDelta = qtyDelta * (item.unit_price ?? 0)
+    const eligiblePriceDelta = countsTowardFreeDelivery ? priceDelta : 0
 
     setIsUpdating(true)
     setOptimisticQuantity(newQuantity)
-    onOptimisticDelta(priceDelta)
+    onOptimisticDelta(priceDelta, eligiblePriceDelta)
 
     try {
       await updateLineItem({ lineId: item.id, quantity: newQuantity })
+      dispatchCartUpdated({
+        action: "quantity",
+        lineId: item.id,
+        quantity: newQuantity,
+      })
       jitsuTrack("cart_updated", {
         item_id: item.product_id || item.id,
         item_name: item.product_title || item.title,
@@ -153,7 +175,7 @@ const QuantitySelector = ({
       router.refresh()
     } catch (error) {
       setOptimisticQuantity(item.quantity)
-      onOptimisticDelta(-priceDelta)
+      onOptimisticDelta(-priceDelta, -eligiblePriceDelta)
     } finally {
       setIsUpdating(false)
     }
@@ -190,37 +212,75 @@ type SideCartProps = {
   cart?: HttpTypes.StoreCart | null
   upsellProducts?: CartUpsellProduct[]
   countryCode?: string
+  atlantaZipConfig?: Record<string, AtlantaZipDayConfig>
+  initialDeliveryZip?: string | null
 }
 
 export default function SideCart({
   cart,
   upsellProducts = [],
   countryCode = "us",
+  atlantaZipConfig,
+  initialDeliveryZip,
 }: SideCartProps) {
   const { isOpen, closeCart, openCart } = useCart()
   const [announcement, setAnnouncement] = useState("")
   const previousItemCount = useRef<number | null>(null)
   const isInitialMount = useRef(true)
   const [optimisticDelta, setOptimisticDelta] = useState(0)
+  const [optimisticEligibleDelta, setOptimisticEligibleDelta] = useState(0)
+  const [deliveryZip, setDeliveryZip] = useState(
+    normalizeDeliveryZip(initialDeliveryZip)
+  )
   const prevCartRef = useRef(cart?.subtotal)
 
   // Reset optimistic delta when server data arrives
   useEffect(() => {
     if (cart?.subtotal !== prevCartRef.current) {
       setOptimisticDelta(0)
+      setOptimisticEligibleDelta(0)
       prevCartRef.current = cart?.subtotal
     }
   }, [cart?.subtotal])
 
-  const handleOptimisticDelta = useCallback((delta: number) => {
+  const handleOptimisticDelta = useCallback((delta: number, eligibleDelta = delta) => {
     setOptimisticDelta((prev) => prev + delta)
+    setOptimisticEligibleDelta((prev) => prev + eligibleDelta)
   }, [])
 
   const totalItems =
     cart?.items?.reduce((acc, item) => acc + item.quantity, 0) || 0
   const subtotal = (cart?.subtotal ?? 0) + optimisticDelta
+  const eligibleSubtotal =
+    getFreeDeliveryEligibleSubtotal(cart?.items) + optimisticEligibleDelta
+  const excludedSubtotal =
+    getExcludedFreeDeliverySubtotal(cart?.items) +
+    Math.max(0, optimisticDelta - optimisticEligibleDelta)
+  const postalCode =
+    cart?.shipping_address?.postal_code ||
+    deliveryZip ||
+    normalizeDeliveryZip(initialDeliveryZip)
 
   const checkoutUrl = "/checkout"
+  const sortedItems =
+    cart?.items
+      ?.slice()
+      .sort((a, b) =>
+        (a.created_at ?? "") > (b.created_at ?? "") ? -1 : 1
+      ) || []
+
+  useEffect(() => {
+    setDeliveryZip(getStoredDeliveryZip() || normalizeDeliveryZip(initialDeliveryZip))
+
+    const handleDeliveryZipUpdate = (event: Event) => {
+      const nextZip = (event as CustomEvent<{ zip?: string }>).detail?.zip
+      setDeliveryZip(normalizeDeliveryZip(nextZip) || getStoredDeliveryZip())
+    }
+
+    window.addEventListener(DELIVERY_ZIP_EVENT, handleDeliveryZipUpdate)
+    return () =>
+      window.removeEventListener(DELIVERY_ZIP_EVENT, handleDeliveryZipUpdate)
+  }, [initialDeliveryZip])
 
   // Track cart_viewed when side cart opens
   useEffect(() => {
@@ -322,12 +382,44 @@ export default function SideCart({
                           {/* Items */}
                           <div className="flex-1 overflow-y-auto">
                             <ul>
-                              {cart.items
-                                .sort((a, b) =>
-                                  (a.created_at ?? "") > (b.created_at ?? "") ? -1 : 1
-                                )
-                                .map((item) => (
-                                  <li key={item.id} className="border-b border-Charcoal/5">
+                              {sortedItems.map((item, index) => {
+                                const metadata = (item.metadata || {}) as Record<string, any>
+                                const countsTowardFreeDelivery =
+                                  isLineItemFreeDeliveryEligible(item)
+                                const exclusionReason =
+                                  getLineItemFreeDeliveryExclusionReason(item)
+                                const substitutionStatus =
+                                  metadata.substitution_status
+                                const originalProductName =
+                                  typeof metadata.original_product_name === "string"
+                                    ? metadata.original_product_name
+                                    : null
+                                const substitutionNote =
+                                  typeof metadata.substitution_note === "string"
+                                    ? metadata.substitution_note
+                                    : null
+                                const collectionTitle =
+                                  metadata.curated_collection_title ||
+                                  metadata.bundle_title
+                                const previousMetadata =
+                                  (sortedItems[index - 1]?.metadata || {}) as Record<string, any>
+                                const previousCollectionTitle =
+                                  previousMetadata.curated_collection_title ||
+                                  previousMetadata.bundle_title
+                                const showCollectionHeader =
+                                  collectionTitle &&
+                                  collectionTitle !== previousCollectionTitle
+
+                                return (
+                                  <Fragment key={item.id}>
+                                    {showCollectionHeader && (
+                                      <li className="border-b border-Charcoal/5 bg-Scroll px-6 py-2">
+                                        <p className="font-maison-neue-mono text-[10px] font-bold uppercase tracking-wide text-Charcoal/60">
+                                          Added from: {collectionTitle}
+                                        </p>
+                                      </li>
+                                    )}
+                                    <li className="border-b border-Charcoal/5">
                                     <div className="flex gap-4 px-6 py-5">
                                       {/* Image */}
                                       <LocalizedClientLink
@@ -342,6 +434,22 @@ export default function SideCart({
                                       <div className="flex-1 min-w-0 flex flex-col justify-between">
                                         <div>
                                           <CartItemTitle item={item} closeCart={closeCart} />
+                                          {collectionTitle && (
+                                            <p className="mt-1 font-maison-neue-mono text-[10px] font-bold uppercase tracking-wide text-VibrantRed">
+                                              Collection item
+                                            </p>
+                                          )}
+                                          {substitutionStatus && (
+                                            <p className="mt-1 font-maison-neue text-xs leading-snug text-Charcoal/55">
+                                              Substituted
+                                              {originalProductName
+                                                ? ` for ${originalProductName}`
+                                                : ""}
+                                              {substitutionNote
+                                                ? `: ${substitutionNote}`
+                                                : "."}
+                                            </p>
+                                          )}
                                           {/* Price — per-lb vs per-pack
                                               decided by the same helper
                                               used on PLP + PDP (#31 / #104). */}
@@ -349,20 +457,43 @@ export default function SideCart({
                                             item={item}
                                             currencyCode={cart.currency_code}
                                           />
-                                          <CatchWeightBadge className="mt-1.5" />
+                                          {!countsTowardFreeDelivery && (
+                                            <p className="mt-1 font-maison-neue text-xs leading-snug text-Charcoal/55">
+                                              Does not count toward free delivery
+                                              {exclusionReason
+                                                ? `: ${exclusionReason}`
+                                                : "."}
+                                            </p>
+                                          )}
                                         </div>
 
                                         {/* Quantity + Remove */}
                                         <div className="flex items-center justify-between mt-3">
-                                          <QuantitySelector item={item} onOptimisticDelta={handleOptimisticDelta} />
-                                          <DeleteButton id={item.id}>
+                                          <QuantitySelector
+                                            item={item}
+                                            countsTowardFreeDelivery={countsTowardFreeDelivery}
+                                            onOptimisticDelta={handleOptimisticDelta}
+                                          />
+                                          <DeleteButton
+                                            id={item.id}
+                                            onDeleted={() =>
+                                              handleOptimisticDelta(
+                                                -getLineItemSubtotal(item),
+                                                countsTowardFreeDelivery
+                                                  ? -getLineItemSubtotal(item)
+                                                  : 0
+                                              )
+                                            }
+                                          >
                                             <span className="text-xs font-maison-neue underline">Remove</span>
                                           </DeleteButton>
                                         </div>
                                       </div>
                                     </div>
                                   </li>
-                                ))}
+                                  </Fragment>
+                                )
+                              })}
                             </ul>
                           </div>
 
@@ -404,18 +535,21 @@ export default function SideCart({
                               </span>
                             </div>
 
-                            <FreeShippingHelper
-                              subtotal={subtotal}
+                            <FulfillmentProgress
+                              subtotal={Math.max(0, eligibleSubtotal)}
+                              cartSubtotal={subtotal}
+                              excludedSubtotal={excludedSubtotal}
                               currencyCode={cart.currency_code}
                               shipState={cart.shipping_address?.province}
                               fulfillmentType={
                                 (cart.metadata as Record<string, any> | null)
                                   ?.fulfillmentType
                               }
+                              postalCode={postalCode}
+                              atlantaZipConfig={atlantaZipConfig}
+                              context="cart"
                               className="mb-3"
                             />
-
-                            <CartLevelEstimateNote className="mb-3" />
 
                             <p className="text-xs font-maison-neue text-Charcoal/40 mb-4">
                               Shipping and taxes calculated at checkout.

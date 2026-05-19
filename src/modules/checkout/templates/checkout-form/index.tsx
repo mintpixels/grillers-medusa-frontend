@@ -89,6 +89,7 @@ export default async function CheckoutForm({
                 cart={cart}
                 availableShippingMethods={shippingMethods}
                 serverNowIso={new Date().toISOString()}
+                atlantaZipConfig={fulfillmentConfig.AtlantaDeliveryZipDays}
               />
             )}
 

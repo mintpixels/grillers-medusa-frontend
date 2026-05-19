@@ -1,5 +1,8 @@
 import { retrieveCart } from "@lib/data/cart"
 import { retrieveCustomer } from "@lib/data/customer"
+import { getDeliveryZipCookie } from "@lib/data/delivery-zip"
+import { getAtlantaDeliveryZipConfig } from "@lib/data/strapi/fulfillment"
+import { getAddressBookDeliveryZip } from "@lib/util/delivery-zip"
 import CartTemplate from "@modules/cart/templates"
 import { Metadata } from "next"
 import { notFound } from "next/navigation"
@@ -27,7 +30,21 @@ export default async function Cart({ params }: PageProps) {
     return notFound()
   })
 
-  const customer = await retrieveCustomer()
+  const [customer, deliveryZip, atlantaZipConfig] = await Promise.all([
+    retrieveCustomer(),
+    getDeliveryZipCookie(),
+    getAtlantaDeliveryZipConfig().catch(() => undefined),
+  ])
+  const defaultDeliveryZip =
+    deliveryZip || getAddressBookDeliveryZip(customer?.addresses)
 
-  return <CartTemplate cart={cart} customer={customer} countryCode={countryCode} />
+  return (
+    <CartTemplate
+      cart={cart}
+      customer={customer}
+      countryCode={countryCode}
+      deliveryZip={defaultDeliveryZip}
+      atlantaZipConfig={atlantaZipConfig}
+    />
+  )
 }

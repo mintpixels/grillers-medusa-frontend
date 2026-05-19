@@ -46,7 +46,11 @@ export default function AccountMenu({ initials, firstName }: AccountMenuProps) {
 
       {isOpen && (
         <>
-          <div className="fixed inset-0 z-40" aria-hidden="true" />
+          <div
+            className="fixed inset-0 z-40"
+            aria-hidden="true"
+            onMouseDown={() => setIsOpen(false)}
+          />
           <div className="absolute right-0 top-full mt-3 z-50 origin-top-right animate-[fadeIn_0.15s_ease-out]">
             <div className="w-[180px] bg-[#FAFAF8] rounded-lg shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-Gold/30 overflow-hidden">
               <div className="px-4 pt-3 pb-2">

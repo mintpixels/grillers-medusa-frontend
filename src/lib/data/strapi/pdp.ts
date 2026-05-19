@@ -52,6 +52,16 @@ export const GetProductQuery = gql`
         AvgPackWeight
         Serves
         PiecesPerPack
+        ChassidishShchita
+        CHK
+        RabbiWeissmandl
+        OU
+        StarK
+        RabbiTeitelbaum
+        CRC
+        Lubavitch
+        QualifiesForFreeDeliveryOffers
+        FreeDeliveryExclusionReason
       }
       Recipes {
         documentId
@@ -70,6 +80,9 @@ export const GetProductQuery = gql`
         Variants {
           VariantId
           Title
+          Sku
+          QualifiesForFreeDeliveryOffers
+          FreeDeliveryExclusionReason
           Price {
             OriginalPriceNumber
             CalculatedPriceNumber
@@ -122,6 +135,8 @@ export const GetProductMetadataQuery = gql`
       Metadata {
         AvgPackWeight
         AvgPackSize
+        QualifiesForFreeDeliveryOffers
+        FreeDeliveryExclusionReason
       }
     }
   }
@@ -130,6 +145,8 @@ export const GetProductMetadataQuery = gql`
 export type ProductMetadata = {
   AvgPackWeight?: string | null
   AvgPackSize?: string | null
+  QualifiesForFreeDeliveryOffers?: boolean | null
+  FreeDeliveryExclusionReason?: string | null
 }
 
 /**
@@ -176,6 +193,14 @@ function cleanLegacyMedusaName(title: string): string {
   return stripped.replace(/\s{2,}/g, " ")
 }
 
+function formatSchemaPrice(amount: number | null | undefined) {
+  if (!Number.isFinite(amount) || !amount || amount <= 0) {
+    return undefined
+  }
+
+  return amount.toFixed(2)
+}
+
 /**
  * Generates Product JSON-LD schema for SEO
  */
@@ -190,11 +215,13 @@ export function generateProductJsonLd(
       id?: string
       sku?: string | null
       calculated_price?: {
-        calculated_amount?: number
-        currency_code?: string
+        calculated_amount?: number | null
+        currency_code?: string | null
       }
-      inventory_quantity?: number
-    }>
+      inventory_quantity?: number | null
+      manage_inventory?: boolean | null
+      allow_backorder?: boolean | null
+    }> | null
   },
   strapiData: {
     Title?: string
@@ -211,9 +238,14 @@ export function generateProductJsonLd(
   countryCode: string
 ) {
   const variant = product.variants?.[0]
-  const price = variant?.calculated_price?.calculated_amount
-  const currency = variant?.calculated_price?.currency_code?.toUpperCase() || "USD"
-  const inStock = (variant?.inventory_quantity ?? 0) > 0
+  const price = formatSchemaPrice(variant?.calculated_price?.calculated_amount)
+  const currency =
+    variant?.calculated_price?.currency_code?.toUpperCase() || "USD"
+  const inStock =
+    !!variant &&
+    (!variant.manage_inventory ||
+      !!variant.allow_backorder ||
+      (variant.inventory_quantity ?? 0) > 0)
 
   // Collect all images
   const images: string[] = []
@@ -258,7 +290,8 @@ export function generateProductJsonLd(
         "@type": "Offer",
         url: productUrl,
         priceCurrency: currency,
-        price: (price / 100).toFixed(2),
+        price,
+        itemCondition: "https://schema.org/NewCondition",
         availability: inStock
           ? "https://schema.org/InStock"
           : "https://schema.org/OutOfStock",

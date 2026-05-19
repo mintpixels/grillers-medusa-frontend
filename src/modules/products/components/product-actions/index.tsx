@@ -2,6 +2,7 @@
 
 import { addToCart } from "@lib/data/cart"
 import { useIntersection } from "@lib/hooks/use-in-view"
+import { dispatchCartUpdated } from "@lib/util/cart-events"
 import { HttpTypes } from "@medusajs/types"
 import { Button, toast } from "@medusajs/ui"
 import Divider from "@modules/common/components/divider"
@@ -109,6 +110,11 @@ export default function ProductActions({
         variantId: selectedVariant.id,
         quantity: 1,
         countryCode,
+      })
+      dispatchCartUpdated({
+        action: "add",
+        variantId: selectedVariant.id,
+        quantity: 1,
       })
       toast.success("Added to cart", {
         description: product.title || undefined,

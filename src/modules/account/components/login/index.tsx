@@ -19,9 +19,14 @@ const Login = ({ setCurrentView }: Props) => {
   // We use hasSubmitted to distinguish "not yet submitted" from "success".
   useEffect(() => {
     if (hasSubmitted.current && !message) {
-      const email = formRef.current?.querySelector<HTMLInputElement>('input[name="email"]')?.value
-      jitsuTrack("login_completed", { method: "email" })
-      if (email) jitsuIdentify(email, { email })
+      const loginId = formRef.current?.querySelector<HTMLInputElement>('input[name="email"]')?.value?.trim()
+      jitsuTrack("login_completed", {
+        method: loginId?.includes("@") ? "email" : "legacy_username",
+      })
+      if (loginId?.includes("@")) {
+        const email = loginId.toLowerCase()
+        jitsuIdentify(email, { email })
+      }
     }
   }, [message])
 
@@ -37,11 +42,11 @@ const Login = ({ setCurrentView }: Props) => {
       <form className="w-full" ref={formRef} action={(formData) => { hasSubmitted.current = true; formAction(formData) }}>
         <div className="flex flex-col w-full gap-y-2">
           <Input
-            label="Email"
+            label="Email or username"
             name="email"
-            type="email"
-            title="Enter a valid email address."
-            autoComplete="email"
+            type="text"
+            title="Enter your email address or username."
+            autoComplete="username"
             required
             data-testid="email-input"
           />

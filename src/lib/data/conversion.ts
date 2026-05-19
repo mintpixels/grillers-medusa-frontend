@@ -1,37 +1,62 @@
 "use server"
 
 import { retrieveCart } from "@lib/data/cart"
+import { retrieveCustomer } from "@lib/data/customer"
 import { getDeliveryZipCookie } from "@lib/data/delivery-zip"
+import { getAtlantaDeliveryZipConfig } from "@lib/data/strapi/fulfillment"
 import type { FulfillmentType } from "@lib/util/free-shipping"
+import type { AtlantaZipDayConfig } from "@lib/util/eligible-arrival-dates"
+import { getAddressBookDeliveryZip } from "@lib/util/delivery-zip"
+import {
+  getExcludedFreeDeliverySubtotal,
+  getFreeDeliveryEligibleSubtotal,
+} from "@lib/util/free-delivery-eligibility"
 
 export type CartConversionState = {
   subtotal: number
+  cartSubtotal: number
+  excludedSubtotal: number
   currencyCode: string
   itemCount: number
   fulfillmentType: FulfillmentType
   shipState: string | null
   postalCode: string | null
+  atlantaZipConfig?: Record<string, AtlantaZipDayConfig>
 }
 
 export async function getCartConversionState(): Promise<CartConversionState> {
   const cart = await retrieveCart().catch(() => null)
-  const savedZip = await getDeliveryZipCookie()
+  const [savedZip, atlantaZipConfig, customer] = await Promise.all([
+    getDeliveryZipCookie(),
+    getAtlantaDeliveryZipConfig().catch(() => undefined),
+    retrieveCustomer().catch(() => null),
+  ])
+  const customerZip = getAddressBookDeliveryZip(customer?.addresses)
+  const fallbackZip = savedZip || customerZip
 
   if (!cart) {
     return {
       subtotal: 0,
+      cartSubtotal: 0,
+      excludedSubtotal: 0,
       currencyCode: "usd",
       itemCount: 0,
       fulfillmentType: null,
       shipState: null,
-      postalCode: savedZip || null,
+      postalCode: fallbackZip || null,
+      atlantaZipConfig,
     }
   }
 
   const metadata = (cart.metadata || {}) as Record<string, unknown>
 
+  const eligibleSubtotal = getFreeDeliveryEligibleSubtotal(cart.items)
+  const excludedSubtotal = getExcludedFreeDeliverySubtotal(cart.items)
+
   return {
-    subtotal: cart.subtotal ?? 0,
+    subtotal: eligibleSubtotal,
+    cartSubtotal: cart.subtotal ?? eligibleSubtotal,
+    excludedSubtotal,
     currencyCode: cart.currency_code || "usd",
     itemCount:
       cart.items?.reduce((sum, item) => sum + (item.quantity || 0), 0) || 0,
@@ -40,6 +65,7 @@ export async function getCartConversionState(): Promise<CartConversionState> {
         ? metadata.fulfillmentType
         : null,
     shipState: cart.shipping_address?.province || null,
-    postalCode: cart.shipping_address?.postal_code || savedZip || null,
+    postalCode: cart.shipping_address?.postal_code || fallbackZip || null,
+    atlantaZipConfig,
   }
 }

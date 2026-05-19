@@ -10,6 +10,24 @@ import {
 } from "@lib/utils/cookies"
 import type { CookieCategory } from "@lib/data/strapi/cookie-consent"
 
+const BANNER_DISMISSED_KEY = "cookie_banner_dismissed"
+
+function getSessionDismissed() {
+  try {
+    return sessionStorage.getItem(BANNER_DISMISSED_KEY) === "true"
+  } catch {
+    return false
+  }
+}
+
+function setSessionDismissed() {
+  try {
+    sessionStorage.setItem(BANNER_DISMISSED_KEY, "true")
+  } catch {
+    // Consent is persisted in a cookie. Session storage is only a UI nicety.
+  }
+}
+
 type CookieConsentBannerProps = {
   message: string
   acceptText: string
@@ -44,9 +62,15 @@ export default function CookieConsentBanner({
   })
 
   useEffect(() => {
-    // Check if banner was dismissed in this session
-    const sessionDismissed = sessionStorage.getItem("cookie_banner_dismissed")
-    if (sessionDismissed !== "true") {
+    // The durable source of truth is the 365-day consent cookie. The old
+    // session-only check caused the banner to reappear on every new browser
+    // session even after the visitor had accepted or rejected cookies.
+    if (getConsentCookie()) {
+      setSessionDismissed()
+      return
+    }
+
+    if (!getSessionDismissed()) {
       setShowBanner(true)
     }
   }, [])
@@ -54,7 +78,7 @@ export default function CookieConsentBanner({
   const handleAcceptAll = () => {
     acceptAllCookies()
     setShowBanner(false)
-    sessionStorage.setItem("cookie_banner_dismissed", "true")
+    setSessionDismissed()
     // Reload to load GTM/GA4
     window.location.reload()
   }
@@ -62,7 +86,7 @@ export default function CookieConsentBanner({
   const handleRejectAll = () => {
     rejectAllCookies()
     setShowBanner(false)
-    sessionStorage.setItem("cookie_banner_dismissed", "true")
+    setSessionDismissed()
   }
 
   const handleSavePreferences = () => {
@@ -71,7 +95,7 @@ export default function CookieConsentBanner({
       timestamp: Date.now(),
     })
     setShowBanner(false)
-    sessionStorage.setItem("cookie_banner_dismissed", "true")
+    setSessionDismissed()
     // Reload if analytics was accepted to load GTM/GA4
     if (preferences.analytics) {
       window.location.reload()
@@ -157,9 +181,9 @@ export default function CookieConsentBanner({
 
             <div className="space-y-4 mb-6">
               {categories.map((category) => {
-                const categoryKey = category.Name.toLowerCase() as
-                  | "analytics"
-                  | "marketing"
+                const categoryName = category.Name?.toLowerCase()
+                const categoryKey: "analytics" | "marketing" =
+                  categoryName === "marketing" ? "marketing" : "analytics"
                 const isRequired = category.Required
 
                 return (

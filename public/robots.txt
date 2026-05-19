@@ -9,6 +9,94 @@ Disallow: /cart
 Disallow: /order/*
 Disallow: /api/*
 
+# OAI-SearchBot
+User-agent: OAI-SearchBot
+Allow: /
+Disallow: /checkout
+Disallow: /checkout/*
+Disallow: /account
+Disallow: /account/*
+Disallow: /cart
+Disallow: /order/*
+Disallow: /api/*
+
+# ChatGPT-User
+User-agent: ChatGPT-User
+Allow: /
+Disallow: /checkout
+Disallow: /checkout/*
+Disallow: /account
+Disallow: /account/*
+Disallow: /cart
+Disallow: /order/*
+Disallow: /api/*
+
+# GPTBot
+User-agent: GPTBot
+Allow: /
+Disallow: /checkout
+Disallow: /checkout/*
+Disallow: /account
+Disallow: /account/*
+Disallow: /cart
+Disallow: /order/*
+Disallow: /api/*
+
+# ClaudeBot
+User-agent: ClaudeBot
+Allow: /
+Disallow: /checkout
+Disallow: /checkout/*
+Disallow: /account
+Disallow: /account/*
+Disallow: /cart
+Disallow: /order/*
+Disallow: /api/*
+
+# Claude-User
+User-agent: Claude-User
+Allow: /
+Disallow: /checkout
+Disallow: /checkout/*
+Disallow: /account
+Disallow: /account/*
+Disallow: /cart
+Disallow: /order/*
+Disallow: /api/*
+
+# Claude-SearchBot
+User-agent: Claude-SearchBot
+Allow: /
+Disallow: /checkout
+Disallow: /checkout/*
+Disallow: /account
+Disallow: /account/*
+Disallow: /cart
+Disallow: /order/*
+Disallow: /api/*
+
+# PerplexityBot
+User-agent: PerplexityBot
+Allow: /
+Disallow: /checkout
+Disallow: /checkout/*
+Disallow: /account
+Disallow: /account/*
+Disallow: /cart
+Disallow: /order/*
+Disallow: /api/*
+
+# Perplexity-User
+User-agent: Perplexity-User
+Allow: /
+Disallow: /checkout
+Disallow: /checkout/*
+Disallow: /account
+Disallow: /account/*
+Disallow: /cart
+Disallow: /order/*
+Disallow: /api/*
+
 # Host
 Host: https://grillers-medusa-frontend.vercel.app
 

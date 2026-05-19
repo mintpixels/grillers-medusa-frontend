@@ -1,19 +1,35 @@
-/**
- * The canonical production hostname for Grillers Pride. Anything else is
- * treated as a non-production environment (Vercel preview, localhost, etc.)
- * for SEO purposes — those environments emit `noindex` so they can't compete
- * with the prod site in search results. Update this if the prod domain ever
- * changes.
- */
-export const PRODUCTION_HOST = "grillerspride.com"
+const normalizeBaseUrl = (value: string) => {
+  const withProtocol = /^https?:\/\//i.test(value) ? value : `https://${value}`
+  return withProtocol.replace(/\/$/, "")
+}
+
+export const CANONICAL_PRODUCTION_URL = normalizeBaseUrl(
+  process.env.NEXT_PUBLIC_CANONICAL_BASE_URL ||
+    process.env.NEXT_PUBLIC_PRODUCTION_BASE_URL ||
+    "https://grillers-medusa-frontend.vercel.app"
+)
+
+export const LEGACY_PRODUCTION_HOST = "grillerspride.com"
+
+const getProductionHosts = () => {
+  const canonicalHost = new URL(CANONICAL_PRODUCTION_URL).hostname.toLowerCase()
+
+  return new Set([
+    canonicalHost,
+    `www.${canonicalHost}`,
+    LEGACY_PRODUCTION_HOST,
+    `www.${LEGACY_PRODUCTION_HOST}`,
+  ])
+}
 
 /**
  * Returns the configured public base URL (no trailing slash).
  *
  * Order of precedence:
- * 1. `NEXT_PUBLIC_BASE_URL` — explicit override (set per-environment in Vercel)
- * 2. `NEXT_PUBLIC_VERCEL_URL` — Vercel's auto-injected preview/branch URL
- * 3. `http://localhost:8000` — local dev fallback
+ * 1. `NEXT_PUBLIC_BASE_URL` - explicit override
+ * 2. canonical production URL when `VERCEL_ENV=production`
+ * 3. `NEXT_PUBLIC_VERCEL_URL` or `VERCEL_URL` - Vercel preview URL
+ * 4. `http://localhost:8000` - local dev fallback
  *
  * The prior fallback was `https://grillerspride.com`, which baked the legacy
  * production assumption into every environment and produced wrong canonicals
@@ -21,11 +37,14 @@ export const PRODUCTION_HOST = "grillerspride.com"
  */
 export const getBaseURL = () => {
   if (process.env.NEXT_PUBLIC_BASE_URL) {
-    return process.env.NEXT_PUBLIC_BASE_URL.replace(/\/$/, "")
+    return normalizeBaseUrl(process.env.NEXT_PUBLIC_BASE_URL)
   }
-  if (process.env.NEXT_PUBLIC_VERCEL_URL) {
-    // Vercel injects this without a protocol
-    return `https://${process.env.NEXT_PUBLIC_VERCEL_URL.replace(/\/$/, "")}`
+  if (process.env.VERCEL_ENV === "production") {
+    return CANONICAL_PRODUCTION_URL
+  }
+  const vercelUrl = process.env.NEXT_PUBLIC_VERCEL_URL || process.env.VERCEL_URL
+  if (vercelUrl) {
+    return normalizeBaseUrl(vercelUrl)
   }
   return "http://localhost:8000"
 }
@@ -38,7 +57,7 @@ export const getBaseURL = () => {
 export const isProductionHost = () => {
   try {
     const host = new URL(getBaseURL()).hostname.toLowerCase()
-    return host === PRODUCTION_HOST || host === `www.${PRODUCTION_HOST}`
+    return getProductionHosts().has(host)
   } catch {
     return false
   }

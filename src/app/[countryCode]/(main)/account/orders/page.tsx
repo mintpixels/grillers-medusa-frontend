@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic"
 
 import { Metadata } from "next"
-import { listOrders } from "@lib/data/orders"
+import { listAllLegacyCustomerOrders, listAllOrders } from "@lib/data/orders"
 import { notFound } from "next/navigation"
 import OrdersList from "@modules/account/components/orders-list"
 
@@ -11,7 +11,10 @@ export const metadata: Metadata = {
 }
 
 export default async function Orders() {
-  const orders = await listOrders(100, 0)
+  const [orders, legacyOrderHistory] = await Promise.all([
+    listAllOrders(),
+    listAllLegacyCustomerOrders(),
+  ])
 
   if (!orders) {
     notFound()
@@ -25,7 +28,10 @@ export default async function Orders() {
           View and manage your order history
         </p>
       </div>
-      <OrdersList orders={orders} />
+      <OrdersList
+        orders={orders}
+        legacyOrders={legacyOrderHistory.orders || []}
+      />
     </div>
   )
 }

@@ -6,6 +6,22 @@ export function normalizeDeliveryZip(value?: string | null): string {
   return (value || "").replace(/\D/g, "").slice(0, 5)
 }
 
+type AddressLike = {
+  postal_code?: string | null
+  is_default_shipping?: boolean | null
+}
+
+export function getAddressBookDeliveryZip(
+  addresses?: AddressLike[] | null
+): string {
+  const defaultShippingZip = normalizeDeliveryZip(
+    addresses?.find((address) => address.is_default_shipping)?.postal_code
+  )
+  if (defaultShippingZip) return defaultShippingZip
+
+  return normalizeDeliveryZip(addresses?.[0]?.postal_code)
+}
+
 export function getStoredDeliveryZip(): string {
   if (typeof window === "undefined") return ""
 

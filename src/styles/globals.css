@@ -152,7 +152,13 @@
   }
 
   .swiper-visible {
-    @apply !overflow-visible;
+    /*
+      The product rails use fractional slidesPerView values for the visible
+      next-card peek. Swiper's offscreen slides must still be clipped to the
+      rail; otherwise they enlarge document.scrollWidth and create a blank
+      horizontal page scroll on PDP and home rails.
+    */
+    @apply !overflow-hidden;
   }
 
   .btn-primary {

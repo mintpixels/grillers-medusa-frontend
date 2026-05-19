@@ -13,6 +13,7 @@ import {
   type SoutheastPickupLocationsData,
   type PickupCreditConfig,
 } from "@lib/data/strapi/checkout"
+import { getAtlantaDeliveryZipConfig } from "@lib/data/strapi/fulfillment"
 import PaymentWrapper from "@modules/checkout/components/payment-wrapper"
 import CheckoutForm from "@modules/checkout/templates/checkout-form"
 import CheckoutSummary from "@modules/checkout/templates/checkout-summary"
@@ -23,6 +24,7 @@ import { notFound, redirect } from "next/navigation"
 const defaultFulfillmentConfig: FulfillmentConfigData["checkout"] = {
   // Atlanta delivery ZIP codes (from Strapi shipping-zones)
   AtlantaDeliveryZipCodes: ["30005", "30009", "30022", "30024", "30033", "30062", "30067"],
+  AtlantaDeliveryZipDays: undefined,
   SoutheastZipPrefixes: ["30", "31", "32", "33", "34", "35", "36", "37", "38", "39"],
   // Southeast pickup locations - cities from Strapi shipping-zones with SCHEDULED_DELIVERY
   SoutheastPickupLocations: [
@@ -41,7 +43,7 @@ const defaultFulfillmentConfig: FulfillmentConfigData["checkout"] = {
   MinimumOrderThresholds: {
     PlantPickup: 0,
     AtlantaDelivery: 0,
-    AtlantaDeliveryFree: 150,
+    AtlantaDeliveryFree: 250,
     UPSShipping: 40,
     SoutheastPickup: 0,
   },
@@ -66,9 +68,10 @@ const defaultPickupCreditConfig: PickupCreditConfig = {
 
 async function getFulfillmentConfig(): Promise<FulfillmentConfigData["checkout"]> {
   try {
-    const [checkoutData, seLocationsData] = await Promise.all([
+    const [checkoutData, seLocationsData, atlantaZipConfig] = await Promise.all([
       strapiClient.request<FulfillmentConfigData>(FulfillmentConfigQuery).catch(() => null),
       strapiClient.request<SoutheastPickupLocationsData>(SoutheastPickupLocationsQuery).catch(() => null),
+      getAtlantaDeliveryZipConfig().catch(() => null),
     ])
     
     const seLocations = (seLocationsData?.southeastPickupLocations ?? []).map((loc) => ({
@@ -92,6 +95,11 @@ async function getFulfillmentConfig(): Promise<FulfillmentConfigData["checkout"]
       SoutheastPickupLocations: seLocations.length > 0
         ? seLocations
         : defaultFulfillmentConfig.SoutheastPickupLocations,
+      AtlantaDeliveryZipCodes: atlantaZipConfig
+        ? Object.keys(atlantaZipConfig)
+        : defaultFulfillmentConfig.AtlantaDeliveryZipCodes,
+      AtlantaDeliveryZipDays:
+        atlantaZipConfig || defaultFulfillmentConfig.AtlantaDeliveryZipDays,
     }
   } catch {
     return defaultFulfillmentConfig
@@ -194,7 +202,10 @@ export default async function Checkout({ params, searchParams }: PageProps) {
         </div>
         {/* Right column - Summary (dark background) */}
         <div className="px-4 small:px-8 lg:px-12 xl:pr-[max(2rem,calc((100vw-1280px)/2+2rem))] py-8 small:py-12 bg-Charcoal">
-          <CheckoutSummary cart={cart} />
+          <CheckoutSummary
+            cart={cart}
+            atlantaZipConfig={fulfillmentConfig.AtlantaDeliveryZipDays}
+          />
         </div>
       </div>
     </div>

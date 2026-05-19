@@ -8,6 +8,13 @@ import { getAuthHeaders, getCacheOptions } from "./cookies"
 import { getRegion, retrieveRegion } from "./regions"
 import type { StrapiCollectionProduct } from "@lib/data/strapi/collections"
 
+function isLegacyReorderOnlyProduct(product: HttpTypes.StoreProduct) {
+  const metadata = product.metadata as Record<string, unknown> | null | undefined
+  const flag = metadata?.legacy_reorder_only
+
+  return flag === true || String(flag).toLowerCase() === "true"
+}
+
 export const listProducts = async ({
   pageParam = 1,
   queryParams,
@@ -73,12 +80,15 @@ export const listProducts = async ({
       }
     )
     .then(({ products, count }) => {
+      const visibleProducts = products.filter(
+        (product) => !isLegacyReorderOnlyProduct(product)
+      )
       const nextPage = count > offset + limit ? pageParam + 1 : null
 
       return {
         response: {
-          products,
-          count,
+          products: visibleProducts,
+          count: Math.max(0, count - (products.length - visibleProducts.length)),
         },
         nextPage: nextPage,
         queryParams,
@@ -164,26 +174,34 @@ export const enrichStrapiProductsWithMedusaPrices = async <T extends StrapiColle
   // variants without prices on a single bulk call — chunked, all return
   // priced.
   const CHUNK_SIZE = 50
-  const medusaProducts: HttpTypes.StoreProduct[] = []
+  const chunks: string[][] = []
   for (let i = 0; i < productIds.length; i += CHUNK_SIZE) {
-    const chunk = productIds.slice(i, i + CHUNK_SIZE)
-    try {
-      const { response } = await listProducts({
-        countryCode,
-        queryParams: {
-          id: chunk,
-          limit: chunk.length,
-        } as HttpTypes.FindParams & HttpTypes.StoreProductParams,
-      })
-      medusaProducts.push(...response.products)
-    } catch (err) {
-      console.error(
-        `enrichStrapiProductsWithMedusaPrices: Medusa fetch chunk ${i}-${i + chunk.length} failed`,
-        err
-      )
-      // Continue with other chunks rather than dropping every product's price.
-    }
+    chunks.push(productIds.slice(i, i + CHUNK_SIZE))
   }
+  const medusaProducts = (
+    await Promise.all(
+      chunks.map(async (chunk, index) => {
+        try {
+          const { response } = await listProducts({
+            countryCode,
+            queryParams: {
+              id: chunk,
+              limit: chunk.length,
+            } as HttpTypes.FindParams & HttpTypes.StoreProductParams,
+          })
+          return response.products
+        } catch (err) {
+          const start = index * CHUNK_SIZE
+          console.error(
+            `enrichStrapiProductsWithMedusaPrices: Medusa fetch chunk ${start}-${start + chunk.length} failed`,
+            err
+          )
+          // Continue with other chunks rather than dropping every product's price.
+          return []
+        }
+      })
+    )
+  ).flat()
 
   const priceByVariantId = new Map<string, number>()
   const priceByProductFirstVariant = new Map<string, number>()

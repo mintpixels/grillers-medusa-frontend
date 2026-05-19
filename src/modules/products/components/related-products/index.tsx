@@ -1,5 +1,6 @@
 import type { StrapiCollectionProduct } from "@lib/data/strapi/collections"
 import { enrichStrapiProductsWithMedusaPrices } from "@lib/data/products"
+import { withTimeout } from "@lib/util/promise-timeout"
 import RelatedProductsSwiper from "./swiper"
 
 // Pre-selected curated products — no API calls needed at runtime.
@@ -375,9 +376,11 @@ export default async function RelatedProducts({
 
   // Overlay live Medusa prices so the rail mirrors the PDP's price source of truth.
   // Falls back to the hardcoded CURATED_PRODUCTS prices if the Medusa fetch fails.
-  const enriched = await enrichStrapiProductsWithMedusaPrices(
+  const enriched = await withTimeout(
+    enrichStrapiProductsWithMedusaPrices(products, countryCode),
+    1500,
     products,
-    countryCode
+    `Related product price enrichment for ${product.id}`
   )
 
   return (

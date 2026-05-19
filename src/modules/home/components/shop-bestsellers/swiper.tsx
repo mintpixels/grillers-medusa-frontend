@@ -77,18 +77,17 @@ export default function BestsellersSwiper({
           swiperRef.current = s
         }}
         spaceBetween={28}
-        // Mobile: show 1.15 slides so a sliver of the next card peeks at
-        // the right edge — visual cue that the row is swipable. ≥520 we
-        // already show 2+ slides so the cue is implicit.
+        // Keep a sliver of the next card visible at every breakpoint so
+        // the row reads as a carousel, not a static three-card grid.
         slidesPerView={1.15}
         breakpoints={{
-          520: { slidesPerView: 2 },
-          900: { slidesPerView: 3 },
+          520: { slidesPerView: 2.15 },
+          900: { slidesPerView: 3.15 },
         }}
         className="swiper-visible"
       >
         {products.map((product) => (
-          <SwiperSlide key={product.documentId} className="pb-4">
+          <SwiperSlide key={product.documentId} className="!h-auto pb-4">
             <ProductCard
               product={product}
               countryCode={countryCode}

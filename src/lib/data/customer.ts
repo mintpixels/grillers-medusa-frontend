@@ -4,12 +4,23 @@ import { sdk } from "@lib/config"
 import medusaError from "@lib/util/medusa-error"
 import { isSameAddressKey } from "@lib/util/compare-addresses"
 import { isValidUSPhone, stripPhone } from "@lib/util/format-phone"
+import { isStaffCustomer } from "@lib/util/staff-access"
 import { HttpTypes } from "@medusajs/types"
 import { revalidateTag } from "next/cache"
 import { redirect } from "next/navigation"
 import {
+  adminFetch,
+  appendStaffAuditLog,
+  retrieveAdminCustomer,
+  staffAuditFields,
+} from "./staff/admin"
+import {
+  clearStaffImpersonationCookie,
+  readStaffImpersonationCookie,
+} from "./staff/session-cookie"
+import type { StaffImpersonationSession } from "./staff/impersonation-types"
+import {
   getAuthHeaders,
-  getCacheOptions,
   getCacheTag,
   getCartId,
   removeAuthToken,
@@ -154,19 +165,138 @@ export async function completePasswordReset(
   }
 }
 
-export async function loginWithCredentials(email: string, password: string) {
+export async function updateCustomerPassword(
+  _currentState: Record<string, unknown>,
+  formData: FormData
+): Promise<{ success: boolean; error: string | null }> {
+  const currentPassword = String(formData.get("old_password") ?? "")
+  const newPassword = String(formData.get("new_password") ?? "")
+  const confirmPassword = String(formData.get("confirm_password") ?? "")
+
+  if (!currentPassword || !newPassword || !confirmPassword) {
+    return { success: false, error: "All password fields are required." }
+  }
+
+  if (newPassword.length < 8) {
+    return {
+      success: false,
+      error: "New password must be at least 8 characters.",
+    }
+  }
+
+  if (newPassword !== confirmPassword) {
+    return { success: false, error: "New passwords do not match." }
+  }
+
+  const headers = {
+    ...(await getAuthHeaders()),
+  }
+
+  if (!("authorization" in headers)) {
+    return { success: false, error: "Sign in again to update your password." }
+  }
+
   try {
-    const token = await sdk.auth.login("customer", "emailpass", {
-      email,
-      password,
+    await sdk.client.fetch<{ ok?: boolean }>(`/store/customers/me/password`, {
+      method: "POST",
+      headers,
+      body: {
+        current_password: currentPassword,
+        new_password: newPassword,
+      },
+      cache: "no-store",
     })
-    await setAuthToken(token as string)
-    const customerCacheTag = await getCacheTag("customers")
-    revalidateTag(customerCacheTag)
+
+    return { success: true, error: null }
+  } catch (err: any) {
+    return {
+      success: false,
+      error:
+        err?.data?.message ||
+        err?.message ||
+        "Could not update password. Please try again.",
+    }
+  }
+}
+
+function normalizeLoginIdentifier(value: string) {
+  const trimmed = String(value ?? "").trim()
+  return trimmed.includes("@") ? trimmed.toLowerCase() : trimmed
+}
+
+function isEmailLoginIdentifier(value: string) {
+  return value.includes("@")
+}
+
+async function requestLegacyAuthToken(loginId: string, password: string) {
+  const backendUrl = (
+    process.env.MEDUSA_BACKEND_URL || "http://localhost:9000"
+  ).replace(/\/+$/, "")
+  const publishableKey = process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY || ""
+
+  try {
+    const res = await fetch(`${backendUrl}/store/legacy-auth/login`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-publishable-api-key": publishableKey,
+      },
+      body: JSON.stringify({ identifier: loginId, password }),
+      cache: "no-store",
+    })
+
+    if (!res.ok) {
+      return null
+    }
+
+    const body = (await res.json()) as { token?: unknown }
+    return typeof body.token === "string" && body.token ? body.token : null
+  } catch {
+    return null
+  }
+}
+
+async function getCustomerAuthToken(loginId: string, password: string) {
+  if (!isEmailLoginIdentifier(loginId)) {
+    const legacyToken = await requestLegacyAuthToken(loginId, password)
+    if (legacyToken) {
+      return legacyToken
+    }
+
+    throw new Error("Invalid login or password")
+  }
+
+  try {
+    return (await sdk.auth.login("customer", "emailpass", {
+      email: loginId,
+      password,
+    })) as string
+  } catch (error) {
+    const legacyToken = await requestLegacyAuthToken(loginId, password)
+    if (legacyToken) {
+      return legacyToken
+    }
+
+    throw error
+  }
+}
+
+async function setCustomerSessionToken(token: string) {
+  await setAuthToken(token)
+  const customerCacheTag = await getCacheTag("customers")
+  revalidateTag(customerCacheTag)
+}
+
+export async function loginWithCredentials(email: string, password: string) {
+  const loginId = normalizeLoginIdentifier(email)
+
+  try {
+    const token = await getCustomerAuthToken(loginId, password)
+    await setCustomerSessionToken(token)
     await transferCart()
     return { success: true, error: null }
   } catch (error: any) {
-    return { success: false, error: "Invalid email or password" }
+    return { success: false, error: "Invalid login or password" }
   }
 }
 
@@ -231,7 +361,7 @@ export async function checkEmailExists(email: string): Promise<boolean> {
   }
 }
 
-export const retrieveCustomer =
+export const retrieveAuthenticatedCustomer =
   async (): Promise<HttpTypes.StoreCustomer | null> => {
     const authHeaders = await getAuthHeaders()
 
@@ -239,10 +369,6 @@ export const retrieveCustomer =
 
     const headers = {
       ...authHeaders,
-    }
-
-    const next = {
-      ...(await getCacheOptions("customers")),
     }
 
     return await sdk.client
@@ -253,17 +379,99 @@ export const retrieveCustomer =
           // omits the customer's saved addresses, which the checkout flow
           // (and the "Add Address" CTA) depend on to detect whether a
           // logged-in customer already has a delivery address on file.
-          fields: "*orders,*addresses",
+          fields: "*orders,*addresses,+metadata",
         },
         headers,
-        next,
-        cache: "force-cache",
+        cache: "no-store",
       })
       .then(({ customer }) => customer)
       .catch(() => null)
   }
 
+export const retrieveAuthenticatedCustomerForStaffAccess =
+  async (): Promise<HttpTypes.StoreCustomer | null> => {
+    const customer = await retrieveAuthenticatedCustomer()
+    if (!customer) return null
+
+    if (isStaffCustomer(customer)) {
+      return customer
+    }
+
+    try {
+      const adminCustomer = await retrieveAdminCustomer(customer.id)
+      if (!isStaffCustomer(adminCustomer as HttpTypes.StoreCustomer | null)) {
+        return customer
+      }
+
+      return {
+        ...customer,
+        metadata: adminCustomer?.metadata || customer.metadata,
+      } as HttpTypes.StoreCustomer
+    } catch {
+      return customer
+    }
+  }
+
+export async function getActiveStaffImpersonation(): Promise<{
+  session: StaffImpersonationSession
+  staff: HttpTypes.StoreCustomer
+} | null> {
+  const session = await readStaffImpersonationCookie()
+  if (!session) return null
+
+  const staff = await retrieveAuthenticatedCustomerForStaffAccess()
+  if (!staff || !isStaffCustomer(staff) || staff.id !== session.staffCustomerId) {
+    return null
+  }
+
+  return { session, staff }
+}
+
+export const retrieveCustomer =
+  async (): Promise<HttpTypes.StoreCustomer | null> => {
+    const active = await getActiveStaffImpersonation()
+    if (active) {
+      const target = await retrieveAdminCustomer(active.session.targetCustomerId)
+      if (!target) return null
+      return target as HttpTypes.StoreCustomer
+    }
+
+    return retrieveAuthenticatedCustomer()
+  }
+
 export const updateCustomer = async (body: HttpTypes.StoreUpdateCustomer) => {
+  const active = await getActiveStaffImpersonation()
+  if (active) {
+    const current = await retrieveAdminCustomer(active.session.targetCustomerId)
+    if (!current) throw new Error("Could not load impersonated customer.")
+
+    const metadata = appendStaffAuditLog(current.metadata, {
+      type: "staff_customer_profile_update",
+      staffCustomerId: active.session.staffCustomerId,
+      staffEmail: active.session.staffEmail,
+      targetCustomerId: active.session.targetCustomerId,
+      fields: Object.keys(body),
+    })
+
+    const { customer } = await adminFetch<{ customer: HttpTypes.StoreCustomer }>(
+      `/admin/customers/${active.session.targetCustomerId}`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          ...body,
+          metadata: {
+            ...metadata,
+            ...staffAuditFields(active.session, "customer_profile_update"),
+          },
+        }),
+      }
+    )
+
+    const cacheTag = await getCacheTag("customers")
+    revalidateTag(cacheTag)
+    return customer
+  }
+
   const headers = {
     ...(await getAuthHeaders()),
   }
@@ -334,19 +542,14 @@ export async function signup(_currentState: unknown, formData: FormData) {
 }
 
 export async function login(_currentState: unknown, formData: FormData) {
-  const email = formData.get("email") as string
+  const loginId = normalizeLoginIdentifier(formData.get("email") as string)
   const password = formData.get("password") as string
 
   try {
-    await sdk.auth
-      .login("customer", "emailpass", { email, password })
-      .then(async (token) => {
-        await setAuthToken(token as string)
-        const customerCacheTag = await getCacheTag("customers")
-        revalidateTag(customerCacheTag)
-      })
+    const token = await getCustomerAuthToken(loginId, password)
+    await setCustomerSessionToken(token)
   } catch (error: any) {
-    return error.toString()
+    return "Invalid login or password"
   }
 
   try {
@@ -359,6 +562,7 @@ export async function login(_currentState: unknown, formData: FormData) {
 export async function signout(countryCode: string, redirectTo?: string) {
   await sdk.auth.logout()
 
+  await clearStaffImpersonationCookie()
   await removeAuthToken()
 
   const customerCacheTag = await getCacheTag("customers")
@@ -379,6 +583,7 @@ export async function signout(countryCode: string, redirectTo?: string) {
  */
 export async function signoutKeepCart() {
   await sdk.auth.logout()
+  await clearStaffImpersonationCookie()
   await removeAuthToken()
 
   const customerCacheTag = await getCacheTag("customers")
@@ -490,6 +695,43 @@ export const addCustomerAddress = async (
     is_default_shipping: isDefaultShipping,
   }
 
+  const active = await getActiveStaffImpersonation()
+  if (active) {
+    try {
+      const current = await retrieveAdminCustomer(active.session.targetCustomerId)
+      if (!current) throw new Error("Could not load impersonated customer.")
+
+      await adminFetch(
+        `/admin/customers/${active.session.targetCustomerId}/addresses`,
+        {
+          method: "POST",
+          body: JSON.stringify(address),
+        }
+      )
+
+      await adminFetch(`/admin/customers/${active.session.targetCustomerId}`, {
+        method: "POST",
+        body: JSON.stringify({
+          metadata: {
+            ...appendStaffAuditLog(current.metadata, {
+              type: "staff_customer_address_create",
+              staffCustomerId: active.session.staffCustomerId,
+              staffEmail: active.session.staffEmail,
+              targetCustomerId: active.session.targetCustomerId,
+            }),
+            ...staffAuditFields(active.session, "customer_address_create"),
+          },
+        }),
+      })
+
+      const customerCacheTag = await getCacheTag("customers")
+      revalidateTag(customerCacheTag)
+      return { success: true, error: null }
+    } catch (err: any) {
+      return { success: false, error: err?.message || err.toString() }
+    }
+  }
+
   const headers = {
     ...(await getAuthHeaders()),
   }
@@ -541,6 +783,68 @@ export async function saveAddressToProfileAndCart(input: {
   }
 
   try {
+    const active = await getActiveStaffImpersonation()
+    if (active) {
+      const current = await retrieveAdminCustomer(active.session.targetCustomerId)
+      if (!current) throw new Error("Could not load impersonated customer.")
+
+      const alreadyOnFile = (current.addresses || []).some(
+        (a: any) =>
+          (a.address_1 || "").trim().toLowerCase() ===
+            input.address_1.trim().toLowerCase() &&
+          (a.postal_code || "").trim() === input.postal_code.trim()
+      )
+      const customerHadNoAddresses = (current.addresses || []).length === 0
+
+      if (!alreadyOnFile) {
+        await adminFetch(
+          `/admin/customers/${active.session.targetCustomerId}/addresses`,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              ...addressPayload,
+              is_default_shipping: customerHadNoAddresses,
+              is_default_billing: customerHadNoAddresses,
+            }),
+          }
+        )
+
+        await adminFetch(`/admin/customers/${active.session.targetCustomerId}`, {
+          method: "POST",
+          body: JSON.stringify({
+            metadata: {
+              ...appendStaffAuditLog(current.metadata, {
+                type: "staff_checkout_address_create",
+                staffCustomerId: active.session.staffCustomerId,
+                staffEmail: active.session.staffEmail,
+                targetCustomerId: active.session.targetCustomerId,
+              }),
+              ...staffAuditFields(active.session, "checkout_address_create"),
+            },
+          }),
+        })
+        revalidateTag(await getCacheTag("customers"))
+      }
+
+      const cartId = await getCartId()
+      if (cartId) {
+        await sdk.store.cart.update(
+          cartId,
+          {
+            shipping_address: addressPayload,
+            billing_address: addressPayload,
+            metadata: staffAuditFields(active.session, "checkout_address_saved"),
+          },
+          {},
+          {}
+        )
+        revalidateTag(await getCacheTag("carts"))
+        revalidateTag(await getCacheTag("fulfillment"))
+      }
+
+      return { success: true, error: null }
+    }
+
     const me = await retrieveCustomer()
     const alreadyOnFile = (me?.addresses || []).some(
       (a) =>
@@ -591,6 +895,33 @@ export async function saveAddressToProfileAndCart(input: {
 export const deleteCustomerAddress = async (
   addressId: string
 ): Promise<void> => {
+  const active = await getActiveStaffImpersonation()
+  if (active) {
+    const current = await retrieveAdminCustomer(active.session.targetCustomerId)
+    await adminFetch(
+      `/admin/customers/${active.session.targetCustomerId}/addresses/${addressId}`,
+      { method: "DELETE" }
+    )
+    await adminFetch(`/admin/customers/${active.session.targetCustomerId}`, {
+      method: "POST",
+      body: JSON.stringify({
+        metadata: {
+          ...appendStaffAuditLog(current?.metadata, {
+            type: "staff_customer_address_delete",
+            staffCustomerId: active.session.staffCustomerId,
+            staffEmail: active.session.staffEmail,
+            targetCustomerId: active.session.targetCustomerId,
+            addressId,
+          }),
+          ...staffAuditFields(active.session, "customer_address_delete"),
+        },
+      }),
+    })
+    const customerCacheTag = await getCacheTag("customers")
+    revalidateTag(customerCacheTag)
+    return
+  }
+
   const headers = {
     ...(await getAuthHeaders()),
   }
@@ -648,6 +979,44 @@ export const updateCustomerAddress = async (
   }
   if (formData.has("is_default_billing")) {
     address.is_default_billing = true
+  }
+
+  const active = await getActiveStaffImpersonation()
+  if (active) {
+    try {
+      const current = await retrieveAdminCustomer(active.session.targetCustomerId)
+      if (!current) throw new Error("Could not load impersonated customer.")
+
+      await adminFetch(
+        `/admin/customers/${active.session.targetCustomerId}/addresses/${addressId}`,
+        {
+          method: "POST",
+          body: JSON.stringify(address),
+        }
+      )
+
+      await adminFetch(`/admin/customers/${active.session.targetCustomerId}`, {
+        method: "POST",
+        body: JSON.stringify({
+          metadata: {
+            ...appendStaffAuditLog(current.metadata, {
+              type: "staff_customer_address_update",
+              staffCustomerId: active.session.staffCustomerId,
+              staffEmail: active.session.staffEmail,
+              targetCustomerId: active.session.targetCustomerId,
+              addressId,
+            }),
+            ...staffAuditFields(active.session, "customer_address_update"),
+          },
+        }),
+      })
+
+      const customerCacheTag = await getCacheTag("customers")
+      revalidateTag(customerCacheTag)
+      return { success: true, error: null }
+    } catch (err: any) {
+      return { success: false, error: err?.message || err.toString() }
+    }
   }
 
   const headers = {

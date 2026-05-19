@@ -90,13 +90,6 @@ export const GetHomePageQuery = gql`
             }
           }
         }
-        ... on ComponentHomeTestimonial {
-          BackgroundImage {
-            url
-          }
-          Quote
-          Author
-        }
         ... on ComponentHomeFollowUs {
           FollowUsTitle: Title
           Description

@@ -70,25 +70,32 @@ export const FreeShippingHelper: React.FC<FreeShippingHelperProps> = ({
   } else if (state.kind === "overnight") {
     message = <>UPS Overnight is charged at the carrier rate.</>
   } else if (qualified) {
-    message =
-      state.kind === "national_ups" ? (
-        <>Your order ships free.</>
-      ) : (
-        <>Your order qualifies for free delivery.</>
-      )
+    if (state.kind === "atlanta_delivery") {
+      message = <>Your order qualifies for free local delivery.</>
+    } else if (state.kind === "southeast_pickup") {
+      message = <>Your order qualifies for free regional pickup.</>
+    } else if (state.kind === "in_region_ups") {
+      message = <>Your order qualifies for the regional free-delivery threshold.</>
+    } else {
+      message = <>Your order qualifies for free UPS Ground shipping.</>
+    }
   } else if (state.kind === "ambiguous") {
     message = (
       <>
-        Free delivery on orders over $250 in our home region · Free shipping
-        over $500 nationwide.
+        Enter your ZIP or choose fulfillment to see whether local delivery,
+        regional pickup, or UPS shipping applies.
       </>
     )
   } else {
     const label =
       state.kind === "national_ups" ? (
-        <strong>free shipping</strong>
+        <strong>free UPS Ground shipping</strong>
+      ) : state.kind === "atlanta_delivery" ? (
+        <strong>free local delivery</strong>
+      ) : state.kind === "southeast_pickup" ? (
+        <strong>free regional pickup</strong>
       ) : (
-        <strong>free delivery</strong>
+        <strong>the regional free-delivery threshold</strong>
       )
     message = (
       <>

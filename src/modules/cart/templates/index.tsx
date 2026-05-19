@@ -6,15 +6,20 @@ import CartUpsells from "../components/cart-upsells"
 import { getCartUpsellProducts } from "../components/cart-upsells/server"
 import ItemsTemplate from "./items"
 import Summary from "./summary"
+import type { AtlantaZipDayConfig } from "@lib/util/eligible-arrival-dates"
 
 const CartTemplate = async ({
   cart,
   customer,
   countryCode = "us",
+  deliveryZip,
+  atlantaZipConfig,
 }: {
   cart: HttpTypes.StoreCart | null
   customer: HttpTypes.StoreCustomer | null
   countryCode?: string
+  deliveryZip?: string | null
+  atlantaZipConfig?: Record<string, AtlantaZipDayConfig>
 }) => {
   const upsellProducts = cart?.items?.length
     ? await getCartUpsellProducts(countryCode)
@@ -46,7 +51,11 @@ const CartTemplate = async ({
                 {cart && cart.region && (
                   <>
                     <div className="bg-white py-6">
-                      <Summary cart={cart as any} />
+                      <Summary
+                        cart={cart as any}
+                        deliveryZip={deliveryZip}
+                        atlantaZipConfig={atlantaZipConfig}
+                      />
                     </div>
                   </>
                 )}

@@ -20,9 +20,14 @@ export default function ConditionalGTMScript({
   const [hasAnalyticsConsent, setHasAnalyticsConsent] = useState(false)
 
   useEffect(() => {
-    // Check if user has given analytics consent
-    const consent = hasConsent("analytics")
-    setHasAnalyticsConsent(consent)
+    let consent = false
+    try {
+      // Check if user has given analytics consent
+      consent = hasConsent("analytics")
+      setHasAnalyticsConsent(consent)
+    } catch {
+      setHasAnalyticsConsent(false)
+    }
 
     if (debug) {
       console.log("Analytics consent status:", consent)
@@ -52,7 +57,6 @@ export default function ConditionalGTMScript({
     </>
   )
 }
-
 
 
 

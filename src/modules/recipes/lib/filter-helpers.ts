@@ -9,6 +9,8 @@ export type FilterOptions = {
   dietaryTags: string[]
 }
 
+const DIFFICULTY_ORDER = ["easy", "medium", "hard", "advanced"]
+
 export function extractFilterOptions(recipes: any[]): FilterOptions {
   const categories = new Map<string, { Name: string; Slug: string }>()
   const difficulties = new Set<string>()
@@ -28,14 +30,23 @@ export function extractFilterOptions(recipes: any[]): FilterOptions {
     }
   })
 
+  const sortedDifficulties = Array.from(difficulties).sort((a, b) => {
+    const aIndex = DIFFICULTY_ORDER.indexOf(a.toLowerCase())
+    const bIndex = DIFFICULTY_ORDER.indexOf(b.toLowerCase())
+
+    if (aIndex !== -1 || bIndex !== -1) {
+      return (aIndex === -1 ? 99 : aIndex) - (bIndex === -1 ? 99 : bIndex)
+    }
+
+    return a.localeCompare(b)
+  })
+
   return {
     categories: Array.from(categories.values()).sort((a, b) =>
       a.Name.localeCompare(b.Name)
     ),
     cookingMethods: [],
-    difficulties: ["Easy", "Medium", "Advanced"].filter((d) =>
-      difficulties.has(d)
-    ),
+    difficulties: sortedDifficulties,
     dietaryTags: [],
   }
 }
@@ -47,7 +58,10 @@ export function buildStrapiFilters(params: {
   dietary?: string
   search?: string
 }): Record<string, any> | undefined {
-  const filters: Record<string, any> = {}
+  const filters: Record<string, any> = {
+    Title: { notContainsi: "Recipe Title" },
+    ShortDescription: { notContainsi: "Etiam id nisi" },
+  }
 
   if (params.category) {
     filters.RecipeCategories = { Slug: { eq: params.category } }
@@ -62,5 +76,5 @@ export function buildStrapiFilters(params: {
     ]
   }
 
-  return Object.keys(filters).length > 0 ? filters : undefined
+  return filters
 }

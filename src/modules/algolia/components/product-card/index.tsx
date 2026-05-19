@@ -8,6 +8,7 @@ import { addToCart } from "@lib/data/cart"
 import { trackAddToCart } from "@lib/gtm"
 import { jitsuTrack } from "@lib/jitsu"
 import { formatProductPriceDisplay } from "@lib/util/price-display"
+import { dispatchCartUpdated } from "@lib/util/cart-events"
 import type { StrapiProductData } from "types/strapi"
 
 const ProductCard = ({ hit }: { hit: StrapiProductData }) => {
@@ -25,6 +26,7 @@ const ProductCard = ({ hit }: { hit: StrapiProductData }) => {
         quantity: 1,
         countryCode: "us",
       })
+      dispatchCartUpdated({ action: "add", variantId, quantity: 1 })
 
       toast.success("Added to cart", { description: hit.Title })
 

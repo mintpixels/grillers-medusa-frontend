@@ -1,199 +1,142 @@
 import Image from "next/image"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import AddBundleButton from "./add-bundle-button"
-import strapiClient from "@lib/strapi"
-import {
-  getProductsByHandles,
-  type StrapiCollectionProduct,
-} from "@lib/data/strapi/collections"
-import { enrichStrapiProductsWithMedusaPrices } from "@lib/data/products"
 import { sanitizeProductCopy } from "@lib/util/product-claims"
 import {
-  formatProductPriceDisplay,
-  type PriceDisplay,
-} from "@lib/util/price-display"
+  getCollectionProducts,
+  getCuratedCollections,
+  type CuratedCollection,
+} from "@lib/data/strapi/curated-collections"
+import { withTimeout } from "@lib/util/promise-timeout"
 import type { HttpTypes } from "@medusajs/types"
+import {
+  getCollectionSubstitutionGuardrails,
+  lineEstimatedTotal,
+  lineCartMetadata,
+  productPriceDisplay,
+} from "@lib/util/collection-substitutions"
 
-type BundleLineDef = {
-  handle: string
-  quantity: number
+function normalize(value?: unknown) {
+  if (value == null) return ""
+  return String(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9/]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
 }
 
-type BundleDef = {
-  id: string
-  eyebrow: string
-  title: string
-  copy: string
-  lines: BundleLineDef[]
+function asArray<T>(value: T[] | null | undefined): T[] {
+  return Array.isArray(value) ? value : []
 }
 
-const BUNDLES: BundleDef[] = [
-  {
-    id: "cholent",
-    eyebrow: "For the pot",
-    title: "Build a cholent basket",
-    copy: "Family-scale freezer staples for a proper Shabbos pot.",
-    lines: [
-      {
-        handle: "kishke-16-oz-not-pareve-uncooked-not-kosher-for-passover",
-        quantity: 2,
-      },
-      {
-        handle:
-          "1-lb-pack-ground-beef-8020-100-grass-fed-all-natural-no-hormones-no-antibiotics-uncooked-not-kosher-for-passover-1399pack",
-        quantity: 2,
-      },
-      { handle: "beef-fat-1-lb-500lb", quantity: 1 },
-      {
-        handle:
-          "boneless-shank-meat-ideal-for-cholent-or-soup-1-lb-american-angus-uncooked-kosher-for-passover-1249lb",
-        quantity: 2,
-      },
-      {
-        handle:
-          "meaty-bones-for-soupstew-or-cholent-12-15-piecespack-2-lb-american-angus-uncooked-kosher-for-passover-699lb",
-        quantity: 2,
-      },
-    ],
-  },
-  {
-    id: "shabbos",
-    eyebrow: "For Shabbos",
-    title: "Stock the Shabbos table",
-    copy: "Reliable mains for a full table without a second shopping trip.",
-    lines: [
-      {
-        handle:
-          "organic-chicken-8-piece-cutup-3-lb-uncooked-kosher-for-passover-882lb",
-        quantity: 1,
-      },
-      {
-        handle:
-          "8-piece-cutup-chicken-antibiotic-free-hormone-free-3-lb-uncooked-kosher-for-passover-vacuum-packed-kosher-for-passover-615lb",
-        quantity: 2,
-      },
-      {
-        handle:
-          "chicken-wings-david-elliot-chk-supervision-vacuum-packed-17-lb-kosher-for-passover-328lb",
-        quantity: 2,
-      },
-    ],
-  },
-  {
-    id: "grill",
-    eyebrow: "For the grill",
-    title: "Fire up the grill",
-    copy: "Family cookout quantities, not one-person sampler portions.",
-    lines: [
-      {
-        handle:
-          "grillers-pride-gourmet-beef-burger-patties-4x6-oz-uncooked-not-kosher-for-passover",
-        quantity: 2,
-      },
-      {
-        handle:
-          "marinated-ribeye-steaks-boneless-rich-and-tangy-uncooked-8-oz-dry-weight-not-kosher-for-passover",
-        quantity: 4,
-      },
-      {
-        handle:
-          "kosherbratz-classic-beef-and-lamb-grilling-sausages-no-nitrates-6-pcs-net-wt-24-oz-uncooked-not-kosher-for-passover",
-        quantity: 2,
-      },
-    ],
-  },
-]
-
-function productPriceDisplay(
-  product: StrapiCollectionProduct
-): PriceDisplay | null {
-  const variant = product.MedusaProduct?.Variants?.[0]
-  const price = variant?.Price?.CalculatedPriceNumber
-  if (typeof price !== "number") return null
-  return formatProductPriceDisplay(
-    price,
-    product.Metadata,
-    variant?.Sku,
-    (
-      product.MedusaProduct as
-        | { PricingMode?: "per_lb" | "fixed_price" }
-        | undefined
-    )?.PricingMode
+function currentProductText(
+  product: HttpTypes.StoreProduct,
+  strapiProductData?: any
+) {
+  const tags =
+    asArray(strapiProductData?.Categorization?.ProductTags)
+      .map((tag: any) => tag?.Name)
+      .filter(Boolean) || []
+  return normalize(
+    [
+      product.title,
+      product.handle,
+      product.description,
+      strapiProductData?.Title,
+      strapiProductData?.MedusaProduct?.Description,
+      ...tags,
+    ].join(" ")
   )
 }
 
-function lineTotal(product: StrapiCollectionProduct, quantity: number): number {
-  return (productPriceDisplay(product)?.estimatedPackPrice ?? 0) * quantity
+function scoreCollection(collection: CuratedCollection, currentText: string) {
+  let score = collection.IsFeatured ? 8 : 0
+  score += Math.max(0, 200 - (collection.SortOrder || 100)) / 100
+
+  for (const keyword of asArray(collection.PdpMatchKeywords)) {
+    const normalizedKeyword = normalize(keyword)
+    if (normalizedKeyword && currentText.includes(normalizedKeyword))
+      score += 10
+  }
+
+  for (const rule of asArray(collection.RecommendationRules)) {
+    if (!rule || rule.Surface !== "pdp") continue
+    for (const keyword of asArray(rule.MatchKeywords)) {
+      const normalizedKeyword = normalize(keyword)
+      if (normalizedKeyword && currentText.includes(normalizedKeyword))
+        score += 6
+    }
+    score += Math.max(0, 200 - (rule.Priority || 100)) / 200
+  }
+
+  return score
 }
 
-function pickBundles(currentProduct: HttpTypes.StoreProduct): BundleDef[] {
-  const title = `${currentProduct.title || ""} ${
-    currentProduct.handle || ""
-  }`.toLowerCase()
-  if (title.includes("kishke") || title.includes("cholent")) {
-    return BUNDLES
-  }
-  if (
-    title.includes("ribeye") ||
-    title.includes("steak") ||
-    title.includes("boerie") ||
-    title.includes("grill")
-  ) {
-    return [BUNDLES[2], BUNDLES[0], BUNDLES[1]]
-  }
-  if (
-    title.includes("chicken") ||
-    title.includes("wing") ||
-    title.includes("cutup")
-  ) {
-    return [BUNDLES[1], BUNDLES[0], BUNDLES[2]]
-  }
-  return BUNDLES
+function prepareCollections(
+  collections: CuratedCollection[],
+  product: HttpTypes.StoreProduct,
+  strapiProductData?: any
+) {
+  const currentHandle = product.handle || ""
+  const currentText = currentProductText(product, strapiProductData)
+
+  return asArray(collections)
+    .map((collection) => {
+      const products = getCollectionProducts(collection).filter(
+        ({ Product }) =>
+          Product?.MedusaProduct?.Handle &&
+          Product.MedusaProduct.Handle !== currentHandle
+      )
+      return {
+        ...collection,
+        products,
+        score: scoreCollection(collection, currentText),
+      }
+    })
+    .filter((collection) => collection.products.length >= 2)
+    .sort(
+      (a, b) => b.score - a.score || (a.SortOrder || 999) - (b.SortOrder || 999)
+    )
+    .slice(0, 3)
 }
 
 export default async function PairsWellWith({
   product,
   countryCode,
+  strapiProductData,
 }: {
   product: HttpTypes.StoreProduct
   countryCode: string
+  strapiProductData?: any
 }) {
-  const orderedBundles = pickBundles(product)
-  const handles = Array.from(
-    new Set(orderedBundles.flatMap((b) => b.lines.map((line) => line.handle)))
-  )
-  const fetched = await getProductsByHandles(handles, strapiClient)
-  const enriched = await enrichStrapiProductsWithMedusaPrices(
-    fetched,
-    countryCode
-  )
-  const byHandle = new Map(
-    enriched.map((item) => [item.MedusaProduct?.Handle || "", item])
-  )
+  let collections: ReturnType<typeof prepareCollections> = []
+  try {
+    const curatedCollections = await withTimeout(
+      getCuratedCollections({
+        countryCode,
+        surface: "pdp",
+        customerState: "all",
+        limit: 12,
+      }),
+      1800,
+      [],
+      `PDP curated collections for ${product.handle || product.id}`
+    )
+    collections = prepareCollections(
+      curatedCollections,
+      product,
+      strapiProductData
+    )
+  } catch (error) {
+    console.error("Failed to render PDP curated collections:", {
+      productId: product.id,
+      handle: product.handle,
+      error,
+    })
+    return null
+  }
 
-  const currentHandle = product.handle || ""
-  const bundles = orderedBundles
-    .map((bundle) => ({
-      ...bundle,
-      products: bundle.lines
-        .map((line) => ({
-          product: byHandle.get(line.handle),
-          quantity: line.quantity,
-        }))
-        .filter(
-          (
-            line
-          ): line is { product: StrapiCollectionProduct; quantity: number } =>
-            Boolean(
-              line.product &&
-                line.product.MedusaProduct?.Handle !== currentHandle
-            )
-        ),
-    }))
-    .filter((bundle) => bundle.products.length >= 2)
-    .slice(0, 3)
-
-  if (bundles.length === 0) return null
+  if (collections.length === 0) return null
 
   return (
     <section className="bg-Scroll py-12 md:py-16">
@@ -208,47 +151,80 @@ export default async function PairsWellWith({
             </h2>
           </div>
           <p className="max-w-xl font-maison-neue text-p-md leading-relaxed text-Charcoal/70">
-            Curated baskets for the way customers actually cook: cholent,
-            Shabbos meals, and grilling.
+            Curated collections for the way customers actually cook: Shabbos,
+            weeknights, grilling, holidays, and first orders.
           </p>
         </div>
 
         <div className="grid gap-5 lg:grid-cols-3">
-          {bundles.map((bundle) => {
-            const items = bundle.products
-              .map((item) => ({
+          {collections.map((collection) => {
+            const substitutionGuardrails = getCollectionSubstitutionGuardrails(
+              collection.products
+            )
+            const quickAddDisabledReason =
+              substitutionGuardrails.needsBusinessReview
+                ? "This collection is temporarily unavailable while we confirm the final item mix."
+                : substitutionGuardrails.requiresAcknowledgement
+                ? "Review substitution details on the collection page before adding."
+                : undefined
+            const items = collection.products
+              .map((collectionItem) => ({
                 variantId:
-                  item.product.MedusaProduct?.Variants?.[0]?.VariantId || "",
-                title: item.product.Title,
-                quantity: item.quantity,
+                  collectionItem.Product.MedusaProduct?.Variants?.[0]
+                    ?.VariantId || "",
+                title:
+                  collectionItem.Product.Title ||
+                  collectionItem.Product.MedusaProduct?.Handle ||
+                  "",
+                quantity: collectionItem.Quantity || 1,
+                metadata: lineCartMetadata(collectionItem),
               }))
               .filter((item) => item.variantId)
-            const total = bundle.products.reduce(
-              (sum, item) => sum + lineTotal(item.product, item.quantity),
+            const total = collection.products.reduce(
+              (sum, item) =>
+                sum + lineEstimatedTotal(item.Product, item.Quantity || 1),
               0
             )
+            const occasion =
+              collection.Occasion && typeof collection.Occasion === "string"
+                ? collection.Occasion.replace(/_/g, " ")
+                : "recommended"
 
             return (
               <article
-                key={bundle.id}
+                key={collection.documentId || collection.Slug}
                 className="flex min-w-0 flex-col rounded-[5px] border border-Charcoal/10 bg-white"
               >
                 <div className="border-b border-Charcoal/10 p-5">
                   <p className="font-maison-neue-mono text-[11px] font-bold uppercase tracking-wide text-VibrantRed">
-                    {bundle.eyebrow}
+                    {collection.Eyebrow || occasion}
                   </p>
                   <h3 className="mt-2 font-gyst text-h4 font-bold leading-tight text-Charcoal">
-                    {bundle.title}
+                    {collection.Name || "Recommended picks"}
                   </h3>
-                  <p className="mt-2 font-maison-neue text-sm leading-relaxed text-Charcoal/70">
-                    {bundle.copy}
-                  </p>
+                  {collection.ShortDescription && (
+                    <p className="mt-2 font-maison-neue text-sm leading-relaxed text-Charcoal/70">
+                      {collection.ShortDescription}
+                    </p>
+                  )}
+                  {collection.Slug && (
+                    <LocalizedClientLink
+                      href={`/collections/${collection.Slug}`}
+                      className="mt-3 inline-flex font-maison-neue-mono text-[11px] font-bold uppercase tracking-wide text-Charcoal underline underline-offset-4"
+                    >
+                      View collection
+                    </LocalizedClientLink>
+                  )}
                 </div>
 
                 <div className="flex flex-1 flex-col divide-y divide-Charcoal/10">
-                  {bundle.products.map(({ product: item, quantity }) => {
-                    const imageUrl = item.FeaturedImage?.url
+                  {collection.products.map(({ Product: item, Quantity }) => {
+                    const imageUrl =
+                      typeof item.FeaturedImage?.url === "string"
+                        ? item.FeaturedImage.url
+                        : null
                     const price = productPriceDisplay(item)
+                    const lineTotal = lineEstimatedTotal(item, Quantity || 1)
                     const description = sanitizeProductCopy(
                       item.MedusaProduct?.ShortDescription,
                       {
@@ -276,24 +252,37 @@ export default async function PairsWellWith({
                         </div>
                         <div className="min-w-0">
                           <div className="flex min-w-0 items-start gap-2">
-                            {quantity > 1 && (
+                            {Quantity > 1 && (
                               <span className="mt-0.5 shrink-0 rounded-full bg-Gold/20 px-2 py-0.5 font-maison-neue-mono text-[10px] font-bold uppercase text-Charcoal">
-                                {quantity}x
+                                {Quantity}x
                               </span>
                             )}
                             <p className="line-clamp-2 font-maison-neue text-sm font-semibold leading-snug text-Charcoal">
-                              {item.Title}
+                              {item.Title || "Recommended product"}
                             </p>
                           </div>
-                          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+                          <div className="mt-1">
                             {price && (
-                              <span className="font-maison-neue-mono text-[11px] font-bold uppercase text-Charcoal/70">
-                                {price.primary}
-                                {price.primaryLabel && ` ${price.primaryLabel}`}
-                              </span>
+                              <div className="space-y-0.5">
+                                <span className="block font-maison-neue-mono text-[11px] font-bold uppercase leading-tight text-Charcoal/70">
+                                  {price.primary}
+                                  {price.primaryLabel &&
+                                    ` ${price.primaryLabel}`}
+                                </span>
+                                {price.secondary && (
+                                  <span className="block font-maison-neue text-xs leading-snug text-Charcoal/50">
+                                    {price.secondary}
+                                  </span>
+                                )}
+                                {Quantity > 1 && lineTotal > 0 && (
+                                  <span className="block font-maison-neue text-xs leading-snug text-Charcoal/50">
+                                    Line est. ${lineTotal.toFixed(2)}
+                                  </span>
+                                )}
+                              </div>
                             )}
                             {description && (
-                              <span className="line-clamp-1 font-maison-neue text-xs text-Charcoal/50">
+                              <span className="mt-1 block line-clamp-1 font-maison-neue text-xs text-Charcoal/50">
                                 {description}
                               </span>
                             )}
@@ -307,7 +296,7 @@ export default async function PairsWellWith({
                 <div className="border-t border-Charcoal/10 p-5">
                   <div className="mb-3 flex items-center justify-between gap-4">
                     <span className="font-maison-neue text-sm text-Charcoal/60">
-                      Family estimate
+                      Estimated subtotal
                     </span>
                     <span className="font-gyst text-h4 leading-none text-Charcoal">
                       ${total.toFixed(2)}
@@ -316,8 +305,10 @@ export default async function PairsWellWith({
                   <AddBundleButton
                     items={items}
                     countryCode={countryCode}
-                    bundleId={bundle.id}
-                    bundleTitle={bundle.title}
+                    bundleId={collection.documentId}
+                    bundleTitle={collection.Name}
+                    bundleSlug={collection.Slug}
+                    disabledReason={quickAddDisabledReason}
                   />
                 </div>
               </article>

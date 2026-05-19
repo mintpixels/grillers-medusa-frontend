@@ -75,7 +75,7 @@ const PaymentIcon = ({ method }: { method: string }) => {
 // Accepted payment methods
 const PAYMENT_METHODS = ["visa", "mastercard", "amex"]
 
-// Default social links — used as fallback when Strapi has none configured
+// Default social links used as fallback when Strapi has none configured
 const DEFAULT_SOCIAL_LINKS = [
   { id: "default-facebook", Platform: "facebook", Url: "https://www.facebook.com/GrillersPride" },
   { id: "default-instagram", Platform: "instagram", Url: "https://www.instagram.com/grillerspride/" },
@@ -83,6 +83,11 @@ const DEFAULT_SOCIAL_LINKS = [
 ]
 
 const FOOTER_ASSURANCE_LINKS = [
+  {
+    title: "Learning Hub",
+    description: "Cuts, cooking, and kosher meat education",
+    href: "/learn",
+  },
   {
     title: "Kashruth you can verify",
     description: "Hechsher and supervision details",
@@ -95,8 +100,23 @@ const FOOTER_ASSURANCE_LINKS = [
   },
   {
     title: "Need help ordering?",
-    description: "Call or email before checkout",
+    description: "Call or email for order help",
     href: "/customer-service",
+  },
+]
+
+const normalizeFooterUrl = (url?: string) => url?.replace(/\/+$/, "") || ""
+
+const DEFAULT_LEARNING_LINKS = [
+  {
+    id: "default-learning-hub",
+    Text: "Learning Hub",
+    Url: "/learn",
+  },
+  {
+    id: "default-recipe-hub",
+    Text: "Recipe Hub",
+    Url: "/recipes",
   },
 ]
 
@@ -166,9 +186,59 @@ export default async function Footer() {
     footer?.CopyrightText ||
     `© ${new Date().getFullYear()} Grillers Pride. All rights reserved.`
 
-  // Check what data we have available
-  const hasNavigationColumns = footer?.NavigationColumns && footer.NavigationColumns.length > 0
-  // Merge Strapi social links with defaults — Strapi entries take precedence,
+  const navigationColumns = (() => {
+    const sourceColumns = footer?.NavigationColumns ?? []
+    const existingLinks = sourceColumns.flatMap((column) => column.Links ?? [])
+    const learningLinks = DEFAULT_LEARNING_LINKS.map((defaultLink) => {
+      const existing = existingLinks.find(
+        (link) => normalizeFooterUrl(link.Url) === defaultLink.Url
+      )
+      return existing ?? defaultLink
+    })
+
+    const columns = sourceColumns.map((column) => ({
+      ...column,
+      Links: (column.Links ?? []).filter(
+        (link) => normalizeFooterUrl(link.Url) !== "/recipes"
+      ),
+    }))
+
+    const learningColumnIndex = columns.findIndex(
+      (column) =>
+        column.Title?.toLowerCase().includes("learn") ||
+        column.Links?.some((link) => normalizeFooterUrl(link.Url) === "/learn")
+    )
+
+    if (learningColumnIndex >= 0) {
+      return columns.map((column, index) => {
+        if (index !== learningColumnIndex) return column
+        const presentUrls = new Set(
+          (column.Links ?? []).map((link) => normalizeFooterUrl(link.Url))
+        )
+        return {
+          ...column,
+          Title: column.Title || "Learning",
+          Links: [
+            ...(column.Links ?? []),
+            ...learningLinks.filter(
+              (link) => !presentUrls.has(normalizeFooterUrl(link.Url))
+            ),
+          ],
+        }
+      })
+    }
+
+    return [
+      ...columns,
+      {
+        id: "default-learning",
+        Title: "Learning",
+        Links: learningLinks,
+      },
+    ]
+  })()
+  const hasNavigationColumns = navigationColumns.length > 0
+  // Merge Strapi social links with defaults. Strapi entries take precedence,
   // and any default platform missing from Strapi is appended so FB/IG/X are
   // always present in the footer.
   const socialLinks = (() => {
@@ -280,7 +350,7 @@ export default async function Footer() {
 
       <div className="border-b border-white/10">
         <div className="content-container py-5">
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
             {FOOTER_ASSURANCE_LINKS.map((item) => (
               <LocalizedClientLink
                 key={item.href}
@@ -309,10 +379,10 @@ export default async function Footer() {
 
       {/* Main Footer Content */}
       <div className="content-container">
-        <div className="py-12 lg:py-16">
+        <div className="py-10 lg:py-16">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-8">
             {/* Logo, Contact & Social Column */}
-            <div className="lg:col-span-4 flex flex-col gap-y-6">
+            <div className="order-2 flex flex-col gap-y-6 lg:order-1 lg:col-span-4">
               {/* Logo */}
               <Link href="/" className="inline-flex min-h-[44px] w-fit items-center">
                 <Image
@@ -386,17 +456,59 @@ export default async function Footer() {
 
             {/* Navigation Columns */}
             {hasNavigationColumns && (
-              <div className="lg:col-span-8">
-                <div className={`grid gap-8 ${
-                  footer.NavigationColumns.length === 1 
-                    ? 'grid-cols-1' 
-                    : footer.NavigationColumns.length === 2 
-                    ? 'grid-cols-2' 
-                    : footer.NavigationColumns.length === 3 
-                    ? 'grid-cols-2 md:grid-cols-3' 
-                    : 'grid-cols-2 md:grid-cols-4'
+              <div className="order-1 lg:order-2 lg:col-span-8">
+                <div className="lg:hidden">
+                  <div className="divide-y divide-white/10 border-y border-white/10">
+                    {navigationColumns.map((column) => (
+                      <details key={column.id} className="group">
+                        <summary className="flex min-h-[54px] cursor-pointer list-none items-center justify-between gap-4 py-3 font-rexton text-h6 uppercase tracking-wider text-white [&::-webkit-details-marker]:hidden">
+                          <span>{column.Title}</span>
+                          <svg
+                            className="h-4 w-4 shrink-0 text-Gold transition-transform group-open:rotate-180"
+                            viewBox="0 0 20 20"
+                            fill="none"
+                            aria-hidden="true"
+                          >
+                            <path
+                              d="M5 7.5L10 12.5L15 7.5"
+                              stroke="currentColor"
+                              strokeWidth="1.8"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                        </summary>
+                        {column.Links && column.Links.length > 0 && (
+                          <ul className="grid gap-1 pb-4">
+                            {column.Links.map((link) => (
+                              <li key={link.id}>
+                                <LocalizedClientLink
+                                  href={link.Url}
+                                  className="inline-flex min-h-[40px] items-center text-p-sm text-Pewter transition-colors hover:text-Gold"
+                                >
+                                  {link.Text}
+                                </LocalizedClientLink>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </details>
+                    ))}
+                  </div>
+                </div>
+
+                <div className={`hidden gap-8 lg:grid ${
+                  navigationColumns.length === 1
+                    ? 'grid-cols-1'
+                    : navigationColumns.length === 2
+                    ? 'grid-cols-2'
+                    : navigationColumns.length === 3
+                    ? 'grid-cols-3'
+                    : navigationColumns.length === 4
+                    ? 'grid-cols-4'
+                    : 'grid-cols-5'
                 }`}>
-                  {footer.NavigationColumns.map((column) => (
+                  {navigationColumns.map((column) => (
                     <div key={column.id} className="flex flex-col gap-y-4">
                       <h4 className="font-rexton text-h6 uppercase tracking-wider text-white">
                         {column.Title}

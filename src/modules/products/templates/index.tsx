@@ -45,7 +45,11 @@ const ProductTemplate: React.FC<ProductTemplateProps> = ({
         />
       </Suspense>
       <Suspense fallback={null}>
-        <PairsWellWith product={product} countryCode={countryCode} />
+        <PairsWellWith
+          product={product}
+          countryCode={countryCode}
+          strapiProductData={strapiProductData}
+        />
       </Suspense>
       <Suspense fallback={null}>
         <HowItWorksSection data={strapiCommonPdpData?.HowItWorks} />

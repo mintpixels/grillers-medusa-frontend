@@ -3,6 +3,7 @@ import strapiClient from "@lib/strapi"
 
 export type StrapiMedia = {
   url: string
+  name?: string | null
   width?: number
   height?: number
   alternativeText?: string | null
@@ -27,6 +28,24 @@ export type InfoFeatureCard = {
   Icon?: StrapiMedia | null
   Title: string
   Body?: string | null
+}
+
+export type InfoTableColumn = {
+  Label: string
+  Key: string
+  Alignment?: "left" | "center" | "right" | null
+  IsPrimary?: boolean | null
+}
+
+export type InfoTableRow = {
+  Label?: string | null
+  Cells?: Record<string, string | number | boolean | null> | null
+}
+
+export type InfoComparisonRow = {
+  Label: string
+  LeftValue: string
+  RightValue: string
 }
 
 export type InfoBodyComponent =
@@ -58,6 +77,25 @@ export type InfoBodyComponent =
       __typename: "ComponentSharedRichText"
       body?: string | null
     }
+  | {
+      __typename: "ComponentInfoTableBlock"
+      Heading?: string | null
+      Intro?: string | null
+      Columns?: InfoTableColumn[] | null
+      Rows?: InfoTableRow[] | null
+      MobilePresentation?: "scroll-table" | "cards" | "comparison" | null
+      Caption?: string | null
+    }
+  | {
+      __typename: "ComponentInfoComparisonTable"
+      Heading?: string | null
+      Intro?: string | null
+      DecisionLabel: string
+      LeftOptionLabel: string
+      RightOptionLabel: string
+      Rows?: InfoComparisonRow[] | null
+      Caption?: string | null
+    }
 
 export type LegalPageData = {
   Slug: string
@@ -88,6 +126,7 @@ export const GetLegalPageQuery = gql`
         Subhead
         Image {
           url
+          name
           width
           height
           alternativeText
@@ -109,6 +148,7 @@ export const GetLegalPageQuery = gql`
           SectionBody: Body
           SectionImage: Image {
             url
+            name
             width
             height
             alternativeText
@@ -124,6 +164,7 @@ export const GetLegalPageQuery = gql`
             Body
             Icon {
               url
+              name
               width
               height
               alternativeText
@@ -133,6 +174,7 @@ export const GetLegalPageQuery = gql`
         ... on ComponentInfoImageBlock {
           BlockImage: Image {
             url
+            name
             width
             height
             alternativeText
@@ -143,6 +185,35 @@ export const GetLegalPageQuery = gql`
         }
         ... on ComponentSharedRichText {
           body
+        }
+        ... on ComponentInfoTableBlock {
+          Heading
+          Intro
+          Columns {
+            Label
+            Key
+            Alignment
+            IsPrimary
+          }
+          TableRows: Rows {
+            Label
+            Cells
+          }
+          MobilePresentation
+          Caption
+        }
+        ... on ComponentInfoComparisonTable {
+          Heading
+          Intro
+          DecisionLabel
+          LeftOptionLabel
+          RightOptionLabel
+          ComparisonRows: Rows {
+            Label
+            LeftValue
+            RightValue
+          }
+          Caption
         }
       }
       Content
@@ -261,6 +332,57 @@ function pageHasContent(page?: LegalPageData | null) {
   )
 }
 
+function flattenRichText(children?: any[]): string {
+  if (!Array.isArray(children)) return ""
+  return children
+    .map((child) => {
+      if (child?.type === "text") return child.text || ""
+      return flattenRichText(child?.children)
+    })
+    .join("")
+}
+
+function shouldDropEditorBlock(block: any) {
+  if (block?.type !== "paragraph") return false
+  return /managed in Strapi|Strapi-managed|Strapi managed/i.test(
+    flattenRichText(block.children)
+  )
+}
+
+function sanitizeLegalPage(page: LegalPageData): LegalPageData {
+  if (!Array.isArray(page.Body)) return page
+
+  return {
+    ...page,
+    Body: page.Body.map((block) => {
+      if (block.__typename === "ComponentInfoTableBlock") {
+        return {
+          ...block,
+          Rows: (block as any).TableRows || block.Rows,
+        }
+      }
+      if (block.__typename === "ComponentInfoComparisonTable") {
+        return {
+          ...block,
+          Rows: (block as any).ComparisonRows || block.Rows,
+        }
+      }
+      if (
+        block.__typename === "ComponentInfoSection" &&
+        Array.isArray(block.SectionBody)
+      ) {
+        return {
+          ...block,
+          SectionBody: block.SectionBody.filter(
+            (richBlock) => !shouldDropEditorBlock(richBlock)
+          ),
+        }
+      }
+      return block
+    }),
+  }
+}
+
 async function fetchLegalPage(slug: string): Promise<LegalPageData | null> {
   try {
     const data = await strapiClient.request<LegalPagesQueryResult>(
@@ -268,14 +390,16 @@ async function fetchLegalPage(slug: string): Promise<LegalPageData | null> {
       { slug }
     )
     const page = data?.legalPages?.[0]
-    if (pageHasContent(page)) return page!
+    if (pageHasContent(page)) return sanitizeLegalPage(page!)
   } catch {
     // Network or schema error — return null so the route 404s cleanly.
   }
   return null
 }
 
-export async function getLegalPage(slug: string): Promise<LegalPageData | null> {
+export async function getLegalPage(
+  slug: string
+): Promise<LegalPageData | null> {
   if (!isLegalSlug(slug)) return null
   const page = await fetchLegalPage(slug)
   if (page) return page

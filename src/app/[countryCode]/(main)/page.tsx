@@ -7,7 +7,7 @@ import BestsellersSection from "@modules/home/components/shop-bestsellers"
 import KosherPromiseSection from "@modules/home/components/kosher-promise"
 import WholesaleBand from "@modules/home/components/wholesale-band"
 import ShopCollectionsSection from "@modules/home/components/shop-collections"
-import TestimonialSection from "@modules/home/components/testimonial"
+import LearnEntrySection from "@modules/home/components/learn-entry"
 import FollowUsSection from "@modules/home/components/follow-us"
 import BlogExploreSection from "@modules/home/components/blog-explore"
 import ReorderRow from "@modules/home/components/reorder-row"
@@ -15,11 +15,14 @@ import HolidayBanner from "@modules/home/components/holiday-banner"
 import SpecialtyRow from "@modules/home/components/specialty-row"
 import DeliveryPromiseSection from "@modules/home/components/delivery-promise"
 import LazySection from "@modules/common/components/lazy-section"
-import { listCollections } from "@lib/data/collections"
 import { getRegion } from "@lib/data/regions"
 import { retrieveCustomer } from "@lib/data/customer"
-import { listOrders, listPurchaseHistory } from "@lib/data/orders"
-import { getProductsByMedusaIds, type StrapiCollectionProduct } from "@lib/data/strapi/collections"
+import { listPurchaseHistory } from "@lib/data/orders"
+import {
+  getProductsByMedusaIds,
+  type StrapiCollectionProduct,
+} from "@lib/data/strapi/collections"
+import { getCuratedCollectionCards } from "@lib/data/strapi/curated-collections"
 import strapiClient from "@lib/strapi"
 import { GetHomePageQuery, type HomePageData } from "@lib/data/strapi/home"
 import {
@@ -30,15 +33,20 @@ import {
 } from "@lib/data/strapi/global"
 import { generateAlternates } from "@lib/util/seo"
 import { getBaseURL } from "@lib/util/env"
+import { withTimeout } from "@lib/util/promise-timeout"
 
 type PageProps = {
   params: Promise<{ countryCode: string }>
 }
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: PageProps): Promise<Metadata> {
   const { countryCode } = await params
   try {
-    const strapiData = await strapiClient.request<HomePageData>(GetHomePageQuery)
+    const strapiData = await strapiClient.request<HomePageData>(
+      GetHomePageQuery
+    )
     const seo = strapiData?.home?.SEO
     const socialMeta = strapiData?.home?.SocialMeta
 
@@ -100,37 +108,55 @@ export default async function Home(props: {
 
   const { countryCode } = params
 
-  const region = await getRegion(countryCode)
+  const [region, customer, strapiData, globalData] = await Promise.all([
+    withTimeout(getRegion(countryCode), 1200, null, "home region"),
+    withTimeout(
+      retrieveCustomer().catch(() => null),
+      1000,
+      null,
+      "home customer"
+    ),
+    withTimeout(
+      strapiClient.request<HomePageData>(GetHomePageQuery).catch(() => null),
+      3000,
+      null,
+      "home Strapi data"
+    ),
+    withTimeout(
+      strapiClient.request<GlobalData>(GetGlobalQuery).catch(() => null),
+      1500,
+      null,
+      "home global data"
+    ),
+  ])
 
-  const { collections } = await listCollections({
-    fields: "id, handle, title",
-  })
-
-  if (!collections || !region) {
+  if (!region) {
     return null
   }
 
-  // Customer state for the conditional Hero CTA (#57). Both calls swallow
-  // errors — homepage must render for logged-out visitors too.
-  const customer = await retrieveCustomer().catch(() => null)
-  const orders = customer
-    ? await listOrders().catch(() => null)
-    : null
+  // Customer state for the conditional Hero CTA (#57). Legacy QuickBooks
+  // history counts here, not just native Medusa orders, so migrated customers
+  // immediately get the reorder path on first login.
   const isLoggedIn = !!customer
-  const hasOrders = (orders?.length || 0) > 0
   const customerZip =
     customer?.addresses?.find((address) => address.is_default_shipping)
       ?.postal_code ||
     customer?.addresses?.[0]?.postal_code ||
     null
 
-  // Reorder-row data: only fetch purchase history (and the Strapi enrichment
-  // for product images / clean titles) for logged-in customers with orders.
-  // Guests + zero-order accounts skip both calls so the homepage RSC stays
-  // fast for them. (#53)
-  const purchaseHistory = isLoggedIn && hasOrders
-    ? await listPurchaseHistory().catch(() => [])
-    : []
+  // Reorder-row data: fetch purchase history for logged-in customers. This
+  // combines native Medusa orders and the QuickBooks-backed legacy projection.
+  // Guests skip the call so the homepage RSC stays fast for them. (#53)
+  const purchaseHistory =
+    isLoggedIn
+      ? await withTimeout(
+          listPurchaseHistory().catch(() => []),
+          1200,
+          [],
+          "home purchase history"
+        )
+      : []
+  const hasOrders = purchaseHistory.length > 0
   const reorderStrapiMap: Record<string, StrapiCollectionProduct> = {}
   if (purchaseHistory.length > 0) {
     const ids = Array.from(
@@ -138,7 +164,12 @@ export default async function Home(props: {
     )
     if (ids.length > 0) {
       try {
-        const strapiProducts = await getProductsByMedusaIds(ids, strapiClient)
+        const strapiProducts = await withTimeout(
+          getProductsByMedusaIds(ids, strapiClient),
+          1200,
+          [],
+          "home reorder enrichment"
+        )
         for (const sp of strapiProducts) {
           if (sp.MedusaProduct?.ProductId) {
             reorderStrapiMap[sp.MedusaProduct.ProductId] = sp
@@ -150,14 +181,24 @@ export default async function Home(props: {
     }
   }
 
-  const strapiData = await strapiClient.request<HomePageData>(GetHomePageQuery)
-  
-  // Fetch global data for Organization JSON-LD
-  let globalData: GlobalData | null = null
-  try {
-    globalData = await strapiClient.request<GlobalData>(GetGlobalQuery)
-  } catch (error) {
-    console.error("Error fetching global data:", error)
+  const homeCuratedCollections = await withTimeout(
+    getCuratedCollectionCards({
+      surface: "homepage",
+      customerState: hasOrders ? "returning" : "guest_or_no_orders",
+      limit: 8,
+    }),
+    1800,
+    [],
+    "home curated collection cards"
+  )
+  const hasShopCollectionsSection = Boolean(
+    strapiData?.home?.Sections?.some(
+      (section: any) => section.__typename === "ComponentHomeShopCollections"
+    )
+  )
+  const fallbackCollectionsSection = {
+    CollectionsTitle: "Build a full table",
+    Collections: [],
   }
 
   const baseUrl = getBaseURL()
@@ -214,10 +255,17 @@ export default async function Home(props: {
                     countryCode={countryCode}
                   />
                 )}
-                <BestsellersSection
-                  data={section}
-                  countryCode={countryCode}
-                />
+                <BestsellersSection data={section} countryCode={countryCode} />
+                {!hasShopCollectionsSection && (
+                  <>
+                    <ShopCollectionsSection
+                      data={fallbackCollectionsSection}
+                      countryCode={countryCode}
+                      collections={homeCuratedCollections}
+                    />
+                    <LearnEntrySection />
+                  </>
+                )}
               </React.Fragment>
             )
           case "ComponentHomeKosherPromise":
@@ -238,17 +286,20 @@ export default async function Home(props: {
             )
           case "ComponentHomeShopCollections":
             return (
-              <ShopCollectionsSection key={section.__typename} data={section} />
+              <React.Fragment key={section.__typename}>
+                <ShopCollectionsSection
+                  data={section}
+                  countryCode={countryCode}
+                  collections={homeCuratedCollections}
+                />
+                <LearnEntrySection />
+              </React.Fragment>
             )
           case "ComponentHomeTestimonial":
-            // Lazy load testimonial section (typically below fold)
-            return isAboveFold ? (
-              <TestimonialSection key={section.__typename} data={section} />
-            ) : (
-              <LazySection key={section.__typename} minHeight="500px">
-                <TestimonialSection data={section} />
-              </LazySection>
-            )
+            // The oversized single-quote testimonial block is intentionally
+            // suppressed on the homepage. Real review proof should come back
+            // later as compact, sourced proof attached to shopping decisions.
+            return null
           case "ComponentHomeFollowUs":
             // Lazy load follow us section (typically below fold)
             return isAboveFold ? (
@@ -281,7 +332,9 @@ export default async function Home(props: {
       {organizationJsonLd && (
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(organizationJsonLd),
+          }}
         />
       )}
       <script

@@ -213,6 +213,8 @@ export type StrapiCollectionProduct = {
     RabbiTeitelbaum?: boolean
     CRC?: boolean
     Lubavitch?: boolean
+    QualifiesForFreeDeliveryOffers?: boolean
+    FreeDeliveryExclusionReason?: string
   }
   Categorization?: {
     ProductTags?: Array<{ Name: string }>
@@ -225,6 +227,8 @@ export type StrapiCollectionProduct = {
     Variants?: Array<{
       VariantId: string
       Sku?: string
+      QualifiesForFreeDeliveryOffers?: boolean | null
+      FreeDeliveryExclusionReason?: string | null
       Price?: {
         CalculatedPriceNumber: number
       }
@@ -316,6 +320,16 @@ export const GetProductsByTagQuery = gql`
         Meat
         Dairy
         CholovYisroel
+        ChassidishShchita
+        CHK
+        RabbiWeissmandl
+        OU
+        StarK
+        RabbiTeitelbaum
+        CRC
+        Lubavitch
+        QualifiesForFreeDeliveryOffers
+        FreeDeliveryExclusionReason
       }
       Categorization {
         ProductTags {
@@ -330,6 +344,8 @@ export const GetProductsByTagQuery = gql`
         Variants {
           VariantId
           Sku
+          QualifiesForFreeDeliveryOffers
+          FreeDeliveryExclusionReason
           Price {
             CalculatedPriceNumber
           }
@@ -423,6 +439,16 @@ export const GetProductsByCollectionSlugQuery = gql`
         Meat
         Dairy
         CholovYisroel
+        ChassidishShchita
+        CHK
+        RabbiWeissmandl
+        OU
+        StarK
+        RabbiTeitelbaum
+        CRC
+        Lubavitch
+        QualifiesForFreeDeliveryOffers
+        FreeDeliveryExclusionReason
       }
       Categorization {
         ProductTags {
@@ -437,6 +463,8 @@ export const GetProductsByCollectionSlugQuery = gql`
         Variants {
           VariantId
           Sku
+          QualifiesForFreeDeliveryOffers
+          FreeDeliveryExclusionReason
           Price {
             CalculatedPriceNumber
           }
@@ -446,33 +474,61 @@ export const GetProductsByCollectionSlugQuery = gql`
   }
 `
 
+const FUTURE_PRODUCT_FIELD_RE =
+  /^\s+(ChassidishShchita|CHK|RabbiWeissmandl|OU|StarK|RabbiTeitelbaum|CRC|Lubavitch|QualifiesForFreeDeliveryOffers|FreeDeliveryExclusionReason)\n/gm
+
+function legacyProductQuery(query: string): string {
+  return query.replace(FUTURE_PRODUCT_FIELD_RE, "")
+}
+
+const LegacyGetProductsByTagQuery = legacyProductQuery(GetProductsByTagQuery)
+const LegacyGetProductsByCollectionSlugQuery = legacyProductQuery(
+  GetProductsByCollectionSlugQuery
+)
+
+async function fetchPaginatedProducts(
+  client: any,
+  query: string,
+  variables: Record<string, unknown>,
+  pageSize = 100
+): Promise<StrapiCollectionProduct[]> {
+  let allProducts: StrapiCollectionProduct[] = []
+  let start = 0
+
+  while (true) {
+    const result = await client.request(query, {
+      ...variables,
+      limit: pageSize,
+      start,
+    })
+
+    const products = result.products || []
+    allProducts = allProducts.concat(products)
+
+    if (products.length < pageSize) break
+    start += pageSize
+  }
+
+  return allProducts
+}
+
 // Fetch all products by tag, paginating through all results
 export async function getProductsByTag(
   tagName: string,
   client: any
 ): Promise<StrapiCollectionProduct[]> {
-  const PAGE_SIZE = 100
-  let allProducts: StrapiCollectionProduct[] = []
-  let start = 0
-
   try {
-    while (true) {
-      const result = await client.request(GetProductsByTagQuery, {
-        tagName,
-        limit: PAGE_SIZE,
-        start,
-      })
-
-      const products = result.products || []
-      allProducts = allProducts.concat(products)
-
-      if (products.length < PAGE_SIZE) break
-      start += PAGE_SIZE
-    }
-
-    return allProducts
+    return fetchPaginatedProducts(client, GetProductsByTagQuery, { tagName })
   } catch (error) {
     console.error("Error fetching products by tag:", error)
+  }
+
+  try {
+    return fetchPaginatedProducts(client, LegacyGetProductsByTagQuery, {
+      tagName,
+    })
+  } catch (error) {
+    console.error("Error fetching legacy products by tag:", error)
     return []
   }
 }
@@ -482,28 +538,22 @@ export async function getProductsByCollectionSlug(
   slug: string,
   client: any
 ): Promise<StrapiCollectionProduct[]> {
-  const PAGE_SIZE = 100
-  let allProducts: StrapiCollectionProduct[] = []
-  let start = 0
-
   try {
-    while (true) {
-      const result = await client.request(GetProductsByCollectionSlugQuery, {
-        slug,
-        limit: PAGE_SIZE,
-        start,
-      })
-
-      const products = result.products || []
-      allProducts = allProducts.concat(products)
-
-      if (products.length < PAGE_SIZE) break
-      start += PAGE_SIZE
-    }
-
-    return allProducts
+    return fetchPaginatedProducts(client, GetProductsByCollectionSlugQuery, {
+      slug,
+    })
   } catch (error) {
     console.error("Error fetching products by collection slug:", error)
+  }
+
+  try {
+    return fetchPaginatedProducts(
+      client,
+      LegacyGetProductsByCollectionSlugQuery,
+      { slug }
+    )
+  } catch (error) {
+    console.error("Error fetching legacy products by collection slug:", error)
     return []
   }
 }
@@ -588,6 +638,16 @@ export const GetProductsByMedusaIdsQuery = gql`
         Meat
         Dairy
         CholovYisroel
+        ChassidishShchita
+        CHK
+        RabbiWeissmandl
+        OU
+        StarK
+        RabbiTeitelbaum
+        CRC
+        Lubavitch
+        QualifiesForFreeDeliveryOffers
+        FreeDeliveryExclusionReason
       }
       Categorization {
         ProductTags {
@@ -602,6 +662,8 @@ export const GetProductsByMedusaIdsQuery = gql`
         Variants {
           VariantId
           Sku
+          QualifiesForFreeDeliveryOffers
+          FreeDeliveryExclusionReason
           Price {
             CalculatedPriceNumber
           }
@@ -610,6 +672,10 @@ export const GetProductsByMedusaIdsQuery = gql`
     }
   }
 `
+
+const LegacyGetProductsByMedusaIdsQuery = legacyProductQuery(
+  GetProductsByMedusaIdsQuery
+)
 
 // Fetch Strapi products by their Medusa product IDs
 export async function getProductsByMedusaIds(
@@ -628,6 +694,18 @@ export async function getProductsByMedusaIds(
     return result.products || []
   } catch (error) {
     console.error("Error fetching products by Medusa IDs:", error)
+  }
+
+  try {
+    const result = await client.request(LegacyGetProductsByMedusaIdsQuery, {
+      productIds,
+      limit: productIds.length,
+      start: 0,
+    })
+
+    return result.products || []
+  } catch (error) {
+    console.error("Error fetching legacy products by Medusa IDs:", error)
     return []
   }
 }
@@ -661,6 +739,16 @@ export const GetProductsByHandlesQuery = gql`
         Meat
         Dairy
         CholovYisroel
+        ChassidishShchita
+        CHK
+        RabbiWeissmandl
+        OU
+        StarK
+        RabbiTeitelbaum
+        CRC
+        Lubavitch
+        QualifiesForFreeDeliveryOffers
+        FreeDeliveryExclusionReason
       }
       Categorization { ProductTags { Name } }
       MedusaProduct {
@@ -671,12 +759,30 @@ export const GetProductsByHandlesQuery = gql`
         Variants {
           VariantId
           Sku
+          QualifiesForFreeDeliveryOffers
+          FreeDeliveryExclusionReason
           Price { CalculatedPriceNumber }
         }
       }
     }
   }
 `
+
+const LegacyGetProductsByHandlesQuery = legacyProductQuery(
+  GetProductsByHandlesQuery
+)
+
+function sortProductsByHandleOrder(
+  products: StrapiCollectionProduct[],
+  handles: string[]
+) {
+  const order = new Map(handles.map((h, i) => [h, i]))
+  return products.sort((a, b) => {
+    const ai = order.get(a.MedusaProduct?.Handle || "") ?? 999
+    const bi = order.get(b.MedusaProduct?.Handle || "") ?? 999
+    return ai - bi
+  })
+}
 
 export async function getProductsByHandles(
   handles: string[],
@@ -688,14 +794,18 @@ export async function getProductsByHandles(
     const products: StrapiCollectionProduct[] = result.products || []
     // Strapi doesn't preserve the input order — re-sort to match the curated
     // sequence so editors control the display order in Strapi.
-    const order = new Map(handles.map((h, i) => [h, i]))
-    return products.sort((a, b) => {
-      const ai = order.get(a.MedusaProduct?.Handle || "") ?? 999
-      const bi = order.get(b.MedusaProduct?.Handle || "") ?? 999
-      return ai - bi
-    })
+    return sortProductsByHandleOrder(products, handles)
   } catch (error) {
     console.error("Error fetching products by handles:", error)
+  }
+
+  try {
+    const result = await client.request(LegacyGetProductsByHandlesQuery, {
+      handles,
+    })
+    return sortProductsByHandleOrder(result.products || [], handles)
+  } catch (error) {
+    console.error("Error fetching legacy products by handles:", error)
     return []
   }
 }
@@ -778,6 +888,16 @@ export const GetProductsWithImagesQuery = gql`
         Meat
         Dairy
         CholovYisroel
+        ChassidishShchita
+        CHK
+        RabbiWeissmandl
+        OU
+        StarK
+        RabbiTeitelbaum
+        CRC
+        Lubavitch
+        QualifiesForFreeDeliveryOffers
+        FreeDeliveryExclusionReason
       }
       Categorization {
         ProductTags {
@@ -792,6 +912,8 @@ export const GetProductsWithImagesQuery = gql`
         Variants {
           VariantId
           Sku
+          QualifiesForFreeDeliveryOffers
+          FreeDeliveryExclusionReason
           Price {
             CalculatedPriceNumber
           }
@@ -800,6 +922,136 @@ export const GetProductsWithImagesQuery = gql`
     }
   }
 `
+
+const LegacyGetProductsWithImagesQuery = legacyProductQuery(
+  GetProductsWithImagesQuery
+)
+
+function normalizeLookupSku(value?: string | null) {
+  return value?.trim().toLowerCase() || ""
+}
+
+function productMatchesMedusaLookup(
+  product: StrapiCollectionProduct,
+  refs: {
+    productIds: Set<string>
+    variantIds: Set<string>
+    skus: Set<string>
+  }
+) {
+  const medusaProduct = product.MedusaProduct
+  if (!medusaProduct) return false
+
+  if (medusaProduct.ProductId && refs.productIds.has(medusaProduct.ProductId)) {
+    return true
+  }
+
+  return (medusaProduct.Variants || []).some((variant) => {
+    return (
+      (variant.VariantId && refs.variantIds.has(variant.VariantId)) ||
+      (variant.Sku && refs.skus.has(normalizeLookupSku(variant.Sku)))
+    )
+  })
+}
+
+function uniqueProductsByDocumentId(products: StrapiCollectionProduct[]) {
+  const seen = new Set<string>()
+  return products.filter((product) => {
+    const key = product.documentId || product.MedusaProduct?.ProductId
+    if (!key || seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
+
+export async function getProductsByMedusaLookupRefs(
+  input: {
+    productIds?: string[]
+    variantIds?: string[]
+    skus?: string[]
+  },
+  client: any
+): Promise<StrapiCollectionProduct[]> {
+  const productIds = Array.from(new Set((input.productIds || []).filter(Boolean)))
+  const variantIds = Array.from(new Set((input.variantIds || []).filter(Boolean)))
+  const skus = Array.from(
+    new Set((input.skus || []).map(normalizeLookupSku).filter(Boolean))
+  )
+
+  if (!productIds.length && !variantIds.length && !skus.length) {
+    return []
+  }
+
+  const refs = {
+    productIds: new Set(productIds),
+    variantIds: new Set(variantIds),
+    skus: new Set(skus),
+  }
+
+  const directProducts = productIds.length
+    ? await getProductsByMedusaIds(productIds, client)
+    : []
+  const directMatches = uniqueProductsByDocumentId(directProducts)
+
+  const hasMissingVariantMatch = variantIds.some(
+    (variantId) =>
+      !directMatches.some((product) =>
+        product.MedusaProduct?.Variants?.some(
+          (variant) => variant.VariantId === variantId
+        )
+      )
+  )
+  const hasMissingSkuMatch = skus.some(
+    (sku) =>
+      !directMatches.some((product) =>
+        product.MedusaProduct?.Variants?.some(
+          (variant) => normalizeLookupSku(variant.Sku) === sku
+        )
+      )
+  )
+
+  if (!hasMissingVariantMatch && !hasMissingSkuMatch) {
+    return directMatches
+  }
+
+  try {
+    const catalogProducts = await fetchPaginatedProducts(
+      client,
+      GetProductsWithImagesQuery,
+      {},
+      100
+    )
+    return uniqueProductsByDocumentId([
+      ...directMatches,
+      ...catalogProducts.filter((product) =>
+        productMatchesMedusaLookup(product, refs)
+      ),
+    ])
+  } catch (error) {
+    console.error("Error fetching products for Medusa lookup refs:", error)
+  }
+
+  try {
+    const catalogProducts = await fetchPaginatedProducts(
+      client,
+      LegacyGetProductsWithImagesQuery,
+      {},
+      100
+    )
+    return uniqueProductsByDocumentId([
+      ...directMatches,
+      ...catalogProducts.filter((product) =>
+        productMatchesMedusaLookup(product, refs)
+      ),
+    ])
+  } catch (error) {
+    console.error(
+      "Error fetching legacy products for Medusa lookup refs:",
+      error
+    )
+    return directMatches
+  }
+}
 
 // ── Cached pool of eligible products for "related products" ──
 // Fetches the full catalog once, caches in server memory, refreshes every 5 min.
@@ -828,20 +1080,22 @@ async function getEligibleProductPool(
   _cachePromise = (async () => {
     try {
       const PAGE_SIZE = 100
-      let allProducts: StrapiCollectionProduct[] = []
-      let start = 0
-
-      while (true) {
-        const result = await client.request(GetProductsWithImagesQuery, {
-          limit: PAGE_SIZE,
-          start,
-        })
-
-        const products = result.products || []
-        allProducts = allProducts.concat(products)
-
-        if (products.length < PAGE_SIZE) break
-        start += PAGE_SIZE
+      let allProducts: StrapiCollectionProduct[]
+      try {
+        allProducts = await fetchPaginatedProducts(
+          client,
+          GetProductsWithImagesQuery,
+          {},
+          PAGE_SIZE
+        )
+      } catch (error) {
+        console.error("Error building related products cache:", error)
+        allProducts = await fetchPaginatedProducts(
+          client,
+          LegacyGetProductsWithImagesQuery,
+          {},
+          PAGE_SIZE
+        )
       }
 
       // Filter to only those with both a FeaturedImage and at least one GalleryImage

@@ -135,6 +135,19 @@ export function getFreeShippingState(input: {
     }
   }
 
+  if (!input.fulfillmentType && !input.shipState) {
+    return {
+      kind: "ambiguous",
+      threshold: null,
+      qualified: false,
+      remaining: 0,
+      remainingPercentage: 0,
+      isPlantPickup: false,
+      pickupBonusEarned: false,
+      pickupBonusRemaining: 0,
+    }
+  }
+
   // Atlanta delivery / Southeast pickup / in-region UPS Ground → $250.
   // National UPS Ground → $500.
   const inRegion =
@@ -200,16 +213,21 @@ export function freeShippingPlainText(input: {
     return "UPS Overnight is charged at the carrier rate."
   }
   if (s.qualified) {
-    return s.kind === "atlanta_delivery" || s.kind === "southeast_pickup" || s.kind === "in_region_ups"
-      ? "Your order qualifies for free delivery."
-      : "Your order ships free."
+    if (s.kind === "atlanta_delivery") return "Your order qualifies for free local delivery."
+    if (s.kind === "southeast_pickup") return "Your order qualifies for free regional pickup."
+    if (s.kind === "in_region_ups") return "Your order qualifies for the regional free-delivery threshold."
+    return "Your order qualifies for free UPS Ground shipping."
   }
   if (s.kind === "ambiguous") {
-    return "Free delivery on orders $250+ in the 7-state SE region. Free shipping nationwide at $500+."
+    return "Enter your ZIP or choose fulfillment to see whether free local delivery, regional pickup, or UPS shipping applies."
   }
   const label =
     s.kind === "national_ups"
-      ? "free shipping"
-      : "free delivery"
+      ? "free UPS Ground shipping"
+      : s.kind === "southeast_pickup"
+        ? "free regional pickup"
+        : s.kind === "atlanta_delivery"
+          ? "free local delivery"
+          : "the regional free-delivery threshold"
   return `You're ${fmt(s.remaining)} away from ${label}.`
 }

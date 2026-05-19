@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react"
 import { toggleFavoriteRecipe } from "@lib/data/favorites"
+import { trackRecipePrintOrSave } from "@lib/gtm"
 import LoginPromptModal from "./login-prompt-modal"
 
 type FavoriteButtonProps = {
@@ -40,6 +41,13 @@ export default function FavoriteButton({
       
       if (result.success) {
         setIsFavorited(result.isFavorited)
+        if (result.isFavorited) {
+          trackRecipePrintOrSave({
+            action: "save",
+            recipeSlug,
+            recipeTitle,
+          })
+        }
       } else {
         setError(result.error || "Failed to update favorite")
       }
@@ -156,5 +164,4 @@ export default function FavoriteButton({
     </>
   )
 }
-
 

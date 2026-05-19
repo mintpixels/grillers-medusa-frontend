@@ -10,6 +10,7 @@ import {
   getCartConversionState,
   type CartConversionState,
 } from "@lib/data/conversion"
+import { CART_UPDATED_EVENT } from "@lib/util/cart-events"
 import type { PurchaseHistoryItem } from "@lib/data/orders"
 
 import ProductDetail from "./components"
@@ -47,7 +48,7 @@ export default function ProductDetailContainer({
     inStock,
     isAdding,
     handleAddToCart,
-  } = useAddToCart(product, countryCode)
+  } = useAddToCart(product, countryCode, strapiProductData)
 
   const actionsRef = useRef<HTMLDivElement>(null)
   const inView = useIntersection(actionsRef, "0px")
@@ -66,6 +67,12 @@ export default function ProductDetailContainer({
     refreshCartConversion()
   }, [refreshCartConversion])
 
+  useEffect(() => {
+    window.addEventListener(CART_UPDATED_EVENT, refreshCartConversion)
+    return () =>
+      window.removeEventListener(CART_UPDATED_EVENT, refreshCartConversion)
+  }, [refreshCartConversion])
+
   const handleAddToCartAndRefresh = useCallback(async () => {
     await handleAddToCart()
     await refreshCartConversion()
@@ -74,30 +81,34 @@ export default function ProductDetailContainer({
   // Track view_item event when product is viewed
   useEffect(() => {
     if (product?.id) {
-      const price = selectedVariant?.calculated_price?.calculated_amount
-        ? selectedVariant.calculated_price.calculated_amount / 100
-        : undefined
-      
-      trackViewItem({
-        id: product.id,
-        title: product.title || '',
-        titleOverride: strapiProductData?.Title || undefined,
-        price,
-        currency: region?.currency_code?.toUpperCase() || 'USD',
-        category: product.collection?.title,
-        variant: selectedVariant?.title || undefined,
-      })
+      try {
+        const price = selectedVariant?.calculated_price?.calculated_amount
+          ? selectedVariant.calculated_price.calculated_amount / 100
+          : undefined
 
-      jitsuTrack("product_viewed", {
-        item_id: product.id,
-        item_name: strapiProductData?.Title || product.title || '',
-        variant_id: selectedVariant?.id,
-        price,
-        currency: region?.currency_code?.toUpperCase() || 'USD',
-        category: product.collection?.title,
-        kosher_type: product.metadata?.kosher_type as string | undefined,
-        cut_type: product.metadata?.cut_type as string | undefined,
-      })
+        trackViewItem({
+          id: product.id,
+          title: product.title || "",
+          titleOverride: strapiProductData?.Title || undefined,
+          price,
+          currency: region?.currency_code?.toUpperCase() || "USD",
+          category: product.collection?.title,
+          variant: selectedVariant?.title || undefined,
+        })
+
+        jitsuTrack("product_viewed", {
+          item_id: product.id,
+          item_name: strapiProductData?.Title || product.title || "",
+          variant_id: selectedVariant?.id,
+          price,
+          currency: region?.currency_code?.toUpperCase() || "USD",
+          category: product.collection?.title,
+          kosher_type: product.metadata?.kosher_type as string | undefined,
+          cut_type: product.metadata?.cut_type as string | undefined,
+        })
+      } catch (error) {
+        console.error("Failed to track PDP view:", error)
+      }
     }
   }, [product?.id]) // Only track once on mount
 

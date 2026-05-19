@@ -18,6 +18,9 @@ const MEDUSA_BACKEND_URL = (process.env.MEDUSA_BACKEND_URL || "").replace(
   ""
 )
 const ADMIN_TOKEN = process.env.MEDUSA_ADMIN_API_TOKEN
+const ADMIN_AUTH_HEADER = ADMIN_TOKEN
+  ? `Basic ${Buffer.from(`${ADMIN_TOKEN}:`).toString("base64")}`
+  : ""
 const STRAPI_BASE = (process.env.STRAPI_ENDPOINT || "").replace(/\/+$/, "")
 const STRAPI_API_TOKEN = process.env.STRAPI_API_TOKEN
 
@@ -134,7 +137,7 @@ async function fetchRecentlyDelivered(): Promise<DeliveredOrder[]> {
     `&created_at[$gte]=${encodeURIComponent(cutoff)}`
   try {
     const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${ADMIN_TOKEN}` },
+      headers: { Authorization: ADMIN_AUTH_HEADER },
       cache: "no-store",
     })
     if (!res.ok) {
@@ -185,7 +188,7 @@ async function medusaAdminJson(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${ADMIN_TOKEN}`,
+        Authorization: ADMIN_AUTH_HEADER,
       },
       body: JSON.stringify(body),
       cache: "no-store",

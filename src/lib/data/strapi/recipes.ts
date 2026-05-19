@@ -18,6 +18,7 @@ export type RecipeNutritionInfo = {
 }
 
 export type RecipeData = {
+  documentId?: string
   Title: string
   Slug: string
   ShortDescription?: string
@@ -30,6 +31,7 @@ export type RecipeData = {
   Ingredients?: { ingredient: string; id: string }[]
   Steps?: { id: string; instruction: string }[]
   Category?: RecipeCategory
+  RecipeCategories?: RecipeCategory[]
   CookingMethod?: string
   Difficulty?: string
   DietaryTags?: string[]
@@ -64,6 +66,10 @@ export const GetRecipeBySlugQuery = gql`
       CookTime
       Servings
       Difficulty
+      RecipeCategories {
+        Name
+        Slug
+      }
       VideoUrl
       AverageRating
       RatingCount
@@ -128,7 +134,15 @@ const RECIPE_CARD_FIELDS = `
     Name
     Slug
   }
+  TotalTime
+  PrepTime
+  CookTime
+  Servings
   Difficulty
+  Ingredients {
+    ingredient
+    id
+  }
 `
 
 export const GetPaginatedRecipesQuery = gql`
@@ -137,6 +151,34 @@ export const GetPaginatedRecipesQuery = gql`
       pagination: { page: $page, pageSize: $pageSize }
       sort: ["PublishedDate:desc"]
       status: PUBLISHED
+      filters: {
+        Title: { notContainsi: "Recipe Title" }
+        ShortDescription: { notContainsi: "Etiam id nisi" }
+      }
+    ) {
+      nodes {
+        ${RECIPE_CARD_FIELDS}
+      }
+      pageInfo {
+        page
+        pageSize
+        pageCount
+        total
+      }
+    }
+  }
+`
+
+export const GetRecipeHubRecipesPageQuery = gql`
+  query RecipeHubRecipesPage($page: Int!, $pageSize: Int!) {
+    recipes_connection(
+      pagination: { page: $page, pageSize: $pageSize }
+      sort: ["PublishedDate:desc"]
+      status: PUBLISHED
+      filters: {
+        Title: { notContainsi: "Recipe Title" }
+        ShortDescription: { notContainsi: "Etiam id nisi" }
+      }
     ) {
       nodes {
         ${RECIPE_CARD_FIELDS}
@@ -190,7 +232,14 @@ export const GetRecipeCategoriesQuery = gql`
 // Get distinct filter options from recipes
 export const GetRecipeFilterOptionsQuery = gql`
   query RecipeFilterOptions {
-    recipes(pagination: { limit: 100 }, status: PUBLISHED) {
+    recipes(
+      pagination: { limit: 100 }
+      status: PUBLISHED
+      filters: {
+        Title: { notContainsi: "Recipe Title" }
+        ShortDescription: { notContainsi: "Etiam id nisi" }
+      }
+    ) {
       RecipeCategories {
         Name
         Slug
@@ -356,7 +405,8 @@ export function generateRecipeJsonLd(
       video: {
         "@type": "VideoObject",
         name: `How to make ${recipe.Title}`,
-        description: recipe.ShortDescription || `Watch how to make ${recipe.Title}`,
+        description:
+          recipe.ShortDescription || `Watch how to make ${recipe.Title}`,
         contentUrl: recipe.VideoUrl,
         ...(recipe.Image?.url && { thumbnailUrl: recipe.Image.url }),
       },

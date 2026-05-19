@@ -104,6 +104,12 @@ async function getCountryCode(
  * Middleware to handle region selection and onboarding status.
  */
 export async function middleware(request: NextRequest) {
+  // Static files such as /robots.txt, /sitemap.xml, and /llms.txt should never
+  // pay the region lookup cost or receive a country redirect.
+  if (request.nextUrl.pathname.includes(".")) {
+    return NextResponse.next()
+  }
+
   let redirectUrl = request.nextUrl.href
 
   let response = NextResponse.redirect(redirectUrl, 307)
@@ -112,11 +118,21 @@ export async function middleware(request: NextRequest) {
 
   let cacheId = cacheIdCookie?.value || crypto.randomUUID()
 
-  const regionMap = await getRegionMap(cacheId)
+  let regionMap: Map<string, HttpTypes.StoreRegion | number>
+  try {
+    regionMap = await getRegionMap(cacheId)
+  } catch (error) {
+    // Do not let a transient Medusa /store/regions failure take down every
+    // storefront route at the edge. Page-level data loaders already have
+    // their own fallbacks; the middleware only needs enough information to
+    // keep localized URLs such as /us/... moving.
+    console.error("Middleware.ts: Region lookup failed; falling back to default region.", error)
+    regionMap = new Map([[DEFAULT_REGION, 1]])
+  }
 
   const countryCode = regionMap && (await getCountryCode(request, regionMap))
 
-  // Strict equality, not .includes() — otherwise a junk first segment like
+  // Strict equality, not .includes(). Otherwise a junk first segment like
   // "usasdasdasd" would substring-match "us" and middleware would let the
   // request through with that bogus value as countryCode, breaking Medusa
   // region lookups (prices vanish) and any LocalizedClientLink that reads
@@ -129,18 +145,17 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // if one of the country codes is in the url and the cache id is not set, set the cache id and redirect
+  // If the URL is already localized, set the cache cookie on the page response.
+  // Redirecting to the same URL creates a no-cookie crawl loop for simple bots
+  // and command-line clients.
   if (urlHasCountryCode && !cacheIdCookie) {
-    response.cookies.set("_medusa_cache_id", cacheId, {
+    const nextResponse = NextResponse.next()
+
+    nextResponse.cookies.set("_medusa_cache_id", cacheId, {
       maxAge: 60 * 60 * 24,
     })
 
-    return response
-  }
-
-  // check if the url is a static asset
-  if (request.nextUrl.pathname.includes(".")) {
-    return NextResponse.next()
+    return nextResponse
   }
 
   const redirectPath =

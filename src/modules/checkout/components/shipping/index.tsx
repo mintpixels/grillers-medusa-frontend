@@ -9,6 +9,7 @@ import { jitsuTrack } from "@lib/jitsu"
 import { useCartTitleMap } from "@lib/hooks/use-cart-title-map"
 
 import { HttpTypes } from "@medusajs/types"
+import type { AtlantaZipDayConfig } from "@lib/util/eligible-arrival-dates"
 import ErrorMessage from "@modules/checkout/components/error-message"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useState } from "react"
@@ -22,6 +23,7 @@ type ShippingProps = {
   cart: HttpTypes.StoreCart
   availableShippingMethods: HttpTypes.StoreCartShippingOption[] | null
   serverNowIso?: string
+  atlantaZipConfig?: Record<string, AtlantaZipDayConfig>
 }
 
 type ShippingOptionAddress = {
@@ -85,6 +87,7 @@ const Shipping: React.FC<ShippingProps> = ({
   cart,
   availableShippingMethods,
   serverNowIso,
+  atlantaZipConfig,
 }) => {
   const cartTitleMap = useCartTitleMap(cart?.items)
   const [isLoading, setIsLoading] = useState(false)
@@ -524,6 +527,7 @@ const Shipping: React.FC<ShippingProps> = ({
                         setError={setError}
                         availableShippingMethods={availableShippingMethods}
                         serverNowIso={serverNowIso}
+                        atlantaZipConfig={atlantaZipConfig}
                       />
                     </div>
                     <div className="w-3/5 flex flex-col gap-y-2 pt-8 pl-12">

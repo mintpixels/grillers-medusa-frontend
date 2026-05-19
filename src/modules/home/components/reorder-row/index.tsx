@@ -30,6 +30,17 @@ function lastOrderedLabel(iso: string): string {
   return years === 1 ? "Last ordered ~1 year ago" : `Last ordered ~${years} years ago`
 }
 
+function itemKey(item: PurchaseHistoryItem): string {
+  return (
+    item.key ||
+    item.variantId ||
+    item.productId ||
+    item.legacyItemId ||
+    item.sku ||
+    `${item.title}-${item.lastOrderedAt}`
+  )
+}
+
 export default function ReorderRow({
   history,
   strapiMap,
@@ -39,18 +50,23 @@ export default function ReorderRow({
 }: ReorderRowProps) {
   if (!history?.length) return null
 
-  // Deduplicate by productId, keeping the most-recently-ordered variant per
-  // product. listPurchaseHistory already returns items sorted recency-first
-  // so we just walk and skip duplicates.
-  const seenProducts = new Set<string>()
+  // Deduplicate by current product when possible. Legacy-only items may not
+  // have a current product yet, but should still direct customers to reorder.
+  const seen = new Set<string>()
   const cards: Array<{
+    key: string
     item: PurchaseHistoryItem
     strapi?: StrapiCollectionProduct
   }> = []
   for (const item of history) {
-    if (!item.productId || seenProducts.has(item.productId)) continue
-    seenProducts.add(item.productId)
-    cards.push({ item, strapi: strapiMap[item.productId] })
+    const key = item.productId ? `product:${item.productId}` : itemKey(item)
+    if (seen.has(key)) continue
+    seen.add(key)
+    cards.push({
+      key,
+      item,
+      strapi: item.productId ? strapiMap[item.productId] : undefined,
+    })
     if (cards.length >= maxCards) break
   }
 
@@ -78,7 +94,7 @@ export default function ReorderRow({
               Reorder your favorites
             </h2>
             <p className="text-p-md font-maison-neue text-Charcoal/70 mt-3 max-w-prose">
-              The cuts you've ordered before, ready to add to your cart.
+              The cuts you've ordered before, ready to add or request again.
             </p>
           </div>
           <LocalizedClientLink
@@ -108,7 +124,7 @@ export default function ReorderRow({
           className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 md:gap-6"
           role="list"
         >
-          {cards.map(({ item, strapi }) => {
+          {cards.map(({ key, item, strapi }) => {
             const handle = strapi?.MedusaProduct?.Handle
             const title =
               strapi?.Title || item.productTitle || item.title
@@ -119,7 +135,7 @@ export default function ReorderRow({
             const lastOrdered = lastOrderedLabel(item.lastOrderedAt)
             const href = handle ? `/products/${handle}` : "/account/reorder"
             return (
-              <li key={item.variantId}>
+              <li key={key}>
                 <LocalizedClientLink
                   href={href}
                   className="group block focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold focus-visible:ring-offset-2 rounded-sm"

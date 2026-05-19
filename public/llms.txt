@@ -1,0 +1,52 @@
+# Grillers Pride
+
+> Premium kosher butcher counter, deli, prepared foods, recipes, and education for customers ordering frozen delivery, local delivery, southeast pickup, and plant pickup.
+
+Canonical site: https://grillers-medusa-frontend.vercel.app
+Sitemap: https://grillers-medusa-frontend.vercel.app/sitemap.xml
+Robots: https://grillers-medusa-frontend.vercel.app/robots.txt
+
+## Core public pages
+
+- Home: https://grillers-medusa-frontend.vercel.app/us
+- Store: https://grillers-medusa-frontend.vercel.app/us/store
+- Search: https://grillers-medusa-frontend.vercel.app/us/search
+- Collections: https://grillers-medusa-frontend.vercel.app/us/collections
+- Learn hub: https://grillers-medusa-frontend.vercel.app/us/learn
+- Cut library: https://grillers-medusa-frontend.vercel.app/us/learn/cuts
+- Recipes: https://grillers-medusa-frontend.vercel.app/us/recipes
+- Customer service: https://grillers-medusa-frontend.vercel.app/us/customer-service
+
+## Ordering and fulfillment
+
+- UPS frozen delivery: https://grillers-medusa-frontend.vercel.app/us/shipping/ups
+- Local delivery: https://grillers-medusa-frontend.vercel.app/us/shipping/local-delivery
+- Southeast pickup: https://grillers-medusa-frontend.vercel.app/us/shipping/southeast-pickup
+- Plant pickup: https://grillers-medusa-frontend.vercel.app/us/shipping/plant-pickup
+- Holiday deadlines: https://grillers-medusa-frontend.vercel.app/us/holidays/order-deadlines
+
+## Kashruth and trust
+
+- Kashruth supervision: https://grillers-medusa-frontend.vercel.app/us/kashruth/supervision
+- Shchita and hechsherim: https://grillers-medusa-frontend.vercel.app/us/kashruth/hechsherim
+- Kosher for Passover: https://grillers-medusa-frontend.vercel.app/us/kashruth/passover
+
+## Product discovery
+
+Product pages follow this pattern:
+
+https://grillers-medusa-frontend.vercel.app/us/products/{product-handle}
+
+Each product page is intended to provide the product title, SKU, description, kosher and dietary claims, pack-size context, price, availability, product imagery, fulfillment context, and add-to-cart action.
+
+## Agent guidance
+
+Use public product, collection, recipe, learn, shipping, kashruth, and customer service pages as source material. Do not treat cart, checkout, account, order, or API URLs as public reference pages.
+
+Private or transactional paths:
+
+- /us/cart
+- /us/checkout
+- /us/account
+- /us/order
+- /api

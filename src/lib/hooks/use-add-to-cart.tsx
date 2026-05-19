@@ -8,6 +8,11 @@ import { addToCart } from "@lib/data/cart"
 import { trackAddToCart } from "@lib/gtm"
 import { jitsuTrack } from "@lib/jitsu"
 import { useProductTitle } from "@lib/hooks/use-product-title"
+import { dispatchCartUpdated } from "@lib/util/cart-events"
+import {
+  freeDeliveryEligibilityMetadata,
+  getProductFreeDeliveryEligibility,
+} from "@lib/util/free-delivery-eligibility"
 
 /**
  * Maps an array of variant options to a key/value object
@@ -26,7 +31,8 @@ const optionsAsKeymap = (
  */
 export function useAddToCart(
   product: HttpTypes.StoreProduct,
-  countryCode: string = "us"
+  countryCode: string = "us",
+  strapiProductData?: any
 ) {
   const strapiTitle = useProductTitle(product.id, product.title)
   const [quantity, setQuantity] = useState(1)
@@ -110,13 +116,27 @@ export function useAddToCart(
     }
     setIsAdding(true)
     try {
+      const eligibility = getProductFreeDeliveryEligibility(
+        strapiProductData,
+        selectedVariant?.sku
+      )
+      const metadata = {
+        ...(strapiTitle && strapiTitle !== product.title
+          ? { strapi_title: strapiTitle }
+          : {}),
+        ...freeDeliveryEligibilityMetadata(eligibility),
+      }
+
       await addToCart({
         variantId: selectedVariant.id,
         quantity,
         countryCode,
-        metadata: strapiTitle && strapiTitle !== product.title
-          ? { strapi_title: strapiTitle }
-          : undefined,
+        metadata: Object.keys(metadata).length ? metadata : undefined,
+      })
+      dispatchCartUpdated({
+        action: "add",
+        variantId: selectedVariant.id,
+        quantity,
       })
 
       const displayTitle = strapiTitle || product.title

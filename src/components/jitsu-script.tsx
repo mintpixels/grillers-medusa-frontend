@@ -11,20 +11,28 @@ export default function JitsuScript() {
 
   // Check consent on mount
   useEffect(() => {
-    const consent = hasConsent("analytics")
-    setHasAnalyticsConsent(consent)
+    try {
+      const consent = hasConsent("analytics")
+      setHasAnalyticsConsent(consent)
+    } catch {
+      setHasAnalyticsConsent(false)
+    }
   }, [])
 
   // Track page views on route changes
   useEffect(() => {
     if (hasAnalyticsConsent && pathname) {
-      jitsuPage({
-        url: typeof window !== "undefined" ? window.location.href : undefined,
-        path: pathname,
-        referrer:
-          typeof document !== "undefined" ? document.referrer : undefined,
-        title: typeof document !== "undefined" ? document.title : undefined,
-      })
+      try {
+        jitsuPage({
+          url: typeof window !== "undefined" ? window.location.href : undefined,
+          path: pathname,
+          referrer:
+            typeof document !== "undefined" ? document.referrer : undefined,
+          title: typeof document !== "undefined" ? document.title : undefined,
+        })
+      } catch {
+        // Analytics failures must not trip app route boundaries.
+      }
     }
   }, [pathname, hasAnalyticsConsent])
 
