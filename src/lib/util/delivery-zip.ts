@@ -9,6 +9,7 @@ export function normalizeDeliveryZip(value?: string | null): string {
 type AddressLike = {
   postal_code?: string | null
   is_default_shipping?: boolean | null
+  is_default_billing?: boolean | null
 }
 
 export function getAddressBookDeliveryZip(
@@ -18,6 +19,11 @@ export function getAddressBookDeliveryZip(
     addresses?.find((address) => address.is_default_shipping)?.postal_code
   )
   if (defaultShippingZip) return defaultShippingZip
+
+  const defaultBillingZip = normalizeDeliveryZip(
+    addresses?.find((address) => address.is_default_billing)?.postal_code
+  )
+  if (defaultBillingZip) return defaultBillingZip
 
   return normalizeDeliveryZip(addresses?.[0]?.postal_code)
 }

@@ -3,6 +3,7 @@
 import { sdk } from "@lib/config"
 import { getActiveStaffImpersonation } from "@lib/data/customer"
 import { adminFetch } from "@lib/data/staff/admin"
+import { normalizeDeliveryZip } from "@lib/util/delivery-zip"
 import medusaError from "@lib/util/medusa-error"
 import { getAuthHeaders, getCacheOptions } from "./cookies"
 import { HttpTypes } from "@medusajs/types"
@@ -90,7 +91,7 @@ async function listOrdersPage(
         order: "-created_at",
         customer_id: active.session.targetCustomerId,
         fields:
-          "*items,+items.metadata,*items.variant,*items.product,+metadata",
+          "*items,+items.metadata,*items.variant,*items.product,+metadata,*shipping_address,*billing_address",
         ...filters,
       },
     }).then((response) => ({
@@ -115,7 +116,7 @@ async function listOrdersPage(
         offset,
         order: "-created_at",
         fields:
-          "*items,+items.metadata,*items.variant,*items.product,+metadata",
+          "*items,+items.metadata,*items.variant,*items.product,+metadata,*shipping_address,*billing_address",
         ...filters,
       },
       headers,
@@ -136,6 +137,20 @@ export const listOrders = async (
 ) => {
   const { orders } = await listOrdersPage(limit, offset, filters)
   return orders || []
+}
+
+export async function getLatestOrderDeliveryZip(): Promise<string> {
+  const { orders } = await listOrdersPage(10, 0)
+
+  for (const order of orders || []) {
+    const shippingZip = normalizeDeliveryZip(order.shipping_address?.postal_code)
+    if (shippingZip) return shippingZip
+
+    const billingZip = normalizeDeliveryZip(order.billing_address?.postal_code)
+    if (billingZip) return billingZip
+  }
+
+  return ""
 }
 
 export async function listAllOrders(

@@ -16,8 +16,9 @@ import SpecialtyRow from "@modules/home/components/specialty-row"
 import DeliveryPromiseSection from "@modules/home/components/delivery-promise"
 import LazySection from "@modules/common/components/lazy-section"
 import { getRegion } from "@lib/data/regions"
+import { retrieveCart } from "@lib/data/cart"
 import { retrieveCustomer } from "@lib/data/customer"
-import { listPurchaseHistory } from "@lib/data/orders"
+import { getLatestOrderDeliveryZip, listPurchaseHistory } from "@lib/data/orders"
 import {
   getProductsByMedusaLookupRefs,
   type StrapiCollectionProduct,
@@ -34,6 +35,10 @@ import {
 import { generateAlternates } from "@lib/util/seo"
 import { getBaseURL } from "@lib/util/env"
 import { withTimeout } from "@lib/util/promise-timeout"
+import {
+  getAddressBookDeliveryZip,
+  normalizeDeliveryZip,
+} from "@lib/util/delivery-zip"
 
 type PageProps = {
   params: Promise<{ countryCode: string }>
@@ -112,7 +117,7 @@ export default async function Home(props: {
 
   const { countryCode } = params
 
-  const [region, customer, strapiData, globalData] = await Promise.all([
+  const [region, customer, cart, strapiData, globalData] = await Promise.all([
     withTimeout(getRegion(countryCode), 1200, null, "home region"),
     withTimeout(
       retrieveCustomer().catch(() => null),
@@ -120,6 +125,7 @@ export default async function Home(props: {
       null,
       "home customer"
     ),
+    withTimeout(retrieveCart().catch(() => null), 1000, null, "home cart"),
     withTimeout(
       strapiClient.request<HomePageData>(GetHomePageQuery).catch(() => null),
       3000,
@@ -142,11 +148,25 @@ export default async function Home(props: {
   // history counts here, not just native Medusa orders, so migrated customers
   // immediately get the reorder path on first login.
   const isLoggedIn = !!customer
-  const customerZip =
-    customer?.addresses?.find((address) => address.is_default_shipping)
-      ?.postal_code ||
-    customer?.addresses?.[0]?.postal_code ||
-    null
+  const cartZip = normalizeDeliveryZip(cart?.shipping_address?.postal_code)
+  const addressBookZip = getAddressBookDeliveryZip(customer?.addresses)
+  const latestOrderZip =
+    isLoggedIn && !cartZip && !addressBookZip
+      ? await withTimeout(
+          getLatestOrderDeliveryZip().catch(() => ""),
+          1000,
+          "",
+          "home latest order delivery zip"
+        )
+      : ""
+  const customerZip = cartZip || addressBookZip || latestOrderZip || null
+  const customerZipSource = cartZip
+    ? "cart"
+    : addressBookZip
+      ? "address"
+      : latestOrderZip
+        ? "recent_order"
+        : null
 
   // Reorder-row data: fetch purchase history for logged-in customers. This
   // combines native Medusa orders and the QuickBooks-backed legacy projection.
@@ -255,6 +275,7 @@ export default async function Home(props: {
                 <DeliveryPromiseSection
                   countryCode={countryCode}
                   customerZip={customerZip}
+                  customerZipSource={customerZipSource}
                   isLoggedIn={isLoggedIn}
                 />
                 <TrustBand customer={customer} phoneNumber={null} />
