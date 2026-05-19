@@ -1,6 +1,23 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useMemo, useState } from "react"
+import Image from "next/image"
+import {
+  CalendarDays,
+  Check,
+  ChevronRight,
+  Clock3,
+  History,
+  Minus,
+  PackageCheck,
+  Plus,
+  ReceiptText,
+  RotateCcw,
+  Search,
+  ShoppingCart,
+  SlidersHorizontal,
+  Trash2,
+} from "lucide-react"
 import {
   requestLegacyReorderAssistance,
   type LegacyCustomerOrder,
@@ -8,15 +25,55 @@ import {
 } from "@lib/data/orders"
 import { addToCart } from "@lib/data/cart"
 import { dispatchCartUpdated } from "@lib/util/cart-events"
+import {
+  freeDeliveryEligibilityMetadata,
+  getProductFreeDeliveryEligibility,
+} from "@lib/util/free-delivery-eligibility"
+import { formatProductPriceDisplay } from "@lib/util/price-display"
 import type { StrapiCollectionProduct } from "@lib/data/strapi/collections"
-import { ProductCard } from "@modules/collections/components/strapi-product-grid"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import { toast } from "@medusajs/ui"
 
-type SortOption = "recent" | "frequent" | "az" | "price"
-type DateFilter = "all" | "30" | "60" | "90"
+type SortOption = "due" | "recent" | "frequent" | "az" | "price"
+type DateFilter = "all" | "30" | "60" | "90" | "180"
 type RequestState = "idle" | "submitting" | "sent" | "error"
 type AddState = "idle" | "adding" | "added" | "error"
+type ActiveTab = "due" | "staples" | "orders" | "all"
+
+type HydratedHistoryItem = PurchaseHistoryItem & {
+  strapiProduct: StrapiCollectionProduct
+}
+
+type SelectionMap = Record<string, number>
+
+const RESTOCK_TABS: Array<{ id: ActiveTab; label: string }> = [
+  { id: "due", label: "Due again" },
+  { id: "staples", label: "Your staples" },
+  { id: "orders", label: "Past orders" },
+  { id: "all", label: "All purchased" },
+]
+
+const CATEGORY_RULES = [
+  { label: "Chicken", terms: ["chicken", "capons", "pullet"] },
+  { label: "Beef", terms: ["beef", "steak", "brisket", "burger", "rib"] },
+  { label: "Lamb & Veal", terms: ["lamb", "veal"] },
+  {
+    label: "Prepared",
+    terms: [
+      "pie",
+      "soup",
+      "kugel",
+      "fried",
+      "prepared",
+      "ready",
+      "cooked",
+      "heat",
+      "serve",
+    ],
+  },
+  { label: "Deli", terms: ["deli", "salami", "pastrami", "corned"] },
+  { label: "Pantry", terms: ["sauce", "spice", "marinade", "rub"] },
+]
 
 function historyKey(item: PurchaseHistoryItem) {
   return (
@@ -41,7 +98,7 @@ function itemTitle(
   const title = normalizedHistoryTitle(item.title)
   if (title) return title
 
-  return item.sku ? `Past purchase ${item.sku}` : "Past purchase"
+  return item.sku || "Historical item"
 }
 
 function normalizedHistoryTitle(value?: string | null) {
@@ -72,6 +129,27 @@ function lookupStrapiProductForHistory(
     (item.productId ? strapiMap[item.productId] : undefined) ||
     (item.variantId ? strapiMap[item.variantId] : undefined) ||
     (item.sku ? strapiMap[normalizedSku(item.sku)] : undefined)
+  )
+}
+
+function isRenderableCatalogProduct(
+  product?: StrapiCollectionProduct
+): product is StrapiCollectionProduct {
+  return Boolean(
+    product?.MedusaProduct?.Handle &&
+      product.MedusaProduct.Variants?.some((variant) => variant.VariantId)
+  )
+}
+
+function catalogHistoryKey(
+  item: PurchaseHistoryItem,
+  product: StrapiCollectionProduct
+) {
+  return (
+    product.documentId ||
+    product.MedusaProduct?.ProductId ||
+    product.MedusaProduct?.Handle ||
+    historyKey(item)
   )
 }
 
@@ -140,75 +218,755 @@ function historyUnitPriceForSort(item: PurchaseHistoryItem) {
   return item.unitPrice / 100
 }
 
-function LegacyOrdersSection({
+function getPrimaryVariant(product?: StrapiCollectionProduct) {
+  return product?.MedusaProduct?.Variants?.[0]
+}
+
+function itemVariantId(item: HydratedHistoryItem) {
+  const variants = item.strapiProduct.MedusaProduct?.Variants || []
+  const purchasedVariant = variants.find(
+    (variant) => variant.VariantId && variant.VariantId === item.variantId
+  )
+
+  return (
+    purchasedVariant?.VariantId ||
+    getPrimaryVariant(item.strapiProduct)?.VariantId ||
+    ""
+  )
+}
+
+function itemImage(item: HydratedHistoryItem) {
+  return (
+    item.strapiProduct?.FeaturedImage?.url ||
+    item.thumbnail ||
+    "https://placehold.co/320x320/f4f2ee/2b2928?text=GP"
+  )
+}
+
+function itemHandle(item: HydratedHistoryItem) {
+  return item.strapiProduct?.MedusaProduct?.Handle
+}
+
+function categoryForItem(item: HydratedHistoryItem) {
+  const title = itemTitle(item, item.strapiProduct).toLowerCase()
+  const sku = item.sku?.toLowerCase() || ""
+  const haystack = `${title} ${sku}`
+  const match = CATEGORY_RULES.find((rule) =>
+    rule.terms.some((term) => haystack.includes(term))
+  )
+
+  return match?.label || "Other"
+}
+
+function daysSince(value?: string | null) {
+  if (!value) return null
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return null
+
+  return Math.max(
+    0,
+    Math.round((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24))
+  )
+}
+
+function median(values: number[]) {
+  if (!values.length) return null
+  const sorted = [...values].sort((a, b) => a - b)
+  const mid = Math.floor(sorted.length / 2)
+  if (sorted.length % 2 === 0)
+    return Math.round((sorted[mid - 1] + sorted[mid]) / 2)
+  return sorted[mid]
+}
+
+function reorderCadence(orders: LegacyCustomerOrder[]) {
+  const timestamps = orders
+    .map((order) => new Date(order.placed_at || "").getTime())
+    .filter((time) => Number.isFinite(time))
+    .sort((a, b) => b - a)
+
+  if (timestamps.length < 2) return null
+
+  const gaps: number[] = []
+  for (let index = 0; index < timestamps.length - 1; index += 1) {
+    const diff = Math.round(
+      (timestamps[index] - timestamps[index + 1]) / (1000 * 60 * 60 * 24)
+    )
+    if (diff > 0) gaps.push(diff)
+  }
+
+  return median(gaps)
+}
+
+function typicalQuantity(item: PurchaseHistoryItem) {
+  const times = Math.max(1, item.timesOrdered || item.orderCount || 1)
+  const average = Math.round((Number(item.totalQuantity) || 1) / times)
+  return Math.min(Math.max(1, average), 24)
+}
+
+function dueScore(item: HydratedHistoryItem) {
+  const frequency = Math.max(item.timesOrdered || item.orderCount || 1, 1)
+  const quantity = Math.min(Number(item.totalQuantity) || 1, 20)
+  const days = daysSince(item.lastOrderedAt) || 0
+  const recencyNeed = days >= 21 ? Math.min(days / 7, 14) : days / 30
+  const mappedBoost = itemVariantId(item) ? 8 : 0
+
+  return frequency * 6 + quantity + recencyNeed + mappedBoost
+}
+
+function itemPriceNumber(item: HydratedHistoryItem) {
+  const productPrice = getPrimaryVariant(item.strapiProduct)?.Price
+    ?.CalculatedPriceNumber
+  if (typeof productPrice === "number" && Number.isFinite(productPrice)) {
+    return productPrice
+  }
+
+  const historyPrice = historyUnitPriceForSort(item)
+  return Number.isFinite(historyPrice) ? historyPrice : 0
+}
+
+function itemPriceLabel(item: HydratedHistoryItem) {
+  const variant = getPrimaryVariant(item.strapiProduct)
+  const price = variant?.Price?.CalculatedPriceNumber
+  if (
+    item.strapiProduct &&
+    typeof price === "number" &&
+    Number.isFinite(price)
+  ) {
+    const display = formatProductPriceDisplay(
+      Number(price),
+      item.strapiProduct.Metadata,
+      variant?.Sku,
+      (
+        item.strapiProduct.MedusaProduct as
+          | { PricingMode?: "per_lb" | "fixed_price" }
+          | undefined
+      )?.PricingMode
+    )
+    return `${display.primary}${
+      display.primaryLabel ? ` ${display.primaryLabel}` : ""
+    }`
+  }
+
+  const amount = itemPriceNumber(item)
+  return amount ? formatLegacyMoney(amount, item.currencyCode) : ""
+}
+
+function canAddItem(item: HydratedHistoryItem) {
+  return (
+    isRenderableCatalogProduct(item.strapiProduct) &&
+    Boolean(itemVariantId(item))
+  )
+}
+
+function itemMetadata(item: HydratedHistoryItem) {
+  const variant = getPrimaryVariant(item.strapiProduct)
+  const eligibility = item.strapiProduct
+    ? freeDeliveryEligibilityMetadata(
+        getProductFreeDeliveryEligibility(item.strapiProduct, variant?.Sku)
+      )
+    : {}
+
+  return {
+    ...eligibility,
+    source: "account_restock_hub",
+    legacy_purchase_history_key: historyKey(item),
+    legacy_item_id: item.legacyItemId || undefined,
+    legacy_sku: item.sku || undefined,
+    legacy_last_order_ref: item.lastOrderRef || undefined,
+  }
+}
+
+function itemMatchesSearch(item: HydratedHistoryItem, query: string) {
+  if (!query.trim()) return true
+  const q = query.toLowerCase()
+  const title = itemTitle(item, item.strapiProduct)
+
+  return (
+    title.toLowerCase().includes(q) ||
+    item.title.toLowerCase().includes(q) ||
+    (item.productTitle || "").toLowerCase().includes(q) ||
+    (item.sku || "").toLowerCase().includes(q) ||
+    (item.lastOrderRef || "").toLowerCase().includes(q) ||
+    categoryForItem(item).toLowerCase().includes(q)
+  )
+}
+
+function legacyOrderMatchesSearch(order: LegacyCustomerOrder, query: string) {
+  if (!query.trim()) return true
+  const q = query.toLowerCase()
+
+  return (
+    legacyOrderDisplayId(order).toLowerCase().includes(q) ||
+    formatLegacyDate(order.placed_at).toLowerCase().includes(q) ||
+    order.lines.some((line) =>
+      legacyLineDisplayTitle(line).toLowerCase().includes(q)
+    )
+  )
+}
+
+function legacyOrderMatchesDate(
+  order: LegacyCustomerOrder,
+  filter: DateFilter
+) {
+  if (filter === "all") return true
+  if (!order.placed_at) return false
+  const placedAt = new Date(order.placed_at)
+  if (Number.isNaN(placedAt.getTime())) return false
+
+  const cutoff = new Date(Date.now() - Number(filter) * 24 * 60 * 60 * 1000)
+  return placedAt >= cutoff
+}
+
+function sortItems(items: HydratedHistoryItem[], sort: SortOption) {
+  const sorted = [...items]
+
+  switch (sort) {
+    case "due":
+      sorted.sort((a, b) => dueScore(b) - dueScore(a))
+      break
+    case "recent":
+      sorted.sort(
+        (a, b) =>
+          new Date(b.lastOrderedAt).getTime() -
+          new Date(a.lastOrderedAt).getTime()
+      )
+      break
+    case "frequent":
+      sorted.sort(
+        (a, b) =>
+          (b.timesOrdered || b.orderCount || 0) -
+          (a.timesOrdered || a.orderCount || 0)
+      )
+      break
+    case "az":
+      sorted.sort((a, b) =>
+        itemTitle(a, a.strapiProduct).localeCompare(
+          itemTitle(b, b.strapiProduct)
+        )
+      )
+      break
+    case "price":
+      sorted.sort((a, b) => itemPriceNumber(a) - itemPriceNumber(b))
+      break
+  }
+
+  return sorted
+}
+
+function useHydratedHistory(
+  history: PurchaseHistoryItem[],
+  strapiMap: Record<string, StrapiCollectionProduct>
+) {
+  return useMemo(() => {
+    const seen = new Set<string>()
+    const items: HydratedHistoryItem[] = []
+
+    for (const h of history) {
+      const strapiProduct = lookupStrapiProductForHistory(h, strapiMap)
+      if (!isRenderableCatalogProduct(strapiProduct)) continue
+
+      const key = catalogHistoryKey(h, strapiProduct)
+      if (seen.has(key)) continue
+      seen.add(key)
+      items.push({ ...h, strapiProduct })
+    }
+
+    return items
+  }, [history, strapiMap])
+}
+
+function ItemThumb({ item }: { item: HydratedHistoryItem }) {
+  const title = itemTitle(item, item.strapiProduct)
+  const src = itemImage(item)
+
+  return (
+    <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-SilverPlate sm:h-24 sm:w-24">
+      <Image src={src} alt={title} fill className="object-cover" sizes="96px" />
+    </div>
+  )
+}
+
+function QuantityStepper({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: number
+  onChange: (value: number) => void
+  disabled?: boolean
+}) {
+  return (
+    <div className="inline-grid h-10 grid-cols-[36px_38px_36px] overflow-hidden rounded-[5px] border border-gray-200 bg-white">
+      <button
+        type="button"
+        className="inline-flex items-center justify-center text-Charcoal hover:bg-SilverPlate disabled:cursor-not-allowed disabled:text-Charcoal/25"
+        disabled={disabled || value <= 1}
+        onClick={() => onChange(Math.max(1, value - 1))}
+        aria-label="Decrease quantity"
+      >
+        <Minus className="h-3.5 w-3.5" />
+      </button>
+      <span className="inline-flex items-center justify-center border-x border-gray-200 text-sm font-maison-neue font-semibold text-Charcoal">
+        {value}
+      </span>
+      <button
+        type="button"
+        className="inline-flex items-center justify-center text-Charcoal hover:bg-SilverPlate disabled:cursor-not-allowed disabled:text-Charcoal/25"
+        disabled={disabled}
+        onClick={() => onChange(Math.min(99, value + 1))}
+        aria-label="Increase quantity"
+      >
+        <Plus className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  )
+}
+
+function RestockHero({
+  history,
+  legacyOrders,
+  selectedCount,
+  selectedCategories,
+  onSelectUsuals,
+  onRepeatLastOrder,
+  canRepeatLastOrder,
+}: {
+  history: HydratedHistoryItem[]
+  legacyOrders: LegacyCustomerOrder[]
+  selectedCount: number
+  selectedCategories: string[]
+  onSelectUsuals: () => void
+  onRepeatLastOrder: () => void
+  canRepeatLastOrder: boolean
+}) {
+  const cadence = reorderCadence(legacyOrders)
+  const latestOrder = legacyOrders
+    .filter((order) => order.placed_at)
+    .sort(
+      (a, b) =>
+        new Date(b.placed_at || "").getTime() -
+        new Date(a.placed_at || "").getTime()
+    )[0]
+  const categoryCount = new Set(history.map(categoryForItem)).size
+
+  return (
+    <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm small:p-6">
+      <div className="grid gap-5 large:grid-cols-[minmax(0,1fr)_auto] large:items-start">
+        <div className="min-w-0">
+          <p className="flex items-center gap-2 text-xs font-maison-neue-mono uppercase text-VibrantRed">
+            <PackageCheck className="h-3.5 w-3.5" />
+            Restock hub
+          </p>
+          <h2 className="mt-2 text-3xl font-gyst font-bold leading-tight text-Charcoal small:text-4xl">
+            Build from what you actually buy
+          </h2>
+          <p className="mt-3 max-w-2xl text-sm font-maison-neue leading-relaxed text-Charcoal/60 small:text-base">
+            Your history is organized into usuals, due-again items, and full
+            past orders so a long order history becomes a faster restock.
+          </p>
+        </div>
+
+        <div className="grid gap-2 xsmall:grid-cols-2 large:w-[360px]">
+          <button
+            type="button"
+            onClick={onSelectUsuals}
+            className="inline-flex min-h-[46px] items-center justify-center gap-2 rounded-[5px] bg-Gold px-4 py-3 text-sm font-rexton font-bold uppercase text-Charcoal transition-opacity hover:opacity-95"
+          >
+            <ShoppingCart className="h-4 w-4" />
+            Build usual cart
+          </button>
+          <button
+            type="button"
+            onClick={onRepeatLastOrder}
+            disabled={!canRepeatLastOrder}
+            className="inline-flex min-h-[46px] items-center justify-center gap-2 rounded-[5px] border border-Charcoal px-4 py-3 text-sm font-rexton font-bold uppercase text-Charcoal transition-colors hover:bg-Charcoal hover:text-white disabled:cursor-not-allowed disabled:border-Charcoal/25 disabled:text-Charcoal/35 disabled:hover:bg-transparent"
+          >
+            <RotateCcw className="h-4 w-4" />
+            Repeat last order
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-5 grid gap-3 sm:grid-cols-2 large:grid-cols-4">
+        <div className="rounded-lg bg-SilverPlate/45 p-4">
+          <p className="flex items-center gap-2 text-xs font-maison-neue-mono uppercase text-Charcoal/45">
+            <History className="h-3.5 w-3.5" />
+            History depth
+          </p>
+          <p className="mt-2 text-xl font-gyst font-bold text-Charcoal">
+            {legacyOrders.length || history.length}
+          </p>
+          <p className="text-xs font-maison-neue text-Charcoal/50">
+            {legacyOrders.length ? "past orders on file" : "items remembered"}
+          </p>
+        </div>
+        <div className="rounded-lg bg-SilverPlate/45 p-4">
+          <p className="flex items-center gap-2 text-xs font-maison-neue-mono uppercase text-Charcoal/45">
+            <Clock3 className="h-3.5 w-3.5" />
+            Usual rhythm
+          </p>
+          <p className="mt-2 text-xl font-gyst font-bold text-Charcoal">
+            {cadence ? `${cadence} days` : "Learning"}
+          </p>
+          <p className="text-xs font-maison-neue text-Charcoal/50">
+            {cadence
+              ? "typical gap between orders"
+              : "more orders sharpen this"}
+          </p>
+        </div>
+        <div className="rounded-lg bg-SilverPlate/45 p-4">
+          <p className="flex items-center gap-2 text-xs font-maison-neue-mono uppercase text-Charcoal/45">
+            <CalendarDays className="h-3.5 w-3.5" />
+            Last order
+          </p>
+          <p className="mt-2 text-xl font-gyst font-bold text-Charcoal">
+            {latestOrder ? formatLegacyDate(latestOrder.placed_at) : "On file"}
+          </p>
+          <p className="text-xs font-maison-neue text-Charcoal/50">
+            {latestOrder
+              ? `${
+                  latestOrder.customer_visible_line_count ??
+                  latestOrder.lines.length
+                } items`
+              : "from product history"}
+          </p>
+        </div>
+        <div className="rounded-lg bg-SilverPlate/45 p-4">
+          <p className="flex items-center gap-2 text-xs font-maison-neue-mono uppercase text-Charcoal/45">
+            <Check className="h-3.5 w-3.5" />
+            Restock cart
+          </p>
+          <p className="mt-2 text-xl font-gyst font-bold text-Charcoal">
+            {selectedCount} selected
+          </p>
+          <p className="truncate text-xs font-maison-neue text-Charcoal/50">
+            {selectedCategories.length
+              ? selectedCategories.join(", ")
+              : `${categoryCount} categories in history`}
+          </p>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function SearchAndFilters({
+  search,
+  sort,
+  dateFilter,
+  resultCount,
+  activeTab,
+  onSearchChange,
+  onSortChange,
+  onDateFilterChange,
+}: {
+  search: string
+  sort: SortOption
+  dateFilter: DateFilter
+  resultCount: number
+  activeTab: ActiveTab
+  onSearchChange: (value: string) => void
+  onSortChange: (value: SortOption) => void
+  onDateFilterChange: (value: DateFilter) => void
+}) {
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white p-3 small:p-4">
+      <div className="grid gap-3 small:grid-cols-[minmax(0,1fr)_160px_180px]">
+        <label className="relative block min-w-0">
+          <span className="sr-only">Search order history</span>
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-Charcoal/35" />
+          <input
+            type="text"
+            placeholder={
+              activeTab === "orders"
+                ? "Search invoices or order items..."
+                : "Search your past purchases..."
+            }
+            value={search}
+            onChange={(e) => onSearchChange(e.target.value)}
+            className="h-11 w-full rounded-lg border border-gray-200 bg-white pl-10 pr-4 text-sm font-maison-neue text-Charcoal outline-none transition-colors placeholder:text-Charcoal/35 focus:border-Gold focus:ring-1 focus:ring-Gold"
+          />
+        </label>
+
+        <label className="relative block">
+          <span className="sr-only">Date filter</span>
+          <select
+            value={dateFilter}
+            onChange={(e) => onDateFilterChange(e.target.value as DateFilter)}
+            className="h-11 w-full appearance-none rounded-lg border border-gray-200 bg-white px-3 pr-9 text-sm font-maison-neue text-Charcoal outline-none focus:border-Gold focus:ring-1 focus:ring-Gold"
+          >
+            <option value="all">All time</option>
+            <option value="30">Last 30 days</option>
+            <option value="60">Last 60 days</option>
+            <option value="90">Last 90 days</option>
+            <option value="180">Last 180 days</option>
+          </select>
+          <SlidersHorizontal className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-Charcoal/35" />
+        </label>
+
+        <label className="relative block">
+          <span className="sr-only">Sort history</span>
+          <select
+            value={sort}
+            onChange={(e) => onSortChange(e.target.value as SortOption)}
+            className="h-11 w-full appearance-none rounded-lg border border-gray-200 bg-white px-3 pr-9 text-sm font-maison-neue text-Charcoal outline-none focus:border-Gold focus:ring-1 focus:ring-Gold"
+          >
+            <option value="due">Most due</option>
+            <option value="recent">Most recent</option>
+            <option value="frequent">Most bought</option>
+            <option value="az">A - Z</option>
+            <option value="price">Price: low to high</option>
+          </select>
+          <SlidersHorizontal className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-Charcoal/35" />
+        </label>
+      </div>
+      <p className="mt-3 text-xs font-maison-neue text-Charcoal/45">
+        {resultCount} {activeTab === "orders" ? "order" : "item"}
+        {resultCount === 1 ? "" : "s"} found
+      </p>
+    </div>
+  )
+}
+
+function HistoryItemRow({
+  item,
+  selectedQuantity,
+  addState,
+  requestState,
+  onQuantityChange,
+  onToggleSelect,
+  onRequest,
+}: {
+  item: HydratedHistoryItem
+  selectedQuantity?: number
+  addState: AddState
+  requestState: RequestState
+  onQuantityChange: (quantity: number) => void
+  onToggleSelect: () => void
+  onRequest: () => void
+}) {
+  const key = historyKey(item)
+  const title = itemTitle(item, item.strapiProduct)
+  const category = categoryForItem(item)
+  const variantId = itemVariantId(item)
+  const selected = Boolean(selectedQuantity)
+  const handle = itemHandle(item)
+  const lastOrderedDays = daysSince(item.lastOrderedAt)
+  const staffAssisted = isStaffAssistedHistoryItem(item)
+  const requestLabel =
+    requestState === "submitting"
+      ? "Sending"
+      : requestState === "sent"
+      ? "Sent"
+      : "Ask staff"
+
+  return (
+    <article className="grid gap-3 rounded-xl border border-gray-200 bg-white p-3 shadow-sm transition-shadow hover:shadow-md small:grid-cols-[96px_minmax(0,1fr)_auto] small:items-center small:p-4">
+      {handle ? (
+        <LocalizedClientLink href={`/products/${handle}`} className="block">
+          <ItemThumb item={item} />
+        </LocalizedClientLink>
+      ) : (
+        <ItemThumb item={item} />
+      )}
+
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="rounded-full bg-SilverPlate px-2.5 py-1 text-[10px] font-maison-neue-mono uppercase text-Charcoal/60">
+            {category}
+          </span>
+          <span className="text-[11px] font-maison-neue text-Charcoal/45">
+            Last bought {formatLegacyDate(item.lastOrderedAt)}
+            {lastOrderedDays !== null ? ` (${lastOrderedDays} days ago)` : ""}
+          </span>
+        </div>
+
+        {handle ? (
+          <LocalizedClientLink href={`/products/${handle}`} className="block">
+            <h3 className="mt-2 text-lg font-gyst font-bold leading-tight text-Charcoal transition-colors hover:text-VibrantRed">
+              {title}
+            </h3>
+          </LocalizedClientLink>
+        ) : (
+          <h3 className="mt-2 text-lg font-gyst font-bold leading-tight text-Charcoal">
+            {title}
+          </h3>
+        )}
+
+        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs font-maison-neue text-Charcoal/55">
+          {itemPriceLabel(item) ? <span>{itemPriceLabel(item)}</span> : null}
+          <span>
+            Bought {item.timesOrdered || item.orderCount || 1} time
+            {(item.timesOrdered || item.orderCount || 1) === 1 ? "" : "s"}
+          </span>
+          {item.sku ? <span>SKU {item.sku}</span> : null}
+          {staffAssisted ? <span>Staff-assisted reorder</span> : null}
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 small:justify-end">
+        {variantId ? (
+          <>
+            <QuantityStepper
+              value={selectedQuantity || typicalQuantity(item)}
+              onChange={onQuantityChange}
+            />
+            <button
+              type="button"
+              onClick={onToggleSelect}
+              disabled={addState === "adding"}
+              className={`inline-flex min-h-[40px] min-w-[116px] items-center justify-center gap-2 rounded-[5px] px-4 py-2 text-xs font-rexton font-bold uppercase transition-colors disabled:cursor-not-allowed disabled:opacity-55 ${
+                selected
+                  ? "border border-Charcoal bg-Charcoal text-white"
+                  : "border border-Charcoal bg-white text-Charcoal hover:bg-Charcoal hover:text-white"
+              }`}
+            >
+              {selected ? (
+                <Check className="h-4 w-4" />
+              ) : (
+                <Plus className="h-4 w-4" />
+              )}
+              {selected ? "Selected" : "Select"}
+            </button>
+          </>
+        ) : (
+          <button
+            type="button"
+            onClick={onRequest}
+            disabled={requestState === "submitting" || requestState === "sent"}
+            className="inline-flex min-h-[40px] min-w-[116px] items-center justify-center rounded-[5px] border border-Charcoal px-4 py-2 text-xs font-rexton font-bold uppercase text-Charcoal transition-colors hover:bg-Charcoal hover:text-white disabled:cursor-not-allowed disabled:border-Charcoal/30 disabled:text-Charcoal/35 disabled:hover:bg-transparent"
+          >
+            {requestLabel}
+          </button>
+        )}
+      </div>
+      <span className="sr-only">{key}</span>
+    </article>
+  )
+}
+
+function EmptyState({ activeTab }: { activeTab: ActiveTab }) {
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white p-10 text-center">
+      <PackageCheck className="mx-auto h-12 w-12 text-Charcoal/20" />
+      <p className="mt-4 text-lg font-gyst font-bold text-Charcoal">
+        Nothing here yet
+      </p>
+      <p className="mx-auto mt-2 max-w-md text-sm font-maison-neue text-Charcoal/50">
+        {activeTab === "orders"
+          ? "We could not find matching past orders. Try a different search."
+          : "No products match this view. Try adjusting the search or filters."}
+      </p>
+    </div>
+  )
+}
+
+function PastOrdersTab({
   orders,
   totalCount,
+  search,
+  dateFilter,
   addStates,
   requestStates,
+  onAddOrder,
   onAddLine,
   onRequestLine,
 }: {
   orders: LegacyCustomerOrder[]
   totalCount?: number
+  search: string
+  dateFilter: DateFilter
   addStates: Record<string, AddState>
   requestStates: Record<string, RequestState>
+  onAddOrder: (order: LegacyCustomerOrder) => void
   onAddLine: (
     order: LegacyCustomerOrder,
     line: LegacyCustomerOrder["lines"][number]
   ) => void
   onRequestLine: (line: LegacyCustomerOrder["lines"][number]) => void
 }) {
-  const visibleOrders = orders.filter((order) => order.lines?.length)
-  if (!visibleOrders.length) return null
+  const visibleOrders = orders
+    .filter((order) => order.lines?.length)
+    .filter((order) => legacyOrderMatchesSearch(order, search))
+    .filter((order) => legacyOrderMatchesDate(order, dateFilter))
+
+  if (!visibleOrders.length) return <EmptyState activeTab="orders" />
 
   return (
-    <section className="rounded-xl border border-gray-200 bg-white p-4 small:p-5">
-      <div className="mb-4 flex flex-col gap-1 small:flex-row small:items-end small:justify-between">
-        <div>
-          <p className="text-xs font-maison-neue-mono uppercase text-Charcoal/45">
-            Older orders
+    <div className="space-y-3">
+      <div className="rounded-xl border border-gray-200 bg-white p-4">
+        <div className="flex flex-col gap-1 small:flex-row small:items-end small:justify-between">
+          <div>
+            <p className="text-xs font-maison-neue-mono uppercase text-Charcoal/45">
+              Order replay
+            </p>
+            <h2 className="text-2xl font-gyst font-bold text-Charcoal">
+              Start from a past order
+            </h2>
+          </div>
+          <p className="text-xs font-maison-neue text-Charcoal/45">
+            {visibleOrders.length}
+            {totalCount && totalCount > visibleOrders.length
+              ? ` of ${totalCount}`
+              : ""}{" "}
+            shown
           </p>
-          <h2 className="text-2xl font-gyst font-bold text-Charcoal">
-            Past orders
-          </h2>
         </div>
-        <p className="text-xs font-maison-neue text-Charcoal/45">
-          {visibleOrders.length}
-          {totalCount && totalCount > visibleOrders.length
-            ? ` of ${totalCount}`
-            : ""}{" "}
-          shown
-        </p>
       </div>
 
-      <div className="divide-y divide-gray-100 rounded-lg border border-gray-100">
-        {visibleOrders.map((order) => (
-          <details className="group" key={order.id}>
-            <summary className="flex cursor-pointer list-none flex-col gap-2 px-4 py-3 hover:bg-SilverPlate/30 small:flex-row small:items-center small:justify-between">
-              <span className="min-w-0">
-                <span className="block break-words text-sm font-maison-neue font-semibold text-Charcoal">
+      {visibleOrders.map((order) => {
+        const availableLines = order.lines.filter(
+          (line) => line.medusa_variant_id
+        )
+        const orderAdding = order.lines.some(
+          (line) => addStates[legacyLineStateKey(line)] === "adding"
+        )
+
+        return (
+          <article
+            className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
+            key={order.id}
+          >
+            <div className="grid gap-4 large:grid-cols-[minmax(0,1fr)_auto] large:items-start">
+              <div className="min-w-0">
+                <p className="flex items-center gap-2 text-xs font-maison-neue-mono uppercase text-Charcoal/45">
+                  <ReceiptText className="h-3.5 w-3.5" />
                   Invoice {legacyOrderDisplayId(order)}
-                </span>
-                <span className="block text-xs font-maison-neue text-Charcoal/55">
-                  {formatLegacyDate(order.placed_at)} |{" "}
-                  {order.status || "imported"} |{" "}
+                </p>
+                <h3 className="mt-2 text-xl font-gyst font-bold text-Charcoal">
+                  {formatLegacyDate(order.placed_at)}
+                </h3>
+                <p className="mt-1 text-sm font-maison-neue text-Charcoal/55">
+                  {order.status || "Imported"} |{" "}
                   {order.customer_visible_line_count ?? order.lines.length} item
                   {(order.customer_visible_line_count ?? order.lines.length) ===
                   1
                     ? ""
-                    : "s"}
-                </span>
-              </span>
-              <span className="shrink-0 text-left text-sm font-maison-neue font-semibold text-Charcoal small:text-right">
-                {formatLegacyMoney(order.total, order.currency_code)}
-              </span>
-            </summary>
+                    : "s"}{" "}
+                  | {formatLegacyMoney(order.total, order.currency_code)}
+                </p>
+              </div>
 
-            <div className="px-4 pb-4">
-              <ul className="space-y-2 border-t border-gray-100 pt-3">
-                {order.lines.map((line) => (
-                  <li
-                    className="grid gap-2 text-sm font-maison-neue text-Charcoal/75 small:grid-cols-[minmax(0,1fr)_90px_130px] small:items-start"
+              <button
+                type="button"
+                onClick={() => onAddOrder(order)}
+                disabled={!availableLines.length || orderAdding}
+                className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-[5px] bg-Gold px-4 py-2 text-xs font-rexton font-bold uppercase text-Charcoal transition-opacity hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-45"
+              >
+                <ShoppingCart className="h-4 w-4" />
+                Add available items
+              </button>
+            </div>
+
+            <div className="mt-4 divide-y divide-gray-100 rounded-lg border border-gray-100">
+              {order.lines.slice(0, 6).map((line) => {
+                const stateKey = legacyLineStateKey(line)
+                const lineAddState = addStates[stateKey] || "idle"
+                const lineRequestState = requestStates[stateKey] || "idle"
+
+                return (
+                  <div
+                    className="grid gap-2 px-3 py-3 text-sm font-maison-neue text-Charcoal/75 small:grid-cols-[minmax(0,1fr)_110px_132px] small:items-center"
                     key={line.id}
                   >
                     <span className="min-w-0 break-words">
@@ -227,217 +985,198 @@ function LegacyOrdersSection({
                         type="button"
                         onClick={() => onAddLine(order, line)}
                         disabled={
-                          addStates[legacyLineStateKey(line)] === "adding" ||
-                          addStates[legacyLineStateKey(line)] === "added"
+                          lineAddState === "adding" || lineAddState === "added"
                         }
-                        className="inline-flex min-h-[34px] items-center justify-center rounded-[5px] bg-Gold px-3 text-xs font-rexton font-bold uppercase text-Charcoal transition-opacity hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-55"
+                        className="inline-flex min-h-[34px] items-center justify-center rounded-[5px] border border-Charcoal px-3 text-xs font-rexton font-bold uppercase text-Charcoal transition-colors hover:bg-Charcoal hover:text-white disabled:cursor-not-allowed disabled:border-Charcoal/30 disabled:text-Charcoal/35 disabled:hover:bg-transparent"
                       >
-                        {addStates[legacyLineStateKey(line)] === "adding"
+                        {lineAddState === "adding"
                           ? "Adding"
-                          : addStates[legacyLineStateKey(line)] === "added"
+                          : lineAddState === "added"
                           ? "Added"
-                          : "Add"}
+                          : "Add line"}
                       </button>
                     ) : line.purchase_history_key ? (
                       <button
                         type="button"
                         onClick={() => onRequestLine(line)}
                         disabled={
-                          requestStates[legacyLineStateKey(line)] ===
-                            "submitting" ||
-                          requestStates[legacyLineStateKey(line)] === "sent"
+                          lineRequestState === "submitting" ||
+                          lineRequestState === "sent"
                         }
-                        className="inline-flex min-h-[34px] items-center justify-center rounded-[5px] border border-Charcoal px-3 text-xs font-rexton font-bold uppercase text-Charcoal transition-colors hover:bg-Charcoal hover:text-white disabled:cursor-not-allowed disabled:border-Charcoal/30 disabled:text-Charcoal/35"
+                        className="inline-flex min-h-[34px] items-center justify-center rounded-[5px] border border-Charcoal px-3 text-xs font-rexton font-bold uppercase text-Charcoal transition-colors hover:bg-Charcoal hover:text-white disabled:cursor-not-allowed disabled:border-Charcoal/30 disabled:text-Charcoal/35 disabled:hover:bg-transparent"
                       >
-                        {requestStates[legacyLineStateKey(line)] ===
-                        "submitting"
+                        {lineRequestState === "submitting"
                           ? "Sending"
-                          : requestStates[legacyLineStateKey(line)] === "sent"
+                          : lineRequestState === "sent"
                           ? "Sent"
-                          : "Ask Staff"}
+                          : "Ask staff"}
                       </button>
                     ) : (
                       <span className="text-xs font-maison-neue text-Charcoal/40 small:text-right">
                         On file
                       </span>
                     )}
-                  </li>
-                ))}
-              </ul>
+                  </div>
+                )
+              })}
             </div>
-          </details>
+
+            {order.lines.length > 6 ? (
+              <p className="mt-3 text-xs font-maison-neue text-Charcoal/45">
+                Showing 6 of {order.lines.length} items. Open order details from
+                your order history for the full receipt.
+              </p>
+            ) : null}
+          </article>
+        )
+      })}
+    </div>
+  )
+}
+
+function SelectionRail({
+  selectedItems,
+  selected,
+  gapItems,
+  isAdding,
+  onQuantityChange,
+  onRemove,
+  onAddSelected,
+  onSelectGapItem,
+}: {
+  selectedItems: HydratedHistoryItem[]
+  selected: SelectionMap
+  gapItems: HydratedHistoryItem[]
+  isAdding: boolean
+  onQuantityChange: (key: string, quantity: number) => void
+  onRemove: (key: string) => void
+  onAddSelected: () => void
+  onSelectGapItem: (item: HydratedHistoryItem) => void
+}) {
+  const subtotal = selectedItems.reduce((sum, item) => {
+    const key = historyKey(item)
+    return sum + itemPriceNumber(item) * (selected[key] || 1)
+  }, 0)
+  const categories = Array.from(new Set(selectedItems.map(categoryForItem)))
+
+  return (
+    <aside className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm large:sticky large:top-24">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-maison-neue-mono uppercase text-Charcoal/45">
+            Restock cart
+          </p>
+          <h2 className="mt-1 text-2xl font-gyst font-bold text-Charcoal">
+            {selectedItems.length} selected
+          </h2>
+        </div>
+        <ShoppingCart className="h-5 w-5 text-Charcoal/45" />
+      </div>
+
+      <div className="mt-4 rounded-lg bg-SilverPlate/45 p-3">
+        <p className="text-xs font-maison-neue-mono uppercase text-Charcoal/45">
+          Estimated subtotal
+        </p>
+        <p className="mt-1 text-3xl font-gyst text-Charcoal">
+          {formatLegacyMoney(subtotal, "usd") || "$0.00"}
+        </p>
+        <p className="mt-1 text-xs font-maison-neue text-Charcoal/50">
+          Final price and delivery threshold are confirmed at checkout.
+        </p>
+      </div>
+
+      {selectedItems.length ? (
+        <div className="mt-4 space-y-3">
+          {selectedItems.map((item) => {
+            const key = historyKey(item)
+            return (
+              <div
+                className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 border-b border-gray-100 pb-3 last:border-b-0"
+                key={key}
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-maison-neue font-semibold text-Charcoal">
+                    {itemTitle(item, item.strapiProduct)}
+                  </p>
+                  <p className="text-xs font-maison-neue text-Charcoal/45">
+                    {categoryForItem(item)}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onRemove(key)}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-full text-Charcoal/45 hover:bg-SilverPlate hover:text-Charcoal"
+                  aria-label="Remove item"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+                <div className="col-span-2">
+                  <QuantityStepper
+                    value={selected[key] || 1}
+                    onChange={(quantity) => onQuantityChange(key, quantity)}
+                    disabled={isAdding}
+                  />
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      ) : (
+        <div className="mt-4 rounded-lg border border-dashed border-gray-200 p-4 text-sm font-maison-neue text-Charcoal/55">
+          Select usuals or individual items to build a cart before adding
+          everything at once.
+        </div>
+      )}
+
+      <button
+        type="button"
+        onClick={onAddSelected}
+        disabled={!selectedItems.length || isAdding}
+        className="mt-4 inline-flex min-h-[46px] w-full items-center justify-center gap-2 rounded-[5px] bg-Gold px-4 py-3 text-sm font-rexton font-bold uppercase text-Charcoal transition-opacity hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-45"
+      >
+        <ShoppingCart className="h-4 w-4" />
+        {isAdding ? "Adding items" : "Add selected to cart"}
+      </button>
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        {categories.map((category) => (
+          <span
+            className="rounded-full bg-SilverPlate px-2.5 py-1 text-[10px] font-maison-neue-mono uppercase text-Charcoal/55"
+            key={category}
+          >
+            {category}
+          </span>
         ))}
       </div>
-    </section>
-  )
-}
 
-function LegacyHistoryCard({
-  item,
-  requestState,
-  onRequest,
-}: {
-  item: PurchaseHistoryItem
-  requestState: RequestState
-  onRequest: () => void
-}) {
-  const title = itemTitle(item)
-  const staffAssisted = isStaffAssistedHistoryItem(item)
-  const lastOrdered = formatLegacyDate(item.lastOrderedAt)
-  const phoneDisplay = "(770) 454-8108"
-  const phoneHref = "tel:+17704548108"
-  const requestLabel =
-    requestState === "submitting"
-      ? "Sending..."
-      : requestState === "sent"
-      ? "Request sent"
-      : "Ask staff to reorder"
-
-  return (
-    <div className="flex min-h-[260px] flex-col rounded-lg border border-gray-200 bg-white p-5">
-      <div className="mb-4 flex items-start justify-between gap-3">
-        <div>
+      {gapItems.length ? (
+        <div className="mt-5 border-t border-gray-100 pt-4">
           <p className="text-xs font-maison-neue-mono uppercase text-Charcoal/45">
-            {staffAssisted ? "Staff-assisted item" : "Past purchase"}
+            Round out this restock
           </p>
-          <h3 className="mt-2 text-xl font-gyst font-bold leading-tight text-Charcoal">
-            {title}
-          </h3>
-        </div>
-        <span className="shrink-0 rounded-full bg-SilverPlate px-3 py-1 text-xs font-maison-neue text-Charcoal/70">
-          Staff reorder
-        </span>
-      </div>
-
-      <dl className="mt-auto grid grid-cols-2 gap-x-4 gap-y-3 text-sm font-maison-neue">
-        {item.sku && (
-          <div>
-            <dt className="text-Charcoal/45">SKU</dt>
-            <dd className="text-Charcoal">{item.sku}</dd>
+          <div className="mt-3 space-y-2">
+            {gapItems.slice(0, 3).map((item) => (
+              <button
+                type="button"
+                onClick={() => onSelectGapItem(item)}
+                className="group flex w-full items-center justify-between gap-3 rounded-lg p-2 text-left transition-colors hover:bg-SilverPlate/60"
+                key={historyKey(item)}
+              >
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-maison-neue font-semibold text-Charcoal">
+                    {itemTitle(item, item.strapiProduct)}
+                  </span>
+                  <span className="block text-xs font-maison-neue text-Charcoal/45">
+                    {categoryForItem(item)}
+                  </span>
+                </span>
+                <ChevronRight className="h-4 w-4 shrink-0 text-Charcoal/35 group-hover:text-Charcoal" />
+              </button>
+            ))}
           </div>
-        )}
-        <div>
-          <dt className="text-Charcoal/45">Last ordered</dt>
-          <dd className="text-Charcoal">{lastOrdered}</dd>
         </div>
-        <div>
-          <dt className="text-Charcoal/45">Orders</dt>
-          <dd className="text-Charcoal">
-            {item.orderCount || item.timesOrdered}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-Charcoal/45">Quantity</dt>
-          <dd className="text-Charcoal">{item.totalQuantity}</dd>
-        </div>
-      </dl>
-
-      <div className="mt-5 border-t border-gray-100 pt-4">
-        <p className="text-sm font-maison-neue text-Charcoal/55">
-          {staffAssisted
-            ? "This historical item needs staff pricing before it can be reordered online."
-            : "This item is in your order history. Ask our staff to match it to today's catalog, or call us for immediate help."}
-        </p>
-        <div className="mt-3 flex flex-col gap-2 xsmall:flex-row">
-          <button
-            type="button"
-            onClick={onRequest}
-            disabled={requestState === "submitting" || requestState === "sent"}
-            className="inline-flex min-h-[42px] items-center justify-center rounded-[5px] bg-Charcoal px-4 py-2 text-sm font-rexton font-bold uppercase text-white transition-colors hover:bg-Charcoal/90 disabled:cursor-not-allowed disabled:bg-Charcoal/45"
-          >
-            {requestLabel}
-          </button>
-          <a
-            className="inline-flex min-h-[42px] items-center justify-center rounded-[5px] border border-Charcoal px-4 py-2 text-sm font-rexton font-bold uppercase text-Charcoal transition-colors hover:bg-Charcoal hover:text-white"
-            href={phoneHref}
-          >
-            Call {phoneDisplay}
-          </a>
-        </div>
-        {requestState === "sent" && (
-          <p className="mt-3 text-xs font-maison-neue text-Charcoal/50">
-            We saved this request with the matching order-history details.
-          </p>
-        )}
-      </div>
-    </div>
-  )
-}
-
-function MappedHistoryCard({
-  item,
-  addState,
-  onAdd,
-}: {
-  item: PurchaseHistoryItem
-  addState: AddState
-  onAdd: () => void
-}) {
-  const title = itemTitle(item)
-  const lastOrdered = formatLegacyDate(item.lastOrderedAt)
-  const addLabel =
-    addState === "adding"
-      ? "Adding..."
-      : addState === "added"
-      ? "Added"
-      : "Add to cart"
-
-  return (
-    <div className="flex min-h-[260px] flex-col rounded-lg border border-gray-200 bg-white p-5">
-      <div className="mb-4 flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-xs font-maison-neue-mono uppercase text-Charcoal/45">
-            Past purchase
-          </p>
-          <h3 className="mt-2 text-xl font-gyst font-bold leading-tight text-Charcoal">
-            {title}
-          </h3>
-        </div>
-        <span className="shrink-0 rounded-full bg-Gold px-3 py-1 text-xs font-maison-neue text-Charcoal/80">
-          Reorderable
-        </span>
-      </div>
-
-      <dl className="mt-auto grid grid-cols-2 gap-x-4 gap-y-3 text-sm font-maison-neue">
-        {item.sku && (
-          <div>
-            <dt className="text-Charcoal/45">SKU</dt>
-            <dd className="break-words text-Charcoal">{item.sku}</dd>
-          </div>
-        )}
-        <div>
-          <dt className="text-Charcoal/45">Last ordered</dt>
-          <dd className="text-Charcoal">{lastOrdered}</dd>
-        </div>
-        <div>
-          <dt className="text-Charcoal/45">Orders</dt>
-          <dd className="text-Charcoal">
-            {item.orderCount || item.timesOrdered}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-Charcoal/45">Quantity</dt>
-          <dd className="text-Charcoal">{item.totalQuantity}</dd>
-        </div>
-      </dl>
-
-      <div className="mt-5 border-t border-gray-100 pt-4">
-        <button
-          type="button"
-          onClick={onAdd}
-          disabled={
-            addState === "adding" || addState === "added" || !item.variantId
-          }
-          className="inline-flex min-h-[42px] w-full items-center justify-center rounded-[5px] bg-Gold px-4 py-2 text-sm font-rexton font-bold uppercase text-Charcoal transition-opacity hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-55"
-        >
-          {addLabel}
-        </button>
-        <p className="mt-3 text-xs font-maison-neue text-Charcoal/50">
-          This item is mapped from your historical orders and can be added
-          directly.
-        </p>
-      </div>
-    </div>
+      ) : null}
+    </aside>
   )
 }
 
@@ -454,51 +1193,180 @@ export default function ReorderBrowser({
   strapiMap: Record<string, StrapiCollectionProduct>
   countryCode: string
 }) {
+  const [activeTab, setActiveTab] = useState<ActiveTab>("due")
   const [search, setSearch] = useState("")
-  const [sort, setSort] = useState<SortOption>("recent")
+  const [sort, setSort] = useState<SortOption>("due")
   const [dateFilter, setDateFilter] = useState<DateFilter>("all")
+  const [selection, setSelection] = useState<SelectionMap>({})
+  const [bulkAdding, setBulkAdding] = useState(false)
   const [requestStates, setRequestStates] = useState<
     Record<string, RequestState>
   >({})
   const [addStates, setAddStates] = useState<Record<string, AddState>>({})
 
-  const handleMappedAddToCart = async (item: PurchaseHistoryItem) => {
+  const hydratedHistory = useHydratedHistory(history, strapiMap)
+  const reorderableItems = useMemo(
+    () => hydratedHistory.filter(canAddItem),
+    [hydratedHistory]
+  )
+  const selectedItems = useMemo(() => {
+    const selectedKeys = new Set(Object.keys(selection))
+    return hydratedHistory.filter((item) => selectedKeys.has(historyKey(item)))
+  }, [hydratedHistory, selection])
+  const selectedCategories = useMemo(
+    () => Array.from(new Set(selectedItems.map(categoryForItem))),
+    [selectedItems]
+  )
+
+  const dueItems = useMemo(
+    () => sortItems(reorderableItems, "due"),
+    [reorderableItems]
+  )
+  const stapleItems = useMemo(
+    () => sortItems(hydratedHistory, "frequent"),
+    [hydratedHistory]
+  )
+
+  const filteredItems = useMemo(() => {
+    const base =
+      activeTab === "due"
+        ? dueItems
+        : activeTab === "staples"
+        ? stapleItems
+        : hydratedHistory
+    const cutoff =
+      dateFilter === "all"
+        ? null
+        : new Date(Date.now() - Number(dateFilter) * 24 * 60 * 60 * 1000)
+
+    const filtered = base.filter((item) => {
+      if (!itemMatchesSearch(item, search)) return false
+      if (!cutoff) return true
+      return new Date(item.lastOrderedAt) >= cutoff
+    })
+
+    return sortItems(filtered, activeTab === "due" ? "due" : sort)
+  }, [
+    activeTab,
+    dateFilter,
+    dueItems,
+    hydratedHistory,
+    search,
+    sort,
+    stapleItems,
+  ])
+
+  const filteredLegacyOrderCount = useMemo(() => {
+    return legacyOrders
+      .filter((order) => order.lines?.length)
+      .filter((order) => legacyOrderMatchesSearch(order, search))
+      .filter((order) => legacyOrderMatchesDate(order, dateFilter)).length
+  }, [dateFilter, legacyOrders, search])
+
+  const gapItems = useMemo(() => {
+    const selectedKeys = new Set(Object.keys(selection))
+    const categories = new Set(selectedItems.map(categoryForItem))
+
+    return dueItems.filter((item) => {
+      const key = historyKey(item)
+      if (selectedKeys.has(key)) return false
+      if (!categories.size) return true
+      return !categories.has(categoryForItem(item))
+    })
+  }, [dueItems, selectedItems, selection])
+
+  const latestLegacyOrder = useMemo(() => {
+    return [...legacyOrders]
+      .filter((order) => order.lines?.length)
+      .sort(
+        (a, b) =>
+          new Date(b.placed_at || "").getTime() -
+          new Date(a.placed_at || "").getTime()
+      )[0]
+  }, [legacyOrders])
+
+  const setSelectedQuantity = (key: string, quantity: number) => {
+    setSelection((current) => {
+      if (!current[key]) return current
+      return { ...current, [key]: quantity }
+    })
+  }
+
+  const toggleItemSelection = (item: HydratedHistoryItem) => {
     const key = historyKey(item)
+    setSelection((current) => {
+      if (current[key]) {
+        const next = { ...current }
+        delete next[key]
+        return next
+      }
+
+      return { ...current, [key]: typicalQuantity(item) }
+    })
+  }
+
+  const selectUsuals = () => {
+    const usuals = dueItems.slice(0, 8)
+    if (!usuals.length) return
+
+    setSelection((current) => {
+      const next = { ...current }
+      for (const item of usuals) {
+        next[historyKey(item)] = next[historyKey(item)] || typicalQuantity(item)
+      }
+      return next
+    })
+    toast.success("Usuals selected", {
+      description: "Review quantities before adding them to your cart.",
+    })
+  }
+
+  const handleMappedAddToCart = async (
+    item: HydratedHistoryItem,
+    quantity: number
+  ) => {
+    const key = historyKey(item)
+    const variantId = itemVariantId(item)
     const current = addStates[key] || "idle"
-    if (current === "adding" || current === "added" || !item.variantId) {
-      return
-    }
+    if (current === "adding" || !variantId) return
 
     setAddStates((states) => ({ ...states, [key]: "adding" }))
 
     try {
       await addToCart({
-        variantId: item.variantId,
-        quantity: 1,
+        variantId,
+        quantity,
         countryCode,
-        metadata: {
-          source: "legacy_purchase_history",
-          legacy_purchase_history_key: key,
-          legacy_item_id: item.legacyItemId || undefined,
-          legacy_sku: item.sku || undefined,
-          legacy_last_order_ref: item.lastOrderRef || undefined,
-        },
+        metadata: itemMetadata(item),
       })
-      dispatchCartUpdated({
-        action: "add",
-        variantId: item.variantId,
-        quantity: 1,
-      })
+      dispatchCartUpdated({ action: "add", variantId, quantity })
       setAddStates((states) => ({ ...states, [key]: "added" }))
-      toast.success("Added to cart", {
-        description: itemTitle(item),
+    } catch (error) {
+      console.error("Failed to add history item to cart:", error)
+      setAddStates((states) => ({ ...states, [key]: "error" }))
+      throw error
+    }
+  }
+
+  const handleSelectedAddToCart = async () => {
+    if (!selectedItems.length || bulkAdding) return
+
+    setBulkAdding(true)
+    try {
+      for (const item of selectedItems) {
+        await handleMappedAddToCart(item, selection[historyKey(item)] || 1)
+      }
+      const count = selectedItems.length
+      setSelection({})
+      toast.success("Restock cart added", {
+        description: `${count} item${count === 1 ? "" : "s"} added to cart.`,
       })
     } catch (error) {
-      console.error("Failed to add legacy mapped item to cart:", error)
-      setAddStates((states) => ({ ...states, [key]: "error" }))
-      toast.error("Couldn't add to cart", {
-        description: "Please try again in a moment.",
+      toast.error("Couldn't add every item", {
+        description: "Some items may not have been added. Please try again.",
       })
+    } finally {
+      setBulkAdding(false)
     }
   }
 
@@ -516,12 +1384,13 @@ export default function ReorderBrowser({
       return
     }
 
+    const quantity = Math.max(1, Math.round(Number(line.quantity) || 1))
     setAddStates((states) => ({ ...states, [stateKey]: "adding" }))
 
     try {
       await addToCart({
         variantId: line.medusa_variant_id,
-        quantity: 1,
+        quantity,
         countryCode,
         metadata: {
           source: "legacy_order_line",
@@ -536,27 +1405,45 @@ export default function ReorderBrowser({
       dispatchCartUpdated({
         action: "add",
         variantId: line.medusa_variant_id,
-        quantity: 1,
+        quantity,
       })
       setAddStates((states) => ({ ...states, [stateKey]: "added" }))
-      toast.success("Added to cart", {
-        description: legacyLineDisplayTitle(line),
-      })
     } catch (error) {
       console.error("Failed to add legacy order line to cart:", error)
       setAddStates((states) => ({ ...states, [stateKey]: "error" }))
-      toast.error("Couldn't add to cart", {
-        description: "Please try again in a moment.",
+      throw error
+    }
+  }
+
+  const handleLegacyOrderAddToCart = async (order: LegacyCustomerOrder) => {
+    const availableLines = order.lines.filter((line) => line.medusa_variant_id)
+    if (!availableLines.length) return
+
+    try {
+      for (const line of availableLines) {
+        await handleLegacyLineAddToCart(order, line)
+      }
+      toast.success("Past order added", {
+        description: `${availableLines.length} available item${
+          availableLines.length === 1 ? "" : "s"
+        } added to cart.`,
+      })
+    } catch (error) {
+      toast.error("Couldn't add every item", {
+        description: "Some past-order items may not have been added.",
       })
     }
+  }
+
+  const repeatLastOrder = () => {
+    if (!latestLegacyOrder) return
+    handleLegacyOrderAddToCart(latestLegacyOrder)
   }
 
   const handleLegacyReorderRequest = async (item: PurchaseHistoryItem) => {
     const key = historyKey(item)
     const current = requestStates[key] || "idle"
-    if (current === "submitting" || current === "sent") {
-      return
-    }
+    if (current === "submitting" || current === "sent") return
 
     setRequestStates((states) => ({ ...states, [key]: "submitting" }))
 
@@ -586,9 +1473,7 @@ export default function ReorderBrowser({
   ) => {
     const stateKey = legacyLineStateKey(line)
     const current = requestStates[stateKey] || "idle"
-    if (current === "submitting" || current === "sent") {
-      return
-    }
+    if (current === "submitting" || current === "sent") return
 
     setRequestStates((states) => ({ ...states, [stateKey]: "submitting" }))
 
@@ -615,102 +1500,20 @@ export default function ReorderBrowser({
     })
   }
 
-  const filtered = useMemo(() => {
-    const seen = new Set<string>()
-    let items: Array<
-      PurchaseHistoryItem & { strapiProduct?: StrapiCollectionProduct }
-    > = []
-
-    for (const h of history) {
-      const key = historyKey(h)
-      if (seen.has(key)) continue
-      seen.add(key)
-      items.push({
-        ...h,
-        strapiProduct: lookupStrapiProductForHistory(h, strapiMap),
-      })
-    }
-
-    if (dateFilter !== "all") {
-      const days = parseInt(dateFilter)
-      const cutoff = new Date()
-      cutoff.setDate(cutoff.getDate() - days)
-      items = items.filter((i) => new Date(i.lastOrderedAt) >= cutoff)
-    }
-
-    if (search.trim()) {
-      const q = search.toLowerCase()
-      items = items.filter((i) => {
-        const title = itemTitle(i, i.strapiProduct)
-        return (
-          title.toLowerCase().includes(q) ||
-          i.title.toLowerCase().includes(q) ||
-          (i.sku || "").toLowerCase().includes(q) ||
-          (i.lastOrderRef || "").toLowerCase().includes(q)
-        )
-      })
-    }
-
-    switch (sort) {
-      case "recent":
-        items.sort(
-          (a, b) =>
-            new Date(b.lastOrderedAt).getTime() -
-            new Date(a.lastOrderedAt).getTime()
-        )
-        break
-      case "frequent":
-        items.sort((a, b) => b.timesOrdered - a.timesOrdered)
-        break
-      case "az":
-        items.sort((a, b) => {
-          const aTitle = itemTitle(a, a.strapiProduct)
-          const bTitle = itemTitle(b, b.strapiProduct)
-          return aTitle.localeCompare(bTitle)
-        })
-        break
-      case "price":
-        items.sort((a, b) => {
-          const aPrice =
-            a.strapiProduct?.MedusaProduct?.Variants?.[0]?.Price
-              ?.CalculatedPriceNumber ?? historyUnitPriceForSort(a)
-          const bPrice =
-            b.strapiProduct?.MedusaProduct?.Variants?.[0]?.Price
-              ?.CalculatedPriceNumber ?? historyUnitPriceForSort(b)
-          return aPrice - bPrice
-        })
-        break
-    }
-
-    return items
-  }, [history, search, sort, dateFilter, strapiMap])
-
   if (history.length === 0 && legacyOrders.length === 0) {
     return (
-      <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
-        <svg
-          className="w-16 h-16 mx-auto text-Charcoal/20 mb-4"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={1}
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182M2.985 19.644V14.652"
-          />
-        </svg>
-        <p className="text-lg font-gyst font-bold text-Charcoal mb-2">
+      <div className="rounded-xl border border-gray-200 bg-white p-12 text-center">
+        <RotateCcw className="mx-auto mb-4 h-16 w-16 text-Charcoal/20" />
+        <p className="mb-2 text-lg font-gyst font-bold text-Charcoal">
           No purchase history yet
         </p>
-        <p className="text-sm font-maison-neue text-Charcoal/50 mb-6">
-          Once you place an order, your products will appear here for easy
-          reordering.
+        <p className="mb-6 text-sm font-maison-neue text-Charcoal/50">
+          Once you place an order, your usuals and past purchases will appear
+          here for easier restocking.
         </p>
         <LocalizedClientLink
           href="/store"
-          className="inline-flex items-center gap-2 px-6 py-3 bg-Gold text-Charcoal font-rexton font-bold text-sm uppercase rounded-[5px] hover:bg-Gold/90 transition-colors"
+          className="inline-flex min-h-[44px] items-center gap-2 rounded-[5px] bg-Gold px-6 py-3 text-sm font-rexton font-bold uppercase text-Charcoal transition-colors hover:bg-Gold/90"
         >
           Browse Products
         </LocalizedClientLink>
@@ -720,111 +1523,157 @@ export default function ReorderBrowser({
 
   return (
     <div className="space-y-5">
-      <LegacyOrdersSection
-        orders={legacyOrders}
-        totalCount={legacyOrderCount}
-        addStates={addStates}
-        requestStates={requestStates}
-        onAddLine={handleLegacyLineAddToCart}
-        onRequestLine={handleLegacyLineReorderRequest}
+      <RestockHero
+        history={hydratedHistory}
+        legacyOrders={legacyOrders}
+        selectedCount={selectedItems.length}
+        selectedCategories={selectedCategories}
+        onSelectUsuals={selectUsuals}
+        onRepeatLastOrder={repeatLastOrder}
+        canRepeatLastOrder={Boolean(
+          latestLegacyOrder?.lines?.some((line) => line.medusa_variant_id)
+        )}
       />
 
-      {/* Search + Filters Bar */}
-      <div className="bg-white rounded-xl border border-gray-200 p-4">
-        <div className="flex flex-col small:flex-row gap-3">
-          <div className="relative flex-1">
-            <svg
-              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-Charcoal/40"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
-              />
-            </svg>
-            <input
-              type="text"
-              placeholder="Search your past purchases..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 text-sm font-maison-neue border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-Gold focus:border-Gold"
+      <div className="grid gap-5 large:grid-cols-[minmax(0,1fr)_330px]">
+        <div className="min-w-0 space-y-4">
+          <nav
+            className="flex gap-2 overflow-x-auto rounded-xl border border-gray-200 bg-white p-2"
+            aria-label="Reorder views"
+          >
+            {RESTOCK_TABS.map((tab) => (
+              <button
+                type="button"
+                key={tab.id}
+                onClick={() => {
+                  setActiveTab(tab.id)
+                  if (tab.id === "due") setSort("due")
+                  if (tab.id !== "due" && sort === "due") setSort("recent")
+                }}
+                className={`min-h-[40px] shrink-0 rounded-lg px-4 text-xs font-rexton font-bold uppercase transition-colors ${
+                  activeTab === tab.id
+                    ? "bg-Charcoal text-white"
+                    : "text-Charcoal/60 hover:bg-SilverPlate hover:text-Charcoal"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </nav>
+
+          <SearchAndFilters
+            search={search}
+            sort={sort}
+            dateFilter={dateFilter}
+            resultCount={
+              activeTab === "orders"
+                ? filteredLegacyOrderCount
+                : filteredItems.length
+            }
+            activeTab={activeTab}
+            onSearchChange={setSearch}
+            onSortChange={setSort}
+            onDateFilterChange={setDateFilter}
+          />
+
+          {activeTab === "orders" ? (
+            <PastOrdersTab
+              orders={legacyOrders}
+              totalCount={legacyOrderCount}
+              search={search}
+              dateFilter={dateFilter}
+              addStates={addStates}
+              requestStates={requestStates}
+              onAddOrder={handleLegacyOrderAddToCart}
+              onAddLine={async (order, line) => {
+                try {
+                  await handleLegacyLineAddToCart(order, line)
+                  toast.success("Added to cart", {
+                    description: legacyLineDisplayTitle(line),
+                  })
+                } catch {
+                  toast.error("Couldn't add to cart", {
+                    description: "Please try again in a moment.",
+                  })
+                }
+              }}
+              onRequestLine={handleLegacyLineReorderRequest}
             />
-          </div>
+          ) : filteredItems.length ? (
+            <div className="space-y-3">
+              {activeTab === "staples" ? (
+                <div className="rounded-xl border border-gray-200 bg-white p-4">
+                  <p className="text-xs font-maison-neue-mono uppercase text-Charcoal/45">
+                    Repeat favorites
+                  </p>
+                  <h2 className="mt-1 text-2xl font-gyst font-bold text-Charcoal">
+                    Organized by what you buy most
+                  </h2>
+                </div>
+              ) : activeTab === "due" ? (
+                <div className="rounded-xl border border-gray-200 bg-white p-4">
+                  <p className="text-xs font-maison-neue-mono uppercase text-Charcoal/45">
+                    Restock prompts
+                  </p>
+                  <h2 className="mt-1 text-2xl font-gyst font-bold text-Charcoal">
+                    Likely useful for your next cart
+                  </h2>
+                </div>
+              ) : null}
 
-          <select
-            value={dateFilter}
-            onChange={(e) => setDateFilter(e.target.value as DateFilter)}
-            className="px-3 py-2.5 text-sm font-maison-neue border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-Gold"
-          >
-            <option value="all">All time</option>
-            <option value="30">Last 30 days</option>
-            <option value="60">Last 60 days</option>
-            <option value="90">Last 90 days</option>
-          </select>
-
-          <select
-            value={sort}
-            onChange={(e) => setSort(e.target.value as SortOption)}
-            className="px-3 py-2.5 text-sm font-maison-neue border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-Gold"
-          >
-            <option value="recent">Most Recent</option>
-            <option value="frequent">Most Frequent</option>
-            <option value="az">A - Z</option>
-            <option value="price">Price: Low to High</option>
-          </select>
+              {filteredItems.map((item) => {
+                const key = historyKey(item)
+                return (
+                  <HistoryItemRow
+                    key={key}
+                    item={item}
+                    selectedQuantity={selection[key]}
+                    addState={addStates[key] || "idle"}
+                    requestState={requestStates[key] || "idle"}
+                    onQuantityChange={(quantity) => {
+                      if (selection[key]) {
+                        setSelectedQuantity(key, quantity)
+                      } else {
+                        setSelection((current) => ({
+                          ...current,
+                          [key]: quantity,
+                        }))
+                      }
+                    }}
+                    onToggleSelect={() => toggleItemSelection(item)}
+                    onRequest={() => handleLegacyReorderRequest(item)}
+                  />
+                )
+              })}
+            </div>
+          ) : (
+            <EmptyState activeTab={activeTab} />
+          )}
         </div>
 
-        <p className="mt-3 text-xs font-maison-neue text-Charcoal/40">
-          {filtered.length} item{filtered.length !== 1 ? "s" : ""} found
-        </p>
+        <SelectionRail
+          selectedItems={selectedItems}
+          selected={selection}
+          gapItems={gapItems}
+          isAdding={bulkAdding}
+          onQuantityChange={setSelectedQuantity}
+          onRemove={(key) => {
+            setSelection((current) => {
+              const next = { ...current }
+              delete next[key]
+              return next
+            })
+          }}
+          onAddSelected={handleSelectedAddToCart}
+          onSelectGapItem={(item) => {
+            setSelection((current) => ({
+              ...current,
+              [historyKey(item)]:
+                current[historyKey(item)] || typicalQuantity(item),
+            }))
+          }}
+        />
       </div>
-
-      {filtered.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-8">
-          {filtered.map((item) => {
-            if (item.strapiProduct) {
-              return (
-                <ProductCard
-                  key={historyKey(item)}
-                  product={item.strapiProduct}
-                  countryCode={countryCode}
-                />
-              )
-            }
-
-            const key = historyKey(item)
-            if (item.reorderable && item.variantId) {
-              return (
-                <MappedHistoryCard
-                  key={key}
-                  item={item}
-                  addState={addStates[key] || "idle"}
-                  onAdd={() => handleMappedAddToCart(item)}
-                />
-              )
-            }
-
-            return (
-              <LegacyHistoryCard
-                key={key}
-                item={item}
-                requestState={requestStates[key] || "idle"}
-                onRequest={() => handleLegacyReorderRequest(item)}
-              />
-            )
-          })}
-        </div>
-      ) : (
-        <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
-          <p className="text-sm font-maison-neue text-Charcoal/50">
-            No products match your search. Try adjusting your filters.
-          </p>
-        </div>
-      )}
     </div>
   )
 }

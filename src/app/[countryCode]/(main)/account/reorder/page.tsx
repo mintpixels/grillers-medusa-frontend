@@ -20,7 +20,7 @@ function presentString(value: string | null | undefined): value is string {
 
 export const metadata: Metadata = {
   title: "Reorder | Grillers Pride",
-  description: "Quickly reorder your favorite products.",
+  description: "Restock from your Grillers Pride purchase history.",
 }
 
 export default async function ReorderPage({
@@ -72,11 +72,9 @@ export default async function ReorderPage({
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-h3 font-gyst font-bold text-Charcoal">
-          Quick Reorder
-        </h1>
+        <h1 className="text-h3 font-gyst font-bold text-Charcoal">Reorder</h1>
         <p className="text-sm font-maison-neue text-Charcoal/50 mt-1">
-          Browse and reorder from your purchase history
+          Restock from your usuals, staples, and past orders.
         </p>
       </div>
       <ReorderBrowser
