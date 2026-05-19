@@ -58,6 +58,7 @@ export default async function StaffPhoneOrdersPage({
       countryCode={countryCode}
       staffCustomer={customer}
       initialImpersonation={impersonation}
+      initialWorkspace="exceptions"
     />
   )
 }
