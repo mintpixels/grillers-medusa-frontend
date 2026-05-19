@@ -25,10 +25,13 @@ export const metadata: Metadata = {
 
 export default async function ReorderPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ countryCode: string }>
+  searchParams?: Promise<{ start?: string }>
 }) {
   const { countryCode } = await params
+  const resolvedSearchParams = await searchParams
   const customer = await retrieveCustomer().catch(() => null)
 
   if (!customer) {
@@ -83,6 +86,9 @@ export default async function ReorderPage({
         legacyOrderCount={legacyOrderHistory.count || 0}
         strapiMap={strapiMap}
         countryCode={countryCode}
+        initialAction={
+          resolvedSearchParams?.start === "usuals" ? "usuals" : undefined
+        }
       />
     </div>
   )

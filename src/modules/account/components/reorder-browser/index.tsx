@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import Image from "next/image"
 import {
   CalendarDays,
@@ -1186,12 +1186,14 @@ export default function ReorderBrowser({
   legacyOrderCount = 0,
   strapiMap,
   countryCode,
+  initialAction,
 }: {
   history: PurchaseHistoryItem[]
   legacyOrders?: LegacyCustomerOrder[]
   legacyOrderCount?: number
   strapiMap: Record<string, StrapiCollectionProduct>
   countryCode: string
+  initialAction?: "usuals"
 }) {
   const [activeTab, setActiveTab] = useState<ActiveTab>("due")
   const [search, setSearch] = useState("")
@@ -1226,6 +1228,26 @@ export default function ReorderBrowser({
     () => sortItems(hydratedHistory, "frequent"),
     [hydratedHistory]
   )
+  const [initialActionApplied, setInitialActionApplied] = useState(false)
+
+  useEffect(() => {
+    if (
+      initialActionApplied ||
+      initialAction !== "usuals" ||
+      !dueItems.length
+    ) {
+      return
+    }
+
+    setSelection((current) => {
+      const next = { ...current }
+      for (const item of dueItems.slice(0, 8)) {
+        next[historyKey(item)] = next[historyKey(item)] || typicalQuantity(item)
+      }
+      return next
+    })
+    setInitialActionApplied(true)
+  }, [dueItems, initialAction, initialActionApplied])
 
   const filteredItems = useMemo(() => {
     const base =
