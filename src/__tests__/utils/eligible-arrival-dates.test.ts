@@ -86,6 +86,40 @@ describe("UPS Ground arrival eligibility — issue #72", () => {
     // Today Wed 4/29 must NOT be valid.
     expect(result.isoSet.has("2026-04-29")).toBe(false)
   })
+
+  it.each([
+    ["GA", "30340"],
+    ["TX", "75201"],
+    ["NC", "28202"],
+    ["FL", "33101"],
+    ["CA", "90048"],
+  ])("computes Ground and Overnight eligibility for %s", (_state, zip) => {
+    const now = new Date(2026, 3, 29, 14, 35)
+    const ground = computeEligibleArrivalDates({
+      method: "ups_ground",
+      destinationZip: zip,
+      now,
+    })
+    const overnight = computeEligibleArrivalDates({
+      method: "ups_overnight",
+      destinationZip: zip,
+      now,
+    })
+
+    expect(ground.earliest).toBeTruthy()
+    expect(overnight.isoSet.has("2026-04-30")).toBe(true)
+    expect(
+      isArrivalDateValid(toIsoDate(ground.earliest!), {
+        method: "ups_ground",
+        destinationZip: zip,
+        now,
+      })
+    ).toBe(true)
+
+    if (lookupUpsGroundDays(zip) > 1) {
+      expect(ground.isoSet.has("2026-04-30")).toBe(false)
+    }
+  })
 })
 
 describe("Atlanta Delivery cutoff — issue #36", () => {

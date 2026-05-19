@@ -11,6 +11,17 @@ import AddressAutocomplete from "../address-autocomplete"
 import StateSelect from "../state-select"
 import { getStoredDeliveryZip, storeDeliveryZip } from "@lib/util/delivery-zip"
 
+function getPreferredAddress(
+  addresses?: HttpTypes.StoreCustomerAddress[] | null
+) {
+  if (!addresses?.length) return null
+  return (
+    addresses.find((address) => address.is_default_shipping) ||
+    addresses.find((address) => address.is_default_billing) ||
+    addresses[0]
+  )
+}
+
 const ShippingAddress = ({
   customer,
   cart,
@@ -28,19 +39,17 @@ const ShippingAddress = ({
   onPostalCodeChange?: (postalCode: string) => void
   onEmailBlur?: (email: string) => void
 }) => {
+  const preferredCustomerAddress = getPreferredAddress(customer?.addresses)
   const [formData, setFormData] = useState<Record<string, any>>({
-    "shipping_address.first_name":
-      cart?.shipping_address?.first_name || customer?.first_name || "",
-    "shipping_address.last_name":
-      cart?.shipping_address?.last_name || customer?.last_name || "",
-    "shipping_address.address_1": cart?.shipping_address?.address_1 || "",
-    "shipping_address.company": cart?.shipping_address?.company || "",
-    "shipping_address.postal_code": cart?.shipping_address?.postal_code || "",
-    "shipping_address.city": cart?.shipping_address?.city || "",
-    "shipping_address.country_code": cart?.shipping_address?.country_code || "",
-    "shipping_address.province": cart?.shipping_address?.province || "",
-    "shipping_address.phone":
-      cart?.shipping_address?.phone || customer?.phone || "",
+    "shipping_address.first_name": cart?.shipping_address?.first_name || preferredCustomerAddress?.first_name || customer?.first_name || "",
+    "shipping_address.last_name": cart?.shipping_address?.last_name || preferredCustomerAddress?.last_name || customer?.last_name || "",
+    "shipping_address.address_1": cart?.shipping_address?.address_1 || preferredCustomerAddress?.address_1 || "",
+    "shipping_address.company": cart?.shipping_address?.company || preferredCustomerAddress?.company || "",
+    "shipping_address.postal_code": cart?.shipping_address?.postal_code || preferredCustomerAddress?.postal_code || "",
+    "shipping_address.city": cart?.shipping_address?.city || preferredCustomerAddress?.city || "",
+    "shipping_address.country_code": cart?.shipping_address?.country_code || preferredCustomerAddress?.country_code || "",
+    "shipping_address.province": cart?.shipping_address?.province || preferredCustomerAddress?.province || "",
+    "shipping_address.phone": cart?.shipping_address?.phone || preferredCustomerAddress?.phone || customer?.phone || "",
     email: cart?.email || customer?.email || "",
   })
 
@@ -74,12 +83,13 @@ const ShippingAddress = ({
     [customer?.addresses, countriesInRegion]
   )
 
-  const preferredSavedAddress = useMemo(() => {
-    if (!addressesInRegion?.length) return undefined
-    return (
-      addressesInRegion.find((address) => address.is_default_shipping) ||
-      addressesInRegion[0]
-    )
+  const addressesForSelect = useMemo(() => {
+    const inRegion = addressesInRegion || []
+    return [...inRegion].sort((a, b) => {
+      if (a.is_default_shipping && !b.is_default_shipping) return -1
+      if (!a.is_default_shipping && b.is_default_shipping) return 1
+      return 0
+    })
   }, [addressesInRegion])
 
   const setFormAddress = (
@@ -188,7 +198,12 @@ const ShippingAddress = ({
         email: customer!.email,
       }))
     }
-  }, [cart])
+  }, [cart, customer?.email])
+
+  useEffect(() => {
+    if (cart?.shipping_address || !preferredCustomerAddress) return
+    setFormAddress(preferredCustomerAddress as HttpTypes.StoreCartAddress)
+  }, [cart?.shipping_address, preferredCustomerAddress])
 
   // Always apply customer profile data for empty fields (runs after session restore)
   useEffect(() => {
@@ -261,13 +276,13 @@ const ShippingAddress = ({
 
   return (
     <>
-      {customer && (addressesInRegion?.length || 0) > 0 && (
+      {customer && addressesForSelect.length > 0 && (
         <div className="mb-5 p-4 border border-gray-200 rounded-lg bg-gray-50/50">
           <p className="text-sm text-gray-600 mb-3">
             Hi {customer.first_name}, use a saved address?
           </p>
           <AddressSelect
-            addresses={addressesInRegion || []}
+            addresses={addressesForSelect}
             addressInput={
               mapKeys(formData, (_, key) =>
                 key.replace("shipping_address.", "")

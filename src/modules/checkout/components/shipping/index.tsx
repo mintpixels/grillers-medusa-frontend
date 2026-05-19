@@ -22,10 +22,32 @@ const PICKUP_OPTION_OFF = "__PICKUP_OFF"
 type ShippingProps = {
   cart: HttpTypes.StoreCart
   availableShippingMethods: HttpTypes.StoreCartShippingOption[] | null
+  serverNowIso?: string
   atlantaZipConfig?: Record<string, AtlantaZipDayConfig>
 }
 
-function formatAddress(address: any) {
+type ShippingOptionAddress = {
+  address_1?: string
+  address_2?: string
+  postal_code?: string
+  city?: string
+  country_code?: string
+}
+
+type ShippingOptionWithServiceZone = HttpTypes.StoreCartShippingOption & {
+  data?: { service_code?: string }
+  service_code?: string
+  service_zone?: {
+    fulfillment_set?: {
+      type?: string
+      location?: {
+        address?: ShippingOptionAddress
+      }
+    }
+  }
+}
+
+function formatAddress(address?: ShippingOptionAddress) {
   if (!address) {
     return ""
   }
@@ -64,6 +86,7 @@ const RadioDot: React.FC<{ checked: boolean }> = ({ checked }) => (
 const Shipping: React.FC<ShippingProps> = ({
   cart,
   availableShippingMethods,
+  serverNowIso,
   atlantaZipConfig,
 }) => {
   const cartTitleMap = useCartTitleMap(cart?.items)
@@ -97,10 +120,11 @@ const Shipping: React.FC<ShippingProps> = ({
   const UPS_SERVICE_CODES = ["GROUND", "OVERNIGHT"]
 
   const _shippingMethods = availableShippingMethods?.filter((sm) => {
-    if ((sm as any).service_zone?.fulfillment_set?.type === "pickup") return false
+    const option = sm as ShippingOptionWithServiceZone
+    if (option.service_zone?.fulfillment_set?.type === "pickup") return false
 
     if (fulfillmentType === "ups_shipping") {
-      const serviceCode = (sm as any).data?.service_code
+      const serviceCode = option.data?.service_code || option.service_code
       return serviceCode && UPS_SERVICE_CODES.includes(serviceCode)
     }
 
@@ -108,7 +132,9 @@ const Shipping: React.FC<ShippingProps> = ({
   })
 
   const _pickupMethods = availableShippingMethods?.filter(
-    (sm) => (sm as any).service_zone?.fulfillment_set?.type === "pickup"
+    (sm) =>
+      (sm as ShippingOptionWithServiceZone).service_zone?.fulfillment_set
+        ?.type === "pickup"
   )
   const showPickupSection = fulfillmentType !== "ups_shipping"
   const hasPickupOptions = !!_pickupMethods?.length && showPickupSection
@@ -366,7 +392,9 @@ const Shipping: React.FC<ShippingProps> = ({
                 )}
                 <RadioGroup
                   value={shippingMethodId}
-                  onChange={(v) => v && handleSetShippingMethod(v, "shipping")}
+                  onChange={(v) => {
+                    if (v) handleSetShippingMethod(v, "shipping")
+                  }}
                 >
                   {_shippingMethods?.map((option) => {
                     const isDisabled =
@@ -433,7 +461,9 @@ const Shipping: React.FC<ShippingProps> = ({
                 <div className="pb-6">
                   <RadioGroup
                     value={shippingMethodId}
-                    onChange={(v) => v && handleSetShippingMethod(v, "pickup")}
+                    onChange={(v) => {
+                      if (v) handleSetShippingMethod(v, "pickup")
+                    }}
                   >
                     {_pickupMethods?.map((option) => {
                       return (
@@ -456,7 +486,8 @@ const Shipping: React.FC<ShippingProps> = ({
                               </span>
                               <span className="text-sm text-gray-500">
                                 {formatAddress(
-                                  (option as any).service_zone?.fulfillment_set?.location
+                                  (option as ShippingOptionWithServiceZone)
+                                    .service_zone?.fulfillment_set?.location
                                     ?.address
                                 )}
                               </span>
@@ -495,6 +526,7 @@ const Shipping: React.FC<ShippingProps> = ({
                         cart={cart}
                         setError={setError}
                         availableShippingMethods={availableShippingMethods}
+                        serverNowIso={serverNowIso}
                         atlantaZipConfig={atlantaZipConfig}
                       />
                     </div>
@@ -562,7 +594,7 @@ const Shipping: React.FC<ShippingProps> = ({
                 <p className="text-sm text-gray-600">
                   {cart.shipping_methods?.at(-1)?.name}{" "}
                   {convertToLocale({
-                    amount: cart.shipping_methods?.at(-1)?.amount!,
+                    amount: cart.shipping_methods?.at(-1)?.amount ?? 0,
                     currency_code: cart?.currency_code,
                   })}
                 </p>

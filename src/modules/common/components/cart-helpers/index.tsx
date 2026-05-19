@@ -120,42 +120,58 @@ export const FreeShippingHelper: React.FC<FreeShippingHelperProps> = ({
       ? "text-emerald-700 bg-emerald-50/60 border border-emerald-200/60"
       : "text-Charcoal/70 bg-Scroll/50 border border-Charcoal/10"
 
+  const progressBar =
+    !qualified && state.threshold ? (
+      <div
+        className={`mt-2 h-1.5 w-full overflow-hidden rounded-full ${isDark ? "bg-gray-700" : "bg-Charcoal/10"}`}
+        aria-hidden="true"
+      >
+        <div
+          className="h-full rounded-full bg-Gold transition-[width]"
+          style={{ width: `${state.remainingPercentage}%` }}
+        />
+      </div>
+    ) : null
+
   return (
     <div
-      className={`text-xs font-maison-neue leading-snug ${baseClasses} rounded-md px-3 py-2 flex items-start gap-2 ${className}`}
+      className={`text-xs font-maison-neue leading-snug ${baseClasses} rounded-md px-3 py-2 ${className}`}
       role="status"
       aria-live="polite"
     >
-      {qualified ? (
-        <svg
-          className={`w-4 h-4 shrink-0 mt-0.5 ${isDark ? "text-emerald-400" : "text-emerald-600"}`}
-          viewBox="0 0 20 20"
-          fill="currentColor"
-          aria-hidden="true"
-        >
-          <path
-            fillRule="evenodd"
-            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-            clipRule="evenodd"
-          />
-        </svg>
-      ) : (
-        <svg
-          className="w-4 h-4 shrink-0 mt-0.5 text-Gold"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          aria-hidden="true"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M3 7h13l5 5v6h-2a2 2 0 11-4 0H9a2 2 0 11-4 0H3V7z"
-          />
-        </svg>
-      )}
-      <span>{message}</span>
+      <div className="flex items-start gap-2">
+        {qualified ? (
+          <svg
+            className={`w-4 h-4 shrink-0 mt-0.5 ${isDark ? "text-emerald-400" : "text-emerald-600"}`}
+            viewBox="0 0 20 20"
+            fill="currentColor"
+            aria-hidden="true"
+          >
+            <path
+              fillRule="evenodd"
+              d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+              clipRule="evenodd"
+            />
+          </svg>
+        ) : (
+          <svg
+            className="w-4 h-4 shrink-0 mt-0.5 text-Gold"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            aria-hidden="true"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M3 7h13l5 5v6h-2a2 2 0 11-4 0H9a2 2 0 11-4 0H3V7z"
+            />
+          </svg>
+        )}
+        <span>{message}</span>
+      </div>
+      {progressBar}
     </div>
   )
 }

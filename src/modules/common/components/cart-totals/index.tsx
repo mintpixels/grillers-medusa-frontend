@@ -69,12 +69,21 @@ const CartTotals: React.FC<CartTotalsProps> = ({
     tax_total,
     discount_total,
     gift_card_total,
+    shipping_total,
     shipping_subtotal,
   } = totals
+  const shippingAmount = shipping_total ?? shipping_subtotal ?? 0
 
   return (
     <div>
       <div className="flex flex-col gap-y-2 txt-medium text-ui-fg-subtle ">
+        <FreeShippingHelper
+          subtotal={subtotal}
+          currencyCode={currency_code}
+          shipState={shipState}
+          fulfillmentType={fulfillmentType}
+          className="mb-1"
+        />
         <div className="flex items-center justify-between">
           <span className="flex gap-x-1 items-center">
             Subtotal (excl. shipping and taxes)
@@ -98,8 +107,8 @@ const CartTotals: React.FC<CartTotalsProps> = ({
         )}
         <div className="flex items-center justify-between">
           <span>Shipping</span>
-          <span data-testid="cart-shipping" data-value={shipping_subtotal || 0}>
-            {convertToLocale({ amount: shipping_subtotal ?? 0, currency_code })}
+          <span data-testid="cart-shipping" data-value={shippingAmount}>
+            {convertToLocale({ amount: shippingAmount, currency_code })}
           </span>
         </div>
         <div className="flex justify-between">

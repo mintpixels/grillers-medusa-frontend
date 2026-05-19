@@ -3,6 +3,7 @@
 import { RadioGroup } from "@headlessui/react"
 import { isStripe as isStripeFunc, paymentInfoMap } from "@lib/constants"
 import { initiatePaymentSession } from "@lib/data/cart"
+import type { SavedPaymentMethod } from "@lib/data/payment"
 import { trackAddPaymentInfo } from "@lib/gtm"
 import { jitsuTrack } from "@lib/jitsu"
 import { useCartTitleMap } from "@lib/hooks/use-cart-title-map"
@@ -56,9 +57,11 @@ const NetWeightDisclaimer = () => (
 const Payment = ({
   cart,
   availablePaymentMethods,
+  savedPaymentMethods = [],
 }: {
   cart: any
   availablePaymentMethods: any[]
+  savedPaymentMethods?: SavedPaymentMethod[]
 }) => {
   const cartTitleMap = useCartTitleMap(cart?.items)
   const showsDeliveryStep = cart?.metadata?.fulfillmentType === "ups_shipping"
@@ -74,18 +77,28 @@ const Payment = ({
   const filteredPaymentMethods = availablePaymentMethods?.filter(
     (pm) => pm.id !== "pp_system_default"
   ) ?? []
+  const stripeProviderId = filteredPaymentMethods.find((pm) =>
+    isStripeFunc(pm.id)
+  )?.id
 
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(
     activeSession?.provider_id ?? ""
   )
+  const [selectedSavedPaymentMethodId, setSelectedSavedPaymentMethodId] =
+    useState<string | null>(null)
 
   const hasInitiatedSession = useRef(false)
+  const hasAutoSelectedSavedCard = useRef(false)
 
   useEffect(() => {
-    if (!selectedPaymentMethod && filteredPaymentMethods.length === 1) {
+    if (
+      !selectedPaymentMethod &&
+      filteredPaymentMethods.length === 1 &&
+      savedPaymentMethods.length === 0
+    ) {
       setSelectedPaymentMethod(filteredPaymentMethods[0].id)
     }
-  }, [filteredPaymentMethods.length])
+  }, [filteredPaymentMethods.length, savedPaymentMethods.length, selectedPaymentMethod])
 
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -93,18 +106,77 @@ const Payment = ({
 
   const isStripe = isStripeFunc(selectedPaymentMethod)
 
-  const setPaymentMethod = async (method: string) => {
+  const paymentItems = cart.items?.map((item: any) => ({
+    id: item.product_id || item.id,
+    title: item.product_title || "",
+    price: (item.unit_price || 0) / 100,
+    quantity: item.quantity,
+  })) || []
+
+  const trackPaymentInfo = (paymentType: string) => {
+    trackAddPaymentInfo({
+      total: (cart.total || 0) / 100,
+      currency: cart.currency_code?.toUpperCase(),
+      paymentType,
+      items: paymentItems,
+      titleMap: cartTitleMap,
+    })
+
+    jitsuTrack("payment_info_submitted", {
+      cart_id: cart.id,
+      payment_type: paymentType,
+      value: (cart.total || 0) / 100,
+      currency: cart.currency_code?.toUpperCase() || "USD",
+      items: paymentItems.map((item: any) => ({
+        item_id: item.id,
+        item_name: (cartTitleMap && cartTitleMap[item.id]) || item.title,
+        price: item.price,
+        quantity: item.quantity,
+      })),
+    })
+  }
+
+  const setPaymentMethod = async (
+    method: string,
+    data: Record<string, any> = { setup_future_usage: "off_session" }
+  ) => {
     setError(null)
     setSelectedPaymentMethod(method)
+    if (!data.payment_method_id) {
+      setSelectedSavedPaymentMethodId(null)
+    }
     // Initiate payment session for all payment methods (not just Stripe)
     try {
       await initiatePaymentSession(cart, {
         provider_id: method,
-        data: { setup_future_usage: "off_session" },
+        data,
       })
+      router.refresh()
     } catch (err: any) {
       setError(err.message)
     }
+  }
+
+  const handleSavedCardSelect = async (method: SavedPaymentMethod) => {
+    if (!stripeProviderId) return
+    setSelectedSavedPaymentMethodId(method.id)
+    setSelectedPaymentMethod(stripeProviderId)
+    setCardComplete(true)
+    await setPaymentMethod(stripeProviderId, {
+      payment_method_id: method.id,
+      setup_future_usage: "off_session",
+    })
+    const brand = method.data?.card?.brand || "card"
+    const last4 = method.data?.card?.last4 || "saved"
+    trackPaymentInfo(`${brand} ending in ${last4}`)
+  }
+
+  const handleUseNewStripeCard = async () => {
+    if (!stripeProviderId) return
+    hasAutoSelectedSavedCard.current = true
+    setSelectedSavedPaymentMethodId(null)
+    setCardComplete(false)
+    await setPaymentMethod(stripeProviderId)
   }
 
   const paidByGiftcard =
@@ -153,34 +225,7 @@ const Payment = ({
         })
       }
 
-      // Track add_payment_info event
-      const paymentItems = cart.items?.map((item: any) => ({
-        id: item.product_id || item.id,
-        title: item.product_title || '',
-        price: (item.unit_price || 0) / 100,
-        quantity: item.quantity,
-      })) || []
-
-      trackAddPaymentInfo({
-        total: (cart.total || 0) / 100,
-        currency: cart.currency_code?.toUpperCase(),
-        paymentType: paymentInfoMap[selectedPaymentMethod]?.title || selectedPaymentMethod,
-        items: paymentItems,
-        titleMap: cartTitleMap,
-      })
-
-      jitsuTrack("payment_info_submitted", {
-        cart_id: cart.id,
-        payment_type: paymentInfoMap[selectedPaymentMethod]?.title || selectedPaymentMethod,
-        value: (cart.total || 0) / 100,
-        currency: cart.currency_code?.toUpperCase() || "USD",
-        items: paymentItems.map(item => ({
-          item_id: item.id,
-          item_name: (cartTitleMap && cartTitleMap[item.id]) || item.title,
-          price: item.price,
-          quantity: item.quantity,
-        })),
-      })
+      trackPaymentInfo(paymentInfoMap[selectedPaymentMethod]?.title || selectedPaymentMethod)
     } catch (err: any) {
       setError(err.message)
     } finally {
@@ -192,8 +237,29 @@ const Payment = ({
     setError(null)
     if (!isOpen) {
       hasInitiatedSession.current = false
+      hasAutoSelectedSavedCard.current = false
     }
   }, [isOpen])
+
+  useEffect(() => {
+    if (
+      !isOpen ||
+      !stripeProviderId ||
+      savedPaymentMethods.length === 0 ||
+      selectedSavedPaymentMethodId ||
+      hasAutoSelectedSavedCard.current
+    ) {
+      return
+    }
+
+    const preferredSavedCard =
+      savedPaymentMethods.find((method) => method.is_default) ||
+      savedPaymentMethods[0]
+
+    if (!preferredSavedCard) return
+    hasAutoSelectedSavedCard.current = true
+    void handleSavedCardSelect(preferredSavedCard)
+  }, [isOpen, stripeProviderId, savedPaymentMethods, selectedSavedPaymentMethodId])
 
   useEffect(() => {
     if (isOpen && selectedPaymentMethod && !activeSession && !hasInitiatedSession.current) {
@@ -233,31 +299,113 @@ const Payment = ({
       {isOpen && (
         <div>
           {!paidByGiftcard && filteredPaymentMethods.length > 0 && (
-            <RadioGroup
-              value={selectedPaymentMethod}
-              onChange={(value: string) => setPaymentMethod(value)}
-            >
-              {filteredPaymentMethods.map((paymentMethod) => (
-                <div key={paymentMethod.id}>
-                  {isStripeFunc(paymentMethod.id) ? (
-                    <StripeCardContainer
-                      paymentProviderId={paymentMethod.id}
-                      selectedPaymentOptionId={selectedPaymentMethod}
-                      paymentInfoMap={paymentInfoMap}
-                      setCardBrand={setCardBrand}
-                      setError={setError}
-                      setCardComplete={setCardComplete}
-                    />
-                  ) : (
-                    <PaymentContainer
-                      paymentInfoMap={paymentInfoMap}
-                      paymentProviderId={paymentMethod.id}
-                      selectedPaymentOptionId={selectedPaymentMethod}
-                    />
-                  )}
+            <>
+              {stripeProviderId && savedPaymentMethods.length > 0 && (
+                <div className="mb-5">
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
+                    Saved cards
+                  </p>
+                  <div className="space-y-2">
+                    {savedPaymentMethods.map((method) => {
+                      const card = method.data?.card
+                      const brand = card?.brand || "Card"
+                      const selected = selectedSavedPaymentMethodId === method.id
+                      return (
+                        <button
+                          key={method.id}
+                          type="button"
+                          onClick={() => handleSavedCardSelect(method)}
+                          className={clx(
+                            "w-full min-h-[56px] px-4 py-3 rounded-lg border text-left flex items-center justify-between transition-colors",
+                            {
+                              "border-Gold bg-Gold/5": selected,
+                              "border-gray-200 hover:border-Gold/60": !selected,
+                            }
+                          )}
+                        >
+                          <span className="flex items-center gap-3">
+                            <span
+                              className={clx(
+                                "w-4 h-4 rounded-full border-2 flex items-center justify-center",
+                                selected ? "border-Gold" : "border-gray-300"
+                              )}
+                            >
+                              {selected && <span className="w-2 h-2 rounded-full bg-Gold" />}
+                            </span>
+                            <span>
+                              <span className="block text-sm font-medium text-gray-900 capitalize">
+                                {brand} ending in {card?.last4 || "****"}
+                              </span>
+                              {method.is_default && (
+                                <span className="block text-xs text-Gold font-medium">
+                                  Default card
+                                </span>
+                              )}
+                            </span>
+                          </span>
+                          <CreditCard className="text-gray-400" />
+                        </button>
+                      )
+                    })}
+                    <button
+                      type="button"
+                      onClick={handleUseNewStripeCard}
+                      className={clx(
+                        "w-full min-h-[50px] px-4 py-3 rounded-lg border text-left text-sm font-medium transition-colors",
+                        {
+                          "border-Gold bg-Gold/5 text-Charcoal":
+                            selectedPaymentMethod === stripeProviderId &&
+                            !selectedSavedPaymentMethodId,
+                          "border-gray-200 text-gray-700 hover:border-Gold/60":
+                            selectedSavedPaymentMethodId ||
+                            selectedPaymentMethod !== stripeProviderId,
+                        }
+                      )}
+                    >
+                      Use a new card
+                    </button>
+                  </div>
                 </div>
-              ))}
-            </RadioGroup>
+              )}
+
+              <RadioGroup
+                value={selectedPaymentMethod}
+                onChange={(value: string) => setPaymentMethod(value)}
+              >
+                {filteredPaymentMethods.map((paymentMethod) => {
+                  const isStripeMethod = isStripeFunc(paymentMethod.id)
+                  if (
+                    isStripeMethod &&
+                    savedPaymentMethods.length > 0 &&
+                    (selectedPaymentMethod !== paymentMethod.id ||
+                      selectedSavedPaymentMethodId)
+                  ) {
+                    return null
+                  }
+
+                  return (
+                    <div key={paymentMethod.id}>
+                      {isStripeMethod ? (
+                        <StripeCardContainer
+                          paymentProviderId={paymentMethod.id}
+                          selectedPaymentOptionId={selectedPaymentMethod}
+                          paymentInfoMap={paymentInfoMap}
+                          setCardBrand={setCardBrand}
+                          setError={setError}
+                          setCardComplete={setCardComplete}
+                        />
+                      ) : (
+                        <PaymentContainer
+                          paymentInfoMap={paymentInfoMap}
+                          paymentProviderId={paymentMethod.id}
+                          selectedPaymentOptionId={selectedPaymentMethod}
+                        />
+                      )}
+                    </div>
+                  )
+                })}
+              </RadioGroup>
+            </>
           )}
 
           {paidByGiftcard && (
@@ -275,7 +423,7 @@ const Payment = ({
           />
 
           {/* For Stripe without active session, show button to enter card */}
-          {isStripe && !activeSession && !paidByGiftcard && (
+          {isStripe && !activeSession && !paidByGiftcard && !selectedSavedPaymentMethodId && (
             <Button
               size="large"
               className="mt-5"
@@ -293,7 +441,12 @@ const Payment = ({
             <div className="mt-6 pt-6 border-t border-gray-200">
               <NetWeightDisclaimer />
               
-              <PaymentButton cart={cart} cardComplete={cardComplete} data-testid="submit-order-button" />
+              <PaymentButton
+                cart={cart}
+                cardComplete={cardComplete}
+                savedPaymentMethodId={selectedSavedPaymentMethodId}
+                data-testid="submit-order-button"
+              />
               
               <p className="text-xs text-gray-500 mt-4 leading-relaxed text-center">
                 By clicking Complete Purchase, you agree to our{" "}

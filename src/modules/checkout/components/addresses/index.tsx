@@ -17,12 +17,24 @@ import ErrorMessage from "../error-message"
 import ShippingAddress from "../shipping-address"
 import { SubmitButton } from "../submit-button"
 
+function getPreferredAddress(customer: HttpTypes.StoreCustomer | null) {
+  const addresses = customer?.addresses || []
+  if (!addresses.length) return null
+  return (
+    addresses.find((address) => address.is_default_shipping) ||
+    addresses.find((address) => address.is_default_billing) ||
+    addresses[0]
+  )
+}
+
 const Addresses = ({
   cart,
   customer,
+  atlantaZipCodes = [],
 }: {
   cart: HttpTypes.StoreCart | null
   customer: HttpTypes.StoreCustomer | null
+  atlantaZipCodes?: string[]
 }) => {
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -84,14 +96,25 @@ const Addresses = ({
   }, [cart, cartTitleMap])
 
   // Track postal code for real-time validation against fulfillment type
-  const [postalCode, setPostalCode] = useState(cart?.shipping_address?.postal_code || "")
+  const preferredAddress = getPreferredAddress(customer)
+  const [postalCode, setPostalCode] = useState(
+    cart?.shipping_address?.postal_code || preferredAddress?.postal_code || ""
+  )
 
   const handlePostalCodeChange = useCallback((value: string) => {
     setPostalCode(value)
   }, [])
 
   // Determine if the address is invalid for the selected fulfillment type
-  const addressMismatch = fulfillmentType === "atlanta_delivery" && postalCode.length >= 2 && !postalCode.startsWith("30")
+  const normalizedPostalCode = postalCode.trim()
+  const matchesAtlantaDelivery =
+    atlantaZipCodes.length > 0
+      ? atlantaZipCodes.includes(normalizedPostalCode)
+      : normalizedPostalCode.startsWith("30")
+  const addressMismatch =
+    fulfillmentType === "atlanta_delivery" &&
+    normalizedPostalCode.length >= 2 &&
+    !matchesAtlantaDelivery
   const addressMismatchMessage = addressMismatch
     ? "Atlanta Metro Delivery requires an address in the Atlanta metro area (ZIP starting with 30). Please update your ZIP code or change your delivery method."
     : null

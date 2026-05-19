@@ -79,6 +79,26 @@ const fulfillmentLabels: Record<FulfillmentType, { label: string; description: s
 
 type SubStep = "select" | "plant_date" | "southeast_pickup" | "save_address"
 
+function getPreferredAddress(customer: HttpTypes.StoreCustomer | null) {
+  const addresses = customer?.addresses || []
+  if (!addresses.length) return null
+  return (
+    addresses.find((address) => address.is_default_shipping) ||
+    addresses.find((address) => address.is_default_billing) ||
+    addresses[0]
+  )
+}
+
+function friendlyFulfillmentError(message?: string) {
+  if (!message) {
+    return "We could not save that fulfillment method. Please try another option."
+  }
+  if (/server components render|digest|failed to fetch|unknown error/i.test(message)) {
+    return "We could not save that fulfillment method for this address. Please try another option or update your address."
+  }
+  return message
+}
+
 export default function FulfillmentStep({ cart, customer, config, availableFulfillmentTypes, pickupCreditConfig }: FulfillmentStepProps) {
   const router = useRouter()
   const { setIsEditingFulfillment } = useFulfillmentEdit()
@@ -134,8 +154,10 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
     southeastPickup: normalizeMinimum(config?.MinimumOrderThresholds?.SoutheastPickup, 0),
   }), [config])
 
-  // Pull active shipping address from cart (preferred) then fall back to customer's default.
-  const activeAddress = cart.shipping_address ?? customer?.addresses?.[0] ?? null
+  // Pull active shipping address from cart, then fall back to the customer's
+  // default shipping address. This keeps Step 1 availability aligned with the
+  // address that Step 2 preselects.
+  const activeAddress = cart.shipping_address ?? getPreferredAddress(customer)
   const shipZip = (activeAddress?.postal_code || "").trim()
   const shipCity = (activeAddress?.city || "").trim()
 
@@ -233,7 +255,9 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
     },
   ]
 
-  const options = allOptions
+  const options = availableFulfillmentTypes.length
+    ? allOptions.filter((option) => availableFulfillmentTypes.includes(option.id))
+    : allOptions
 
   const hasSavedAddress = Boolean(activeAddress?.postal_code)
   // Show the address CTA when:
@@ -317,7 +341,7 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
       await setFulfillmentDetails({
         cartId: cart.id,
         fulfillmentType: option,
-        fulfillmentZip: option === "atlanta_delivery" ? "" : "00000",
+        fulfillmentZip: option === "atlanta_delivery" ? shipZip : "00000",
         scheduledDate: today,
       })
 
@@ -327,7 +351,7 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
       setSubStep("select")
       router.refresh()
     } catch (err: any) {
-      setError(err.message || "Failed to set fulfillment")
+      setError(friendlyFulfillmentError(err.message))
     } finally {
       setIsSubmitting(false)
     }
@@ -353,7 +377,7 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
       setSubStep("select")
       router.refresh()
     } catch (err: any) {
-      setError(err.message || "Failed to set fulfillment")
+      setError(friendlyFulfillmentError(err.message))
     } finally {
       setIsSubmitting(false)
     }
@@ -380,7 +404,7 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
       setSubStep("select")
       router.refresh()
     } catch (err: any) {
-      setError(err.message || "Failed to set fulfillment")
+      setError(friendlyFulfillmentError(err.message))
     } finally {
       setIsSubmitting(false)
     }

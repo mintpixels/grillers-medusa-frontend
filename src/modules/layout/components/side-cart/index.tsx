@@ -24,6 +24,8 @@ import Spinner from "@modules/common/icons/spinner"
 import {
   CatchWeightBadge,
 } from "@modules/common/components/cart-helpers"
+import CartUpsells from "@modules/cart/components/cart-upsells"
+import type { CartUpsellProduct } from "@modules/cart/components/cart-upsells/types"
 import FulfillmentProgress from "@modules/common/components/fulfillment-progress"
 import type { AtlantaZipDayConfig } from "@lib/util/eligible-arrival-dates"
 import {
@@ -208,12 +210,16 @@ const QuantitySelector = ({
 
 type SideCartProps = {
   cart?: HttpTypes.StoreCart | null
+  upsellProducts?: CartUpsellProduct[]
+  countryCode?: string
   atlantaZipConfig?: Record<string, AtlantaZipDayConfig>
   initialDeliveryZip?: string | null
 }
 
 export default function SideCart({
   cart,
+  upsellProducts = [],
+  countryCode = "us",
   atlantaZipConfig,
   initialDeliveryZip,
 }: SideCartProps) {
@@ -489,6 +495,17 @@ export default function SideCart({
                                 )
                               })}
                             </ul>
+                          </div>
+
+                          {/* Cart upsells */}
+                          <div className="px-6 py-4 bg-Scroll/30 border-t border-Charcoal/5">
+                            <CartUpsells
+                              surface="side_cart"
+                              products={upsellProducts}
+                              countryCode={countryCode}
+                              compact
+                              excludeProductIds={cart.items?.map((item) => item.product_id)}
+                            />
                           </div>
 
                           {/* Kosher trust badge */}

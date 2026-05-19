@@ -1,5 +1,5 @@
 import { listCartShippingMethods } from "@lib/data/fulfillment"
-import { listCartPaymentMethods } from "@lib/data/payment"
+import { getSavedPaymentMethods, listCartPaymentMethods } from "@lib/data/payment"
 import { HttpTypes } from "@medusajs/types"
 import Addresses from "@modules/checkout/components/addresses"
 import Payment from "@modules/checkout/components/payment"
@@ -38,6 +38,7 @@ export default async function CheckoutForm({
 
   const shippingMethods = await listCartShippingMethods(cart.id)
   const paymentMethods = await listCartPaymentMethods(cart.region?.id ?? "")
+  const savedPaymentMethods = customer ? await getSavedPaymentMethods() : []
 
   if (!shippingMethods || !paymentMethods) {
     return null
@@ -75,7 +76,11 @@ export default async function CheckoutForm({
           <CheckoutStepsGate>
             {/* Step 2: Address — only after fulfillment chosen */}
             {hasFulfillment && (
-              <Addresses cart={cart} customer={customer} />
+              <Addresses
+                cart={cart}
+                customer={customer}
+                atlantaZipCodes={fulfillmentConfig.AtlantaDeliveryZipCodes}
+              />
             )}
 
             {/* Step 3: Delivery options — only for UPS shipping, only after address */}
@@ -83,13 +88,18 @@ export default async function CheckoutForm({
               <Shipping
                 cart={cart}
                 availableShippingMethods={shippingMethods}
+                serverNowIso={new Date().toISOString()}
                 atlantaZipConfig={fulfillmentConfig.AtlantaDeliveryZipDays}
               />
             )}
 
             {/* Step 4: Payment — only after all previous steps complete and delivery step is closed */}
             {hasFulfillment && addressComplete && (!showShippingMethodSelection || hasShippingMethod) && currentStep !== "delivery" && (
-              <Payment cart={cart} availablePaymentMethods={paymentMethods} />
+              <Payment
+                cart={cart}
+                availablePaymentMethods={paymentMethods}
+                savedPaymentMethods={savedPaymentMethods}
+              />
             )}
           </CheckoutStepsGate>
         </FulfillmentEditProvider>
