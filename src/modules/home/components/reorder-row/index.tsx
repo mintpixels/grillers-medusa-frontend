@@ -56,16 +56,29 @@ function strapiProductForHistory(
   )
 }
 
-function historyTitle(item: PurchaseHistoryItem, strapi?: StrapiCollectionProduct) {
-  const generic = new Set(["standard", "default", "default title"])
-  const title =
-    strapi?.Title ||
-    [item.productTitle, item.title].find((value) => {
-      const normalized = value?.trim().toLowerCase()
-      return normalized && !generic.has(normalized)
-    })
+function isRenderableCatalogProduct(
+  product?: StrapiCollectionProduct
+): product is StrapiCollectionProduct {
+  return Boolean(
+    product?.MedusaProduct?.Handle &&
+      product.MedusaProduct.Variants?.some((variant) => variant.VariantId)
+  )
+}
 
-  return title || (item.sku ? `Past purchase ${item.sku}` : "Past purchase")
+function catalogProductKey(
+  item: PurchaseHistoryItem,
+  product: StrapiCollectionProduct
+) {
+  return (
+    product.documentId ||
+    product.MedusaProduct?.ProductId ||
+    product.MedusaProduct?.Handle ||
+    itemKey(item)
+  )
+}
+
+function catalogProductTitle(product: StrapiCollectionProduct) {
+  return product.Title || product.MedusaProduct?.Handle || "Product"
 }
 
 export default function ReorderRow({
@@ -77,22 +90,23 @@ export default function ReorderRow({
 }: ReorderRowProps) {
   if (!history?.length) return null
 
-  // Deduplicate by current product when possible. Legacy-only items may not
-  // have a current product yet, but should still direct customers to reorder.
   const seen = new Set<string>()
   const cards: Array<{
     key: string
     item: PurchaseHistoryItem
-    strapi?: StrapiCollectionProduct
+    strapi: StrapiCollectionProduct
   }> = []
   for (const item of history) {
-    const key = item.productId ? `product:${item.productId}` : itemKey(item)
+    const strapi = strapiProductForHistory(item, strapiMap)
+    if (!isRenderableCatalogProduct(strapi)) continue
+
+    const key = catalogProductKey(item, strapi)
     if (seen.has(key)) continue
     seen.add(key)
     cards.push({
       key,
       item,
-      strapi: strapiProductForHistory(item, strapiMap),
+      strapi,
     })
     if (cards.length >= maxCards) break
   }
@@ -151,12 +165,12 @@ export default function ReorderRow({
             role="list"
           >
             {cards.map(({ key, item, strapi }) => {
-              const handle = strapi?.MedusaProduct?.Handle
-              const title = historyTitle(item, strapi)
+              const handle = strapi.MedusaProduct?.Handle
+              const title = catalogProductTitle(strapi)
               const image =
-                strapi?.FeaturedImage?.url || item.thumbnail || undefined
+                strapi.FeaturedImage?.url || item.thumbnail || undefined
               const lastOrdered = lastOrderedLabel(item.lastOrderedAt)
-              const href = handle ? `/products/${handle}` : "/account/reorder"
+              const href = `/products/${handle}`
               return (
                 <li key={key}>
                   <LocalizedClientLink
