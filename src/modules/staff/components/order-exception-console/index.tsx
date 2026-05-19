@@ -1,16 +1,19 @@
 "use client"
 
-import { useMemo, useState, useTransition } from "react"
+import { useEffect, useMemo, useState, useTransition } from "react"
 import Button from "@modules/common/components/button"
 import {
   applyStaffOrderException,
   getStaffExceptionOrderDetail,
   previewStaffOrderException,
   searchStaffExceptionOrders,
+  type StaffExceptionFulfillmentFilter,
   type StaffExceptionActionInput,
   type StaffExceptionActionPreview,
   type StaffExceptionOrderDetail,
+  type StaffExceptionOrderQueueFilter,
   type StaffExceptionOrderSummary,
+  type StaffExceptionPaymentFilter,
 } from "@lib/data/staff/order-exceptions"
 import {
   STAFF_EXCEPTION_ACTIONS,
@@ -97,6 +100,12 @@ function DetailRow({ label, value }: { label: string; value?: string }) {
 
 export default function StaffOrderExceptionConsole() {
   const [query, setQuery] = useState("")
+  const [queueFilter, setQueueFilter] =
+    useState<StaffExceptionOrderQueueFilter>("open")
+  const [fulfillmentFilter, setFulfillmentFilter] =
+    useState<StaffExceptionFulfillmentFilter>("all")
+  const [paymentFilter, setPaymentFilter] =
+    useState<StaffExceptionPaymentFilter>("all")
   const [orders, setOrders] = useState<StaffExceptionOrderSummary[]>([])
   const [selectedOrder, setSelectedOrder] =
     useState<StaffExceptionOrderDetail | null>(null)
@@ -166,6 +175,25 @@ export default function StaffOrderExceptionConsole() {
     typedConfirmationMatches,
   ])
 
+  useEffect(() => {
+    startTransition(async () => {
+      try {
+        const results = await searchStaffExceptionOrders({
+          queue: "open",
+          fulfillmentStatus: "all",
+          paymentStatus: "all",
+          limit: 100,
+        })
+        setOrders(results)
+        if (!results.length) {
+          setStatus("No open orders found.")
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err))
+      }
+    })
+  }, [])
+
   function updateActionDraft(patch: Partial<StaffExceptionActionInput>) {
     setPreview(null)
     setTypedConfirmation("")
@@ -173,15 +201,38 @@ export default function StaffOrderExceptionConsole() {
     setActionDraft((current) => ({ ...current, ...patch }))
   }
 
-  function runOrderSearch() {
+  function runOrderSearch(
+    overrides: Partial<{
+      query: string
+      queue: StaffExceptionOrderQueueFilter
+      fulfillmentStatus: StaffExceptionFulfillmentFilter
+      paymentStatus: StaffExceptionPaymentFilter
+    }> = {}
+  ) {
     setError(null)
     setStatus(null)
+    const nextQuery = overrides.query ?? query
+    const nextQueue = overrides.queue ?? queueFilter
+    const nextFulfillment = overrides.fulfillmentStatus ?? fulfillmentFilter
+    const nextPayment = overrides.paymentStatus ?? paymentFilter
     startTransition(async () => {
       try {
-        const results = await searchStaffExceptionOrders(query)
+        const results = await searchStaffExceptionOrders({
+          query: nextQuery,
+          queue: nextQuery.trim() ? "all" : nextQueue,
+          fulfillmentStatus: nextFulfillment,
+          paymentStatus: nextPayment,
+          limit: 100,
+        })
         setOrders(results)
         if (!results.length) {
-          setStatus("No matching current or historical orders found.")
+          setStatus(
+            nextQuery.trim()
+              ? "No matching current or historical orders found."
+              : nextQueue === "open"
+              ? "No open orders found."
+              : "No orders found."
+          )
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err))
@@ -272,33 +323,38 @@ export default function StaffOrderExceptionConsole() {
               Existing order support
             </p>
             <h2 className="text-xl font-gyst font-bold text-Charcoal">
-              Find an order
+              Open orders
             </h2>
             <p className="mt-1 text-sm font-maison-neue text-Charcoal/55">
-              Search first, then review the order state before applying any
-              money, shipping, or cancellation action.
+              Start from unfulfilled orders, or search across current and
+              historical orders by order number, invoice, email, customer name,
+              or phone.
             </p>
           </div>
 
           <div className="mb-5 grid gap-2 text-sm font-maison-neue text-Charcoal/65 small:grid-cols-3">
-            {["1. Find order", "2. Review state", "3. Apply action"].map(
-              (step) => (
-                <div
-                  className="rounded-md border border-gray-100 bg-SilverPlate/30 px-3 py-2"
-                  key={step}
-                >
-                  {step}
-                </div>
-              )
-            )}
+            <div className="rounded-md border border-Gold/30 bg-Gold/10 px-3 py-2">
+              {orders.length}{" "}
+              {query.trim()
+                ? "matching orders"
+                : queueFilter === "open"
+                ? "open orders"
+                : "current orders"}
+            </div>
+            <div className="rounded-md border border-gray-100 bg-SilverPlate/30 px-3 py-2">
+              Select an order to review state
+            </div>
+            <div className="rounded-md border border-gray-100 bg-SilverPlate/30 px-3 py-2">
+              Actions remain audited
+            </div>
           </div>
 
-          <div className="flex flex-col gap-3 small:flex-row small:items-end">
+          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_160px_180px_150px]">
             <label className="flex flex-1 flex-col gap-1">
               <span className={labelClass()}>Order, email, or customer</span>
               <input
                 className={fieldClass()}
-                placeholder="Order #, email, name, or phone"
+                placeholder="Order #, invoice, email, name, or phone"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 onKeyDown={(event) => {
@@ -307,14 +363,106 @@ export default function StaffOrderExceptionConsole() {
                 type="search"
               />
             </label>
-            <Button
-              className="min-h-[44px] rounded-md bg-Charcoal px-4 text-sm font-rexton font-bold uppercase text-white"
-              isLoading={isPending}
-              onClick={runOrderSearch}
-              type="button"
-            >
-              Find Orders
-            </Button>
+            <label className="flex flex-col gap-1">
+              <span className={labelClass()}>Queue</span>
+              <select
+                className={fieldClass()}
+                value={queueFilter}
+                onChange={(event) => {
+                  const value = event.target
+                    .value as StaffExceptionOrderQueueFilter
+                  setQueueFilter(value)
+                  const nextFulfillment =
+                    value === "open" && fulfillmentFilter === "fulfilled"
+                      ? "all"
+                      : fulfillmentFilter
+                  if (nextFulfillment !== fulfillmentFilter) {
+                    setFulfillmentFilter(nextFulfillment)
+                  }
+                  runOrderSearch({
+                    queue: value,
+                    fulfillmentStatus: nextFulfillment,
+                  })
+                }}
+              >
+                <option value="open">Open only</option>
+                <option value="all">All current</option>
+              </select>
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className={labelClass()}>Fulfillment</span>
+              <select
+                className={fieldClass()}
+                value={fulfillmentFilter}
+                onChange={(event) => {
+                  const value = event.target
+                    .value as StaffExceptionFulfillmentFilter
+                  setFulfillmentFilter(value)
+                  const nextQueue =
+                    value === "fulfilled" && queueFilter === "open"
+                      ? "all"
+                      : queueFilter
+                  if (nextQueue !== queueFilter) {
+                    setQueueFilter(nextQueue)
+                  }
+                  runOrderSearch({
+                    queue: nextQueue,
+                    fulfillmentStatus: value,
+                  })
+                }}
+              >
+                <option value="all">All fulfillment</option>
+                <option value="unfulfilled">Unfulfilled</option>
+                <option value="partially_fulfilled">Partially fulfilled</option>
+                <option value="fulfilled">Fulfilled</option>
+              </select>
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className={labelClass()}>Payment</span>
+              <select
+                className={fieldClass()}
+                value={paymentFilter}
+                onChange={(event) => {
+                  const value = event.target
+                    .value as StaffExceptionPaymentFilter
+                  setPaymentFilter(value)
+                  runOrderSearch({ paymentStatus: value })
+                }}
+              >
+                <option value="all">All payment</option>
+                <option value="awaiting_payment">Awaiting</option>
+                <option value="paid">Paid</option>
+                <option value="refunded">Refunded</option>
+              </select>
+            </label>
+          </div>
+
+          <div className="mt-3 flex flex-col gap-3 small:flex-row small:items-center small:justify-between">
+            <p className="text-xs font-maison-neue text-Charcoal/50">
+              Typing a search runs across all current and historical orders;
+              blank search returns the filtered open queue.
+            </p>
+            <div className="flex flex-col gap-2 small:flex-row">
+              <Button
+                className="min-h-[44px] rounded-md border border-Charcoal bg-white px-4 text-sm font-rexton font-bold uppercase text-Charcoal"
+                disabled={isPending}
+                onClick={() => {
+                  setQuery("")
+                  runOrderSearch({ query: "" })
+                }}
+                type="button"
+              >
+                Refresh Queue
+              </Button>
+              <Button
+                className="min-h-[44px] rounded-md bg-Charcoal px-4 text-sm font-rexton font-bold uppercase text-white"
+                isLoading={isPending}
+                onClick={() => runOrderSearch()}
+                type="button"
+              >
+                Find Orders
+              </Button>
+            </div>
           </div>
 
           {(error || status) && (
@@ -330,31 +478,58 @@ export default function StaffOrderExceptionConsole() {
           )}
 
           {orders.length > 0 && (
-            <div className="mt-5 divide-y rounded-md border border-gray-100">
+            <div className="mt-5 overflow-hidden rounded-md border border-gray-100">
+              <div className="hidden grid-cols-[120px_minmax(0,1.4fr)_105px_120px_140px_90px] gap-3 border-b border-gray-100 bg-SilverPlate/30 px-4 py-2 text-xs font-maison-neue-mono uppercase text-Charcoal/55 md:grid">
+                <span>Order</span>
+                <span>Customer</span>
+                <span>Date</span>
+                <span>Payment</span>
+                <span>Fulfillment</span>
+                <span className="text-right">Total</span>
+              </div>
               {orders.map((order) => (
                 <button
-                  className="flex w-full flex-col gap-2 px-4 py-3 text-left hover:bg-SilverPlate/40 small:flex-row small:items-center small:justify-between"
+                  className={`grid w-full gap-2 px-4 py-3 text-left transition hover:bg-SilverPlate/40 md:grid-cols-[120px_minmax(0,1.4fr)_105px_120px_140px_90px] md:items-center md:gap-3 ${
+                    selectedOrder?.id === order.id ? "bg-Gold/10" : ""
+                  }`}
                   key={order.id}
                   onClick={() => selectOrder(order.id)}
                   type="button"
                 >
-                  <span>
+                  <span className="min-w-0">
                     <span className="block text-sm font-maison-neue font-semibold text-Charcoal">
-                      {order.displayId} | {order.customerName}
+                      {order.displayId}
                     </span>
                     <span className="block text-xs font-maison-neue text-Charcoal/55">
-                      {[order.email, formatOrderDate(order.createdAt)]
-                        .filter(Boolean)
-                        .join(" | ")}
+                      {order.itemCount} items
                     </span>
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-maison-neue font-semibold text-Charcoal">
+                      {order.customerName}
+                    </span>
+                    <span className="block truncate text-xs font-maison-neue text-Charcoal/55">
+                      {order.email || "No email"}
+                    </span>
+                  </span>
+                  <span className="text-xs font-maison-neue text-Charcoal/55">
+                    {formatOrderDate(order.createdAt) || "No date"}
+                  </span>
+                  <span className="flex flex-wrap gap-2">
+                    {statusChip(order.paymentStatus)}
                   </span>
                   <span className="flex flex-wrap gap-2">
                     {order.source === "legacy" &&
                       statusChip("historical qbd", "gold")}
-                    {statusChip(order.paymentStatus)}
                     {statusChip(order.fulfillmentStatus)}
                     {order.source === "medusa" &&
                       statusChip(order.operationalState, "gold")}
+                  </span>
+                  <span className="text-left text-sm font-maison-neue font-semibold text-Charcoal md:text-right">
+                    {formatMoney(order.total, order.currencyCode)}
+                    <span className="block text-xs font-maison-neue text-Charcoal/55">
+                      {order.source === "legacy" ? "Historical" : "Current"}
+                    </span>
                   </span>
                 </button>
               ))}

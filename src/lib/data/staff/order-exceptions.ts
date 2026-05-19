@@ -24,6 +24,11 @@ import {
 
 type AnyRecord = Record<string, any>
 
+type OrderListResponse = {
+  orders?: AnyRecord[]
+  count?: number | string
+}
+
 export type StaffExceptionOrderSummary = {
   id: string
   source: "medusa" | "legacy"
@@ -40,6 +45,26 @@ export type StaffExceptionOrderSummary = {
   itemCount: number
   operationalState: StaffOrderOperationalState
   latestStaffAction?: string
+}
+
+export type StaffExceptionOrderQueueFilter = "open" | "all"
+export type StaffExceptionFulfillmentFilter =
+  | "all"
+  | "unfulfilled"
+  | "partially_fulfilled"
+  | "fulfilled"
+export type StaffExceptionPaymentFilter =
+  | "all"
+  | "awaiting_payment"
+  | "paid"
+  | "refunded"
+
+export type StaffExceptionOrderSearchInput = {
+  query?: string
+  queue?: StaffExceptionOrderQueueFilter
+  fulfillmentStatus?: StaffExceptionFulfillmentFilter
+  paymentStatus?: StaffExceptionPaymentFilter
+  limit?: number
 }
 
 export type StaffExceptionOrderItem = {
@@ -233,6 +258,123 @@ function summarizeLegacyOrder(order: AnyRecord): StaffExceptionOrderSummary {
       ),
     operationalState: "completed_or_shipped",
   }
+}
+
+function normalizeSearchInput(
+  input: string | StaffExceptionOrderSearchInput
+): Required<StaffExceptionOrderSearchInput> {
+  if (typeof input === "string") {
+    return {
+      query: input,
+      queue: input.trim() ? "all" : "open",
+      fulfillmentStatus: "all",
+      paymentStatus: "all",
+      limit: 30,
+    }
+  }
+
+  const query = input.query || ""
+  return {
+    query,
+    queue: input.queue || (query.trim() ? "all" : "open"),
+    fulfillmentStatus: input.fulfillmentStatus || "all",
+    paymentStatus: input.paymentStatus || "all",
+    limit: input.limit || 30,
+  }
+}
+
+function isCanceledOrder(order: StaffExceptionOrderSummary): boolean {
+  const status = String(order.status || "").toLowerCase()
+  const fulfillmentStatus = String(order.fulfillmentStatus || "").toLowerCase()
+  return (
+    status === "canceled" ||
+    status === "cancelled" ||
+    fulfillmentStatus === "canceled" ||
+    fulfillmentStatus === "cancelled"
+  )
+}
+
+function isFulfilledOrder(order: StaffExceptionOrderSummary): boolean {
+  const value = String(order.fulfillmentStatus || "").toLowerCase()
+  return ["fulfilled", "shipped", "delivered"].includes(value)
+}
+
+function isPartiallyFulfilledOrder(order: StaffExceptionOrderSummary): boolean {
+  return String(order.fulfillmentStatus || "")
+    .toLowerCase()
+    .includes("partial")
+}
+
+function isOpenOrder(order: StaffExceptionOrderSummary): boolean {
+  return (
+    order.source === "medusa" &&
+    !isCanceledOrder(order) &&
+    !isFulfilledOrder(order)
+  )
+}
+
+function orderMatchesFulfillmentFilter(
+  order: StaffExceptionOrderSummary,
+  filter: StaffExceptionFulfillmentFilter
+): boolean {
+  if (filter === "all") return true
+  if (filter === "partially_fulfilled") return isPartiallyFulfilledOrder(order)
+  if (filter === "fulfilled") return isFulfilledOrder(order)
+  return (
+    !isCanceledOrder(order) &&
+    !isFulfilledOrder(order) &&
+    !isPartiallyFulfilledOrder(order)
+  )
+}
+
+function orderMatchesPaymentFilter(
+  order: StaffExceptionOrderSummary,
+  filter: StaffExceptionPaymentFilter
+): boolean {
+  if (filter === "all") return true
+  const value = String(order.paymentStatus || "").toLowerCase()
+  if (filter === "awaiting_payment") {
+    return (
+      value === "pending" ||
+      value === "not_paid" ||
+      value === "awaiting" ||
+      value === "requires_action" ||
+      value === "authorized"
+    )
+  }
+  if (filter === "paid") {
+    return (
+      value === "paid" || value === "captured" || value === "partially_refunded"
+    )
+  }
+  return value.includes("refund")
+}
+
+function applyOrderQueueFilters(
+  orders: StaffExceptionOrderSummary[],
+  input: Required<StaffExceptionOrderSearchInput>
+): StaffExceptionOrderSummary[] {
+  return orders
+    .filter((order) => {
+      if (input.queue === "open" && !isOpenOrder(order)) return false
+      if (!orderMatchesFulfillmentFilter(order, input.fulfillmentStatus)) {
+        return false
+      }
+      if (!orderMatchesPaymentFilter(order, input.paymentStatus)) return false
+      return true
+    })
+    .slice(0, input.limit)
+}
+
+function numericValue(value: unknown): number | null {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : null
+  }
+  if (typeof value === "string") {
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? parsed : null
+  }
+  return null
 }
 
 function detailLegacyOrder(order: AnyRecord): StaffExceptionOrderDetail {
@@ -643,25 +785,49 @@ function capturablePayment(
 }
 
 export async function searchStaffExceptionOrders(
-  query: string
+  input: string | StaffExceptionOrderSearchInput
 ): Promise<StaffExceptionOrderSummary[]> {
   await requireStaffOperator()
-  const trimmed = query.trim()
+  const searchInput = normalizeSearchInput(input)
+  const trimmed = searchInput.query.trim()
   const baseParams: Record<string, unknown> = {
-    limit: 20,
+    limit: trimmed ? 20 : 100,
     order: "-created_at",
     fields: ORDER_LIST_FIELDS,
   }
 
   if (!trimmed) {
-    const { orders } = await adminFetch<{ orders: AnyRecord[] }>(
-      "/admin/orders",
-      {
-        query: baseParams,
-      }
-    )
+    const pageSize = 100
+    const maxScannedOrders = 500
+    const orders: AnyRecord[] = []
+    let offset = 0
+    let total: number | null = null
 
-    return (orders || []).map(summarizeOrder)
+    while (offset < maxScannedOrders) {
+      const response = await adminFetch<OrderListResponse>("/admin/orders", {
+        query: {
+          ...baseParams,
+          limit: pageSize,
+          offset,
+        },
+      })
+      const pageOrders = response.orders || []
+      orders.push(...pageOrders)
+      total = numericValue(response.count)
+      offset += pageSize
+
+      const filtered = applyOrderQueueFilters(
+        orders.map(summarizeOrder),
+        searchInput
+      )
+      if (filtered.length >= searchInput.limit) {
+        return filtered
+      }
+      if (pageOrders.length < pageSize) break
+      if (total !== null && offset >= total) break
+    }
+
+    return applyOrderQueueFilters(orders.map(summarizeOrder), searchInput)
   }
 
   const seenOrders = new Set<string>()
@@ -778,10 +944,15 @@ export async function searchStaffExceptionOrders(
     )
   }
 
-  return [
+  const results = [
     ...orders.map(summarizeOrder),
     ...legacyOrders.map(summarizeLegacyOrder),
-  ].slice(0, 20)
+  ]
+
+  return applyOrderQueueFilters(results, {
+    ...searchInput,
+    queue: searchInput.queue,
+  })
 }
 
 export async function getStaffExceptionOrderDetail(

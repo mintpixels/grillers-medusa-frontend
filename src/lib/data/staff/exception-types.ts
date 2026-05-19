@@ -122,7 +122,9 @@ export function staffOrderOperationalState(
   }
 
   const fulfillmentStatus = String(order.fulfillment_status || "").toLowerCase()
-  const fulfillments = Array.isArray(order.fulfillments) ? order.fulfillments : []
+  const fulfillments = Array.isArray(order.fulfillments)
+    ? order.fulfillments
+    : []
   const hasShipment = fulfillments.some(
     (fulfillment: AnyRecord) =>
       fulfillment?.shipped_at ||
@@ -140,15 +142,17 @@ export function staffOrderOperationalState(
 
   if (
     fulfillments.length > 0 ||
-    fulfillmentStatus.includes("fulfilled") ||
+    fulfillmentStatus === "fulfilled" ||
     fulfillmentStatus.includes("partially")
   ) {
     return "fulfillment_locked"
   }
 
-  if (["pending", "authorized", "captured", "partially_refunded"].includes(
-    String(order.payment_status || "").toLowerCase()
-  )) {
+  if (
+    ["pending", "authorized", "captured", "partially_refunded"].includes(
+      String(order.payment_status || "").toLowerCase()
+    )
+  ) {
     return "confirmed"
   }
 
@@ -184,9 +188,7 @@ export function actionRequiredConfirmation(
   }
 }
 
-export function actionMutatesMedusa(
-  action: StaffExceptionActionType
-): boolean {
+export function actionMutatesMedusa(action: StaffExceptionActionType): boolean {
   return (
     action === "refund_payment" ||
     action === "capture_payment" ||
@@ -194,9 +196,7 @@ export function actionMutatesMedusa(
   )
 }
 
-export function actionIsAuditOnly(
-  action: StaffExceptionActionType
-): boolean {
+export function actionIsAuditOnly(action: StaffExceptionActionType): boolean {
   return !actionMutatesMedusa(action)
 }
 

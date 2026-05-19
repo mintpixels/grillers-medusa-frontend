@@ -38,6 +38,12 @@ describe("staff exception helpers", () => {
     expect(staffOrderOperationalState({ payment_status: "captured" })).toBe(
       "confirmed"
     )
+    expect(
+      staffOrderOperationalState({
+        fulfillment_status: "not_fulfilled",
+        payment_status: "captured",
+      })
+    ).toBe("confirmed")
   })
 
   it("marks money movement and consent requirements", () => {
@@ -64,16 +70,23 @@ describe("staff exception helpers", () => {
   })
 
   it("blocks unsafe actions after cancellation or shipment", () => {
-    expect(actionIsBlockedByOperationalState("cancel_order", "completed_or_shipped")).toBe(
-      true
-    )
-    expect(actionIsBlockedByOperationalState("capture_payment", "completed_or_shipped")).toBe(
-      true
-    )
-    expect(actionIsBlockedByOperationalState("credit_memo", "completed_or_shipped")).toBe(
+    expect(
+      actionIsBlockedByOperationalState("cancel_order", "completed_or_shipped")
+    ).toBe(true)
+    expect(
+      actionIsBlockedByOperationalState(
+        "capture_payment",
+        "completed_or_shipped"
+      )
+    ).toBe(true)
+    expect(
+      actionIsBlockedByOperationalState("credit_memo", "completed_or_shipped")
+    ).toBe(false)
+    expect(
+      actionIsBlockedByOperationalState("refund_payment", "canceled")
+    ).toBe(true)
+    expect(actionIsBlockedByOperationalState("record_note", "canceled")).toBe(
       false
     )
-    expect(actionIsBlockedByOperationalState("refund_payment", "canceled")).toBe(true)
-    expect(actionIsBlockedByOperationalState("record_note", "canceled")).toBe(false)
   })
 })
