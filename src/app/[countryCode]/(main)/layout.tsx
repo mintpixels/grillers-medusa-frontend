@@ -37,8 +37,11 @@ export default async function PageLayout(props: {
       "main layout cart"
     ),
   ])
-  const staffImpersonation = await getStaffImpersonationSession().catch(
-    () => null
+  const staffImpersonation = await withTimeout(
+    getStaffImpersonationSession().catch(() => null),
+    800,
+    null,
+    "main layout staff impersonation"
   )
   let shippingOptions: StoreCartShippingOption[] = []
 

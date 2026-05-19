@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server"
 const BACKEND_URL = process.env.MEDUSA_BACKEND_URL
 const PUBLISHABLE_API_KEY = process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY
 const DEFAULT_REGION = process.env.NEXT_PUBLIC_DEFAULT_REGION || "us"
+const REGION_LOOKUP_TIMEOUT_MS = 600
 
 const regionMapCache = {
   regionMap: new Map<string, HttpTypes.StoreRegion>(),
@@ -24,24 +25,33 @@ async function getRegionMap(cacheId: string) {
     regionMapUpdated < Date.now() - 3600 * 1000
   ) {
     // Fetch regions from Medusa. We can't use the JS client here because middleware is running on Edge and the client needs a Node environment.
+    const controller = new AbortController()
+    const timeout = setTimeout(
+      () => controller.abort(),
+      REGION_LOOKUP_TIMEOUT_MS
+    )
+
     const { regions } = await fetch(`${BACKEND_URL}/store/regions`, {
       headers: {
         "x-publishable-api-key": PUBLISHABLE_API_KEY!,
       },
+      signal: controller.signal,
       next: {
         revalidate: 3600,
         tags: [`regions-${cacheId}`],
       },
       cache: "force-cache",
-    }).then(async (response) => {
-      const json = await response.json()
-
-      if (!response.ok) {
-        throw new Error(json.message)
-      }
-
-      return json
     })
+      .finally(() => clearTimeout(timeout))
+      .then(async (response) => {
+        const json = await response.json()
+
+        if (!response.ok) {
+          throw new Error(json.message)
+        }
+
+        return json
+      })
 
     if (!regions?.length) {
       throw new Error(
@@ -110,13 +120,28 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
+  let cacheIdCookie = request.cookies.get("_medusa_cache_id")
+  let cacheId = cacheIdCookie?.value || crypto.randomUUID()
+  const urlFirstSegment = request.nextUrl.pathname.split("/")[1]?.toLowerCase()
+
+  // Griller's Pride currently sells through the default US storefront. Do not
+  // put every localized page load behind Medusa /store/regions; if the backend
+  // is cold or unavailable, the demo site should still render immediately.
+  if (urlFirstSegment === DEFAULT_REGION) {
+    if (cacheIdCookie) {
+      return NextResponse.next()
+    }
+
+    const nextResponse = NextResponse.next()
+    nextResponse.cookies.set("_medusa_cache_id", cacheId, {
+      maxAge: 60 * 60 * 24,
+    })
+    return nextResponse
+  }
+
   let redirectUrl = request.nextUrl.href
 
   let response = NextResponse.redirect(redirectUrl, 307)
-
-  let cacheIdCookie = request.cookies.get("_medusa_cache_id")
-
-  let cacheId = cacheIdCookie?.value || crypto.randomUUID()
 
   let regionMap: Map<string, HttpTypes.StoreRegion | number>
   try {
@@ -137,7 +162,6 @@ export async function middleware(request: NextRequest) {
   // request through with that bogus value as countryCode, breaking Medusa
   // region lookups (prices vanish) and any LocalizedClientLink that reads
   // countryCode from URL params (PDP links 404).
-  const urlFirstSegment = request.nextUrl.pathname.split("/")[1]?.toLowerCase()
   const urlHasCountryCode = countryCode && urlFirstSegment === countryCode
 
   // if one of the country codes is in the url and the cache id is set, return next

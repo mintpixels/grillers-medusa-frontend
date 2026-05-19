@@ -5,6 +5,7 @@ import { getAtlantaDeliveryZipConfig } from "@lib/data/strapi/fulfillment"
 import { getAddressBookDeliveryZip } from "@lib/util/delivery-zip"
 import SideCart from "./index"
 import { getCartUpsellProducts } from "@modules/cart/components/cart-upsells/server"
+import { withTimeout } from "@lib/util/promise-timeout"
 
 /**
  * Server component wrapper that fetches cart data and renders the SideCart.
@@ -16,13 +17,33 @@ export default async function SideCartWrapper({
   countryCode?: string
 }) {
   const [cart, atlantaZipConfig, savedZip, customer] = await Promise.all([
-    retrieveCart().catch(() => null),
-    getAtlantaDeliveryZipConfig().catch(() => undefined),
+    withTimeout(
+      retrieveCart().catch(() => null),
+      800,
+      null,
+      "side cart cart"
+    ),
+    withTimeout(
+      getAtlantaDeliveryZipConfig().catch(() => undefined),
+      800,
+      undefined,
+      "side cart delivery config"
+    ),
     getDeliveryZipCookie(),
-    retrieveCustomer().catch(() => null),
+    withTimeout(
+      retrieveCustomer().catch(() => null),
+      800,
+      null,
+      "side cart customer"
+    ),
   ])
   const upsellProducts = cart?.items?.length
-    ? await getCartUpsellProducts(countryCode)
+    ? await withTimeout(
+        getCartUpsellProducts(countryCode).catch(() => []),
+        800,
+        [],
+        "side cart upsells"
+      )
     : []
   const initialDeliveryZip =
     cart?.shipping_address?.postal_code ||

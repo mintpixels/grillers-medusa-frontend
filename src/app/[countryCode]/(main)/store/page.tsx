@@ -5,6 +5,7 @@ import { hitToProduct } from "@lib/algolia/hit-to-product"
 import { PRODUCT_INDEX } from "@lib/algolia/indexes"
 import { enrichStrapiProductsWithMedusaPrices } from "@lib/data/products"
 import type { StrapiCollectionProduct } from "@lib/data/strapi/collections"
+import { withTimeout } from "@lib/util/promise-timeout"
 import CollectionTemplate from "@modules/collections/templates"
 
 type Params = {
@@ -84,9 +85,13 @@ export default async function StorePage(props: Params) {
   // Cards collapse without an image, so require FeaturedImage at minimum
   // (matches the prior Strapi-fetched implementation's filter).
   const visibleProducts = rawProducts.filter((p) => p.FeaturedImage?.url)
-  const products = await enrichStrapiProductsWithMedusaPrices(
+  const products = await withTimeout(
+    enrichStrapiProductsWithMedusaPrices(visibleProducts, countryCode).catch(
+      () => visibleProducts
+    ),
+    1200,
     visibleProducts,
-    countryCode
+    "store Medusa price enrichment"
   )
 
   return (
