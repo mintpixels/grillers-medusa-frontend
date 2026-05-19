@@ -19,7 +19,7 @@ import { getRegion } from "@lib/data/regions"
 import { retrieveCustomer } from "@lib/data/customer"
 import { listPurchaseHistory } from "@lib/data/orders"
 import {
-  getProductsByMedusaIds,
+  getProductsByMedusaLookupRefs,
   type StrapiCollectionProduct,
 } from "@lib/data/strapi/collections"
 import { getCuratedCollectionCards } from "@lib/data/strapi/curated-collections"
@@ -37,6 +37,10 @@ import { withTimeout } from "@lib/util/promise-timeout"
 
 type PageProps = {
   params: Promise<{ countryCode: string }>
+}
+
+function presentString(value: string | null | undefined): value is string {
+  return Boolean(value)
 }
 
 export async function generateMetadata({
@@ -160,19 +164,36 @@ export default async function Home(props: {
   const reorderStrapiMap: Record<string, StrapiCollectionProduct> = {}
   if (purchaseHistory.length > 0) {
     const ids = Array.from(
-      new Set(purchaseHistory.map((h) => h.productId).filter(Boolean))
+      new Set(purchaseHistory.map((h) => h.productId).filter(presentString))
     )
-    if (ids.length > 0) {
+    const variantIds = Array.from(
+      new Set(purchaseHistory.map((h) => h.variantId).filter(presentString))
+    )
+    const skus = Array.from(
+      new Set(purchaseHistory.map((h) => h.sku).filter(presentString))
+    )
+    if (ids.length > 0 || variantIds.length > 0 || skus.length > 0) {
       try {
         const strapiProducts = await withTimeout(
-          getProductsByMedusaIds(ids, strapiClient),
-          1200,
+          getProductsByMedusaLookupRefs(
+            { productIds: ids, variantIds, skus },
+            strapiClient
+          ),
+          1800,
           [],
           "home reorder enrichment"
         )
         for (const sp of strapiProducts) {
           if (sp.MedusaProduct?.ProductId) {
             reorderStrapiMap[sp.MedusaProduct.ProductId] = sp
+          }
+          for (const variant of sp.MedusaProduct?.Variants || []) {
+            if (variant.VariantId) {
+              reorderStrapiMap[variant.VariantId] = sp
+            }
+            if (variant.Sku) {
+              reorderStrapiMap[variant.Sku.trim().toLowerCase()] = sp
+            }
           }
         }
       } catch (error) {

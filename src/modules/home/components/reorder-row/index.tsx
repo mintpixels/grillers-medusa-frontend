@@ -41,6 +41,33 @@ function itemKey(item: PurchaseHistoryItem): string {
   )
 }
 
+function normalizedSku(value?: string | null) {
+  return value?.trim().toLowerCase() || ""
+}
+
+function strapiProductForHistory(
+  item: PurchaseHistoryItem,
+  strapiMap: Record<string, StrapiCollectionProduct>
+) {
+  return (
+    (item.productId ? strapiMap[item.productId] : undefined) ||
+    (item.variantId ? strapiMap[item.variantId] : undefined) ||
+    (item.sku ? strapiMap[normalizedSku(item.sku)] : undefined)
+  )
+}
+
+function historyTitle(item: PurchaseHistoryItem, strapi?: StrapiCollectionProduct) {
+  const generic = new Set(["standard", "default", "default title"])
+  const title =
+    strapi?.Title ||
+    [item.productTitle, item.title].find((value) => {
+      const normalized = value?.trim().toLowerCase()
+      return normalized && !generic.has(normalized)
+    })
+
+  return title || (item.sku ? `Past purchase ${item.sku}` : "Past purchase")
+}
+
 export default function ReorderRow({
   history,
   strapiMap,
@@ -65,7 +92,7 @@ export default function ReorderRow({
     cards.push({
       key,
       item,
-      strapi: item.productId ? strapiMap[item.productId] : undefined,
+      strapi: strapiProductForHistory(item, strapiMap),
     })
     if (cards.length >= maxCards) break
   }
@@ -79,95 +106,92 @@ export default function ReorderRow({
   return (
     <section
       aria-labelledby="reorder-row-heading"
-      className="bg-Scroll py-12 md:py-20"
+      className="bg-White py-10 md:py-14 border-y border-Charcoal/15"
     >
       <div className="content-container">
-        <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-10">
-          <div>
+        <div className="grid gap-8 lg:grid-cols-[minmax(240px,320px)_minmax(0,1fr)] lg:items-start">
+          <div className="max-w-[360px]">
             <p className="text-p-sm-mono font-maison-neue-mono uppercase tracking-widest text-Gold mb-3">
               {greeting}
             </p>
             <h2
               id="reorder-row-heading"
-              className="text-h2-mobile md:text-h2 font-gyst text-Charcoal"
+              className="text-h2-mobile md:text-h3 font-gyst text-Charcoal"
             >
               Reorder your favorites
             </h2>
-            <p className="text-p-md font-maison-neue text-Charcoal/70 mt-3 max-w-prose">
+            <p className="text-p-md font-maison-neue text-Charcoal/70 mt-3">
               The cuts you've ordered before, ready to add or request again.
             </p>
-          </div>
-          <LocalizedClientLink
-            href="/account/reorder"
-            className="self-start md:self-end inline-flex items-center gap-2 text-p-sm-mono font-maison-neue-mono uppercase tracking-widest text-Charcoal hover:text-Gold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold rounded"
-          >
-            See full reorder list
-            <svg
-              width="16"
-              height="12"
-              viewBox="0 0 16 12"
-              fill="none"
-              aria-hidden="true"
+            <LocalizedClientLink
+              href="/account/reorder"
+              className="mt-6 inline-flex min-h-[44px] items-center gap-2 text-p-sm-mono font-maison-neue-mono uppercase tracking-widest text-Charcoal hover:text-Gold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold rounded"
             >
-              <path
-                d="M10 1l5 5-5 5M15 6H0"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </LocalizedClientLink>
-        </div>
+              See full reorder list
+              <svg
+                width="16"
+                height="12"
+                viewBox="0 0 16 12"
+                fill="none"
+                aria-hidden="true"
+              >
+                <path
+                  d="M10 1l5 5-5 5M15 6H0"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </LocalizedClientLink>
+          </div>
 
-        <ul
-          className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 md:gap-6"
-          role="list"
-        >
-          {cards.map(({ key, item, strapi }) => {
-            const handle = strapi?.MedusaProduct?.Handle
-            const title =
-              strapi?.Title || item.productTitle || item.title
-            const image =
-              strapi?.FeaturedImage?.url ||
-              item.thumbnail ||
-              undefined
-            const lastOrdered = lastOrderedLabel(item.lastOrderedAt)
-            const href = handle ? `/products/${handle}` : "/account/reorder"
-            return (
-              <li key={key}>
-                <LocalizedClientLink
-                  href={href}
-                  className="group block focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold focus-visible:ring-offset-2 rounded-sm"
-                >
-                  <div className="relative w-full aspect-square overflow-hidden bg-white border border-Charcoal/10">
-                    {image ? (
-                      <Image
-                        src={image}
-                        alt={title}
-                        fill
-                        sizes="(min-width: 1024px) 16vw, (min-width: 768px) 33vw, 50vw"
-                        className="object-cover transition-transform duration-500 ease-out group-hover:scale-[1.03]"
-                      />
-                    ) : (
-                      <div className="absolute inset-0 flex items-center justify-center text-Charcoal/30 text-p-sm-mono font-maison-neue-mono uppercase tracking-widest">
-                        No image
-                      </div>
-                    )}
-                  </div>
-                  <div className="mt-3">
-                    <p className="text-p-sm font-maison-neue font-semibold text-Charcoal line-clamp-2 group-hover:text-Gold transition-colors">
-                      {title}
-                    </p>
-                    <p className="text-p-ex-sm-mono font-maison-neue-mono uppercase tracking-widest text-Charcoal/50 mt-1">
-                      {lastOrdered}
-                    </p>
-                  </div>
-                </LocalizedClientLink>
-              </li>
-            )
-          })}
-        </ul>
+          <ul
+            className="grid grid-cols-2 gap-4 border-t border-Charcoal/15 pt-5 md:grid-cols-3 lg:grid-cols-6 lg:border-t-0 lg:pt-0"
+            role="list"
+          >
+            {cards.map(({ key, item, strapi }) => {
+              const handle = strapi?.MedusaProduct?.Handle
+              const title = historyTitle(item, strapi)
+              const image =
+                strapi?.FeaturedImage?.url || item.thumbnail || undefined
+              const lastOrdered = lastOrderedLabel(item.lastOrderedAt)
+              const href = handle ? `/products/${handle}` : "/account/reorder"
+              return (
+                <li key={key}>
+                  <LocalizedClientLink
+                    href={href}
+                    className="group block focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold focus-visible:ring-offset-2 rounded-sm"
+                  >
+                    <div className="relative w-full aspect-[4/3] overflow-hidden bg-Scroll border border-Charcoal/10">
+                      {image ? (
+                        <Image
+                          src={image}
+                          alt={title}
+                          fill
+                          sizes="(min-width: 1280px) 12vw, (min-width: 1024px) 16vw, (min-width: 768px) 33vw, 50vw"
+                          className="object-cover transition-transform duration-500 ease-out group-hover:scale-[1.03]"
+                        />
+                      ) : (
+                        <div className="absolute inset-0 flex items-center justify-center text-Charcoal/30 text-p-ex-sm-mono font-maison-neue-mono uppercase tracking-widest">
+                          No image
+                        </div>
+                      )}
+                    </div>
+                    <div className="mt-3 border-t border-Charcoal/15 pt-3">
+                      <p className="text-p-sm font-maison-neue font-semibold text-Charcoal line-clamp-2 group-hover:text-Gold transition-colors">
+                        {title}
+                      </p>
+                      <p className="text-p-ex-sm-mono font-maison-neue-mono uppercase tracking-widest text-Charcoal/50 mt-1">
+                        {lastOrdered}
+                      </p>
+                    </div>
+                  </LocalizedClientLink>
+                </li>
+              )
+            })}
+          </ul>
+        </div>
       </div>
     </section>
   )
