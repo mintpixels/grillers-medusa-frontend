@@ -45,7 +45,7 @@ function assert(condition, message) {
   if (!condition) throw new Error(message)
 }
 
-async function fetchText(label, url, options = {}) {
+async function fetchTextResult(label, url, options = {}) {
   const startedAt = Date.now()
   const response = await fetch(url, {
     redirect: "manual",
@@ -59,19 +59,25 @@ async function fetchText(label, url, options = {}) {
   const text = await response.text()
   const elapsed = Date.now() - startedAt
 
-  if (!response.ok) {
+  return { response, text, elapsed, ok: response.ok, status: response.status }
+}
+
+async function fetchText(label, url, options = {}) {
+  const result = await fetchTextResult(label, url, options)
+
+  if (!result.ok) {
     throw new Error(
-      `${label} failed: HTTP ${response.status} in ${elapsed}ms. Body: ${text
+      `${label} failed: HTTP ${result.status} in ${result.elapsed}ms. Body: ${result.text
         .replace(/\s+/g, " ")
         .slice(0, 500)}`
     )
   }
 
-  return { response, text, elapsed }
+  return result
 }
 
-async function fetchJson(label, url, options = {}) {
-  const result = await fetchText(label, url, {
+async function fetchJsonResult(label, url, options = {}) {
+  const result = await fetchTextResult(label, url, {
     ...options,
     headers: {
       accept: "application/json",
@@ -83,8 +89,25 @@ async function fetchJson(label, url, options = {}) {
   try {
     return { ...result, json: JSON.parse(result.text) }
   } catch {
-    throw new Error(`${label} returned non-JSON body: ${result.text.slice(0, 300)}`)
+    if (result.ok) {
+      throw new Error(`${label} returned non-JSON body: ${result.text.slice(0, 300)}`)
+    }
+    return { ...result, json: null }
   }
+}
+
+async function fetchJson(label, url, options = {}) {
+  const result = await fetchJsonResult(label, url, options)
+
+  if (!result.ok) {
+    throw new Error(
+      `${label} failed: HTTP ${result.status} in ${result.elapsed}ms. Body: ${result.text
+        .replace(/\s+/g, " ")
+        .slice(0, 500)}`
+    )
+  }
+
+  return result
 }
 
 function assertNoBrokenSignals(label, html) {
@@ -103,14 +126,19 @@ function assertNoBrokenSignals(label, html) {
   }
 }
 
-function chooseProduct(products) {
+function productVariantCandidates(products) {
+  const candidates = []
   for (const product of products) {
-    const variant = product.variants?.find((candidate) => candidate?.id)
-    if (product.handle && variant?.id) {
-      return { product, variant }
+    if (!product.handle) continue
+    for (const variant of product.variants || []) {
+      if (variant?.id) candidates.push({ product, variant })
     }
   }
-  return null
+  return candidates
+}
+
+function positiveNumber(...values) {
+  return values.some((value) => Number.isFinite(value) && value > 0)
 }
 
 const dotEnv = readDotEnv()
@@ -177,7 +205,9 @@ console.log(`ok backend /store/regions (${regions.json.regions.length} regions)`
 
 const products = await fetchJson(
   "backend products",
-  `${backendUrl}/store/products?limit=25`,
+  `${backendUrl}/store/products?limit=50&region_id=${encodeURIComponent(
+    region.id
+  )}`,
   { headers: storeHeaders }
 )
 assert(
@@ -189,9 +219,9 @@ assert(
   "Backend appears to be serving Medusa seed products"
 )
 
-const selection = chooseProduct(products.json.products)
-assert(selection, "Could not find a product with a handle and variant id")
-const { product, variant } = selection
+const candidates = productVariantCandidates(products.json.products)
+assert(candidates.length > 0, "Could not find a product with a handle and variant id")
+const { product } = candidates[0]
 console.log(`ok backend /store/products (${product.title || product.handle})`)
 
 const cartCreate = await fetchJson("cart create", `${backendUrl}/store/carts`, {
@@ -202,27 +232,50 @@ const cartCreate = await fetchJson("cart create", `${backendUrl}/store/carts`, {
 const cartId = cartCreate.json?.cart?.id
 assert(cartId, "Expected cart create to return cart.id")
 
-const cartLine = await fetchJson(
-  "cart add line item",
-  `${backendUrl}/store/carts/${cartId}/line-items`,
-  {
-    method: "POST",
-    headers: storeHeaders,
-    body: JSON.stringify({
-      variant_id: variant.id,
-      quantity: 1,
-    }),
+let cartLine = null
+let selection = null
+let lastAddFailure = null
+for (const candidate of candidates) {
+  const result = await fetchJsonResult(
+    "cart add line item",
+    `${backendUrl}/store/carts/${cartId}/line-items`,
+    {
+      method: "POST",
+      headers: storeHeaders,
+      body: JSON.stringify({
+        variant_id: candidate.variant.id,
+        quantity: 1,
+      }),
+    }
+  )
+
+  if (result.ok) {
+    cartLine = result
+    selection = candidate
+    break
   }
+
+  lastAddFailure = `HTTP ${result.status}: ${result.text
+    .replace(/\s+/g, " ")
+    .slice(0, 200)}`
+}
+
+assert(
+  cartLine && selection,
+  `Expected at least one catalog variant to be addable to cart. Last failure: ${
+    lastAddFailure || "none"
+  }`
 )
 const cart = cartLine.json?.cart
 assert(cart?.items?.length, "Expected cart to contain at least one line item")
 assert(
-  cart.subtotal != null || cart.total != null,
-  "Expected cart add response to include live pricing totals"
+  positiveNumber(cart.subtotal, cart.total, cart.items[0]?.unit_price, cart.items[0]?.subtotal),
+  "Expected cart add response to include positive live pricing totals"
 )
 console.log(`ok backend cart create/add (${cartId})`)
 
 const cookie = `_medusa_cart_id=${cartId}; _medusa_region_id=${region.id}`
+const { product: selectedProduct } = selection
 const routeChecks = [
   {
     label: "home",
@@ -231,14 +284,14 @@ const routeChecks = [
   },
   {
     label: "pdp",
-    url: `${storefrontUrl}/${countryCode}/products/${product.handle}`,
-    mustContain: product.title || product.handle,
+    url: `${storefrontUrl}/${countryCode}/products/${selectedProduct.handle}`,
+    mustContain: selectedProduct.title || selectedProduct.handle,
   },
   {
     label: "cart",
     url: `${storefrontUrl}/${countryCode}/cart`,
     headers: { cookie },
-    mustContain: product.title || product.handle,
+    mustContain: selectedProduct.title || selectedProduct.handle,
   },
   {
     label: "checkout",
