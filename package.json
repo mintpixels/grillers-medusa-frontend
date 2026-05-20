@@ -21,6 +21,7 @@
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
     "mobile:audit": "node scripts/mobile-audit.js --screenshots --fail-on-small-targets",
+    "smoke:storefront-backend": "node scripts/smoke-storefront-backend.mjs",
     "postmark:ensure-templates": "node scripts/postmark/ensure-templates.js --apply"
   },
   "dependencies": {
