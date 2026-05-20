@@ -77,7 +77,7 @@ const fulfillmentLabels: Record<FulfillmentType, { label: string; description: s
   },
 }
 
-type SubStep = "select" | "plant_date" | "southeast_pickup" | "save_address"
+type SubStep = "select" | "plant_date" | "southeast_pickup" | "save_address" | "switch_address"
 
 function getPreferredAddress(customer: HttpTypes.StoreCustomer | null) {
   const addresses = customer?.addresses || []
@@ -87,6 +87,14 @@ function getPreferredAddress(customer: HttpTypes.StoreCustomer | null) {
     addresses.find((address) => address.is_default_billing) ||
     addresses[0]
   )
+}
+
+function formatAddressLine(address: { address_1?: string | null; city?: string | null; province?: string | null; postal_code?: string | null } | null | undefined) {
+  if (!address) return ""
+  return [address.address_1, address.city, address.province]
+    .filter(Boolean)
+    .join(", ")
+    .concat(address.postal_code ? ` ${address.postal_code}` : "")
 }
 
 function friendlyFulfillmentError(message?: string) {
@@ -155,11 +163,21 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
   }), [config])
 
   // Pull active shipping address from cart, then fall back to the customer's
-  // default shipping address. This keeps Step 1 availability aligned with the
-  // address that Step 2 preselects.
-  const activeAddress = cart.shipping_address ?? getPreferredAddress(customer)
+  // default shipping address. Medusa creates an empty shipping_address stub on
+  // cart creation (truthy object, no postal_code), so we have to check for a
+  // real postal_code before trusting it — otherwise the fallback never runs
+  // and signed-in customers with saved addresses get "no delivery address yet".
+  const preferredCustomerAddress = getPreferredAddress(customer)
+  const activeAddress =
+    cart.shipping_address?.postal_code
+      ? cart.shipping_address
+      : preferredCustomerAddress
   const shipZip = (activeAddress?.postal_code || "").trim()
   const shipCity = (activeAddress?.city || "").trim()
+  const savedAddresses = customer?.addresses || []
+  const canSwitchAddress = savedAddresses.length > 1
+  const activeAddressId =
+    (activeAddress as HttpTypes.StoreCustomerAddress | null | undefined)?.id || null
 
   const isAtlantaZip = (zip: string) =>
     Boolean(zip) && (config?.AtlantaDeliveryZipCodes || []).includes(zip)
@@ -310,6 +328,29 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
     setSavingAddress(false)
     if (!res.success) {
       setSaveAddressError(res.error || "Could not save your address.")
+      return
+    }
+    setSubStep("select")
+    router.refresh()
+  }
+
+  const handlePickSavedAddress = async (address: HttpTypes.StoreCustomerAddress) => {
+    if (savingAddress) return
+    setSavingAddress(true)
+    setSaveAddressError(null)
+    const res = await saveAddressToProfileAndCart({
+      first_name: address.first_name || customer?.first_name || "",
+      last_name: address.last_name || customer?.last_name || "",
+      address_1: address.address_1 || "",
+      city: address.city || "",
+      province: address.province || "",
+      postal_code: address.postal_code || "",
+      phone: address.phone || customer?.phone || "",
+      country_code: address.country_code || undefined,
+    })
+    setSavingAddress(false)
+    if (!res.success) {
+      setSaveAddressError(res.error || "Could not switch to that address.")
       return
     }
     setSubStep("select")
@@ -472,6 +513,34 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
                 show their current address with an "Edit" CTA so they can
                 try a different one (e.g. work vs home) before falling back
                 to UPS. Both save to BOTH the customer profile and the cart. */}
+        {/* Qualifying-address summary: tells customer which saved address we're
+            using to compute fulfillment availability and gives them a way to
+            switch without going all the way into Step 2. */}
+        {!showAddressCTA && hasSavedAddress && Boolean(customer) && (
+          <div className="mb-4 flex items-center justify-between gap-3 p-3 rounded-xl bg-white/70 border border-Gold/20">
+            <div className="flex items-start gap-2 min-w-0">
+              <svg className="w-4 h-4 text-Gold flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              <p className="text-xs text-Charcoal/70 leading-snug min-w-0 truncate">
+                <span className="font-semibold text-Charcoal">Shipping to:</span>{" "}
+                {formatAddressLine(activeAddress)}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setSaveAddressError(null)
+                setSubStep(canSwitchAddress ? "switch_address" : "save_address")
+              }}
+              className="flex-shrink-0 text-xs font-semibold text-Gold hover:text-Gold/80 transition-colors"
+            >
+              Change
+            </button>
+          </div>
+        )}
+
         {showAddressCTA && (
           <div className="mb-4 p-4 rounded-xl border border-Gold/30 bg-Gold/[0.07]">
             <div className="flex items-start gap-3">
@@ -502,10 +571,13 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
               </div>
               <button
                 type="button"
-                onClick={() => { setSaveAddressError(null); setSubStep("save_address") }}
+                onClick={() => {
+                  setSaveAddressError(null)
+                  setSubStep(canSwitchAddress ? "switch_address" : "save_address")
+                }}
                 className="flex-shrink-0 h-9 px-3 text-xs font-semibold text-white bg-Gold rounded-lg hover:bg-Gold/90 transition-colors"
               >
-                {hasSavedAddress ? "Edit Address" : "Add Address"}
+                {hasSavedAddress ? (canSwitchAddress ? "Change Address" : "Edit Address") : "Add Address"}
               </button>
             </div>
           </div>
@@ -598,6 +670,70 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
             isSubmitting={savingAddress}
             mode="general"
           />
+          {saveAddressError && (
+            <div className="mt-3 p-3 bg-red-50 border border-red-200/80 rounded-xl text-red-700 text-sm">
+              {saveAddressError}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Switch Address sub-step — pick from saved customer addresses */}
+      {showSelection && subStep === "switch_address" && (
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-base font-semibold text-Charcoal">Choose a shipping address</h3>
+            <button
+              type="button"
+              onClick={() => { setSaveAddressError(null); setSubStep("select") }}
+              className="text-xs font-semibold text-Charcoal/60 hover:text-Charcoal"
+              disabled={savingAddress}
+            >
+              Cancel
+            </button>
+          </div>
+          <div className="flex flex-col gap-2">
+            {savedAddresses.map((address) => {
+              const isActive = activeAddressId === address.id
+              return (
+                <button
+                  key={address.id}
+                  type="button"
+                  onClick={() => handlePickSavedAddress(address)}
+                  disabled={savingAddress}
+                  className={`text-left p-3 rounded-xl border-2 transition-all bg-white ${
+                    isActive
+                      ? "border-Gold shadow-sm"
+                      : "border-gray-200 hover:border-Gold/60"
+                  } ${savingAddress ? "opacity-60 cursor-wait" : "cursor-pointer"}`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-Charcoal truncate">
+                        {[address.first_name, address.last_name].filter(Boolean).join(" ") || "Saved address"}
+                      </p>
+                      <p className="text-xs text-Charcoal/65 mt-0.5 leading-snug">
+                        {formatAddressLine(address)}
+                      </p>
+                    </div>
+                    {isActive && (
+                      <span className="flex-shrink-0 text-[10px] font-bold uppercase tracking-wide text-Gold bg-Gold/10 px-2 py-0.5 rounded-full">
+                        Current
+                      </span>
+                    )}
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+          <button
+            type="button"
+            onClick={() => { setSaveAddressError(null); setSubStep("save_address") }}
+            disabled={savingAddress}
+            className="mt-3 w-full text-center text-sm font-semibold text-Gold hover:text-Gold/80 transition-colors py-2 border border-dashed border-Gold/30 rounded-xl"
+          >
+            + Add a new address
+          </button>
           {saveAddressError && (
             <div className="mt-3 p-3 bg-red-50 border border-red-200/80 rounded-xl text-red-700 text-sm">
               {saveAddressError}
