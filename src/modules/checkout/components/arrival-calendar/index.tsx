@@ -1,6 +1,5 @@
 "use client"
 
-import { Calendar } from "@medusajs/ui"
 import { useState, useEffect, useCallback, useMemo } from "react"
 import type { StoreCart, StoreCartShippingOption } from "@medusajs/types"
 
@@ -14,15 +13,9 @@ import {
 import { ATLANTA_DELIVERY_ZIP_DAYS } from "@lib/data/strapi/checkout"
 
 /**
- * Arrival-date calendar used in the new checkout shipping flow.
- *
- * Reads the selected shipping method's service_code (GROUND / OVERNIGHT / 2ND_DAY_AIR)
- * + the destination zip + the server-derived "now" to compute the set of eligible
- * arrival dates. Disabled days are non-clickable; the calendar opens on the first
- * month that contains a valid date so customers in long-transit zones (CA, OR, WA)
- * don't see an empty current-month grid.
- *
- * Fixes #36 and #72.
+ * Arrival-date picker for the checkout shipping flow. Renders the next batch of
+ * eligible dates as a card grid — the calendar grid version made it impossible
+ * to tell selectable vs disabled days at a glance.
  */
 
 type ArriveFoodCalendarProps = {
@@ -50,17 +43,21 @@ function deriveArrivalMethod(
   if (fulfillmentType === "southeast_pickup") return "southeast_pickup"
   if (fulfillmentType === "plant_pickup") return "plant_pickup"
 
-  // UPS shipping — service_code drills the transit time
   if (serviceCode === "OVERNIGHT") return "ups_overnight"
   if (serviceCode === "2ND_DAY_AIR" || serviceCode === "TWO_DAY") return "ups_2day"
   if (serviceCode === "GROUND") return "ups_ground"
 
-  // Fallback by name (catches calculated rates that don't expose data.service_code)
   const name = (selectedOption?.name || "").toLowerCase()
   if (name.includes("overnight")) return "ups_overnight"
   if (name.includes("2nd day") || name.includes("two day")) return "ups_2day"
   return "ups_ground"
 }
+
+const WEEKDAY_LONG = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+const WEEKDAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+const MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+const INITIAL_DATES_SHOWN = 9
 
 export default function ArriveFoodCalendar({
   cart,
@@ -70,6 +67,7 @@ export default function ArriveFoodCalendar({
   atlantaZipConfig = ATLANTA_DELIVERY_ZIP_DAYS,
 }: ArriveFoodCalendarProps) {
   const [dateValue, setDateValue] = useState<Date | null>(null)
+  const [showAll, setShowAll] = useState(false)
 
   const method = useMemo(
     () => deriveArrivalMethod(cart, availableShippingMethods),
@@ -77,8 +75,6 @@ export default function ArriveFoodCalendar({
   )
   const destinationZip = (cart.shipping_address?.postal_code || "").trim()
 
-  // Derive server-side "now" — fall back to client clock if not provided. The
-  // utility itself will re-derive nowEST() when no `now` arg is passed.
   const now = useMemo(
     () => (serverNowIso ? new Date(serverNowIso) : undefined),
     [serverNowIso]
@@ -95,16 +91,12 @@ export default function ArriveFoodCalendar({
     [method, destinationZip, now, atlantaZipConfig]
   )
 
-  const minDate = eligibility.earliest ?? undefined
-
-  // 1) Hydrate selection from cart metadata. If the stored date is no longer
-  //    eligible (the user changed method or zip) drop it and clear server-side
-  //    so a logically-impossible date can never reach payment.
+  // Hydrate selection from cart metadata. If the stored date is no longer
+  // eligible (method or zip changed) drop it and clear server-side so a
+  // logically-impossible date can never reach payment.
   useEffect(() => {
     const md = cart?.metadata?.requestedDeliveryDate as string | undefined
     if (!md) {
-      // No stored selection — default to earliest valid so the calendar opens
-      // on the right month. We do NOT persist; user must pick to confirm.
       setDateValue(eligibility.earliest ?? null)
       return
     }
@@ -124,50 +116,96 @@ export default function ArriveFoodCalendar({
     }
   }, [cart?.metadata?.requestedDeliveryDate, eligibility.isoSet, eligibility.earliest, cart.id])
 
-  const isDateUnavailable = useCallback(
-    (d: Date) => !eligibility.isoSet.has(toIsoDate(d)),
-    [eligibility.isoSet]
-  )
-
-  const handleChange = useCallback(
-    (d: Date | null) => {
+  const handlePick = useCallback(
+    (d: Date) => {
       setError(null)
-      if (d && isDateUnavailable(d)) {
-        // Defensive: refuse to set an unavailable date, even if the calendar somehow
-        // surfaces one.
-        setError(`That date isn't available. ${eligibility.reason}`)
-        return
-      }
       setDateValue(d)
-      if (!d) return
       const usaDate = d.toLocaleDateString("en-US")
       setRequestedDeliveryDate({ cartId: cart.id, date: usaDate }).catch((err) =>
         setError(err.message)
       )
     },
-    [cart.id, setError, isDateUnavailable, eligibility.reason]
+    [cart.id, setError]
   )
 
-  if (!eligibility.earliest) {
+  if (!eligibility.earliest || eligibility.dates.length === 0) {
     return (
       <div className="p-4 bg-amber-50 border border-amber-200/80 rounded-lg text-sm text-amber-800">
-        No eligible arrival dates found in the next 30 days for this shipping method.
-        Please choose a different shipping method or contact us to schedule.
+        No eligible arrival dates found in the next 30 days for this shipping
+        method. Please choose a different shipping method or contact us to
+        schedule.
       </div>
     )
   }
 
+  const visibleDates = showAll
+    ? eligibility.dates
+    : eligibility.dates.slice(0, INITIAL_DATES_SHOWN)
+  const selectedIso = dateValue ? toIsoDate(dateValue) : null
+  const earliestIso = toIsoDate(eligibility.earliest)
+  const hasMore = eligibility.dates.length > INITIAL_DATES_SHOWN
+
   return (
-    <div className="space-y-2">
-      <Calendar
-        value={dateValue}
-        onChange={handleChange}
-        aria-label="Select your desired arrival date"
-        minValue={minDate}
-        isDateUnavailable={isDateUnavailable}
-      />
-      <p className="text-xs text-gray-500 leading-snug" aria-live="polite">
-        {eligibility.reason}
+    <div className="space-y-3">
+      <div className="grid grid-cols-3 gap-2">
+        {visibleDates.map((d) => {
+          const iso = toIsoDate(d)
+          const isSelected = iso === selectedIso
+          const isEarliest = iso === earliestIso
+          const weekday = WEEKDAY_SHORT[d.getDay()]
+          const weekdayLong = WEEKDAY_LONG[d.getDay()]
+          const monthAbbrev = MONTH_SHORT[d.getMonth()]
+          const day = d.getDate()
+          return (
+            <button
+              key={iso}
+              type="button"
+              onClick={() => handlePick(d)}
+              aria-pressed={isSelected}
+              aria-label={`${weekdayLong}, ${monthAbbrev} ${day}${isEarliest ? " — earliest available" : ""}`}
+              className={`
+                relative flex flex-col items-center justify-center
+                rounded-xl border-2 px-2 py-3 transition-all
+                ${isSelected
+                  ? "border-Gold bg-Gold/[0.08] shadow-sm"
+                  : "border-gray-200 bg-white hover:border-Gold/60 hover:shadow-sm"
+                }
+              `}
+            >
+              <span className={`text-[10px] font-semibold uppercase tracking-wider ${isSelected ? "text-Gold" : "text-Charcoal/60"}`}>
+                {weekday}
+              </span>
+              <span className={`text-xl font-bold leading-tight mt-0.5 ${isSelected ? "text-Charcoal" : "text-Charcoal"}`}>
+                {day}
+              </span>
+              <span className={`text-[10px] font-medium uppercase tracking-wide ${isSelected ? "text-Gold" : "text-Charcoal/50"}`}>
+                {monthAbbrev}
+              </span>
+              {isEarliest && (
+                <span className="absolute -top-2 left-1/2 -translate-x-1/2 text-[9px] font-bold uppercase tracking-wider bg-Gold text-white px-1.5 py-0.5 rounded-full shadow-sm whitespace-nowrap">
+                  Earliest
+                </span>
+              )}
+            </button>
+          )
+        })}
+      </div>
+
+      {hasMore && (
+        <button
+          type="button"
+          onClick={() => setShowAll((v) => !v)}
+          className="text-xs font-semibold text-Gold hover:text-Gold/80"
+        >
+          {showAll
+            ? "Show fewer dates"
+            : `Show ${eligibility.dates.length - INITIAL_DATES_SHOWN} more dates`}
+        </button>
+      )}
+
+      <p className="text-xs text-Charcoal/55 leading-snug" aria-live="polite">
+        {eligibility.reason} Arrival dates are estimates — we don't control
+        carrier schedules.
       </p>
     </div>
   )

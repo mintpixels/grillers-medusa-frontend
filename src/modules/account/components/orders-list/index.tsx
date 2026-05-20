@@ -6,6 +6,7 @@ import { HttpTypes } from "@medusajs/types"
 import { convertToLocale } from "@lib/util/money"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import type { LegacyCustomerOrder } from "@lib/data/orders"
+import { useStrapiThumbnailMap } from "@lib/hooks/use-strapi-thumbnail-map"
 
 type StatusFilter =
   | "all"
@@ -171,6 +172,16 @@ export default function OrdersList({
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all")
 
+  const allProductIds = useMemo(
+    () =>
+      orders
+        .flatMap((o) => o.items || [])
+        .map((i) => i.product_id)
+        .filter(Boolean) as string[],
+    [orders]
+  )
+  const strapiThumbnailMap = useStrapiThumbnailMap(allProductIds)
+
   const filtered = useMemo(() => {
     let items: OrderListItem[] = [
       ...orders.map((order) => ({
@@ -323,23 +334,31 @@ export default function OrdersList({
                 className="flex items-center gap-4 bg-white rounded-xl border border-gray-200 p-5 hover:border-Gold/30 hover:shadow-sm transition-all"
               >
                 <div className="flex -space-x-2 shrink-0">
-                  {nativeOrder.items?.slice(0, 4).map((item, idx) => (
-                    <div
-                      key={item.id}
-                      className="w-11 h-11 rounded-lg border-2 border-white bg-gray-100 overflow-hidden"
-                      style={{ zIndex: 4 - idx }}
-                    >
-                      {item.thumbnail && (
-                        <Image
-                          src={item.thumbnail}
-                          alt={item.product_title || ""}
-                          width={44}
-                          height={44}
-                          className="w-full h-full object-cover"
-                        />
-                      )}
-                    </div>
-                  ))}
+                  {nativeOrder.items?.slice(0, 4).map((item, idx) => {
+                    const thumb =
+                      item.thumbnail ||
+                      (item.product_id
+                        ? strapiThumbnailMap[item.product_id]
+                        : "") ||
+                      ""
+                    return (
+                      <div
+                        key={item.id}
+                        className="w-11 h-11 rounded-lg border-2 border-white bg-gray-100 overflow-hidden"
+                        style={{ zIndex: 4 - idx }}
+                      >
+                        {thumb && (
+                          <Image
+                            src={thumb}
+                            alt={item.product_title || ""}
+                            width={44}
+                            height={44}
+                            className="w-full h-full object-cover"
+                          />
+                        )}
+                      </div>
+                    )
+                  })}
                   {(nativeOrder.items?.length || 0) > 4 && (
                     <div className="w-11 h-11 rounded-lg border-2 border-white bg-gray-100 flex items-center justify-center text-xs text-Charcoal/50">
                       +{(nativeOrder.items?.length || 0) - 4}

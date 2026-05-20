@@ -285,7 +285,7 @@ const Shipping: React.FC<ShippingProps> = ({
   const isIncomplete = !isOpen && cart.shipping_methods?.length === 0
 
   return (
-    <div className="bg-white">
+    <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
       <div className="flex items-center justify-between mb-4">
         <div className={`flex items-center gap-3 ${isIncomplete ? "opacity-50 pointer-events-none select-none" : ""}`}>
           <span className="flex items-center justify-center w-7 h-7 rounded-full bg-Gold text-white text-sm font-semibold">
@@ -512,35 +512,20 @@ const Shipping: React.FC<ShippingProps> = ({
             <div>
               <div className="flex flex-col mb-3">
                 <span className="text-sm font-medium text-gray-700">
-                  Shipment
+                  Arrival date
                 </span>
                 <span className="text-sm text-gray-500">
-                  When do you want the food to arrive?
+                  When do you want it to arrive?
                 </span>
               </div>
-              <div data-testid="shipment-options-container">
-                <div className="pb-6">
-                  <div className="flex items-start gap-x-1 w-full">
-                    <div className="w-2/5">
-                      <ArriveFoodCalendar
-                        cart={cart}
-                        setError={setError}
-                        availableShippingMethods={availableShippingMethods}
-                        serverNowIso={serverNowIso}
-                        atlantaZipConfig={atlantaZipConfig}
-                      />
-                    </div>
-                    <div className="w-3/5 flex flex-col gap-y-2 pt-8 pl-12">
-                      <span className="text-sm font-normal text-gray-400">
-                        Not Available
-                      </span>
-                      <span className="text-sm font-normal text-gray-500 pt-10">
-                        *This is an estimate and specific days are not guaranteed.
-                        We do not control the world's logistic systems.
-                      </span>
-                    </div>
-                  </div>
-                </div>
+              <div data-testid="shipment-options-container" className="pb-6">
+                <ArriveFoodCalendar
+                  cart={cart}
+                  setError={setError}
+                  availableShippingMethods={availableShippingMethods}
+                  serverNowIso={serverNowIso}
+                  atlantaZipConfig={atlantaZipConfig}
+                />
               </div>
             </div>
           )}
