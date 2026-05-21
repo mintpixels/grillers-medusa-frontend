@@ -273,9 +273,14 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
     },
   ]
 
-  const options = availableFulfillmentTypes.length
-    ? allOptions.filter((option) => availableFulfillmentTypes.includes(option.id))
-    : allOptions
+  // Always render all 4 fulfillment cards. The static `availability` logic
+  // already knows whether each one fits the cart's address + subtotal; we
+  // trust it over the Medusa-region `availableFulfillmentTypes` allow-list
+  // (which can be misconfigured and accidentally hide UPS Ground for US
+  // addresses that absolutely DO ship). If a type is configured at the
+  // region level we don't need to do anything; if it isn't, `attachShippingMethod`
+  // surfaces a friendly error.
+  const options = allOptions
 
   const hasSavedAddress = Boolean(activeAddress?.postal_code)
   // Show the address CTA when:
@@ -585,11 +590,14 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
 
         <div className="grid grid-cols-2 gap-3">
           {options.map((option) => {
-            // A disabled card is "addressable" when the only blocker is a
-            // missing customer address. Clicking it jumps to the same
-            // save-address flow as the CTA banner.
+            // A disabled card is "addressable" only when the customer has NO
+            // saved address at all. Once an address is on file, a card that
+            // doesn't qualify (e.g. Atlanta Delivery for a Cincinnati ZIP)
+            // shouldn't pretend it can be unlocked by "adding an address" —
+            // the Change Address banner above already covers that case.
             const blockedByMissingAddress =
               !option.available &&
+              !hasSavedAddress &&
               showAddressCTA &&
               cartTotal >= option.minimum &&
               (option.id === "atlanta_delivery" || option.id === "southeast_pickup")

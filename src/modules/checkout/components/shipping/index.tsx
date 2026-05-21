@@ -15,6 +15,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useState } from "react"
 
 import ArriveFoodCalendar from "../arrival-calendar"
+import { ALL_FREE_SHIP_CODES } from "@lib/util/free-shipping-codes"
 
 const PICKUP_OPTION_ON = "__PICKUP_ON"
 const PICKUP_OPTION_OFF = "__PICKUP_OFF"
@@ -118,6 +119,15 @@ const Shipping: React.FC<ShippingProps> = ({
 
   const fulfillmentType = cart.metadata?.fulfillmentType as string | undefined
   const UPS_SERVICE_CODES = ["GROUND", "OVERNIGHT"]
+
+  // A free-shipping promotion is "active" on the cart whenever Medusa has
+  // attached one of our seeded codes. We use this to flip the UPS Ground row
+  // to "FREE" with the carrier rate struck through.
+  const isFreeShipPromoActive = Boolean(
+    cart.promotions?.some(
+      (p) => p.code && ALL_FREE_SHIP_CODES.includes(p.code)
+    )
+  )
 
   const _shippingMethods = availableShippingMethods?.filter((sm) => {
     const option = sm as ShippingOptionWithServiceZone
@@ -402,6 +412,24 @@ const Shipping: React.FC<ShippingProps> = ({
                       !isLoadingPrices &&
                       typeof calculatedPricesMap[option.id] !== "number"
 
+                    // Free-shipping promo applies to UPS Ground (not Overnight).
+                    // When a free-ship promo is on the cart, this method's
+                    // shipping_method amount will be 0; show "FREE" with the
+                    // carrier rate struck through so the customer can see the
+                    // savings they actually get.
+                    const serviceCode =
+                      (option as ShippingOptionWithServiceZone).data?.service_code ||
+                      (option as ShippingOptionWithServiceZone).service_code
+                    const rawAmount =
+                      option.price_type === "flat"
+                        ? option.amount
+                        : calculatedPricesMap[option.id]
+                    const freeShipApplies =
+                      isFreeShipPromoActive &&
+                      serviceCode === "GROUND" &&
+                      typeof rawAmount === "number" &&
+                      rawAmount > 0
+
                     return (
                       calculatedPricesMap[option.id] > -10 && (
                         <Radio
@@ -421,8 +449,20 @@ const Shipping: React.FC<ShippingProps> = ({
                               {option.name}
                             </span>
                           </div>
-                          <span className="text-sm text-gray-500">
-                            {option.price_type === "flat" ? (
+                          <span className="text-sm text-gray-500 flex items-center gap-2">
+                            {freeShipApplies && typeof rawAmount === "number" && (
+                              <span className="text-xs text-gray-400 line-through">
+                                {convertToLocale({
+                                  amount: rawAmount,
+                                  currency_code: cart?.currency_code,
+                                })}
+                              </span>
+                            )}
+                            {freeShipApplies ? (
+                              <span className="text-emerald-600 font-semibold uppercase tracking-wide text-xs">
+                                Free
+                              </span>
+                            ) : option.price_type === "flat" ? (
                               convertToLocale({
                                 amount: option.amount!,
                                 currency_code: cart?.currency_code,

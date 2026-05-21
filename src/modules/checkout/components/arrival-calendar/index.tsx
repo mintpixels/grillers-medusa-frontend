@@ -1,5 +1,6 @@
 "use client"
 
+import { Calendar } from "@medusajs/ui"
 import { useState, useEffect, useCallback, useMemo } from "react"
 import type { StoreCart, StoreCartShippingOption } from "@medusajs/types"
 
@@ -68,6 +69,7 @@ export default function ArriveFoodCalendar({
 }: ArriveFoodCalendarProps) {
   const [dateValue, setDateValue] = useState<Date | null>(null)
   const [showAll, setShowAll] = useState(false)
+  const [view, setView] = useState<"list" | "calendar">("list")
 
   const method = useMemo(
     () => deriveArrivalMethod(cart, availableShippingMethods),
@@ -145,62 +147,108 @@ export default function ArriveFoodCalendar({
   const earliestIso = toIsoDate(eligibility.earliest)
   const hasMore = eligibility.dates.length > INITIAL_DATES_SHOWN
 
+  const isDateUnavailable = (d: Date) =>
+    !eligibility.isoSet.has(toIsoDate(d))
+
+  const handleCalendarChange = (d: Date | null) => {
+    if (!d) return
+    handlePick(d)
+  }
+
+  const toggleView = () => setView((v) => (v === "list" ? "calendar" : "list"))
+
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-3 gap-2">
-        {visibleDates.map((d) => {
-          const iso = toIsoDate(d)
-          const isSelected = iso === selectedIso
-          const isEarliest = iso === earliestIso
-          const weekday = WEEKDAY_SHORT[d.getDay()]
-          const weekdayLong = WEEKDAY_LONG[d.getDay()]
-          const monthAbbrev = MONTH_SHORT[d.getMonth()]
-          const day = d.getDate()
-          return (
-            <button
-              key={iso}
-              type="button"
-              onClick={() => handlePick(d)}
-              aria-pressed={isSelected}
-              aria-label={`${weekdayLong}, ${monthAbbrev} ${day}${isEarliest ? " — earliest available" : ""}`}
-              className={`
-                relative flex flex-col items-center justify-center
-                rounded-xl border-2 px-2 py-3 transition-all
-                ${isSelected
-                  ? "border-Gold bg-Gold/[0.08] shadow-sm"
-                  : "border-gray-200 bg-white hover:border-Gold/60 hover:shadow-sm"
-                }
-              `}
-            >
-              <span className={`text-[10px] font-semibold uppercase tracking-wider ${isSelected ? "text-Gold" : "text-Charcoal/60"}`}>
-                {weekday}
-              </span>
-              <span className={`text-xl font-bold leading-tight mt-0.5 ${isSelected ? "text-Charcoal" : "text-Charcoal"}`}>
-                {day}
-              </span>
-              <span className={`text-[10px] font-medium uppercase tracking-wide ${isSelected ? "text-Gold" : "text-Charcoal/50"}`}>
-                {monthAbbrev}
-              </span>
-              {isEarliest && (
-                <span className="absolute -top-2 left-1/2 -translate-x-1/2 text-[9px] font-bold uppercase tracking-wider bg-Gold text-white px-1.5 py-0.5 rounded-full shadow-sm whitespace-nowrap">
-                  Earliest
-                </span>
-              )}
-            </button>
-          )
-        })}
-      </div>
+      {view === "list" ? (
+        <>
+          <div className="grid grid-cols-3 gap-2">
+            {visibleDates.map((d) => {
+              const iso = toIsoDate(d)
+              const isSelected = iso === selectedIso
+              const isEarliest = iso === earliestIso
+              const weekday = WEEKDAY_SHORT[d.getDay()]
+              const weekdayLong = WEEKDAY_LONG[d.getDay()]
+              const monthAbbrev = MONTH_SHORT[d.getMonth()]
+              const day = d.getDate()
+              return (
+                <button
+                  key={iso}
+                  type="button"
+                  onClick={() => handlePick(d)}
+                  aria-pressed={isSelected}
+                  aria-label={`${weekdayLong}, ${monthAbbrev} ${day}${isEarliest ? " — earliest available" : ""}`}
+                  className={`
+                    relative flex flex-col items-center justify-center
+                    rounded-xl border-2 px-2 py-3 transition-all
+                    ${isSelected
+                      ? "border-Gold bg-Gold/[0.08] shadow-sm"
+                      : "border-gray-200 bg-white hover:border-Gold/60 hover:shadow-sm"
+                    }
+                  `}
+                >
+                  <span className={`text-[10px] font-semibold uppercase tracking-wider ${isSelected ? "text-Gold" : "text-Charcoal/60"}`}>
+                    {weekday}
+                  </span>
+                  <span className={`text-xl font-bold leading-tight mt-0.5 ${isSelected ? "text-Charcoal" : "text-Charcoal"}`}>
+                    {day}
+                  </span>
+                  <span className={`text-[10px] font-medium uppercase tracking-wide ${isSelected ? "text-Gold" : "text-Charcoal/50"}`}>
+                    {monthAbbrev}
+                  </span>
+                  {isEarliest && (
+                    <span className="absolute -top-2 left-1/2 -translate-x-1/2 text-[9px] font-bold uppercase tracking-wider bg-Gold text-white px-1.5 py-0.5 rounded-full shadow-sm whitespace-nowrap">
+                      Earliest
+                    </span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
 
-      {hasMore && (
-        <button
-          type="button"
-          onClick={() => setShowAll((v) => !v)}
-          className="text-xs font-semibold text-Gold hover:text-Gold/80"
-        >
-          {showAll
-            ? "Show fewer dates"
-            : `Show ${eligibility.dates.length - INITIAL_DATES_SHOWN} more dates`}
-        </button>
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            {hasMore ? (
+              <button
+                type="button"
+                onClick={() => setShowAll((v) => !v)}
+                className="text-xs font-semibold text-Gold hover:text-Gold/80"
+              >
+                {showAll
+                  ? "Show fewer dates"
+                  : `Show ${eligibility.dates.length - INITIAL_DATES_SHOWN} more dates`}
+              </button>
+            ) : (
+              <span />
+            )}
+            <button
+              type="button"
+              onClick={toggleView}
+              className="text-xs font-semibold text-Charcoal/70 hover:text-Charcoal underline underline-offset-2 transition-colors"
+            >
+              Switch to calendar view
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="rounded-xl border border-gray-200 bg-white p-3">
+            <Calendar
+              value={dateValue}
+              onChange={handleCalendarChange}
+              aria-label="Select your desired arrival date"
+              minValue={eligibility.earliest ?? undefined}
+              isDateUnavailable={isDateUnavailable}
+            />
+          </div>
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={toggleView}
+              className="text-xs font-semibold text-Charcoal/70 hover:text-Charcoal underline underline-offset-2 transition-colors"
+            >
+              Switch to list view
+            </button>
+          </div>
+        </>
       )}
 
       <p className="text-xs text-Charcoal/55 leading-snug" aria-live="polite">

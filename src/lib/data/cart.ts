@@ -217,6 +217,16 @@ export async function addToCart({
 
       const fulfillmentCacheTag = await getCacheTag("fulfillment")
       revalidateTag(fulfillmentCacheTag)
+
+      // Subtotal may have crossed a free-shipping threshold.
+      try {
+        const { syncFreeShippingPromotionByCartId } = await import(
+          "./free-shipping-promo"
+        )
+        await syncFreeShippingPromotionByCartId(cart.id)
+      } catch {
+        /* logged inside helper */
+      }
     })
     .catch(medusaError)
 }
@@ -260,6 +270,15 @@ export async function updateLineItem({
 
       const fulfillmentCacheTag = await getCacheTag("fulfillment")
       revalidateTag(fulfillmentCacheTag)
+
+      try {
+        const { syncFreeShippingPromotionByCartId } = await import(
+          "./free-shipping-promo"
+        )
+        await syncFreeShippingPromotionByCartId(cartId)
+      } catch {
+        /* logged inside helper */
+      }
     })
     .catch(medusaError)
 }
@@ -295,6 +314,15 @@ export async function deleteLineItem(lineId: string) {
 
       const fulfillmentCacheTag = await getCacheTag("fulfillment")
       revalidateTag(fulfillmentCacheTag)
+
+      try {
+        const { syncFreeShippingPromotionByCartId } = await import(
+          "./free-shipping-promo"
+        )
+        await syncFreeShippingPromotionByCartId(cartId)
+      } catch {
+        /* logged inside helper */
+      }
     })
     .catch(medusaError)
 }
@@ -438,6 +466,16 @@ export async function setFulfillmentDetails({
     .then(async () => {
       const cartCacheTag = await getCacheTag("carts")
       revalidateTag(cartCacheTag)
+      // Fulfillment choice changes which threshold rule (in-region vs national)
+      // applies, so re-sync the free-shipping promo immediately.
+      try {
+        const { syncFreeShippingPromotionByCartId } = await import(
+          "./free-shipping-promo"
+        )
+        await syncFreeShippingPromotionByCartId(cartId)
+      } catch {
+        /* logged inside helper */
+      }
     })
     .catch(medusaError)
 }
@@ -535,6 +573,16 @@ export async function setShippingMethod({
     .then(async (result) => {
       const cartCacheTag = await getCacheTag("carts")
       revalidateTag(cartCacheTag)
+      // Recompute free-shipping promo after a new method is attached so the
+      // qualifying line gets the 100%-off-shipping discount immediately.
+      try {
+        const { syncFreeShippingPromotionByCartId } = await import(
+          "./free-shipping-promo"
+        )
+        await syncFreeShippingPromotionByCartId(cartId)
+      } catch {
+        /* logged inside helper */
+      }
       return result
     })
     .catch((err) => {
