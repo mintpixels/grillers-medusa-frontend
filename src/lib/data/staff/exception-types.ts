@@ -9,7 +9,7 @@ export const STAFF_EXCEPTION_ACTIONS = [
   },
   {
     value: "refund_payment",
-    label: "Refund payment",
+    label: "Refund card through Stripe",
     moneyMovement: true,
     requiresConsent: true,
   },
@@ -33,9 +33,21 @@ export const STAFF_EXCEPTION_ACTIONS = [
   },
   {
     value: "credit_memo",
-    label: "Credit or adjustment",
+    label: "Issue account credit",
     moneyMovement: true,
     requiresConsent: true,
+  },
+  {
+    value: "record_check_refund",
+    label: "Record pending check refund",
+    moneyMovement: true,
+    requiresConsent: true,
+  },
+  {
+    value: "retry_qbd_posting",
+    label: "Retry QuickBooks posting",
+    moneyMovement: false,
+    requiresConsent: false,
   },
   {
     value: "cancel_order",
@@ -193,6 +205,18 @@ export function actionMutatesMedusa(action: StaffExceptionActionType): boolean {
     action === "refund_payment" ||
     action === "capture_payment" ||
     action === "cancel_order"
+  )
+}
+
+export function actionRequiresQuickBooksPosting(
+  action: StaffExceptionActionType
+): boolean {
+  return (
+    action === "record_offline_payment" ||
+    action === "credit_memo" ||
+    action === "record_check_refund" ||
+    action === "refund_payment" ||
+    action === "capture_payment"
   )
 }
 

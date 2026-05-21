@@ -4,6 +4,7 @@ import {
   actionMovesMoney,
   actionMutatesMedusa,
   actionRequiredConfirmation,
+  actionRequiresQuickBooksPosting,
   actionRequiresCustomerConsent,
   parseStaffAuditLog,
   staffOrderOperationalState,
@@ -48,6 +49,7 @@ describe("staff exception helpers", () => {
 
   it("marks money movement and consent requirements", () => {
     expect(actionMovesMoney("refund_payment")).toBe(true)
+    expect(actionMovesMoney("record_check_refund")).toBe(true)
     expect(actionMovesMoney("shipping_override")).toBe(false)
     expect(actionRequiresCustomerConsent("shipping_override")).toBe(true)
     expect(actionRequiresCustomerConsent("record_note")).toBe(false)
@@ -59,6 +61,16 @@ describe("staff exception helpers", () => {
     expect(actionMutatesMedusa("cancel_order")).toBe(true)
     expect(actionIsAuditOnly("shipping_override")).toBe(true)
     expect(actionIsAuditOnly("credit_memo")).toBe(true)
+    expect(actionIsAuditOnly("record_check_refund")).toBe(true)
+  })
+
+  it("marks all accounting money actions for QuickBooks posting", () => {
+    expect(actionRequiresQuickBooksPosting("refund_payment")).toBe(true)
+    expect(actionRequiresQuickBooksPosting("capture_payment")).toBe(true)
+    expect(actionRequiresQuickBooksPosting("record_offline_payment")).toBe(true)
+    expect(actionRequiresQuickBooksPosting("credit_memo")).toBe(true)
+    expect(actionRequiresQuickBooksPosting("record_check_refund")).toBe(true)
+    expect(actionRequiresQuickBooksPosting("record_note")).toBe(false)
   })
 
   it("requires typed confirmation for destructive actions only", () => {

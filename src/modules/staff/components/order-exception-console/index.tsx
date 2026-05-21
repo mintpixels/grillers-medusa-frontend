@@ -71,6 +71,43 @@ function statusChip(
   )
 }
 
+function isStripePayment(
+  payment: StaffExceptionOrderDetail["payments"][number]
+) {
+  return String(payment.providerId || "")
+    .toLowerCase()
+    .includes("stripe")
+}
+
+function actionUnavailableReason(
+  action: StaffExceptionActionType,
+  order: StaffExceptionOrderDetail | null
+): string {
+  if (!order || order.source === "legacy") return ""
+
+  if (action === "refund_payment") {
+    const refundable = order.payments.some(
+      (payment) => isStripePayment(payment) && payment.refundableAmount > 0
+    )
+    return refundable
+      ? ""
+      : "No refundable Stripe card payment is available for this order."
+  }
+
+  if (action === "capture_payment" && order.payments.length === 0) {
+    return "No payment is available to capture for this order."
+  }
+
+  if (
+    action === "retry_qbd_posting" &&
+    order.metadata?.qbd_posting_status !== "failed"
+  ) {
+    return "QuickBooks retry is available only after a failed QBD posting."
+  }
+
+  return ""
+}
+
 function emptyAction(orderId = ""): StaffExceptionActionInput {
   return {
     orderId,
@@ -563,22 +600,39 @@ export default function StaffOrderExceptionConsole() {
               <div className="mt-4 flex flex-wrap gap-2">
                 {[
                   ["record_note", "Add note"],
-                  ["refund_payment", "Refund"],
+                  ["refund_payment", "Refund card"],
+                  ["credit_memo", "Account credit"],
+                  ["record_check_refund", "Check refund"],
+                  ["retry_qbd_posting", "Retry QBD"],
                   ["shipping_override", "Shipping"],
                   ["record_offline_payment", "Offline payment"],
-                  ["credit_memo", "Credit"],
                   ["cancel_order", "Cancel"],
                 ].map(([action, label]) => (
                   <button
                     className={`min-h-[40px] rounded-md border px-3 text-sm font-maison-neue font-semibold transition ${
                       selectedAction === action
                         ? "border-Charcoal bg-Charcoal text-white"
+                        : actionUnavailableReason(
+                            action as StaffExceptionActionType,
+                            selectedOrder
+                          )
+                        ? "cursor-not-allowed border-gray-100 bg-SilverPlate/30 text-Charcoal/35"
                         : "border-gray-200 bg-white text-Charcoal hover:border-Gold/50"
                     }`}
+                    disabled={Boolean(
+                      actionUnavailableReason(
+                        action as StaffExceptionActionType,
+                        selectedOrder
+                      )
+                    )}
                     key={action}
                     onClick={() =>
                       chooseAction(action as StaffExceptionActionType)
                     }
+                    title={actionUnavailableReason(
+                      action as StaffExceptionActionType,
+                      selectedOrder
+                    )}
                     type="button"
                   >
                     {label}
@@ -681,6 +735,13 @@ export default function StaffOrderExceptionConsole() {
                             payment.refundedAmount,
                             payment.currencyCode
                           )}
+                          {" | "}
+                          Refundable{" "}
+                          {formatMoney(
+                            payment.refundableAmount,
+                            payment.currencyCode
+                          )}
+                          {payment.providerId ? ` | ${payment.providerId}` : ""}
                         </p>
                       </div>
                     ))}
@@ -718,6 +779,45 @@ export default function StaffOrderExceptionConsole() {
                               .filter(Boolean)
                               .join(" | ")}
                           </p>
+                          {(entry.qbd_posting_status ||
+                            entry.stripe_refund_status ||
+                            entry.payment_capture_status) && (
+                            <p className="mt-1 text-xs font-maison-neue text-Charcoal/55">
+                              {[
+                                entry.qbd_posting_status
+                                  ? `QBD: ${entry.qbd_posting_status}`
+                                  : "",
+                                entry.stripe_refund_status
+                                  ? `Stripe: ${entry.stripe_refund_status}`
+                                  : "",
+                                entry.payment_capture_status
+                                  ? `Capture: ${entry.payment_capture_status}`
+                                  : "",
+                                entry.qbd_txn_id
+                                  ? `Txn: ${entry.qbd_txn_id}`
+                                  : "",
+                                entry.qbd_ref_number
+                                  ? `Ref: ${entry.qbd_ref_number}`
+                                  : "",
+                              ]
+                                .filter(Boolean)
+                                .join(" | ")}
+                            </p>
+                          )}
+                          {entry.qbd_posting_error && (
+                            <p className="mt-1 text-xs font-maison-neue text-red-700">
+                              {entry.qbd_posting_error}
+                            </p>
+                          )}
+                          {(entry.stripe_refund_error ||
+                            entry.payment_capture_error ||
+                            entry.downstream_error) && (
+                            <p className="mt-1 text-xs font-maison-neue text-red-700">
+                              {entry.stripe_refund_error ||
+                                entry.payment_capture_error ||
+                                entry.downstream_error}
+                            </p>
+                          )}
                           {entry.staff_note && (
                             <p className="mt-1 text-xs font-maison-neue text-Charcoal/70">
                               {entry.staff_note}
@@ -782,7 +882,13 @@ export default function StaffOrderExceptionConsole() {
                   }
                 >
                   {STAFF_EXCEPTION_ACTIONS.map((action) => (
-                    <option key={action.value} value={action.value}>
+                    <option
+                      disabled={Boolean(
+                        actionUnavailableReason(action.value, selectedOrder)
+                      )}
+                      key={action.value}
+                      value={action.value}
+                    >
                       {action.label}
                     </option>
                   ))}
@@ -944,10 +1050,9 @@ export default function StaffOrderExceptionConsole() {
 
               {actionIsAuditOnly(selectedAction) && (
                 <div className="rounded-md border border-gray-200 bg-SilverPlate/40 p-3 text-sm font-maison-neue text-Charcoal/70">
-                  This action is audit-only in the storefront. It records the
-                  request/status on the order for staff follow-up, but does not
-                  mutate QuickBooks, carrier labels, customer messages, or card
-                  payments.
+                  This action records the request/status on the order for staff
+                  follow-up. Money actions still require QuickBooks/QBD posting
+                  before accounting is complete.
                 </div>
               )}
 
@@ -1017,7 +1122,7 @@ export default function StaffOrderExceptionConsole() {
                     <div className="flex justify-between gap-3">
                       <dt>QBD follow-up</dt>
                       <dd className="font-semibold text-Charcoal">
-                        {preview.qbdReconciliationNeeded ? "Needed" : "No"}
+                        {preview.qbdReconciliationNeeded ? "Required" : "No"}
                       </dd>
                     </div>
                     <div className="flex justify-between gap-3">
