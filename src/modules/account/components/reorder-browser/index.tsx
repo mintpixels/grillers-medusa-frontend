@@ -5,7 +5,9 @@ import Image from "next/image"
 import {
   CalendarDays,
   Check,
+  ChevronDown,
   ChevronRight,
+  ChevronUp,
   Clock3,
   History,
   Minus,
@@ -885,6 +887,10 @@ function PastOrdersTab({
   ) => void
   onRequestLine: (line: LegacyCustomerOrder["lines"][number]) => void
 }) {
+  const [expandedOrderIds, setExpandedOrderIds] = useState<
+    Record<string, boolean>
+  >({})
+
   const visibleOrders = orders
     .filter((order) => order.lines?.length)
     .filter((order) => legacyOrderMatchesSearch(order, search))
@@ -921,6 +927,9 @@ function PastOrdersTab({
         const orderAdding = order.lines.some(
           (line) => addStates[legacyLineStateKey(line)] === "adding"
         )
+        const isExpanded = Boolean(expandedOrderIds[order.id])
+        const hasHiddenLines = order.lines.length > 6
+        const displayLines = isExpanded ? order.lines : order.lines.slice(0, 6)
 
         return (
           <article
@@ -959,7 +968,7 @@ function PastOrdersTab({
             </div>
 
             <div className="mt-4 divide-y divide-gray-100 rounded-lg border border-gray-100">
-              {order.lines.slice(0, 6).map((line) => {
+              {displayLines.map((line) => {
                 const stateKey = legacyLineStateKey(line)
                 const lineAddState = addStates[stateKey] || "idle"
                 const lineRequestState = requestStates[stateKey] || "idle"
@@ -1021,11 +1030,37 @@ function PastOrdersTab({
               })}
             </div>
 
-            {order.lines.length > 6 ? (
-              <p className="mt-3 text-xs font-maison-neue text-Charcoal/45">
-                Showing 6 of {order.lines.length} items. Open order details from
-                your order history for the full receipt.
-              </p>
+            {hasHiddenLines ? (
+              <div className="mt-3 flex flex-col gap-2 small:flex-row small:items-center small:justify-between">
+                <p className="text-xs font-maison-neue text-Charcoal/45">
+                  {isExpanded
+                    ? `Showing all ${order.lines.length} items from this order.`
+                    : `Showing 6 of ${order.lines.length} items.`}
+                </p>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setExpandedOrderIds((current) => ({
+                      ...current,
+                      [order.id]: !isExpanded,
+                    }))
+                  }
+                  className="inline-flex min-h-[36px] items-center justify-center gap-2 rounded-[5px] border border-gray-200 px-3 text-xs font-rexton font-bold uppercase text-Charcoal transition-colors hover:border-Charcoal hover:bg-Charcoal hover:text-white"
+                  aria-expanded={isExpanded}
+                >
+                  {isExpanded ? (
+                    <>
+                      Show fewer
+                      <ChevronUp className="h-4 w-4" />
+                    </>
+                  ) : (
+                    <>
+                      Show all {order.lines.length} items
+                      <ChevronDown className="h-4 w-4" />
+                    </>
+                  )}
+                </button>
+              </div>
             ) : null}
           </article>
         )
