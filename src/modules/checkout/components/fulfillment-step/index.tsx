@@ -97,6 +97,16 @@ function formatAddressLine(address: { address_1?: string | null; city?: string |
     .concat(address.postal_code ? ` ${address.postal_code}` : "")
 }
 
+function hasUsableAddress(
+  address:
+    | HttpTypes.StoreCartAddress
+    | HttpTypes.StoreCustomerAddress
+    | null
+    | undefined
+) {
+  return Boolean(address?.address_1 && address?.postal_code)
+}
+
 function friendlyFulfillmentError(message?: string) {
   if (!message) {
     return "We could not save that fulfillment method. Please try another option."
@@ -162,16 +172,16 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
     southeastPickup: normalizeMinimum(config?.MinimumOrderThresholds?.SoutheastPickup, 0),
   }), [config])
 
-  // Pull active shipping address from cart, then fall back to the customer's
-  // default shipping address. Medusa creates an empty shipping_address stub on
-  // cart creation (truthy object, no postal_code), so we have to check for a
-  // real postal_code before trusting it — otherwise the fallback never runs
-  // and signed-in customers with saved addresses get "no delivery address yet".
+  // Pull active shipping address from cart when it is actually usable, then
+  // fall back to the customer's saved address. Medusa can return an empty or
+  // ZIP-only cart address during staff/customer handoff; that should not mask
+  // a complete address that exists in the profile.
   const preferredCustomerAddress = getPreferredAddress(customer)
-  const activeAddress =
-    cart.shipping_address?.postal_code
-      ? cart.shipping_address
-      : preferredCustomerAddress
+  const activeAddress = hasUsableAddress(cart.shipping_address)
+    ? cart.shipping_address
+    : hasUsableAddress(preferredCustomerAddress)
+      ? preferredCustomerAddress
+      : cart.shipping_address || preferredCustomerAddress
   const shipZip = (activeAddress?.postal_code || "").trim()
   const shipCity = (activeAddress?.city || "").trim()
   const savedAddresses = customer?.addresses || []
