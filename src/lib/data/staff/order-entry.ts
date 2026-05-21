@@ -10,6 +10,7 @@ import { staffDisplayName, isStaffCustomer } from "@lib/util/staff-access"
 import { stripPhone } from "@lib/util/format-phone"
 import medusaError from "@lib/util/medusa-error"
 import type { HttpTypes } from "@medusajs/types"
+import { randomBytes } from "crypto"
 import { revalidateTag } from "next/cache"
 import { getCacheTag } from "../cookies"
 import { signStaffCartHandoff } from "./order-token"
@@ -24,6 +25,8 @@ export type StaffCustomerSummary = {
   phone: string
   company: string
   defaultAddress?: StaffAddressInput
+  accountClaimStatus?: string
+  accountClaimMessage?: string
   source: "customer" | "order" | "legacy_order"
   matchedLegacyOrderId?: string
   matchedLegacyOrderDisplayId?: string
@@ -353,6 +356,11 @@ function customerSummary(
     phone: customer.phone || defaultAddress?.phone || "",
     company: customer.company_name || defaultAddress?.company || "",
     defaultAddress: toStaffAddress(defaultAddress),
+    accountClaimStatus: customer.metadata?.account_claim_status || "",
+    accountClaimMessage:
+      customer.metadata?.account_claim_error ||
+      customer.metadata?.account_claim_path ||
+      "",
     source,
   }
 }
@@ -485,6 +493,217 @@ function validateAddress(address: StaffAddressInput, label: string) {
 function metadataText(value?: string): string | undefined {
   const trimmed = (value || "").trim()
   return trimmed ? trimmed : undefined
+}
+
+function temporaryAccountPassword(): string {
+  return `${randomBytes(24).toString("base64url")}A1!`
+}
+
+async function createClaimableStoreCustomer(input: {
+  email: string
+  firstName: string
+  lastName: string
+  phone?: string
+}): Promise<AnyRecord> {
+  const token = await sdk.auth.register("customer", "emailpass", {
+    email: input.email,
+    password: temporaryAccountPassword(),
+  })
+
+  const { customer } = await sdk.store.customer.create(
+    {
+      email: input.email,
+      first_name: input.firstName.trim(),
+      last_name: input.lastName.trim(),
+      phone: input.phone ? stripPhone(input.phone) : undefined,
+    } as any,
+    {},
+    { authorization: `Bearer ${token}` }
+  )
+
+  return customer as AnyRecord
+}
+
+async function sendAccountClaimReset(email: string): Promise<{
+  ok: boolean
+  message?: string
+}> {
+  try {
+    await sdk.auth.resetPassword("customer", "emailpass", {
+      identifier: email,
+    })
+    return { ok: true }
+  } catch (err) {
+    return {
+      ok: false,
+      message: err instanceof Error ? err.message : String(err),
+    }
+  }
+}
+
+function duplicateText(value?: string | null): string {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+}
+
+function duplicateNameKey(input: {
+  firstName?: string | null
+  lastName?: string | null
+}): string {
+  return [duplicateText(input.firstName), duplicateText(input.lastName)]
+    .filter(Boolean)
+    .join("|")
+}
+
+function duplicatePostal(value?: string | null): string {
+  return String(value || "")
+    .replace(/\s+/g, "")
+    .toLowerCase()
+}
+
+function duplicateAddressKey(address?: StaffAddressInput | AnyRecord | null) {
+  if (!address) return ""
+  const record = address as AnyRecord
+  const line1 = duplicateText(record.address1 ?? record.address_1)
+  const postal = duplicatePostal(record.postalCode ?? record.postal_code)
+  if (!line1 || !postal) return ""
+  return [
+    line1,
+    duplicateText(record.city),
+    duplicateText(record.province),
+    postal,
+  ].join("|")
+}
+
+function customerAddresses(customer: AnyRecord): AnyRecord[] {
+  return [
+    ...(Array.isArray(customer.addresses) ? customer.addresses : []),
+    customer.shipping_address,
+    customer.billing_address,
+  ].filter(Boolean)
+}
+
+function duplicateReasonsForCustomer({
+  customer,
+  email,
+  phone,
+  nameKey,
+  addressKey,
+}: {
+  customer: AnyRecord
+  email: string
+  phone: string
+  nameKey: string
+  addressKey: string
+}): string[] {
+  const reasons: string[] = []
+  if (duplicateText(customer.email) === email) reasons.push("email")
+
+  const customerPhone = stripPhone(customer.phone || "")
+  const addressPhones = customerAddresses(customer).map((address) =>
+    stripPhone(address.phone || "")
+  )
+  if (
+    phone &&
+    (customerPhone === phone ||
+      addressPhones.some((candidate) => candidate === phone))
+  ) {
+    reasons.push("phone")
+  }
+
+  const customerNameKey = duplicateNameKey({
+    firstName: customer.first_name,
+    lastName: customer.last_name,
+  })
+  if (
+    nameKey &&
+    addressKey &&
+    customerNameKey === nameKey &&
+    customerAddresses(customer).some(
+      (address) => duplicateAddressKey(address) === addressKey
+    )
+  ) {
+    reasons.push("name/address")
+  }
+
+  return reasons
+}
+
+async function findDuplicateCustomersForCreate(input: {
+  email: string
+  firstName: string
+  lastName: string
+  phone?: string
+  defaultAddress?: StaffAddressInput
+}): Promise<Array<{ customer: AnyRecord; reasons: string[] }>> {
+  const email = duplicateText(input.email)
+  const phone = stripPhone(input.phone || input.defaultAddress?.phone || "")
+  const nameKey = duplicateNameKey(input)
+  const addressKey = duplicateAddressKey(input.defaultAddress)
+  const attempts: Array<Record<string, string | number>> = [
+    { email, limit: 8 },
+    { q: email, limit: 8 },
+  ]
+
+  if (phone.length >= 7) {
+    attempts.push({ phone, limit: 8 })
+    attempts.push({ q: phone, limit: 8 })
+  }
+  if (input.firstName.trim() && input.lastName.trim()) {
+    attempts.push({
+      q: `${input.firstName.trim()} ${input.lastName.trim()}`,
+      limit: 12,
+    })
+  }
+
+  const seen = new Map<string, AnyRecord>()
+  for (const attempt of attempts) {
+    const { customers } = await adminFetch<{ customers: AnyRecord[] }>(
+      "/admin/customers",
+      {
+        query: {
+          ...attempt,
+          fields:
+            "id,email,first_name,last_name,phone,company_name,metadata,*addresses",
+        },
+      }
+    ).catch(() => ({ customers: [] }))
+    customers?.forEach((customer) => {
+      if (customer?.id) seen.set(customer.id, customer)
+    })
+  }
+
+  return Array.from(seen.values())
+    .map((customer) => ({
+      customer,
+      reasons: duplicateReasonsForCustomer({
+        customer,
+        email,
+        phone,
+        nameKey,
+        addressKey,
+      }),
+    }))
+    .filter((candidate) => candidate.reasons.length > 0)
+}
+
+function duplicateCustomerMessage(
+  duplicates: Array<{ customer: AnyRecord; reasons: string[] }>
+) {
+  const preview = duplicates
+    .slice(0, 3)
+    .map(({ customer, reasons }) => {
+      const name =
+        [customer.first_name, customer.last_name].filter(Boolean).join(" ") ||
+        customer.email ||
+        customer.id
+      return `${name} (${reasons.join(", ")})`
+    })
+    .join("; ")
+
+  return `Potential duplicate customer found: ${preview}. Select the existing customer instead of creating a new profile.`
 }
 
 function serviceCodesForFulfillment(
@@ -774,7 +993,10 @@ export async function searchStaffCustomers(
   })
 
   if (!results.length && !customerSearchWorked && lastCustomerError) {
-    console.error("[staff-phone-order] customer search failed", lastCustomerError)
+    console.error(
+      "[staff-phone-order] customer search failed",
+      lastCustomerError
+    )
     throw new Error(
       "Customer lookup failed. Try searching by name, email, or phone, then try again."
     )
@@ -789,31 +1011,129 @@ export async function createStaffCustomer(input: {
   lastName: string
   phone?: string
   company?: string
+  defaultAddress?: StaffAddressInput
+  sendAccountInvite?: boolean
 }): Promise<StaffCustomerSummary> {
   const staff = await requireStaff()
   const email = validateEmail(input.email)
+  const defaultAddress = input.defaultAddress
+  if (!input.firstName.trim() || !input.lastName.trim()) {
+    throw new Error("Enter the customer's first and last name before creating.")
+  }
+  if (!stripPhone(input.phone || defaultAddress?.phone || "")) {
+    throw new Error("Enter the customer's phone number before creating.")
+  }
+  if (defaultAddress) {
+    validateAddress(defaultAddress, "New customer address")
+  }
 
-  const { customer } = await adminFetch<{ customer: AnyRecord }>(
-    "/admin/customers",
-    {
+  const duplicates = await findDuplicateCustomersForCreate({
+    ...input,
+    email,
+    defaultAddress,
+  })
+  if (duplicates.length) {
+    throw new Error(duplicateCustomerMessage(duplicates))
+  }
+
+  let customer: AnyRecord
+  try {
+    customer = await createClaimableStoreCustomer({
+      email,
+      firstName: input.firstName,
+      lastName: input.lastName,
+      phone: input.phone || defaultAddress?.phone,
+    })
+  } catch (err) {
+    throw new Error(
+      `Could not create a claimable storefront account for this customer: ${
+        err instanceof Error ? err.message : String(err)
+      }`
+    )
+  }
+
+  if (defaultAddress) {
+    await adminFetch(`/admin/customers/${customer.id}/addresses`, {
       method: "POST",
       body: JSON.stringify({
-        email,
-        first_name: input.firstName.trim(),
-        last_name: input.lastName.trim(),
-        phone: input.phone ? stripPhone(input.phone) : undefined,
-        company_name: metadataText(input.company),
-        metadata: {
-          source: "staff_phone_order",
-          created_by_staff_customer_id: staff.id,
-          created_by_staff_email: staff.email,
-          created_at: new Date().toISOString(),
-        },
+        ...toStoreAddress(defaultAddress),
+        is_default_shipping: true,
+        is_default_billing: true,
       }),
-    }
-  )
+    })
+  }
 
-  return customerSummary(customer, "customer")
+  const createdAt = new Date().toISOString()
+  const inviteResult =
+    input.sendAccountInvite === false
+      ? { ok: false, message: "not_requested" }
+      : await sendAccountClaimReset(email)
+  let metadata: AnyRecord = {
+    ...(customer.metadata || {}),
+    source: "staff_phone_order",
+    created_by_staff_customer_id: staff.id,
+    created_by_staff_email: staff.email,
+    created_by_staff_name: staffDisplayName(staff),
+    account_claim_path: "email_password_reset",
+    account_claim_status:
+      input.sendAccountInvite === false
+        ? "not_requested"
+        : inviteResult.ok
+        ? "reset_sent"
+        : "reset_send_failed",
+    account_claim_sent_at:
+      input.sendAccountInvite !== false && inviteResult.ok ? createdAt : "",
+    account_claim_error:
+      input.sendAccountInvite !== false && !inviteResult.ok
+        ? inviteResult.message || "unknown"
+        : "",
+    staff_created_auth_identity: true,
+    created_at: createdAt,
+  }
+  metadata = appendAuditLog(metadata, {
+    type: "staff_customer_create",
+    staffCustomerId: staff.id,
+    staffEmail: staff.email,
+    staffName: staffDisplayName(staff),
+    targetCustomerId: customer.id,
+    targetCustomerEmail: email,
+    accountClaimStatus: metadata.account_claim_status,
+    source: "staff_phone_order_create",
+  })
+  if (defaultAddress) {
+    metadata = appendAuditLog(metadata, {
+      type: "staff_customer_address_create",
+      staffCustomerId: staff.id,
+      staffEmail: staff.email,
+      staffName: staffDisplayName(staff),
+      targetCustomerId: customer.id,
+      source: "staff_phone_order_create",
+    })
+  }
+
+  await adminFetch(`/admin/customers/${customer.id}`, {
+    method: "POST",
+    body: JSON.stringify({
+      first_name: input.firstName.trim(),
+      last_name: input.lastName.trim(),
+      phone: input.phone
+        ? stripPhone(input.phone)
+        : stripPhone(defaultAddress?.phone || ""),
+      company_name: metadataText(input.company) || "",
+      metadata,
+    }),
+  })
+
+  const { customer: createdCustomer } = await adminFetch<{
+    customer: AnyRecord
+  }>(`/admin/customers/${customer.id}`, {
+    query: {
+      fields:
+        "id,email,first_name,last_name,phone,company_name,metadata,*addresses",
+    },
+  })
+
+  return customerSummary(createdCustomer, "customer")
 }
 
 export async function getStaffCustomerContext(

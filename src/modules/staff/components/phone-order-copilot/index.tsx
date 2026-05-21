@@ -44,8 +44,14 @@ type Props = {
   countryCode: string
   staffCustomer: HttpTypes.StoreCustomer
   initialImpersonation: StaffImpersonationSession | null
-  initialWorkspace?: "phone_order" | "exceptions" | "team_access"
+  initialWorkspace?: StaffWorkspace
 }
+
+type StaffWorkspace =
+  | "phone_order"
+  | "new_customer"
+  | "exceptions"
+  | "team_access"
 
 const stripeKey = getStripePublishableKey()
 const stripePromise = stripeKey ? loadStripe(stripeKey) : null
@@ -254,6 +260,8 @@ export default function PhoneOrderCopilot({
     phone: "",
     company: "",
   })
+  const [showNewCustomerForm, setShowNewCustomerForm] = useState(false)
+  const [sendAccountInvite, setSendAccountInvite] = useState(true)
   const [shippingAddress, setShippingAddress] =
     useState<StaffAddressInput>(emptyAddress)
   const [sameAsShipping, setSameAsShipping] = useState(true)
@@ -285,10 +293,11 @@ export default function PhoneOrderCopilot({
   const [status, setStatus] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
-  const [activeWorkspace, setActiveWorkspace] = useState<
-    "phone_order" | "exceptions" | "team_access"
-  >(initialWorkspace)
+  const [activeWorkspace, setActiveWorkspace] =
+    useState<StaffWorkspace>(initialWorkspace)
   const canManageTeamAccess = isSuperAdminCustomer(staffCustomer)
+  const isCustomerWorkspace =
+    activeWorkspace === "phone_order" || activeWorkspace === "new_customer"
   const hasSelectedCustomer = Boolean(draftCustomer.id)
   const hasOrderLines = lines.length > 0
   const canEditShippingAddress = hasSelectedCustomer
@@ -315,6 +324,47 @@ export default function PhoneOrderCopilot({
     setShippingAddress((current) => ({ ...current, ...patch }))
   }
 
+  function resetOrderDraft() {
+    setProductQuery("")
+    setProductResults([])
+    setLines([])
+    setFulfillmentType("plant_pickup")
+    setScheduledDate("")
+    setScheduledTimeWindow("")
+    setPaymentMode("collect_card_now")
+    setPaymentConsent(false)
+    setSendConfirmation(true)
+    setOrderNotes("")
+    setSubstitutionPreference("")
+    setDeliveryInstructions("")
+    setCheckoutUrl(null)
+    setPrepareResult(null)
+    setCompleteResult(null)
+  }
+
+  async function activateCustomerContext(target: {
+    id?: string
+    email: string
+    firstName: string
+    lastName: string
+  }): Promise<{
+    ok: boolean
+    error?: string
+    session?: StaffImpersonationSession
+  }> {
+    if (!target.id) {
+      return { ok: false, error: "Choose a storefront customer first." }
+    }
+
+    return startStaffImpersonation({
+      targetCustomerId: target.id,
+      targetEmail: target.email,
+      targetName:
+        [target.firstName, target.lastName].filter(Boolean).join(" ") ||
+        target.email,
+    })
+  }
+
   function runCustomerSearch() {
     setError(null)
     startTransition(async () => {
@@ -328,9 +378,14 @@ export default function PhoneOrderCopilot({
     })
   }
 
-  function selectCustomer(customer: StaffCustomerSummary) {
+  function selectCustomer(
+    customer: StaffCustomerSummary,
+    options: { preserveStatus?: boolean } = {}
+  ) {
     setError(null)
-    setStatus(null)
+    if (!options.preserveStatus) setStatus(null)
+    setActiveWorkspace("phone_order")
+    setShowNewCustomerForm(false)
     setCheckoutUrl(null)
     setDraftCustomer(draftFromCustomer(customer))
     setShippingAddress(addressFromCustomer(customer))
@@ -375,13 +430,87 @@ export default function PhoneOrderCopilot({
     setCheckoutUrl(null)
     startTransition(async () => {
       try {
-        const customer = await createStaffCustomer(draftCustomer)
-        setStatus("Customer profile created.")
-        selectCustomer(customer)
+        const customer = await createStaffCustomer({
+          ...draftCustomer,
+          sendAccountInvite,
+          defaultAddress: {
+            ...shippingAddress,
+            firstName: shippingAddress.firstName || draftCustomer.firstName,
+            lastName: shippingAddress.lastName || draftCustomer.lastName,
+            company: shippingAddress.company || draftCustomer.company,
+            phone: shippingAddress.phone || draftCustomer.phone,
+            countryCode: shippingAddress.countryCode || countryCode || "us",
+          },
+        })
+        setStatus(
+          customer.accountClaimStatus === "reset_sent"
+            ? "Customer profile created and account claim email sent."
+            : customer.accountClaimStatus === "reset_send_failed"
+            ? `Customer profile created, but the account claim email failed: ${
+                customer.accountClaimMessage || "unknown"
+              }`
+            : "Customer profile created."
+        )
+        setShowNewCustomerForm(false)
+        selectCustomer(customer, { preserveStatus: true })
+        const contextResult = await activateCustomerContext(customer)
+        if (!contextResult.ok || !contextResult.session) {
+          setError(
+            contextResult.error ||
+              "Customer profile created, but customer context could not be activated."
+          )
+          return
+        }
+        setImpersonation(contextResult.session)
+        setStatus(
+          customer.accountClaimStatus === "reset_sent"
+            ? `Customer profile created, account claim email sent, and context is active for ${contextResult.session.targetName}.`
+            : `Customer profile created and context is active for ${contextResult.session.targetName}.`
+        )
+        router.refresh()
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err))
       }
     })
+  }
+
+  function startNewCustomer() {
+    setError(null)
+    setStatus(null)
+    setCustomerResults([])
+    setSelectedContext(null)
+    setDraftCustomer({
+      email: "",
+      firstName: "",
+      lastName: "",
+      phone: "",
+      company: "",
+    })
+    setShippingAddress({
+      ...emptyAddress,
+      countryCode: countryCode || "us",
+    })
+    setCustomerVerified(false)
+    setSendAccountInvite(true)
+    resetOrderDraft()
+    setShowNewCustomerForm(true)
+  }
+
+  function openCustomerContextWorkspace() {
+    setActiveWorkspace("phone_order")
+    setShowNewCustomerForm(false)
+  }
+
+  function openNewCustomerWorkspace() {
+    setActiveWorkspace("new_customer")
+    startNewCustomer()
+  }
+
+  function cancelNewCustomer() {
+    setShowNewCustomerForm(false)
+    if (activeWorkspace === "new_customer") {
+      setActiveWorkspace("phone_order")
+    }
   }
 
   function saveCustomerProfile() {
@@ -424,14 +553,7 @@ export default function PhoneOrderCopilot({
     if (!draftCustomer.id) return
     setError(null)
     startTransition(async () => {
-      const result = await startStaffImpersonation({
-        targetCustomerId: draftCustomer.id!,
-        targetEmail: draftCustomer.email,
-        targetName:
-          [draftCustomer.firstName, draftCustomer.lastName]
-            .filter(Boolean)
-            .join(" ") || draftCustomer.email,
-      })
+      const result = await activateCustomerContext(draftCustomer)
       if (!result.ok || !result.session) {
         setError(result.error || "Could not enter customer context.")
         return
@@ -647,7 +769,9 @@ export default function PhoneOrderCopilot({
 
       <div
         className={`grid gap-3 ${
-          canManageTeamAccess ? "md:grid-cols-3" : "md:grid-cols-2"
+          canManageTeamAccess
+            ? "md:grid-cols-2 xl:grid-cols-4"
+            : "md:grid-cols-3"
         }`}
       >
         <button
@@ -656,7 +780,7 @@ export default function PhoneOrderCopilot({
               ? "border-Charcoal bg-Charcoal text-white"
               : "border-gray-200 bg-white text-Charcoal hover:border-Gold/50"
           }`}
-          onClick={() => setActiveWorkspace("phone_order")}
+          onClick={openCustomerContextWorkspace}
           type="button"
         >
           <span className="block text-xs font-maison-neue-mono uppercase opacity-70">
@@ -668,6 +792,26 @@ export default function PhoneOrderCopilot({
           <span className="mt-2 block text-sm font-maison-neue opacity-75">
             Find the customer, enter their account, then shop, reorder, edit
             addresses, and check out from the customer-facing flow.
+          </span>
+        </button>
+        <button
+          className={`rounded-lg border p-5 text-left transition ${
+            activeWorkspace === "new_customer"
+              ? "border-Charcoal bg-Charcoal text-white"
+              : "border-gray-200 bg-white text-Charcoal hover:border-Gold/50"
+          }`}
+          onClick={openNewCustomerWorkspace}
+          type="button"
+        >
+          <span className="block text-xs font-maison-neue-mono uppercase opacity-70">
+            New customer
+          </span>
+          <span className="mt-2 block text-xl font-gyst font-bold">
+            Create account
+          </span>
+          <span className="mt-2 block text-sm font-maison-neue opacity-75">
+            Start a caller profile with contact details, phone, and delivery
+            address, then continue into account context or phone-order entry.
           </span>
         </button>
         <button
@@ -716,22 +860,25 @@ export default function PhoneOrderCopilot({
 
       {activeWorkspace === "team_access" && canManageTeamAccess ? (
         <StaffTeamAccessConsole />
-      ) : activeWorkspace === "phone_order" ? (
+      ) : isCustomerWorkspace ? (
         <>
           <section className="rounded-lg border border-gray-200 bg-white p-5">
             <div className="grid gap-6 large:grid-cols-[minmax(0,1fr)_320px]">
               <div>
                 <p className="text-xs font-maison-neue-mono uppercase text-Gold">
-                  Customer lookup
+                  {activeWorkspace === "new_customer"
+                    ? "New customer"
+                    : "Customer lookup"}
                 </p>
                 <h2 className="mt-1 text-2xl font-gyst font-bold text-Charcoal">
-                  Enter a customer account
+                  {activeWorkspace === "new_customer"
+                    ? "Create a customer account"
+                    : "Enter a customer account"}
                 </h2>
                 <p className="mt-2 max-w-2xl text-sm font-maison-neue text-Charcoal/60">
-                  Search by name, email, phone, or legacy order. Pick the
-                  customer, then enter their account context. From there staff
-                  can use the same account, cart, address, reorder, and checkout
-                  surfaces the customer uses.
+                  {activeWorkspace === "new_customer"
+                    ? "Use this when the caller is not already in the storefront. Search first if needed, then create the profile with contact and delivery details."
+                    : "Search by name, email, phone, or legacy order. Pick the customer, then enter their account context. From there staff can use the same account, cart, address, reorder, and checkout surfaces the customer uses."}
                 </p>
 
                 <div className="mt-5 flex flex-col gap-3 small:flex-row small:items-end">
@@ -757,6 +904,159 @@ export default function PhoneOrderCopilot({
                     Search
                   </Button>
                 </div>
+
+                {showNewCustomerForm && !draftCustomer.id && (
+                  <div className="mt-5 rounded-md border border-gray-200 bg-SilverPlate/25 p-4">
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <label className="flex flex-col gap-1">
+                        <span className={labelClass()}>Email</span>
+                        <input
+                          className={fieldClass()}
+                          type="email"
+                          value={draftCustomer.email}
+                          onChange={(event) =>
+                            updateDraftCustomer({ email: event.target.value })
+                          }
+                        />
+                      </label>
+                      <label className="flex flex-col gap-1">
+                        <span className={labelClass()}>Phone</span>
+                        <input
+                          className={fieldClass()}
+                          value={draftCustomer.phone}
+                          onChange={(event) => {
+                            updateDraftCustomer({ phone: event.target.value })
+                            updateShippingAddress({ phone: event.target.value })
+                          }}
+                        />
+                      </label>
+                      <label className="flex flex-col gap-1">
+                        <span className={labelClass()}>First name</span>
+                        <input
+                          className={fieldClass()}
+                          value={draftCustomer.firstName}
+                          onChange={(event) =>
+                            updateDraftCustomer({
+                              firstName: event.target.value,
+                            })
+                          }
+                        />
+                      </label>
+                      <label className="flex flex-col gap-1">
+                        <span className={labelClass()}>Last name</span>
+                        <input
+                          className={fieldClass()}
+                          value={draftCustomer.lastName}
+                          onChange={(event) =>
+                            updateDraftCustomer({
+                              lastName: event.target.value,
+                            })
+                          }
+                        />
+                      </label>
+                      <label className="flex flex-col gap-1 md:col-span-2">
+                        <span className={labelClass()}>Company</span>
+                        <input
+                          className={fieldClass()}
+                          value={draftCustomer.company}
+                          onChange={(event) =>
+                            updateDraftCustomer({
+                              company: event.target.value,
+                            })
+                          }
+                        />
+                      </label>
+                      <label className="flex flex-col gap-1 md:col-span-2">
+                        <span className={labelClass()}>Address 1</span>
+                        <input
+                          className={fieldClass()}
+                          value={shippingAddress.address1}
+                          onChange={(event) =>
+                            updateShippingAddress({
+                              address1: event.target.value,
+                            })
+                          }
+                        />
+                      </label>
+                      <label className="flex flex-col gap-1 md:col-span-2">
+                        <span className={labelClass()}>Address 2</span>
+                        <input
+                          className={fieldClass()}
+                          value={shippingAddress.address2 || ""}
+                          onChange={(event) =>
+                            updateShippingAddress({
+                              address2: event.target.value,
+                            })
+                          }
+                        />
+                      </label>
+                      <label className="flex flex-col gap-1">
+                        <span className={labelClass()}>City</span>
+                        <input
+                          className={fieldClass()}
+                          value={shippingAddress.city}
+                          onChange={(event) =>
+                            updateShippingAddress({ city: event.target.value })
+                          }
+                        />
+                      </label>
+                      <label className="flex flex-col gap-1">
+                        <span className={labelClass()}>State</span>
+                        <input
+                          className={fieldClass()}
+                          value={shippingAddress.province}
+                          onChange={(event) =>
+                            updateShippingAddress({
+                              province: event.target.value,
+                            })
+                          }
+                        />
+                      </label>
+                      <label className="flex flex-col gap-1">
+                        <span className={labelClass()}>ZIP</span>
+                        <input
+                          className={fieldClass()}
+                          value={shippingAddress.postalCode}
+                          onChange={(event) =>
+                            updateShippingAddress({
+                              postalCode: event.target.value,
+                            })
+                          }
+                        />
+                      </label>
+                    </div>
+                    <label className="mt-4 flex items-start gap-3 rounded-md border border-Gold/35 bg-Gold/10 p-3 text-sm font-maison-neue text-Charcoal">
+                      <input
+                        checked={sendAccountInvite}
+                        className="mt-1"
+                        onChange={(event) =>
+                          setSendAccountInvite(event.target.checked)
+                        }
+                        type="checkbox"
+                      />
+                      Send the customer an account-claim email so they can set
+                      their own password later.
+                    </label>
+                    <div className="mt-4 flex flex-wrap gap-3">
+                      <Button
+                        className="min-h-[44px] rounded-md bg-Gold px-4 text-sm font-rexton font-bold uppercase text-Charcoal"
+                        isLoading={isPending}
+                        onClick={createCustomer}
+                        type="button"
+                      >
+                        Create Customer
+                      </Button>
+                      <Button
+                        className="min-h-[44px] rounded-md border border-gray-300 px-4 text-sm font-rexton font-bold uppercase text-Charcoal"
+                        disabled={isPending}
+                        onClick={cancelNewCustomer}
+                        type="button"
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                )}
 
                 {customerResults.length > 0 && (
                   <div className="mt-5 divide-y rounded-md border border-gray-100">
@@ -808,6 +1108,12 @@ export default function PhoneOrderCopilot({
                     <p className="mt-1 break-words text-sm font-maison-neue text-Charcoal/60">
                       {draftCustomer.email}
                     </p>
+                    {selectedContext?.accountClaimStatus && (
+                      <p className="mt-2 text-xs font-maison-neue-mono uppercase text-Charcoal/45">
+                        Account claim:{" "}
+                        {selectedContext.accountClaimStatus.replace(/_/g, " ")}
+                      </p>
+                    )}
                     <Button
                       className="mt-4 min-h-[44px] w-full rounded-md bg-Charcoal px-4 text-sm font-rexton font-bold uppercase text-white"
                       isLoading={isPending}
@@ -821,7 +1127,8 @@ export default function PhoneOrderCopilot({
                   </>
                 ) : (
                   <p className="mt-2 text-sm font-maison-neue text-Charcoal/60">
-                    Search and select a storefront customer to begin. Legacy
+                    Search and select a storefront customer, or create a new
+                    caller profile with contact and address details. Legacy
                     records without a linked storefront account can be reviewed
                     in Order Support, but cannot be impersonated.
                   </p>

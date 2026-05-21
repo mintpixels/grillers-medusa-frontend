@@ -11,6 +11,7 @@ import {
   actionMovesMoney,
   actionMutatesMedusa,
   actionRequiredConfirmation,
+  actionRequiresQuickBooksPosting,
   actionRequiresCustomerConsent,
   parseStaffAuditLog,
   staffExceptionActionConfig,
@@ -23,6 +24,12 @@ import {
 } from "./exception-types"
 
 type AnyRecord = Record<string, any>
+type StaffActionStatus =
+  | "requested"
+  | "completed"
+  | "recorded"
+  | "pending_manual"
+  | "failed"
 
 type OrderListResponse = {
   orders?: AnyRecord[]
@@ -81,6 +88,7 @@ export type StaffExceptionPayment = {
   amount: number
   capturedAmount: number
   refundedAmount: number
+  refundableAmount: number
   currencyCode: string
   providerId?: string
   status?: string
@@ -462,6 +470,10 @@ function collectPayments(order: AnyRecord): StaffExceptionPayment[] {
         amount: amount(payment.amount),
         capturedAmount: amount(payment.captured_amount || payment.amount),
         refundedAmount,
+        refundableAmount: Math.max(
+          0,
+          amount(payment.captured_amount || payment.amount) - refundedAmount
+        ),
         currencyCode:
           payment.currency_code || collection.currency_code || "usd",
         providerId:
@@ -470,6 +482,50 @@ function collectPayments(order: AnyRecord): StaffExceptionPayment[] {
       }
     })
   })
+}
+
+function staffTimeline(
+  metadata: AnyRecord | null | undefined
+): StaffAuditEntry[] {
+  const auditLog = parseStaffAuditLog(metadata)
+  const qbdStatus = metadata?.qbd_posting_status
+
+  if (!qbdStatus) return auditLog
+
+  const qbdWriteJobId = metadata?.qbd_write_job_id
+  const alreadyRepresented = auditLog.some((entry) => {
+    return (
+      entry.qbd_posting_status === qbdStatus &&
+      String(entry.qbd_write_job_id || "") === String(qbdWriteJobId || "")
+    )
+  })
+
+  if (alreadyRepresented) return auditLog
+
+  return [
+    ...auditLog,
+    {
+      at:
+        metadata?.qbd_posting_posted_at ||
+        metadata?.qbd_posting_failed_at ||
+        metadata?.qbd_posting_requested_at,
+      action: "quickbooks_posting",
+      status:
+        qbdStatus === "posted"
+          ? "completed"
+          : qbdStatus === "failed"
+          ? "failed"
+          : "pending_manual",
+      qbd_posting_status: qbdStatus,
+      qbd_posting_action: metadata?.qbd_posting_action,
+      qbd_posting_amount: metadata?.qbd_posting_amount,
+      qbd_write_job_id: qbdWriteJobId,
+      qbd_txn_id: metadata?.qbd_txn_id,
+      qbd_ref_number: metadata?.qbd_ref_number,
+      qbd_posting_error: metadata?.qbd_posting_error,
+      staff_actor_name: "QuickBooks writer",
+    },
+  ]
 }
 
 function detailOrder(order: AnyRecord): StaffExceptionOrderDetail {
@@ -513,7 +569,7 @@ function detailOrder(order: AnyRecord): StaffExceptionOrderDetail {
     shippingAddress: toAddress(order.shipping_address),
     billingAddress: toAddress(order.billing_address),
     metadata: order.metadata || {},
-    auditLog: parseStaffAuditLog(order.metadata),
+    auditLog: staffTimeline(order.metadata || {}),
   }
 }
 
@@ -590,7 +646,7 @@ function baseAuditEntry({
   staff: AnyRecord
   input: StaffExceptionActionInput
   order: AnyRecord
-  status: "requested" | "completed" | "recorded"
+  status: StaffActionStatus
 }): AnyRecord {
   return {
     action: input.action,
@@ -623,12 +679,87 @@ function actionLabel(action: StaffExceptionActionType): string {
 }
 
 function qbdReconciliationNeeded(action: StaffExceptionActionType): boolean {
-  return (
-    action === "record_offline_payment" ||
-    action === "credit_memo" ||
-    action === "refund_payment" ||
-    action === "capture_payment"
-  )
+  return actionRequiresQuickBooksPosting(action)
+}
+
+function quickBooksAction(
+  action: StaffExceptionActionType
+): string | undefined {
+  switch (action) {
+    case "record_offline_payment":
+      return "record_offline_payment"
+    case "credit_memo":
+      return "issue_account_credit"
+    case "record_check_refund":
+      return "pending_check_refund"
+    case "refund_payment":
+      return "card_refund_accounting_record"
+    case "capture_payment":
+      return "payment_capture_accounting_record"
+    default:
+      return undefined
+  }
+}
+
+function qbdPendingFields(
+  input: StaffExceptionActionInput,
+  amountValue?: number,
+  extra: AnyRecord = {}
+): AnyRecord {
+  const action = quickBooksAction(input.action)
+  if (!action) return {}
+
+  return {
+    qbd_posting_required: true,
+    qbd_posting_status: "pending_manual",
+    qbd_posting_action: action,
+    qbd_posting_amount: amountValue,
+    qbd_posting_requested_at: new Date().toISOString(),
+    ...extra,
+  }
+}
+
+function stableRequestKey(parts: Array<string | number | undefined | null>) {
+  const text = parts
+    .map((part) =>
+      String(part ?? "")
+        .trim()
+        .toLowerCase()
+    )
+    .join("|")
+  let hash = 0
+  for (let index = 0; index < text.length; index += 1) {
+    hash = (hash * 31 + text.charCodeAt(index)) >>> 0
+  }
+  return hash.toString(36)
+}
+
+function downstreamRequestKey(
+  input: StaffExceptionActionInput,
+  order: AnyRecord,
+  amountValue?: number,
+  paymentId?: string
+) {
+  return [
+    "staff-exception",
+    order.id,
+    input.action,
+    paymentId || "",
+    amountValue || "",
+    input.reasonCode,
+    stableRequestKey([input.staffNote]),
+  ].join("-")
+}
+
+function isStripeProvider(providerId?: string) {
+  return String(providerId || "")
+    .toLowerCase()
+    .includes("stripe")
+}
+
+function latestRefundFromPayment(payment: AnyRecord | null | undefined) {
+  const refunds = Array.isArray(payment?.refunds) ? payment.refunds : []
+  return refunds[refunds.length - 1] || null
 }
 
 function previewSummary(input: StaffExceptionActionInput): string {
@@ -636,17 +767,21 @@ function previewSummary(input: StaffExceptionActionInput): string {
     case "record_note":
       return "This will append an internal staff note to the order audit trail."
     case "record_offline_payment":
-      return "This will record an offline payment for QuickBooks reconciliation. It will not charge a card."
+      return "This records an offline payment and leaves a required QuickBooks posting task. It will not charge a card."
     case "shipping_override":
       return "This will record a shipping-change request for operations review. It will not silently change a shipment."
     case "credit_memo":
-      return "This will record a credit or adjustment request for QuickBooks reconciliation. It will not issue money by itself."
+      return "This records an account credit request and leaves a required QuickBooks credit memo/accounting task. It will not refund a card."
+    case "record_check_refund":
+      return "This records a pending check refund and leaves a required QuickBooks/manual check task. It will not refund a card."
+    case "retry_qbd_posting":
+      return "This reopens the existing failed QuickBooks posting for the writer to retry. It does not create a new Stripe refund or a new accounting request."
     case "cancel_order":
       return "This will call Medusa's order cancellation endpoint after writing a staff audit entry."
     case "refund_payment":
-      return "This will call Medusa's payment refund endpoint after writing a staff audit entry."
+      return "This writes a staff audit entry, submits the Stripe card refund through Medusa, and leaves a required QuickBooks refund record task."
     case "capture_payment":
-      return "This will call Medusa's payment capture endpoint after writing a staff audit entry."
+      return "This writes a staff audit entry, captures the payment through Medusa, and leaves a required QuickBooks payment record task."
   }
 }
 
@@ -656,9 +791,15 @@ function previewWarnings(
 ): string[] {
   const warnings: string[] = []
 
+  if (actionRequiresQuickBooksPosting(input.action)) {
+    warnings.push(
+      "QuickBooks/QBD posting is required for this money action. Until an accounting sync confirms it, the order stays marked as pending/manual for QBD."
+    )
+  }
+
   if (actionIsAuditOnly(input.action)) {
     warnings.push(
-      "Audit-only action: this records the request/status on the order, but does not change QuickBooks, carrier labels, customer notifications, or payment state."
+      "Storefront-only action: this records the request/status on the order and does not move money by itself."
     )
   } else {
     warnings.push(
@@ -733,6 +874,31 @@ function validateAction(input: StaffExceptionActionInput, order: AnyRecord) {
     }
   }
 
+  if (input.action === "refund_payment") {
+    const selected = refundableStripePayment(order, input.paymentId)
+    const refundAmount = minorUnitsFromDollars(input.amount)
+    if (refundAmount > selected.refundableAmount) {
+      throw new Error(
+        `Refund amount exceeds the refundable card balance of ${(
+          selected.refundableAmount / 100
+        ).toFixed(2)}.`
+      )
+    }
+  }
+
+  if (input.action === "retry_qbd_posting") {
+    if (order.metadata?.qbd_posting_status !== "failed") {
+      throw new Error(
+        "QuickBooks retry is only available after a failed QBD posting."
+      )
+    }
+    if (!order.metadata?.qbd_posting_request_key) {
+      throw new Error(
+        "This order does not have a retryable QuickBooks request key."
+      )
+    }
+  }
+
   if (
     input.action === "shipping_override" &&
     !input.shippingChangeSummary?.trim()
@@ -750,7 +916,7 @@ function validateTypedConfirmation(input: StaffExceptionActionInput) {
   }
 }
 
-function refundablePayment(
+function refundableStripePayment(
   order: AnyRecord,
   paymentId?: string
 ): StaffExceptionPayment {
@@ -758,10 +924,22 @@ function refundablePayment(
   const selected = paymentId
     ? payments.find((payment) => payment.id === paymentId)
     : payments.find(
-        (payment) => payment.capturedAmount > payment.refundedAmount
+        (payment) =>
+          isStripeProvider(payment.providerId) &&
+          payment.capturedAmount > payment.refundedAmount
       )
 
   if (!selected) {
+    throw new Error(
+      "No refundable Stripe card payment was found for this order."
+    )
+  }
+  if (!isStripeProvider(selected.providerId)) {
+    throw new Error(
+      "Card refunds are only available for refundable Stripe payments. Use account credit or pending check refund for non-card payments."
+    )
+  }
+  if (selected.capturedAmount <= selected.refundedAmount) {
     throw new Error("No refundable captured payment was found for this order.")
   }
 
@@ -1075,7 +1253,9 @@ export async function applyStaffOrderException(
         input.action === "record_note" ||
         input.action === "record_offline_payment" ||
         input.action === "shipping_override" ||
-        input.action === "credit_memo"
+        input.action === "credit_memo" ||
+        input.action === "record_check_refund" ||
+        input.action === "retry_qbd_posting"
           ? "recorded"
           : "requested",
     })
@@ -1088,17 +1268,30 @@ export async function applyStaffOrderException(
         break
       }
       case "record_offline_payment": {
+        const offlinePaymentAmount = minorUnitsFromDollars(input.amount)
+        const requestKey = downstreamRequestKey(
+          input,
+          order,
+          offlinePaymentAmount,
+          input.offlinePaymentReference?.trim() ||
+            input.offlinePaymentMethod?.trim()
+        )
+        const qbdFields = qbdPendingFields(input, offlinePaymentAmount, {
+          qbd_posting_request_key: requestKey,
+        })
         await appendOrderAudit(
           order.id,
           {
             ...baseEntry,
-            amount: minorUnitsFromDollars(input.amount),
+            amount: offlinePaymentAmount,
             offline_payment_method: input.offlinePaymentMethod?.trim(),
             offline_payment_reference:
               input.offlinePaymentReference?.trim() || undefined,
+            ...qbdFields,
           },
           {
-            staff_exception_status: "offline_payment_needs_qbd_reconcile",
+            staff_exception_status: "offline_payment_qbd_pending",
+            ...qbdFields,
           }
         )
         break
@@ -1120,14 +1313,64 @@ export async function applyStaffOrderException(
         break
       }
       case "credit_memo": {
+        const creditAmount = minorUnitsFromDollars(input.amount)
+        const requestKey = downstreamRequestKey(input, order, creditAmount)
+        const qbdFields = qbdPendingFields(input, creditAmount, {
+          qbd_posting_request_key: requestKey,
+        })
         await appendOrderAudit(
           order.id,
           {
             ...baseEntry,
-            amount: minorUnitsFromDollars(input.amount),
+            amount: creditAmount,
+            ...qbdFields,
           },
           {
-            staff_exception_status: "credit_memo_needs_qbd_reconcile",
+            staff_exception_status: "account_credit_qbd_pending",
+            ...qbdFields,
+          }
+        )
+        break
+      }
+      case "record_check_refund": {
+        const checkRefundAmount = minorUnitsFromDollars(input.amount)
+        const requestKey = downstreamRequestKey(input, order, checkRefundAmount)
+        const qbdFields = qbdPendingFields(input, checkRefundAmount, {
+          qbd_posting_request_key: requestKey,
+        })
+        await appendOrderAudit(
+          order.id,
+          {
+            ...baseEntry,
+            amount: checkRefundAmount,
+            ...qbdFields,
+          },
+          {
+            staff_exception_status: "check_refund_qbd_pending",
+            ...qbdFields,
+          }
+        )
+        break
+      }
+      case "retry_qbd_posting": {
+        await appendOrderAudit(
+          order.id,
+          {
+            ...baseEntry,
+            qbd_posting_status: "pending_manual",
+            qbd_posting_action: order.metadata?.qbd_posting_action,
+            qbd_posting_amount: order.metadata?.qbd_posting_amount,
+            qbd_posting_request_key: order.metadata?.qbd_posting_request_key,
+            qbd_write_job_id: order.metadata?.qbd_write_job_id,
+            previous_qbd_posting_status: order.metadata?.qbd_posting_status,
+            previous_qbd_posting_error: order.metadata?.qbd_posting_error,
+          },
+          {
+            staff_exception_status: "qbd_retry_requested",
+            qbd_posting_required: true,
+            qbd_posting_status: "pending_manual",
+            qbd_posting_retry_requested_at: new Date().toISOString(),
+            qbd_posting_error: "",
           }
         )
         break
@@ -1154,38 +1397,113 @@ export async function applyStaffOrderException(
         break
       }
       case "refund_payment": {
-        const payment = refundablePayment(order, input.paymentId)
+        const payment = refundableStripePayment(order, input.paymentId)
         const refundAmount = minorUnitsFromDollars(input.amount)
+        const requestKey = downstreamRequestKey(
+          input,
+          order,
+          refundAmount,
+          payment.id
+        )
+        const qbdFields = qbdPendingFields(input, refundAmount, {
+          qbd_posting_request_key: requestKey,
+        })
         await appendOrderAudit(
           order.id,
           {
             ...baseEntry,
             payment_id: payment.id,
             amount: refundAmount,
+            ...qbdFields,
+            stripe_refund_required: true,
+            stripe_refund_status: "requested",
+            downstream_request_key: requestKey,
           },
           {
             staff_exception_status: "refund_requested",
+            ...qbdFields,
+            stripe_refund_required: true,
+            stripe_refund_status: "requested",
+            downstream_request_key: requestKey,
           }
         )
-        await adminFetch<{ payment: AnyRecord }>(
-          `/admin/payments/${payment.id}/refund`,
-          {
-            method: "POST",
-            body: JSON.stringify({
+        let refundResponse: { payment: AnyRecord }
+        try {
+          refundResponse = await adminFetch<{ payment: AnyRecord }>(
+            `/admin/payments/${payment.id}/refund`,
+            {
+              method: "POST",
+              headers: { "Idempotency-Key": requestKey },
+              body: JSON.stringify({
+                amount: refundAmount,
+                note: input.staffNote.trim(),
+              }),
+            }
+          )
+        } catch (err) {
+          await appendOrderAudit(
+            order.id,
+            {
+              ...baseAuditEntry({ staff, input, order, status: "failed" }),
+              payment_id: payment.id,
               amount: refundAmount,
-              note: input.staffNote.trim(),
-            }),
-          }
-        )
+              ...qbdFields,
+              qbd_posting_required: false,
+              stripe_refund_required: true,
+              stripe_refund_status: "failed",
+              stripe_refund_error:
+                err instanceof Error ? err.message : String(err),
+              downstream_request_key: requestKey,
+              downstream_error:
+                err instanceof Error ? err.message : String(err),
+            },
+            {
+              staff_exception_status: "refund_stripe_failed",
+              ...qbdFields,
+              qbd_posting_required: false,
+              qbd_posting_status: "blocked_by_stripe_failure",
+              stripe_refund_required: true,
+              stripe_refund_status: "failed",
+              stripe_refund_error:
+                err instanceof Error ? err.message : String(err),
+              downstream_request_key: requestKey,
+            }
+          )
+          throw err
+        }
+        const refund = latestRefundFromPayment(refundResponse.payment)
         await appendOrderAudit(
           order.id,
           {
-            ...baseAuditEntry({ staff, input, order, status: "completed" }),
+            ...baseAuditEntry({
+              staff,
+              input,
+              order,
+              status: "pending_manual",
+            }),
             payment_id: payment.id,
             amount: refundAmount,
+            ...qbdFields,
+            stripe_refund_required: true,
+            stripe_refund_status: "submitted",
+            stripe_refund_id: refund?.id,
+            stripe_provider_refund_id:
+              refund?.data?.id ||
+              refund?.provider_refund_id ||
+              refund?.external_id,
+            downstream_request_key: requestKey,
           },
           {
-            staff_exception_status: "refund_completed",
+            staff_exception_status: "refund_stripe_submitted_qbd_pending",
+            ...qbdFields,
+            stripe_refund_required: true,
+            stripe_refund_status: "submitted",
+            stripe_refund_id: refund?.id,
+            stripe_provider_refund_id:
+              refund?.data?.id ||
+              refund?.provider_refund_id ||
+              refund?.external_id,
+            downstream_request_key: requestKey,
           }
         )
         break
@@ -1193,33 +1511,90 @@ export async function applyStaffOrderException(
       case "capture_payment": {
         const payment = capturablePayment(order, input.paymentId)
         const captureAmount = minorUnitsFromDollars(input.amount)
+        const requestKey = downstreamRequestKey(
+          input,
+          order,
+          captureAmount,
+          payment.id
+        )
+        const qbdFields = qbdPendingFields(input, captureAmount, {
+          qbd_posting_request_key: requestKey,
+        })
         await appendOrderAudit(
           order.id,
           {
             ...baseEntry,
             payment_id: payment.id,
             amount: captureAmount,
+            ...qbdFields,
+            payment_capture_status: "requested",
+            downstream_request_key: requestKey,
           },
           {
             staff_exception_status: "capture_requested",
+            ...qbdFields,
+            payment_capture_status: "requested",
+            downstream_request_key: requestKey,
           }
         )
-        await adminFetch<{ payment: AnyRecord }>(
-          `/admin/payments/${payment.id}/capture`,
-          {
-            method: "POST",
-            body: JSON.stringify({ amount: captureAmount }),
-          }
-        )
+        try {
+          await adminFetch<{ payment: AnyRecord }>(
+            `/admin/payments/${payment.id}/capture`,
+            {
+              method: "POST",
+              headers: { "Idempotency-Key": requestKey },
+              body: JSON.stringify({ amount: captureAmount }),
+            }
+          )
+        } catch (err) {
+          await appendOrderAudit(
+            order.id,
+            {
+              ...baseAuditEntry({ staff, input, order, status: "failed" }),
+              payment_id: payment.id,
+              amount: captureAmount,
+              ...qbdFields,
+              qbd_posting_required: false,
+              payment_capture_status: "failed",
+              payment_capture_error:
+                err instanceof Error ? err.message : String(err),
+              downstream_request_key: requestKey,
+              downstream_error:
+                err instanceof Error ? err.message : String(err),
+            },
+            {
+              staff_exception_status: "capture_failed",
+              ...qbdFields,
+              qbd_posting_required: false,
+              qbd_posting_status: "blocked_by_capture_failure",
+              payment_capture_status: "failed",
+              payment_capture_error:
+                err instanceof Error ? err.message : String(err),
+              downstream_request_key: requestKey,
+            }
+          )
+          throw err
+        }
         await appendOrderAudit(
           order.id,
           {
-            ...baseAuditEntry({ staff, input, order, status: "completed" }),
+            ...baseAuditEntry({
+              staff,
+              input,
+              order,
+              status: "pending_manual",
+            }),
             payment_id: payment.id,
             amount: captureAmount,
+            ...qbdFields,
+            payment_capture_status: "submitted",
+            downstream_request_key: requestKey,
           },
           {
-            staff_exception_status: "capture_completed",
+            staff_exception_status: "capture_submitted_qbd_pending",
+            ...qbdFields,
+            payment_capture_status: "submitted",
+            downstream_request_key: requestKey,
           }
         )
         break
