@@ -163,11 +163,17 @@ const Addresses = ({
     const hasAddress = cart?.billing_address || cart?.shipping_address
 
     return (
-      <div>
+      <div
+        className={`rounded-2xl p-5 shadow-sm border transition-colors ${
+          isOpen
+            ? "bg-white border-gray-200"
+            : "bg-gradient-to-br from-Gold/[0.12] via-Gold/[0.06] to-transparent border-Gold/20"
+        }`}
+      >
         {/* Step header */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <span className="flex items-center justify-center w-7 h-7 rounded-full bg-Gold text-white text-sm font-semibold">
+            <span className="flex items-center justify-center w-7 h-7 rounded-full bg-Gold text-white text-sm font-semibold shadow-sm">
               2
             </span>
             <h2 className="text-lg font-semibold text-gray-900">Contact & Billing</h2>
@@ -278,11 +284,17 @@ const Addresses = ({
 
   // For delivery orders (atlanta_delivery, ups_shipping), show full shipping + billing
   return (
-    <div>
+    <div
+      className={`rounded-2xl p-5 shadow-sm border transition-colors ${
+        isOpen
+          ? "bg-white border-gray-200"
+          : "bg-gradient-to-br from-Gold/[0.12] via-Gold/[0.06] to-transparent border-Gold/20"
+      }`}
+    >
       {/* Step header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
-          <span className="flex items-center justify-center w-7 h-7 rounded-full bg-Gold text-white text-sm font-semibold">
+          <span className="flex items-center justify-center w-7 h-7 rounded-full bg-Gold text-white text-sm font-semibold shadow-sm">
             2
           </span>
           <h2 className="text-lg font-semibold text-gray-900">Shipping Address</h2>

@@ -22,7 +22,16 @@ const DiscountCode: React.FC<DiscountCodeProps> = ({ cart, variant = "light" }) 
   const [isOpen, setIsOpen] = React.useState(false)
   const isDark = variant === "dark"
 
-  const { promotions = [] } = cart
+  const { promotions: rawPromotions = [] } = cart
+  // Free-shipping promotions are auto-applied by the storefront when the cart
+  // qualifies — surfacing them here as removable chips would let a user delete
+  // the promo and end up paying full UPS rate without realizing it. The
+  // shipping line in the summary already advertises "Free shipping unlocked"
+  // for the qualifying state.
+  const HIDDEN_PROMO_CODES = ["GP_FREESHIP_INREGION", "GP_FREESHIP_NATIONAL"]
+  const promotions = rawPromotions.filter(
+    (p) => !p.code || !HIDDEN_PROMO_CODES.includes(p.code)
+  )
   const removePromotionCode = async (code: string) => {
     const validPromotions = promotions.filter(
       (promotion) => promotion.code !== code
@@ -152,7 +161,9 @@ const DiscountCode: React.FC<DiscountCodeProps> = ({ cart, variant = "light" }) 
                               "percentage"
                                 ? `${promotion.application_method.value}%`
                                 : convertToLocale({
-                                    amount: promotion.application_method.value,
+                                    amount: Number(
+                                      promotion.application_method.value
+                                    ),
                                     currency_code:
                                       promotion.application_method
                                         .currency_code,

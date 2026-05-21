@@ -295,10 +295,16 @@ const Shipping: React.FC<ShippingProps> = ({
   const isIncomplete = !isOpen && cart.shipping_methods?.length === 0
 
   return (
-    <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
+    <div
+      className={`rounded-2xl p-5 shadow-sm border transition-colors ${
+        isOpen
+          ? "bg-white border-gray-200"
+          : "bg-gradient-to-br from-Gold/[0.12] via-Gold/[0.06] to-transparent border-Gold/20"
+      }`}
+    >
       <div className="flex items-center justify-between mb-4">
         <div className={`flex items-center gap-3 ${isIncomplete ? "opacity-50 pointer-events-none select-none" : ""}`}>
-          <span className="flex items-center justify-center w-7 h-7 rounded-full bg-Gold text-white text-sm font-semibold">
+          <span className="flex items-center justify-center w-7 h-7 rounded-full bg-Gold text-white text-sm font-semibold shadow-sm">
             3
           </span>
           <h2 className="text-lg font-semibold text-gray-900">
@@ -610,26 +616,46 @@ const Shipping: React.FC<ShippingProps> = ({
         </>
       ) : (
         <div>
-          {cart && (cart.shipping_methods?.length ?? 0) > 0 && (
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
-                  Method
-                </p>
-                <p className="text-sm text-gray-600">
-                  {cart.shipping_methods?.at(-1)?.name}{" "}
-                  {convertToLocale({
-                    amount: cart.shipping_methods?.at(-1)?.amount ?? 0,
-                    currency_code: cart?.currency_code,
-                  })}
-                </p>
+          {cart && (cart.shipping_methods?.length ?? 0) > 0 && (() => {
+            const selected = cart.shipping_methods?.at(-1)
+            const selectedAmount = selected?.amount ?? 0
+            const cartShippingTotal = (cart as any).shipping_total ?? selectedAmount
+            const freeShipApplied = isFreeShipPromoActive && cartShippingTotal === 0 && selectedAmount > 0
+            return (
+              <div className="flex items-center justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                    Method
+                  </p>
+                  <p className="text-sm text-gray-800 font-medium">{selected?.name}</p>
+                </div>
+                <div className="text-right shrink-0">
+                  {freeShipApplied ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-400 line-through">
+                        {convertToLocale({
+                          amount: selectedAmount,
+                          currency_code: cart?.currency_code,
+                        })}
+                      </span>
+                      <span className="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide">
+                        Free
+                      </span>
+                    </div>
+                  ) : (
+                    <span className="text-sm font-semibold text-gray-900">
+                      {convertToLocale({
+                        amount: cartShippingTotal,
+                        currency_code: cart?.currency_code,
+                      })}
+                    </span>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            )
+          })()}
         </div>
       )}
-
-      <div className="border-b border-gray-200 mt-6" />
     </div>
   )
 }

@@ -1,6 +1,5 @@
 "use client"
 
-import { Calendar } from "@medusajs/ui"
 import { useState, useEffect, useCallback, useMemo } from "react"
 import type { StoreCart, StoreCartShippingOption } from "@medusajs/types"
 
@@ -56,9 +55,174 @@ function deriveArrivalMethod(
 
 const WEEKDAY_LONG = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
 const WEEKDAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+const WEEKDAY_NARROW = ["S", "M", "T", "W", "T", "F", "S"]
+const MONTH_LONG = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+]
 const MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
 const INITIAL_DATES_SHOWN = 9
+
+// ────────────────────────────────────────────────────────────────────
+// Custom month-grid calendar
+//
+// Replaces the @medusajs/ui Calendar so we can give eligible days a
+// light-gray pill and the selected day a green pill — the previous
+// component's defaults made it impossible to tell selectable from
+// disabled days at a glance.
+// ────────────────────────────────────────────────────────────────────
+
+type MonthCalendarProps = {
+  value: Date | null
+  eligibleIsoSet: Set<string>
+  earliest: Date
+  latest: Date
+  onSelect: (d: Date) => void
+}
+
+function startOfMonth(d: Date) {
+  return new Date(d.getFullYear(), d.getMonth(), 1)
+}
+
+function addMonths(d: Date, n: number) {
+  return new Date(d.getFullYear(), d.getMonth() + n, 1)
+}
+
+function MonthCalendar({
+  value,
+  eligibleIsoSet,
+  earliest,
+  latest,
+  onSelect,
+}: MonthCalendarProps) {
+  const [viewMonth, setViewMonth] = useState<Date>(() =>
+    startOfMonth(value || earliest)
+  )
+
+  const selectedIso = value ? toIsoDate(value) : null
+  const todayIso = toIsoDate(new Date())
+
+  // Compose the visible grid: 6 rows × 7 cols starting from the Sunday
+  // before (or on) the 1st of `viewMonth`.
+  const grid = useMemo(() => {
+    const firstOfMonth = startOfMonth(viewMonth)
+    const startWeekday = firstOfMonth.getDay()
+    const cells: Array<Date> = []
+    const cursor = new Date(firstOfMonth)
+    cursor.setDate(cursor.getDate() - startWeekday)
+    for (let i = 0; i < 42; i++) {
+      cells.push(new Date(cursor))
+      cursor.setDate(cursor.getDate() + 1)
+    }
+    return cells
+  }, [viewMonth])
+
+  // Don't let the user page outside the eligibility window — showing
+  // months full of greyed-out numbers is just visual noise.
+  const minMonth = startOfMonth(earliest)
+  const maxMonth = startOfMonth(latest)
+  const canGoPrev = viewMonth.getTime() > minMonth.getTime()
+  const canGoNext = viewMonth.getTime() < maxMonth.getTime()
+
+  return (
+    <div className="select-none">
+      <div className="flex items-center justify-between mb-3">
+        <button
+          type="button"
+          onClick={() => canGoPrev && setViewMonth((m) => addMonths(m, -1))}
+          disabled={!canGoPrev}
+          aria-label="Previous month"
+          className="w-8 h-8 flex items-center justify-center rounded-full text-Charcoal/70 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+          </svg>
+        </button>
+        <span className="text-sm font-semibold text-Charcoal">
+          {MONTH_LONG[viewMonth.getMonth()]} {viewMonth.getFullYear()}
+        </span>
+        <button
+          type="button"
+          onClick={() => canGoNext && setViewMonth((m) => addMonths(m, 1))}
+          disabled={!canGoNext}
+          aria-label="Next month"
+          className="w-8 h-8 flex items-center justify-center rounded-full text-Charcoal/70 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+          </svg>
+        </button>
+      </div>
+      <div className="grid grid-cols-7 gap-1 mb-1">
+        {WEEKDAY_NARROW.map((w, i) => (
+          <div
+            key={`${w}-${i}`}
+            className="text-center text-[10px] font-semibold uppercase tracking-wider text-Charcoal/50 py-1"
+          >
+            {w}
+          </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-7 gap-1">
+        {grid.map((d) => {
+          const inMonth = d.getMonth() === viewMonth.getMonth()
+          const iso = toIsoDate(d)
+          const isEligible = eligibleIsoSet.has(iso)
+          const isSelected = iso === selectedIso
+          const isToday = iso === todayIso
+
+          let cellClass =
+            "relative h-10 flex items-center justify-center text-sm rounded-lg transition-colors "
+          if (!inMonth) {
+            cellClass += "text-Charcoal/25"
+          } else if (isSelected) {
+            cellClass += "bg-emerald-600 text-white font-semibold shadow-sm"
+          } else if (isEligible) {
+            cellClass +=
+              "bg-gray-100 text-Charcoal font-medium hover:bg-Gold/20 hover:text-Charcoal cursor-pointer"
+          } else {
+            cellClass += "text-Charcoal/30"
+          }
+
+          return (
+            <button
+              key={iso}
+              type="button"
+              onClick={() => isEligible && onSelect(d)}
+              disabled={!isEligible}
+              aria-pressed={isSelected}
+              aria-label={`${WEEKDAY_LONG[d.getDay()]}, ${MONTH_LONG[d.getMonth()]} ${d.getDate()}${
+                isEligible ? "" : " — not available"
+              }`}
+              className={cellClass}
+            >
+              {d.getDate()}
+              {isToday && !isSelected && (
+                <span
+                  className={`absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full ${
+                    isEligible ? "bg-Gold" : "bg-Charcoal/40"
+                  }`}
+                  aria-hidden="true"
+                />
+              )}
+            </button>
+          )
+        })}
+      </div>
+      <div className="flex items-center gap-4 mt-3 text-[11px] text-Charcoal/60">
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block w-3 h-3 rounded bg-gray-100 border border-gray-200" />
+          Available
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block w-3 h-3 rounded bg-emerald-600" />
+          Selected
+        </span>
+      </div>
+    </div>
+  )
+}
 
 export default function ArriveFoodCalendar({
   cart,
@@ -147,13 +311,7 @@ export default function ArriveFoodCalendar({
   const earliestIso = toIsoDate(eligibility.earliest)
   const hasMore = eligibility.dates.length > INITIAL_DATES_SHOWN
 
-  const isDateUnavailable = (d: Date) =>
-    !eligibility.isoSet.has(toIsoDate(d))
-
-  const handleCalendarChange = (d: Date | null) => {
-    if (!d) return
-    handlePick(d)
-  }
+  const latestEligible = eligibility.dates[eligibility.dates.length - 1]
 
   const toggleView = () => setView((v) => (v === "list" ? "calendar" : "list"))
 
@@ -230,13 +388,13 @@ export default function ArriveFoodCalendar({
         </>
       ) : (
         <>
-          <div className="rounded-xl border border-gray-200 bg-white p-3">
-            <Calendar
+          <div className="rounded-xl border border-gray-200 bg-white p-4">
+            <MonthCalendar
               value={dateValue}
-              onChange={handleCalendarChange}
-              aria-label="Select your desired arrival date"
-              minValue={eligibility.earliest ?? undefined}
-              isDateUnavailable={isDateUnavailable}
+              eligibleIsoSet={eligibility.isoSet}
+              earliest={eligibility.earliest}
+              latest={latestEligible || eligibility.earliest}
+              onSelect={handlePick}
             />
           </div>
           <div className="flex justify-end">

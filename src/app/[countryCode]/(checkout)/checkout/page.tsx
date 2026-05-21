@@ -160,7 +160,7 @@ type PageProps = {
 export default async function Checkout({ params, searchParams }: PageProps) {
   const { countryCode } = await params
   const resolvedSearchParams = await searchParams
-  const cart = await retrieveCart()
+  let cart = await retrieveCart()
 
   if (!cart) {
     return notFound()
@@ -169,6 +169,20 @@ export default async function Checkout({ params, searchParams }: PageProps) {
   // If cart is empty, redirect to cart page
   if (!cart.items || cart.items.length === 0) {
     redirect(`/${countryCode}/cart`)
+  }
+
+  // Reconcile the free-shipping promo against the current cart state. This
+  // covers the case where the customer arrives on checkout without mutating
+  // the cart (the mutation-hooked sync wouldn't fire). If the promo state
+  // changes we re-fetch so the rendered cart reflects the new totals.
+  const { syncFreeShippingPromotion } = await import("@lib/data/free-shipping-promo")
+  const appliedCode = await syncFreeShippingPromotion(cart)
+  const hadFreeShipBefore = (cart.promotions || []).some(
+    (p) => p.code === "GP_FREESHIP_INREGION" || p.code === "GP_FREESHIP_NATIONAL"
+  )
+  if (Boolean(appliedCode) !== hadFreeShipBefore) {
+    const fresh = await retrieveCart(cart.id)
+    if (fresh) cart = fresh
   }
 
   const customer = await retrieveCustomer()

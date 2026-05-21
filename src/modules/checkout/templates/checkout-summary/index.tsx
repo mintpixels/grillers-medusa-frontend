@@ -83,12 +83,22 @@ const CheckoutItem = ({
       <div className="flex-shrink-0 text-right">
         <p className="text-sm font-medium text-white">
           {convertToLocale({
+            // Use unit_price * quantity — Medusa's `item.total` rolls in
+            // promotion discounts (including shipping promos) and ends up
+            // wrong on a free-shipping cart.
             amount: (item.unit_price ?? 0) * item.quantity,
             currency_code: currencyCode,
           })}
         </p>
       </div>
     </div>
+  )
+}
+
+function isFreeShipPromoApplied(cart: HttpTypes.StoreCart): boolean {
+  const FREE_SHIP_CODES = ["GP_FREESHIP_INREGION", "GP_FREESHIP_NATIONAL"]
+  return Boolean(
+    cart.promotions?.some((p) => p.code && FREE_SHIP_CODES.includes(p.code))
   )
 }
 
@@ -102,6 +112,21 @@ const CheckoutSummary = ({ cart, atlantaZipConfig }: CheckoutSummaryProps) => {
   const fulfillmentType = cart.metadata?.fulfillmentType as FulfillmentType | undefined
   const isPickup = fulfillmentType === "plant_pickup" || fulfillmentType === "southeast_pickup"
 
+  const freeShipApplied = isFreeShipPromoApplied(cart)
+  const shippingSavings = Math.max(
+    0,
+    (cart.shipping_subtotal ?? 0) - (cart.shipping_total ?? 0)
+  )
+  const itemDiscount = Math.max(
+    0,
+    (cart.discount_total ?? 0) - shippingSavings
+  )
+  const displayTotal =
+    (cart.subtotal ?? 0) +
+    (cart.shipping_total ?? 0) +
+    (cart.tax_total ?? 0) -
+    itemDiscount
+
   return (
     <div className="small:sticky small:top-24 small:max-h-[calc(100vh-8rem)] small:overflow-y-auto">
       {/* Header */}
@@ -112,12 +137,26 @@ const CheckoutSummary = ({ cart, atlantaZipConfig }: CheckoutSummaryProps) => {
         </span>
       </h2>
 
+      {/* Items first — gives the customer a clear picture of what's in the
+          cart before the cost breakdown. */}
+      <div className="space-y-4 pb-6 border-b border-gray-700">
+        {items
+          .sort((a, b) => ((a.created_at ?? "") > (b.created_at ?? "") ? -1 : 1))
+          .map((item) => (
+            <CheckoutItem
+              key={item.id}
+              item={item}
+              currencyCode={cart.currency_code}
+            />
+          ))}
+      </div>
+
       {/* Promo Code */}
-      <div className="mb-6">
+      <div className="my-6">
         <DiscountCode cart={cart as any} variant="dark" />
       </div>
 
-      {/* Totals */}
+      {/* Cost breakdown */}
       <div className="space-y-3 pb-6 border-b border-gray-700">
         <div className="flex justify-between text-sm">
           <span className="text-gray-400">Subtotal</span>
@@ -128,6 +167,7 @@ const CheckoutSummary = ({ cart, atlantaZipConfig }: CheckoutSummaryProps) => {
             })}
           </span>
         </div>
+
         <FulfillmentProgress
           subtotal={eligibleSubtotal}
           cartSubtotal={cart.subtotal}
@@ -139,20 +179,38 @@ const CheckoutSummary = ({ cart, atlantaZipConfig }: CheckoutSummaryProps) => {
           variant="dark"
           atlantaZipConfig={atlantaZipConfig}
         />
-        {/* Only show shipping for delivery orders, not pickup */}
+
+        {/* Shipping line. When the free-shipping promo is on the cart, show
+            the original rate struck through with a "FREE" pill so the
+            customer can see exactly what we saved them. */}
         {!isPickup && (
-          <div className="flex justify-between text-sm">
+          <div className="flex justify-between items-center text-sm">
             <span className="text-gray-400">Shipping</span>
-            <span className="text-gray-300">
-              {cart.shipping_total != null
-                ? convertToLocale({
-                    amount: cart.shipping_total,
+            {freeShipApplied && shippingSavings > 0 ? (
+              <span className="flex items-center gap-2">
+                <span className="text-xs text-gray-500 line-through">
+                  {convertToLocale({
+                    amount: cart.shipping_subtotal ?? shippingSavings,
                     currency_code: cart.currency_code,
-                  })
-                : "Calculated at checkout"}
-            </span>
+                  })}
+                </span>
+                <span className="inline-flex items-center text-emerald-300 bg-emerald-900/40 border border-emerald-500/30 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide">
+                  Free
+                </span>
+              </span>
+            ) : (
+              <span className="text-gray-300">
+                {cart.shipping_total != null
+                  ? convertToLocale({
+                      amount: cart.shipping_total,
+                      currency_code: cart.currency_code,
+                    })
+                  : "Calculated at checkout"}
+              </span>
+            )}
           </div>
         )}
+
         <div className="flex justify-between text-sm">
           <span className="text-gray-400">Taxes (estimated)</span>
           <span className="text-white">
@@ -162,7 +220,8 @@ const CheckoutSummary = ({ cart, atlantaZipConfig }: CheckoutSummaryProps) => {
             })}
           </span>
         </div>
-        {(cart.discount_total ?? 0) > 0 && (
+
+        {itemDiscount > 0 && (
           <div className="flex justify-between text-sm">
             <span className="text-gray-400">
               {fulfillmentType === "plant_pickup" ? "Pickup Credit" : "Discount"}
@@ -170,7 +229,7 @@ const CheckoutSummary = ({ cart, atlantaZipConfig }: CheckoutSummaryProps) => {
             <span className="text-green-400">
               -
               {convertToLocale({
-                amount: cart.discount_total ?? 0,
+                amount: itemDiscount,
                 currency_code: cart.currency_code,
               })}
             </span>
@@ -178,28 +237,17 @@ const CheckoutSummary = ({ cart, atlantaZipConfig }: CheckoutSummaryProps) => {
         )}
       </div>
 
-      {/* Total */}
-      <div className="flex justify-between py-4 border-b border-gray-700">
+      {/* Total — recomputed locally so the Medusa free-shipping
+          double-count (it subtracts discount_total even when shipping_total
+          is already $0) doesn't reach the customer. */}
+      <div className="flex justify-between py-4">
         <span className="text-lg font-semibold text-white">Total</span>
         <span className="text-lg font-semibold text-white">
           {convertToLocale({
-            amount: cart.total ?? 0,
+            amount: displayTotal,
             currency_code: cart.currency_code,
           })}
         </span>
-      </div>
-
-      {/* Items */}
-      <div className="mt-6 space-y-4">
-        {items
-          .sort((a, b) => ((a.created_at ?? "") > (b.created_at ?? "") ? -1 : 1))
-          .map((item) => (
-            <CheckoutItem
-              key={item.id}
-              item={item}
-              currencyCode={cart.currency_code}
-            />
-          ))}
       </div>
     </div>
   )

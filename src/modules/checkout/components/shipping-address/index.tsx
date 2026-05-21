@@ -125,7 +125,7 @@ const ShippingAddress = ({
   useEffect(() => {
     if (
       !customer ||
-      !preferredSavedAddress ||
+      !preferredCustomerAddress ||
       cart?.shipping_address?.address_1
     ) {
       return
@@ -137,31 +137,31 @@ const ShippingAddress = ({
       return {
         ...prev,
         "shipping_address.first_name":
-          preferredSavedAddress.first_name || customer.first_name || "",
+          preferredCustomerAddress.first_name || customer.first_name || "",
         "shipping_address.last_name":
-          preferredSavedAddress.last_name || customer.last_name || "",
-        "shipping_address.address_1": preferredSavedAddress.address_1 || "",
-        "shipping_address.company": preferredSavedAddress.company || "",
-        "shipping_address.postal_code": preferredSavedAddress.postal_code || "",
-        "shipping_address.city": preferredSavedAddress.city || "",
+          preferredCustomerAddress.last_name || customer.last_name || "",
+        "shipping_address.address_1": preferredCustomerAddress.address_1 || "",
+        "shipping_address.company": preferredCustomerAddress.company || "",
+        "shipping_address.postal_code": preferredCustomerAddress.postal_code || "",
+        "shipping_address.city": preferredCustomerAddress.city || "",
         "shipping_address.country_code":
-          preferredSavedAddress.country_code || "",
-        "shipping_address.province": preferredSavedAddress.province || "",
+          preferredCustomerAddress.country_code || "",
+        "shipping_address.province": preferredCustomerAddress.province || "",
         "shipping_address.phone":
-          preferredSavedAddress.phone || customer.phone || "",
+          preferredCustomerAddress.phone || customer.phone || "",
         email: cart?.email || customer.email || prev.email || "",
       }
     })
 
-    if (preferredSavedAddress.postal_code) {
-      onPostalCodeChange?.(preferredSavedAddress.postal_code)
+    if (preferredCustomerAddress.postal_code) {
+      onPostalCodeChange?.(preferredCustomerAddress.postal_code)
     }
   }, [
     cart?.email,
     cart?.shipping_address?.address_1,
     customer,
     onPostalCodeChange,
-    preferredSavedAddress,
+    preferredCustomerAddress,
   ])
 
   useEffect(() => {

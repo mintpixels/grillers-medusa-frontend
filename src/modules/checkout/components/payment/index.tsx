@@ -276,7 +276,15 @@ const Payment = ({
   const readyToPlaceOrder = paymentReady && addressComplete
 
   return (
-    <div>
+    <div
+      className={clx(
+        "rounded-2xl p-5 shadow-sm border transition-colors",
+        {
+          "bg-white border-gray-200": isOpen,
+          "bg-gray-50 border-gray-200": !isOpen,
+        }
+      )}
+    >
       {/* Step header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">

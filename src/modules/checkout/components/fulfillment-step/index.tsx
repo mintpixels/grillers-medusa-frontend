@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useEffect } from "react"
+import { useState, useMemo, useEffect, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { HttpTypes } from "@medusajs/types"
 import { setFulfillmentDetails, setShippingMethod, type FulfillmentType } from "@lib/data/cart"
@@ -129,6 +129,13 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
   const [pendingSEDate, setPendingSEDate] = useState("")
   const [savingAddress, setSavingAddress] = useState(false)
   const [saveAddressError, setSaveAddressError] = useState<string | null>(null)
+  // useTransition lets us treat router.refresh() as an awaitable pending
+  // state — `isRefreshing` stays true until the new server-rendered tree
+  // is committed, so we can hold a loading overlay across the entire
+  // save-address → refresh → re-render cycle and the user never sees the
+  // intermediate "old cart" flash.
+  const [isRefreshing, startTransition] = useTransition()
+  const isBusy = savingAddress || isSubmitting || isRefreshing
 
   const attachShippingMethod = async (type: FulfillmentType) => {
     if (type === "ups_shipping") return
@@ -340,17 +347,22 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
       postal_code: addr.zip,
       phone: addr.phone,
     })
-    setSavingAddress(false)
     if (!res.success) {
+      setSavingAddress(false)
       setSaveAddressError(res.error || "Could not save your address.")
       return
     }
-    setSubStep("select")
-    router.refresh()
+    // Keep the loading overlay up across the server refresh so the cards
+    // never flash with the old address state.
+    startTransition(() => {
+      setSubStep("select")
+      router.refresh()
+      setSavingAddress(false)
+    })
   }
 
   const handlePickSavedAddress = async (address: HttpTypes.StoreCustomerAddress) => {
-    if (savingAddress) return
+    if (isBusy) return
     setSavingAddress(true)
     setSaveAddressError(null)
     const res = await saveAddressToProfileAndCart({
@@ -363,13 +375,16 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
       phone: address.phone || customer?.phone || "",
       country_code: address.country_code || undefined,
     })
-    setSavingAddress(false)
     if (!res.success) {
+      setSavingAddress(false)
       setSaveAddressError(res.error || "Could not switch to that address.")
       return
     }
-    setSubStep("select")
-    router.refresh()
+    startTransition(() => {
+      setSubStep("select")
+      router.refresh()
+      setSavingAddress(false)
+    })
   }
 
   const handleSelectOption = async (option: FulfillmentType) => {
@@ -478,14 +493,34 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
   }
 
   return (
-    <div className="bg-gradient-to-br from-Gold/[0.12] via-Gold/[0.06] to-transparent border border-Gold/20 rounded-2xl p-5 shadow-sm">
+    <div
+      className={`relative rounded-2xl p-5 shadow-sm border transition-colors ${
+        showSelection
+          ? "bg-white border-gray-200"
+          : "bg-gradient-to-br from-Gold/[0.12] via-Gold/[0.06] to-transparent border-Gold/20"
+      }`}
+      aria-busy={isBusy || undefined}
+    >
+      {/* Loading overlay — held across the server refresh so the cards never
+          flash with stale state while the address/fulfillment swap propagates. */}
+      {isBusy && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center rounded-2xl bg-white/60 backdrop-blur-[2px]">
+          <div className="flex items-center gap-2 rounded-full bg-white shadow-md border border-gray-200 px-4 py-2">
+            <svg className="animate-spin h-4 w-4 text-Gold" viewBox="0 0 24 24" fill="none">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+            </svg>
+            <span className="text-sm font-semibold text-Charcoal">Updating…</span>
+          </div>
+        </div>
+      )}
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2.5">
-          <span className="flex items-center justify-center w-6 h-6 rounded-full bg-Gold text-white text-xs font-bold shadow-sm">
+        <div className="flex items-center gap-3">
+          <span className="flex items-center justify-center w-7 h-7 rounded-full bg-Gold text-white text-sm font-semibold shadow-sm">
             1
           </span>
-          <span className="text-sm font-semibold text-Charcoal tracking-tight">Fulfillment Method</span>
+          <h2 className="text-lg font-semibold text-gray-900">Fulfillment Method</h2>
           {hasFulfillment && !isEditing && <CheckCircleIcon />}
         </div>
         {hasFulfillment && (
