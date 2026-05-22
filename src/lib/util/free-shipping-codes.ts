@@ -21,6 +21,53 @@ export const ALL_FREE_SHIP_CODES = [
 ]
 
 /**
+ * Plant Pickup credit — a flat $7.50 incentive over $150.
+ * The threshold can be overridden via Strapi `shippingSetting.PlantPickupDiscountThreshold`,
+ * but we hardcode the default here so server-side promo sync stays cheap.
+ */
+export const PLANT_PICKUP_CREDIT_CODE = "PLANTPICKUP750"
+export const PLANT_PICKUP_CREDIT_AMOUNT = 7.5
+export const PLANT_PICKUP_CREDIT_THRESHOLD = 150
+
+export function pickPlantPickupCredit(input: {
+  eligibleSubtotalDollars: number
+  fulfillmentType?: FulfillmentType
+}): string | null {
+  const sub = Math.max(0, input.eligibleSubtotalDollars || 0)
+  if (input.fulfillmentType !== "plant_pickup") return null
+  return sub >= PLANT_PICKUP_CREDIT_THRESHOLD ? PLANT_PICKUP_CREDIT_CODE : null
+}
+
+/**
+ * Southeast Pickup credit — a flat $15 incentive applied when the
+ * customer picks Southeast Pickup AND the cart subtotal qualifies them
+ * for the in-region free-ship promo ($250). The route is dramatically
+ * cheaper than cold UPS, so we share part of the savings back.
+ */
+export const SE_PICKUP_CREDIT_CODE = "GP_SE_PICKUP_CREDIT"
+export const SE_PICKUP_CREDIT_AMOUNT = 15
+export const SE_PICKUP_CREDIT_THRESHOLD = IN_REGION_THRESHOLD
+
+export function pickSoutheastPickupCredit(input: {
+  eligibleSubtotalDollars: number
+  fulfillmentType?: FulfillmentType
+}): string | null {
+  const sub = Math.max(0, input.eligibleSubtotalDollars || 0)
+  if (input.fulfillmentType !== "southeast_pickup") return null
+  return sub >= SE_PICKUP_CREDIT_THRESHOLD ? SE_PICKUP_CREDIT_CODE : null
+}
+
+/**
+ * All auto-applied checkout promotion codes — never surfaced as
+ * removable chips in the discount-code UI.
+ */
+export const ALL_AUTO_APPLIED_CODES = [
+  ...ALL_FREE_SHIP_CODES,
+  PLANT_PICKUP_CREDIT_CODE,
+  SE_PICKUP_CREDIT_CODE,
+]
+
+/**
  * Pure decision: which (if any) free-shipping code should be on the cart
  * right now? Returns `null` when no qualifying free-shipping promo applies.
  */
@@ -32,12 +79,16 @@ export function pickFreeShippingCode(input: {
   const sub = Math.max(0, input.eligibleSubtotalDollars || 0)
   const { fulfillmentType, shipState } = input
 
-  // Pickup options are free at the carrier level — no shipping promo needed.
-  if (
-    fulfillmentType === "plant_pickup" ||
-    fulfillmentType === "southeast_pickup"
-  ) {
+  // Plant Pickup is unconditionally free at the carrier level.
+  if (fulfillmentType === "plant_pickup") {
     return null
+  }
+
+  // Southeast Pickup carries a per-customer route share below $250. Above
+  // $250 the route fee is waived (in-region rule applies), and the $15
+  // pickup credit (GP_SE_PICKUP_CREDIT) stacks on top via its own promo.
+  if (fulfillmentType === "southeast_pickup") {
+    return sub >= IN_REGION_THRESHOLD ? FREE_SHIP_IN_REGION_CODE : null
   }
 
   // Atlanta Delivery: in-region rule applies ($250).

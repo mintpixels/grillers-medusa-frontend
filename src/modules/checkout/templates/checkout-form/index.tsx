@@ -10,7 +10,6 @@ import CheckoutStepsGate from "@modules/checkout/components/checkout-steps-gate"
 import { FulfillmentEditProvider } from "@modules/checkout/context/fulfillment-edit-context"
 import type { FulfillmentType } from "@lib/data/cart"
 import type { FulfillmentConfigData, PickupCreditConfig } from "@lib/data/strapi/checkout"
-import PickupCreditManager from "@modules/checkout/components/pickup-credit-manager"
 
 function needsShippingMethodSelection(cart: HttpTypes.StoreCart): boolean {
   const fulfillmentType = cart.metadata?.fulfillmentType as FulfillmentType | undefined
@@ -57,7 +56,6 @@ export default async function CheckoutForm({
 
   return (
     <div className="w-full grid grid-cols-1 gap-y-6">
-      <PickupCreditManager cart={cart} pickupCreditConfig={pickupCreditConfig} />
       <CheckoutLoginBanner customer={customer} />
 
       {/* Everything below requires authentication */}

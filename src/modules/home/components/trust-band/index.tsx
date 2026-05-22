@@ -58,11 +58,11 @@ export default function TrustBand({ customer, phoneNumber }: TrustBandProps) {
 
   let shippingPill: string
   if (isInRegion) {
-    shippingPill = `Free delivery over $${IN_REGION_THRESHOLD} in your area`
+    shippingPill = `Free over $${IN_REGION_THRESHOLD} in your area · Choose Southeast Pickup for a $15 credit`
   } else if (isOutOfRegion) {
     shippingPill = `Free shipping over $${NATIONAL_THRESHOLD} nationwide`
   } else {
-    shippingPill = `Free delivery over $${IN_REGION_THRESHOLD} in-region · Free shipping over $${NATIONAL_THRESHOLD} nationwide`
+    shippingPill = `Free over $${IN_REGION_THRESHOLD} in our core region · Free over $${NATIONAL_THRESHOLD} nationally · $15 credit on Southeast Pickup`
   }
 
   const phoneDigits = phoneNumber?.replace(/\D/g, "") || "7704548108"

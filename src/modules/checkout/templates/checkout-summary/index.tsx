@@ -225,7 +225,10 @@ const CheckoutSummary = ({ cart, atlantaZipConfig }: CheckoutSummaryProps) => {
         {itemDiscount > 0 && (
           <div className="flex justify-between text-sm">
             <span className="text-gray-400">
-              {fulfillmentType === "plant_pickup" ? "Pickup Credit" : "Discount"}
+              {fulfillmentType === "plant_pickup" ||
+              fulfillmentType === "southeast_pickup"
+                ? "Pickup Credit"
+                : "Discount"}
             </span>
             <span className="text-green-400">
               -

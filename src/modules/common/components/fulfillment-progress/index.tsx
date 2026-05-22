@@ -9,6 +9,10 @@ import {
 import { lookupUpsGroundDays } from "@lib/util/eligible-arrival-dates"
 import { ATLANTA_DELIVERY_ZIP_DAYS } from "@lib/util/atlanta-delivery-zips"
 import {
+  SE_PICKUP_CREDIT_AMOUNT,
+  SE_PICKUP_CREDIT_THRESHOLD,
+} from "@lib/util/free-shipping-codes"
+import {
   DELIVERY_ZIP_EVENT,
   getStoredDeliveryZip,
   normalizeDeliveryZip,
@@ -60,9 +64,10 @@ function fulfillmentNoun(
 ): string {
   if (kind === "atlanta_delivery") return "local delivery"
   if (kind === "southeast_pickup") return "regional pickup"
+  if (kind === "plant_pickup") return "pickup"
   if (kind === "national_ups") return "UPS Ground shipping"
   if (kind === "in_region_ups") return "the regional free-delivery threshold"
-  return "free delivery or shipping"
+  return "shipping"
 }
 
 function compactEtaText(
@@ -140,6 +145,12 @@ export default function FulfillmentProgress({
       ? convertToLocale({ amount: state.remaining, currency_code: currencyCode })
       : null
   const noun = fulfillmentNoun(state.kind)
+  const isSoutheastPickup = effectiveFulfillmentType === "southeast_pickup"
+  const seCreditQualified =
+    isSoutheastPickup && baseSubtotal >= SE_PICKUP_CREDIT_THRESHOLD
+  const seCreditRemaining = isSoutheastPickup
+    ? Math.max(0, SE_PICKUP_CREDIT_THRESHOLD - baseSubtotal)
+    : 0
   const eta = compactEtaText(
     effectiveFulfillmentType,
     effectivePostalCode,
@@ -376,7 +387,12 @@ export default function FulfillmentProgress({
           </svg>
           <div className="min-w-0 flex-1">
             <p className="font-maison-neue text-sm font-semibold leading-snug">
-              Free {noun} unlocked
+              {seCreditQualified
+                ? `Free pickup + ${convertToLocale({
+                    amount: SE_PICKUP_CREDIT_AMOUNT,
+                    currency_code: currencyCode,
+                  })} credit unlocked`
+                : `Free ${noun} unlocked`}
             </p>
             {(eta || canEditZip) && (
               <p
@@ -456,7 +472,15 @@ export default function FulfillmentProgress({
           amount: state.pickupBonusRemaining,
           currency_code: currencyCode,
         })} away from your pickup credit`
-    : `${remainingLabel} away from free ${noun}`
+    : isSoutheastPickup && !seCreditQualified
+      ? `${convertToLocale({
+          amount: seCreditRemaining,
+          currency_code: currencyCode,
+        })} away from free pickup + ${convertToLocale({
+          amount: SE_PICKUP_CREDIT_AMOUNT,
+          currency_code: currencyCode,
+        })} credit`
+      : `${remainingLabel} away from free ${noun}`
 
   return (
     <div

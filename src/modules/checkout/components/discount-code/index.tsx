@@ -23,12 +23,17 @@ const DiscountCode: React.FC<DiscountCodeProps> = ({ cart, variant = "light" }) 
   const isDark = variant === "dark"
 
   const { promotions: rawPromotions = [] } = cart
-  // Free-shipping promotions are auto-applied by the storefront when the cart
-  // qualifies — surfacing them here as removable chips would let a user delete
-  // the promo and end up paying full UPS rate without realizing it. The
-  // shipping line in the summary already advertises "Free shipping unlocked"
-  // for the qualifying state.
-  const HIDDEN_PROMO_CODES = ["GP_FREESHIP_INREGION", "GP_FREESHIP_NATIONAL"]
+  // Auto-applied promotions (free-shipping + pickup credits) are managed by
+  // dedicated client managers based on fulfillment + subtotal. Surfacing them
+  // here as removable chips would let a customer delete the promo and lose
+  // the savings without realizing it. The summary already advertises the
+  // unlocked benefit in plain language.
+  const HIDDEN_PROMO_CODES = [
+    "GP_FREESHIP_INREGION",
+    "GP_FREESHIP_NATIONAL",
+    "GP_SE_PICKUP_CREDIT",
+    "PLANTPICKUP750",
+  ]
   const promotions = rawPromotions.filter(
     (p) => !p.code || !HIDDEN_PROMO_CODES.includes(p.code)
   )

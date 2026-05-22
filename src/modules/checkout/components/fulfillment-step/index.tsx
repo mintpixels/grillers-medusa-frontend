@@ -7,6 +7,10 @@ import { setFulfillmentDetails, setShippingMethod, type FulfillmentType } from "
 import { saveAddressToProfileAndCart } from "@lib/data/customer"
 import { findShippingOptionByType } from "@lib/data/fulfillment"
 import { convertToLocale } from "@lib/util/money"
+import {
+  SE_PICKUP_CREDIT_AMOUNT,
+  SE_PICKUP_CREDIT_THRESHOLD,
+} from "@lib/util/free-shipping-codes"
 import type { FulfillmentConfigData, PickupCreditConfig } from "@lib/data/strapi/checkout"
 import { useFulfillmentEdit } from "@modules/checkout/context/fulfillment-edit-context"
 import PlantPickupScheduling from "@modules/checkout/components/fulfillment-selector/scheduling/plant-pickup"
@@ -247,6 +251,12 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
   const pickupCreditQualifies = cartSubtotal >= pickupCreditConfig.threshold
   const pickupCreditAmountAway = Math.max(0, pickupCreditConfig.threshold - cartSubtotal)
 
+  const southeastCreditQualifies = cartSubtotal >= SE_PICKUP_CREDIT_THRESHOLD
+  const southeastCreditAmountAway = Math.max(
+    0,
+    SE_PICKUP_CREDIT_THRESHOLD - cartSubtotal
+  )
+
   const allOptions = [
     {
       id: "ups_shipping" as FulfillmentType,
@@ -281,7 +291,7 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
     {
       id: "southeast_pickup" as FulfillmentType,
       title: "Southeast Pickup",
-      subtitle: "Partner locations",
+      subtitle: "Free over $250 + $15 credit",
       icon: <MapPinIcon />,
       available: availability.southeastPickup,
       amountAway: availability.southeastAmountAway,
@@ -689,6 +699,15 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
                     </p>
                   )}
 
+                  {option.id === "southeast_pickup" && option.available && (
+                    <p className="text-xs text-green-600 mt-2.5 font-semibold leading-tight">
+                      {southeastCreditQualifies
+                        ? `Save ${convertToLocale({ amount: SE_PICKUP_CREDIT_AMOUNT, currency_code: cart.currency_code })} with Southeast Pickup`
+                        : `Add ${convertToLocale({ amount: southeastCreditAmountAway, currency_code: cart.currency_code })} to save ${convertToLocale({ amount: SE_PICKUP_CREDIT_AMOUNT, currency_code: cart.currency_code })}`
+                      }
+                    </p>
+                  )}
+
                   {!option.available && option.minimum > 0 && cartTotal < option.minimum && (
                     <p className="text-xs text-amber-600 mt-2.5 font-semibold">
                       Add {convertToLocale({ amount: option.amountAway, currency_code: cart.currency_code })} more
@@ -869,6 +888,15 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                 </svg>
                 {convertToLocale({ amount: pickupCreditConfig.creditAmount, currency_code: cart.currency_code })} pickup credit applied
+              </div>
+            )}
+
+            {fulfillmentType === "southeast_pickup" && southeastCreditQualifies && (
+              <div className="mt-2.5 inline-flex items-center gap-1.5 bg-green-50 text-green-700 text-xs font-semibold px-2.5 py-1 rounded-full">
+                <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                {convertToLocale({ amount: SE_PICKUP_CREDIT_AMOUNT, currency_code: cart.currency_code })} pickup credit applied
               </div>
             )}
 
