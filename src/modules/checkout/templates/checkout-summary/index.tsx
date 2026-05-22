@@ -117,15 +117,16 @@ const CheckoutSummary = ({ cart, atlantaZipConfig }: CheckoutSummaryProps) => {
     0,
     (cart.shipping_subtotal ?? 0) - (cart.shipping_total ?? 0)
   )
+  // Show any non-shipping discount as its own line. Shipping savings are
+  // already reflected in the struck-through Shipping line.
   const itemDiscount = Math.max(
     0,
     (cart.discount_total ?? 0) - shippingSavings
   )
-  const displayTotal =
-    (cart.subtotal ?? 0) +
-    (cart.shipping_total ?? 0) +
-    (cart.tax_total ?? 0) -
-    itemDiscount
+  // Trust Medusa's cart.total — that's what Stripe will charge. The line
+  // items themselves are post-discount, so showing the same number here
+  // keeps the math internally consistent for the customer.
+  const displayTotal = (cart as any).total ?? 0
 
   return (
     <div className="small:sticky small:top-24 small:max-h-[calc(100vh-8rem)] small:overflow-y-auto">
@@ -137,9 +138,14 @@ const CheckoutSummary = ({ cart, atlantaZipConfig }: CheckoutSummaryProps) => {
         </span>
       </h2>
 
-      {/* Items first — gives the customer a clear picture of what's in the
-          cart before the cost breakdown. */}
-      <div className="space-y-4 pb-6 border-b border-gray-700">
+      {/* Promo Code first — keeps it visible above the fold so customers
+          can apply a code before scanning the line items. */}
+      <div className="pb-6 border-b border-gray-700">
+        <DiscountCode cart={cart as any} variant="dark" />
+      </div>
+
+      {/* Items */}
+      <div className="space-y-4 py-6 border-b border-gray-700">
         {items
           .sort((a, b) => ((a.created_at ?? "") > (b.created_at ?? "") ? -1 : 1))
           .map((item) => (
@@ -149,11 +155,6 @@ const CheckoutSummary = ({ cart, atlantaZipConfig }: CheckoutSummaryProps) => {
               currencyCode={cart.currency_code}
             />
           ))}
-      </div>
-
-      {/* Promo Code */}
-      <div className="my-6">
-        <DiscountCode cart={cart as any} variant="dark" />
       </div>
 
       {/* Cost breakdown */}

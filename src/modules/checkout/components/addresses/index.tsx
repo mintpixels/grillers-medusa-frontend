@@ -276,8 +276,6 @@ const Addresses = ({
             )}
           </div>
         )}
-        
-        <div className="border-b border-gray-200 mt-6" />
       </div>
     )
   }
@@ -429,8 +427,6 @@ const Addresses = ({
           )}
         </div>
       )}
-      
-      <div className="border-b border-gray-200 mt-6" />
     </div>
   )
 }
