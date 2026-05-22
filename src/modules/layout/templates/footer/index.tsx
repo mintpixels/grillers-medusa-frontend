@@ -118,6 +118,11 @@ const DEFAULT_LEARNING_LINKS = [
     Text: "Recipe Hub",
     Url: "/recipes",
   },
+  {
+    id: "default-collections-hub",
+    Text: "Collections Hub",
+    Url: "/collections",
+  },
 ]
 
 // Social media icons with built-in SVGs for common platforms
@@ -199,7 +204,7 @@ export default async function Footer() {
     const columns = sourceColumns.map((column) => ({
       ...column,
       Links: (column.Links ?? []).filter(
-        (link) => normalizeFooterUrl(link.Url) !== "/recipes"
+        (link) => !["/recipes", "/collections"].includes(normalizeFooterUrl(link.Url))
       ),
     }))
 
