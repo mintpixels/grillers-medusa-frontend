@@ -88,4 +88,26 @@ describe("product facts", () => {
       expect(element).not.toHaveAttribute("open")
     })
   })
+
+  it("keeps description and kashruth policy inside product details", () => {
+    render(
+      React.createElement(ProductFacts, {
+        strapiProductData: productData({
+          Metadata: {
+            OU: true,
+          },
+        }),
+        description: "Sear hard, then braise covered until tender.",
+        countryCode: "us",
+      })
+    )
+
+    expect(screen.getByText("Description")).toBeInTheDocument()
+    expect(screen.getByText("Kashruth and sourcing")).toBeInTheDocument()
+    expect(screen.queryByText("Catalog hechsher key:")).not.toBeInTheDocument()
+    expect(screen.getByText("view our kashruth policy")).toHaveAttribute(
+      "href",
+      "/us/kashruth/hechsherim"
+    )
+  })
 })

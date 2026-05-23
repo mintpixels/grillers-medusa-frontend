@@ -15,7 +15,6 @@ import Breadcrumb, {
   buildProductBreadcrumbs,
 } from "@modules/common/components/breadcrumb"
 import SocialShare from "@modules/common/components/social-share"
-import KashruthBadges from "@modules/products/components/kashruth-badges"
 import NotifyBackInStockForm from "@modules/products/components/notify-back-in-stock"
 import ShippingEligibility from "@modules/products/components/shipping-eligibility"
 import ProductConversionPanel from "@modules/products/components/product-conversion-panel"
@@ -394,26 +393,9 @@ export default function ProductDetail({
             </div>
           )}
 
-          <ProductFacts strapiProductData={strapiProductData} />
-
-          {/* Description */}
-          {productDescription && (
-            <>
-              <h2 className="text-p-sm-mono font-maison-neue font-bold uppercase text-Charcoal pb-2">
-                Description
-              </h2>
-              <p className="text-p-md font-maison-neue text-Charcoal mb-6 leading-relaxed">
-                {productDescription}
-              </p>
-            </>
-          )}
-
-          {/* Kashruth + sourcing chips — only renders flags that come
-              from Strapi metadata; always shows the "kashruth policy"
-              link so customers who filter on a specific hechsher can
-              read GP's umbrella supervision details (#39). */}
-          <KashruthBadges
-            metadata={strapiProductData?.Metadata}
+          <ProductFacts
+            strapiProductData={strapiProductData}
+            description={productDescription}
             countryCode={countryCode}
           />
 
@@ -441,10 +423,8 @@ export default function ProductDetail({
           </div>
 
           {/* Legacy "Details & Certifications" grid removed in #126 —
-              the KashruthBadges chip row above renders the same Gluten
-              Free / sourcing flags as data-driven chips, and the
-              umbrella Certified Kosher graphic still hangs in the
-              hero badge area at the top of the page. */}
+              the data-driven Product details accordions carry item, pack,
+              kashruth, and sourcing facts without duplicating the buybox. */}
         </div>
       </div>
 

@@ -2,6 +2,8 @@ import type { Metadata, StrapiProductData } from "types/strapi"
 
 type ProductFactsProps = {
   strapiProductData: StrapiProductData
+  description?: string
+  countryCode?: string
 }
 
 export type ProductFactRow = {
@@ -180,10 +182,15 @@ export function buildProductFactGroups({
   ].filter((factGroup): factGroup is ProductFactGroup => Boolean(factGroup))
 }
 
-export default function ProductFacts(props: ProductFactsProps) {
-  const groups = buildProductFactGroups(props)
+export default function ProductFacts({
+  strapiProductData,
+  description,
+  countryCode = "us",
+}: ProductFactsProps) {
+  const groups = buildProductFactGroups({ strapiProductData })
+  const normalizedDescription = description?.trim()
 
-  if (groups.length === 0) return null
+  if (!normalizedDescription && groups.length === 0) return null
 
   return (
     <section
@@ -197,6 +204,22 @@ export default function ProductFacts(props: ProductFactsProps) {
         Product details
       </h2>
       <div className="divide-y divide-Charcoal/10">
+        {normalizedDescription && (
+          <details className="group">
+            <summary className="flex min-h-[44px] cursor-pointer list-none items-center justify-between gap-4 py-3 font-maison-neue text-sm font-bold text-Charcoal [&::-webkit-details-marker]:hidden">
+              <span>Description</span>
+              <span
+                aria-hidden="true"
+                className="text-lg leading-none text-Charcoal/60 transition-transform group-open:rotate-45"
+              >
+                +
+              </span>
+            </summary>
+            <p className="pb-4 font-maison-neue text-sm leading-relaxed text-Charcoal/80">
+              {normalizedDescription}
+            </p>
+          </details>
+        )}
         {groups.map((factGroup) => (
           <details key={factGroup.title} className="group">
             <summary className="flex min-h-[44px] cursor-pointer list-none items-center justify-between gap-4 py-3 font-maison-neue text-sm font-bold text-Charcoal [&::-webkit-details-marker]:hidden">
@@ -223,6 +246,17 @@ export default function ProductFacts(props: ProductFactsProps) {
                 </div>
               ))}
             </dl>
+            {factGroup.title === "Kashruth and sourcing" && (
+              <p className="pb-4 font-maison-neue text-sm leading-relaxed text-Charcoal/70">
+                Hechsher and supervision details for every cut:{" "}
+                <a
+                  href={`/${countryCode}/kashruth/hechsherim`}
+                  className="underline underline-offset-2 text-Charcoal hover:text-Gold focus-visible:text-Gold"
+                >
+                  view our kashruth policy
+                </a>
+              </p>
+            )}
           </details>
         ))}
       </div>
