@@ -559,14 +559,14 @@ export default function ProductFacts({
                 key={highlight.key}
                 className="flex min-w-0 items-center gap-3"
               >
-                <span className="block h-10 w-10 shrink-0 overflow-hidden rounded-[5px] bg-Scroll">
+                <span className="block h-10 w-10 shrink-0">
                   <Image
                     src={highlight.iconSrc}
                     alt=""
                     width={40}
                     height={40}
                     sizes="40px"
-                    className="h-full w-full object-cover"
+                    className="h-full w-full object-contain"
                   />
                 </span>
                 <span className="block min-w-0">
