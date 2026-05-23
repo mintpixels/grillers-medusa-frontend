@@ -21,20 +21,64 @@ const BEEF_TOP_CUTS: NavItem[] = [
   { Text: "Brisket", Url: "/search?q=brisket" },
 ]
 
-const WAYS_TO_SHOP: NavSection = {
+const WAYS_TO_SHOP_NAV_SECTIONS: NavSection[] = [
+  {
+    title: "Build a Kosher Cart",
+    Url: "/collections",
+    items: [
+      { Text: "First Order Starter", Url: "/collections/welcome-pack" },
+      {
+        Text: "Shabbos Dinner",
+        Url: "/collections/shabbos-dinner-made-easy",
+      },
+      {
+        Text: "Weeknight Dinners",
+        Url: "/collections/weeknight-low-prep-family",
+      },
+    ],
+  },
+  {
+    title: "Stock the Freezer",
+    Url: "/collections/freezer-basics",
+    items: [
+      { Text: "Freezer Stock-Up", Url: "/collections/freezer-basics" },
+      { Text: "Grill & Steak Night", Url: "/collections/steak-night" },
+      { Text: "Shop Bestsellers", Url: "/#bestsellers" },
+    ],
+  },
+  {
+    title: "Holiday and Standards",
+    Url: "/collections/rosh-hashanah-table",
+    items: [
+      { Text: "Holiday Table", Url: "/collections/rosh-hashanah-table" },
+      { Text: "Kosher for Passover", Url: "/kashruth/passover" },
+      { Text: "Hechsher Details", Url: "/kashruth/hechsherim" },
+    ],
+  },
+]
+
+const WAYS_TO_SHOP_NAV: HeaderNavLink = {
+  id: "ways-to-shop",
+  slug: "ways-to-shop",
   title: "Ways to Shop",
-  Url: "/collections",
-  items: [
-    { Text: "First Order Starter", Url: "/collections/welcome-pack" },
-    { Text: "Shabbos Dinner", Url: "/collections/shabbos-dinner-made-easy" },
-    {
-      Text: "Weeknight Dinners",
-      Url: "/collections/weeknight-low-prep-family",
-    },
-    { Text: "Freezer Stock-Up", Url: "/collections/freezer-basics" },
-    { Text: "Grill & Steak Night", Url: "/collections/steak-night" },
-    { Text: "Holiday Table", Url: "/collections/rosh-hashanah-table" },
-  ],
+  sections: WAYS_TO_SHOP_NAV_SECTIONS,
+  featured: {
+    title: "Start with the meal, not just the cut",
+    description:
+      "Shop by Shabbos table, weeknight plan, freezer stock-up, grill night, or holiday meal.",
+    badge: "Guided shopping",
+    image: { url: generatedSiteImages.navButcherFeature },
+    url: "/collections",
+  },
+  bottomBar: {
+    certifications: [
+      { icon: "star", text: "Meal-ready collections" },
+      { icon: "award", text: "Item-level kosher details" },
+      { icon: "clock", text: "Frozen delivery lanes" },
+    ],
+    viewAllText: "View all collections",
+    viewAllUrl: "/collections",
+  },
 }
 
 const FALLBACK_BOTTOM_BAR: NavBottomBar = {
@@ -62,7 +106,6 @@ const FALLBACK_NAV: HeaderNavLink[] = [
     slug: "shop",
     title: "Shop",
     sections: [
-      WAYS_TO_SHOP,
       {
         title: "Beef",
         Url: "/collections/kosher-beef",
@@ -115,6 +158,17 @@ function sectionExists(sections: NavSection[], title: string) {
   return sections.some((section) => slugify(section.title) === target)
 }
 
+function isWaysToShopSection(section: NavSection) {
+  return slugify(section.title) === "ways-to-shop"
+}
+
+function isWaysToShopLink(link: HeaderNavLink) {
+  return (
+    slugify(link.title) === "ways-to-shop" ||
+    slugify(link.slug) === "ways-to-shop"
+  )
+}
+
 function mergeItems(existing: NavItem[], required: NavItem[]) {
   const merged = [...existing]
   for (const item of required) {
@@ -137,18 +191,16 @@ function normalizeSection(section: NavSection): NavSection {
 }
 
 function addPrimaryShopSections(sections: NavSection[]) {
-  const next = sections.map((section) => {
-    const normalized = normalizeSection(section)
-    if (slugify(normalized.title) !== "beef") return normalized
-    return {
-      ...normalized,
-      items: mergeItems(normalized.items || [], BEEF_TOP_CUTS),
-    }
-  })
-
-  if (!sectionExists(next, "Ways to Shop")) {
-    next.unshift(WAYS_TO_SHOP)
-  }
+  const next = sections
+    .filter((section) => !isWaysToShopSection(section))
+    .map((section) => {
+      const normalized = normalizeSection(section)
+      if (slugify(normalized.title) !== "beef") return normalized
+      return {
+        ...normalized,
+        items: mergeItems(normalized.items || [], BEEF_TOP_CUTS),
+      }
+    })
 
   if (!sectionExists(next, "Beef")) {
     next.splice(1, 0, {
@@ -208,7 +260,7 @@ export function augmentHeaderNav(navLinks: HeaderNavLink[]) {
     )
   )
 
-  return source.map((link, index) => {
+  const augmented = source.map((link, index) => {
     const sections =
       index === primaryIndex
         ? addPrimaryShopSections(link.sections || [])
@@ -222,4 +274,15 @@ export function augmentHeaderNav(navLinks: HeaderNavLink[]) {
       bottomBar: bottomBarWithFallback(link.bottomBar),
     }
   })
+
+  if (augmented.some(isWaysToShopLink)) {
+    return augmented
+  }
+
+  const insertAt = Math.min(primaryIndex + 1, augmented.length)
+  return [
+    ...augmented.slice(0, insertAt),
+    WAYS_TO_SHOP_NAV,
+    ...augmented.slice(insertAt),
+  ]
 }

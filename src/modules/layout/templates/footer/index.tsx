@@ -4,7 +4,6 @@ import Link from "next/link"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import strapiClient from "@lib/strapi"
 import { GetFooterQuery, type FooterData } from "@lib/data/strapi/footer"
-import NewsletterForm from "../../../../components/newsletter-form"
 
 async function getFooterData(): Promise<FooterData | null> {
   try {
@@ -320,13 +319,6 @@ export default async function Footer() {
       Text: "Terms of Use",
       Url: "/page/terms-of-use",
     },
-    // Self-hosted newsletter subscriber console (#77). Lives next to the
-    // privacy / terms links so it's discoverable as an opt-out control.
-    {
-      id: "default-email-preferences",
-      Text: "Email Preferences",
-      Url: "/email-preferences",
-    },
   ]
   const legalLinks = (() => {
     const strapiLinks = footer?.LegalLinks ?? []
@@ -342,7 +334,6 @@ export default async function Footer() {
   const hasLegalLinks = legalLinks.length > 0
   const hasCertificationBadges =
     footer?.CertificationBadges && footer.CertificationBadges.length > 0
-  const showNewsletter = footer?.ShowNewsletterSection === true
 
   // Minimal fallback footer when no Strapi data
   if (!footer) {
@@ -370,48 +361,6 @@ export default async function Footer() {
 
   return (
     <footer className="bg-Charcoal text-white w-full">
-      {/* Newsletter Section - Only shows if enabled in Strapi */}
-      {showNewsletter && (
-        <div className="bg-Gold relative overflow-hidden">
-          {/* Subtle decorative pattern */}
-          <div className="absolute inset-0 opacity-[0.04]" aria-hidden="true">
-            <div className="absolute -right-20 -top-20 w-80 h-80 rounded-full border-[40px] border-Charcoal" />
-            <div className="absolute -left-10 -bottom-10 w-60 h-60 rounded-full border-[30px] border-Charcoal" />
-          </div>
-
-          <div className="content-container py-14 md:py-20 relative">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center">
-              {/* Left: Text content */}
-              <div>
-                <p className="text-p-sm font-maison-neue font-semibold text-Charcoal/60 uppercase tracking-widest mb-3">
-                  Stay in the loop
-                </p>
-                <h2 className="font-rexton text-h4 md:text-h3 text-Charcoal uppercase mb-3 leading-tight">
-                  {footer.NewsletterTitle || "Get exclusive deals & recipes"}
-                </h2>
-                <p className="text-p-md font-maison-neue text-Charcoal/70 max-w-lg">
-                  {footer.NewsletterDescription ||
-                    "Be the first to know about new products, special promotions, and grilling tips delivered straight to your inbox."}
-                </p>
-              </div>
-
-              {/* Right: Form */}
-              <div className="lg:flex lg:justify-end">
-                <NewsletterForm
-                  title=""
-                  description=""
-                  placeholderText="Enter your email address"
-                  buttonText="Subscribe"
-                  successMessage="You're in! Check your inbox for a welcome surprise."
-                  errorMessage="Please enter a valid email address."
-                  variant="footer"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       <div className="border-b border-white/10">
         <div className="content-container py-5">
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">

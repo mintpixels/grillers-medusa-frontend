@@ -46,7 +46,7 @@ const decisionRows = [
   {
     label: "Compare closely on",
     value:
-      "The exact hechsher on the SKU, pack size, delivered cart total, delivery date, and whether your address fits the service lane you need.",
+      "The exact hechsher on the product, pack size, delivered cart total, delivery date, and whether your address fits the service lane you need.",
   },
 ]
 
@@ -128,21 +128,21 @@ export default function GrillersVsGrowAndBeholdPage() {
               href="/collections"
               className="underline underline-offset-2 hover:text-Gold"
             >
-              GP collections
+              Griller&apos;s Pride collections
             </LocalizedClientLink>
             {", "}
             <LocalizedClientLink
               href="/shipping/ups"
               className="underline underline-offset-2 hover:text-Gold"
             >
-              GP shipping
+              Griller&apos;s Pride shipping
             </LocalizedClientLink>
             {", "}
             <LocalizedClientLink
               href="/kashruth/hechsherim"
               className="underline underline-offset-2 hover:text-Gold"
             >
-              GP hechsherim
+              Griller&apos;s Pride hechsherim
             </LocalizedClientLink>
             {", "}
             <a

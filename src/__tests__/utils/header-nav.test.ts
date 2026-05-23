@@ -30,31 +30,30 @@ const baseNav: HeaderNavLink[] = [
 ]
 
 describe("header nav augmentation", () => {
-  it("adds ways-to-shop and top beef cuts without removing Strapi links", () => {
-    const [nav] = augmentHeaderNav(baseNav)
-    const waysToShop = nav.sections.find(
-      (section) => section.title === "Ways to Shop"
-    )
+  it("promotes ways-to-shop to a top-level menu and preserves beef cuts", () => {
+    const navLinks = augmentHeaderNav(baseNav)
+    const [nav, waysToShop] = navLinks
     const beef = nav.sections.find((section) => section.title === "Beef")
 
-    expect(waysToShop?.items.map((item) => item.Text)).toEqual(
-      expect.arrayContaining([
-        "Shabbos Dinner",
-        "Freezer Stock-Up",
-        "Grill & Steak Night",
-      ])
+    expect(waysToShop.title).toBe("Ways to Shop")
+    expect(nav.sections.map((section) => section.title)).not.toContain(
+      "Ways to Shop"
     )
-    expect(waysToShop?.items.map((item) => item.Url)).toEqual([
+    expect(
+      waysToShop.sections.flatMap((section) =>
+        section.items.map((item) => item.Url)
+      )
+    ).toEqual([
       "/collections/welcome-pack",
       "/collections/shabbos-dinner-made-easy",
       "/collections/weeknight-low-prep-family",
       "/collections/freezer-basics",
       "/collections/steak-night",
+      "/#bestsellers",
       "/collections/rosh-hashanah-table",
+      "/kashruth/passover",
+      "/kashruth/hechsherim",
     ])
-    expect(new Set(waysToShop?.items.map((item) => item.Url)).size).toBe(
-      waysToShop?.items.length
-    )
     expect(beef?.items.map((item) => item.Text)).toEqual(
       expect.arrayContaining([
         "Ground Beef",
@@ -80,8 +79,11 @@ describe("header nav augmentation", () => {
   })
 
   it("provides a resilient fallback nav when Strapi is unavailable", () => {
-    const [nav] = augmentHeaderNav([])
-    expect(nav.title).toBe("Shop")
-    expect(nav.featured.image?.url).toContain("media.strapiapp.com")
+    const navLinks = augmentHeaderNav([])
+    expect(navLinks.map((nav) => nav.title)).toEqual([
+      "Shop",
+      "Ways to Shop",
+    ])
+    expect(navLinks[0].featured.image?.url).toContain("media.strapiapp.com")
   })
 })

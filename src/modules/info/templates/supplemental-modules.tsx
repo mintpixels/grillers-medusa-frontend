@@ -4,7 +4,6 @@ import {
   getAtlantaDeliveryZones,
   type AtlantaDeliveryZone,
 } from "@lib/data/strapi/fulfillment"
-import NewsletterForm from "../../../components/newsletter-form"
 
 type HolidayDeadline = {
   documentId: string
@@ -220,18 +219,7 @@ function HolidayDeadlineTable({ rows }: { rows: HolidayDeadline[] }) {
 }
 
 function HolidayReminderSignup() {
-  return (
-    <div className="not-prose mt-6 border-t border-Charcoal/20 pt-6">
-      <NewsletterForm
-        title=""
-        description=""
-        placeholderText="Email address"
-        buttonText="Remind me"
-        successMessage="You're on the holiday reminder list."
-        source="holiday_reminders"
-      />
-    </div>
-  )
+  return null
 }
 
 function SoutheastPickupSchedule({
