@@ -3,7 +3,9 @@
 import { sdk } from "@lib/config"
 import { getActiveStaffImpersonation } from "@lib/data/customer"
 import { staffAuditFields } from "@lib/data/staff/admin"
+import { ATLANTA_DELIVERY_ZIP_DAYS } from "@lib/util/atlanta-delivery-zips"
 import { isSameAddressKey } from "@lib/util/compare-addresses"
+import { normalizeDeliveryZip } from "@lib/util/delivery-zip"
 import medusaError from "@lib/util/medusa-error"
 import { stripPhone } from "@lib/util/format-phone"
 import { HttpTypes } from "@medusajs/types"
@@ -57,6 +59,21 @@ async function removeCurrentCartId(active: ActiveStaffContext) {
   }
 
   await removeCartId()
+}
+
+async function getActiveAtlantaDeliveryZipCodes(): Promise<string[]> {
+  try {
+    const { getAtlantaDeliveryZipConfig } = await import(
+      "@lib/data/strapi/fulfillment"
+    )
+    const zipConfig = await getAtlantaDeliveryZipConfig()
+    const zipCodes = Object.keys(zipConfig)
+    if (zipCodes.length) return zipCodes
+  } catch {
+    // Fall back to the client-safe route table below.
+  }
+
+  return Object.keys(ATLANTA_DELIVERY_ZIP_DAYS)
 }
 
 function isStaffImpersonationCart(
@@ -809,12 +826,15 @@ export async function setAddresses(currentState: unknown, formData: FormData) {
 
     // Validate address matches the selected fulfillment type
     const selectedFulfillment = formData.get("fulfillmentType") as string
-    const postalCode = data.shipping_address.postal_code as string
+    const postalCode = normalizeDeliveryZip(
+      data.shipping_address.postal_code as string
+    )
 
     if (selectedFulfillment === "atlanta_delivery" && postalCode) {
-      if (!postalCode.startsWith("30")) {
+      const atlantaZipCodes = await getActiveAtlantaDeliveryZipCodes()
+      if (!atlantaZipCodes.includes(postalCode)) {
         throw new Error(
-          "Atlanta Metro Delivery is only available for addresses in the Atlanta metro area (ZIP codes starting with 30). Please update your address or select a different delivery method."
+          "Atlanta Metro Delivery is only available for eligible Atlanta-area ZIP codes. Please update your address or select a different delivery method."
         )
       }
     }

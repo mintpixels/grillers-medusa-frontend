@@ -6,7 +6,7 @@ import LocalizedClientLink from "@modules/common/components/localized-client-lin
  * Soft, non-absolute copy by design — Codex flagged that the previous
  * "every SKU ships nationwide" wording was too strong. Some catalog
  * items are Plant Pickup Only or carry FedEx surcharges, and Atlanta
- * delivery depends on ZIP starting with 30 (gated by checkout). What
+ * delivery depends on the configured Atlanta delivery ZIP table (gated by checkout). What
  * the customer actually sees is the option matrix at checkout, so this
  * card sets that expectation rather than promising shipping on every
  * SKU.
@@ -29,7 +29,8 @@ export default function ShippingEligibility({
     },
     {
       label: "Atlanta home delivery",
-      sub: "ZIPs starting with 30 in the 7-state Southeast pickup region. Selectable at checkout, free over $250.",
+      href: "/shipping/atlanta#delivery-zip-codes-and-rates",
+      sub: "Available only for eligible Atlanta-area ZIP codes. Selectable at checkout, free over $250.",
     },
     {
       label: "Southeast Pickup",
@@ -89,7 +90,16 @@ export default function ShippingEligibility({
               />
             </svg>
             <div>
-              <span className="font-semibold">{l.label}.</span>{" "}
+              {l.href ? (
+                <LocalizedClientLink
+                  href={l.href}
+                  className="font-semibold underline-offset-2 hover:text-Gold hover:underline"
+                >
+                  {l.label}.
+                </LocalizedClientLink>
+              ) : (
+                <span className="font-semibold">{l.label}.</span>
+              )}{" "}
               <span className="text-Charcoal/70">{l.sub}</span>
             </div>
           </li>
@@ -97,7 +107,14 @@ export default function ShippingEligibility({
       </ul>
       <p className="text-xs font-maison-neue text-Charcoal/60">
         Final options + costs are confirmed at checkout based on your address
-        and basket. See our{" "}
+        and basket. See the{" "}
+        <LocalizedClientLink
+          href="/shipping/atlanta#delivery-zip-codes-and-rates"
+          className="underline underline-offset-2 hover:text-Gold"
+        >
+          Atlanta delivery ZIP list
+        </LocalizedClientLink>{" "}
+        or our{" "}
         <LocalizedClientLink
           href="/shipping/ups"
           className="underline underline-offset-2 hover:text-Gold"
