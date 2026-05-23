@@ -1,0 +1,290 @@
+{
+  "avg-pack-size": {
+    "label": "Avg pack size",
+    "src": "/images/pdp/attribute-icons/avg-pack-size.png"
+  },
+  "avg-pack-weight": {
+    "label": "Avg pack weight",
+    "src": "/images/pdp/attribute-icons/avg-pack-weight.png"
+  },
+  "serves": {
+    "label": "Serves",
+    "src": "/images/pdp/attribute-icons/serves.png"
+  },
+  "pieces-per-pack": {
+    "label": "Pieces per pack",
+    "src": "/images/pdp/attribute-icons/pieces-per-pack.png"
+  },
+  "brand": {
+    "label": "Brand",
+    "src": "/images/pdp/attribute-icons/brand.png"
+  },
+  "supplier": {
+    "label": "Supplier",
+    "src": "/images/pdp/attribute-icons/supplier.png"
+  },
+  "source": {
+    "label": "Source",
+    "src": "/images/pdp/attribute-icons/source.png"
+  },
+  "origin": {
+    "label": "Origin",
+    "src": "/images/pdp/attribute-icons/origin.png"
+  },
+  "breed": {
+    "label": "Breed",
+    "src": "/images/pdp/attribute-icons/breed.png"
+  },
+  "thickness": {
+    "label": "Thickness",
+    "src": "/images/pdp/attribute-icons/thickness.png"
+  },
+  "marinade-flavor": {
+    "label": "Marinade flavor",
+    "src": "/images/pdp/attribute-icons/marinade-flavor.png"
+  },
+  "gluten-free": {
+    "label": "Gluten free",
+    "src": "/images/pdp/attribute-icons/gluten-free.png"
+  },
+  "no-msg": {
+    "label": "No MSG",
+    "src": "/images/pdp/attribute-icons/no-msg.png"
+  },
+  "kosher-for-passover": {
+    "label": "Kosher for Passover",
+    "src": "/images/pdp/attribute-icons/kosher-for-passover.png"
+  },
+  "pareve": {
+    "label": "Pareve",
+    "src": "/images/pdp/attribute-icons/pareve.png"
+  },
+  "meat": {
+    "label": "Meat",
+    "src": "/images/pdp/attribute-icons/meat.png"
+  },
+  "dairy": {
+    "label": "Dairy",
+    "src": "/images/pdp/attribute-icons/dairy.png"
+  },
+  "cholov-yisroel": {
+    "label": "Cholov Yisroel",
+    "src": "/images/pdp/attribute-icons/cholov-yisroel.png"
+  },
+  "raw": {
+    "label": "Raw",
+    "src": "/images/pdp/attribute-icons/raw.png"
+  },
+  "ready-to-eat": {
+    "label": "Ready to eat",
+    "src": "/images/pdp/attribute-icons/ready-to-eat.png"
+  },
+  "heat-and-serve": {
+    "label": "Heat and serve",
+    "src": "/images/pdp/attribute-icons/heat-and-serve.png"
+  },
+  "american-angus": {
+    "label": "American Angus",
+    "src": "/images/pdp/attribute-icons/american-angus.png"
+  },
+  "grass-fed": {
+    "label": "Grass-fed",
+    "src": "/images/pdp/attribute-icons/grass-fed.png"
+  },
+  "organic": {
+    "label": "Organic",
+    "src": "/images/pdp/attribute-icons/organic.png"
+  },
+  "free-range": {
+    "label": "Free range",
+    "src": "/images/pdp/attribute-icons/free-range.png"
+  },
+  "south-american": {
+    "label": "South American",
+    "src": "/images/pdp/attribute-icons/south-american.png"
+  },
+  "grain-free": {
+    "label": "Grain free",
+    "src": "/images/pdp/attribute-icons/grain-free.png"
+  },
+  "antibiotic-free": {
+    "label": "No antibiotics",
+    "src": "/images/pdp/attribute-icons/antibiotic-free.png"
+  },
+  "hormone-free": {
+    "label": "No hormones",
+    "src": "/images/pdp/attribute-icons/hormone-free.png"
+  },
+  "no-steroids": {
+    "label": "No steroids",
+    "src": "/images/pdp/attribute-icons/no-steroids.png"
+  },
+  "no-nitrites": {
+    "label": "No nitrites",
+    "src": "/images/pdp/attribute-icons/no-nitrites.png"
+  },
+  "no-nitrates": {
+    "label": "No nitrates",
+    "src": "/images/pdp/attribute-icons/no-nitrates.png"
+  },
+  "bone-in": {
+    "label": "Bone-in",
+    "src": "/images/pdp/attribute-icons/bone-in.png"
+  },
+  "boneless": {
+    "label": "Boneless",
+    "src": "/images/pdp/attribute-icons/boneless.png"
+  },
+  "skin-on": {
+    "label": "Skin-on",
+    "src": "/images/pdp/attribute-icons/skin-on.png"
+  },
+  "skinless": {
+    "label": "Skinless",
+    "src": "/images/pdp/attribute-icons/skinless.png"
+  },
+  "trimmed": {
+    "label": "Trimmed",
+    "src": "/images/pdp/attribute-icons/trimmed.png"
+  },
+  "untrimmed": {
+    "label": "Untrimmed",
+    "src": "/images/pdp/attribute-icons/untrimmed.png"
+  },
+  "netted": {
+    "label": "Netted",
+    "src": "/images/pdp/attribute-icons/netted.png"
+  },
+  "first-cut": {
+    "label": "First cut",
+    "src": "/images/pdp/attribute-icons/first-cut.png"
+  },
+  "deckel-on": {
+    "label": "Deckel on",
+    "src": "/images/pdp/attribute-icons/deckel-on.png"
+  },
+  "whole-packer": {
+    "label": "Whole packer",
+    "src": "/images/pdp/attribute-icons/whole-packer.png"
+  },
+  "cowboy-cut": {
+    "label": "Cowboy cut",
+    "src": "/images/pdp/attribute-icons/cowboy-cut.png"
+  },
+  "pargiot": {
+    "label": "Pargiot",
+    "src": "/images/pdp/attribute-icons/pargiot.png"
+  },
+  "capon": {
+    "label": "Capon",
+    "src": "/images/pdp/attribute-icons/capon.png"
+  },
+  "schnitzel": {
+    "label": "Schnitzel",
+    "src": "/images/pdp/attribute-icons/schnitzel.png"
+  },
+  "strips": {
+    "label": "Strips",
+    "src": "/images/pdp/attribute-icons/strips.png"
+  },
+  "marrow": {
+    "label": "Marrow",
+    "src": "/images/pdp/attribute-icons/marrow.png"
+  },
+  "kebab": {
+    "label": "Kebab",
+    "src": "/images/pdp/attribute-icons/kebab.png"
+  },
+  "sliced": {
+    "label": "Sliced",
+    "src": "/images/pdp/attribute-icons/sliced.png"
+  },
+  "ground": {
+    "label": "Ground",
+    "src": "/images/pdp/attribute-icons/ground.png"
+  },
+  "bulk": {
+    "label": "Bulk",
+    "src": "/images/pdp/attribute-icons/bulk.png"
+  },
+  "offcut": {
+    "label": "Offcut",
+    "src": "/images/pdp/attribute-icons/offcut.png"
+  },
+  "smoked": {
+    "label": "Smoked",
+    "src": "/images/pdp/attribute-icons/smoked.png"
+  },
+  "pickled": {
+    "label": "Pickled",
+    "src": "/images/pdp/attribute-icons/pickled.png"
+  },
+  "cured": {
+    "label": "Cured",
+    "src": "/images/pdp/attribute-icons/cured.png"
+  },
+  "marinated": {
+    "label": "Marinated",
+    "src": "/images/pdp/attribute-icons/marinated.png"
+  },
+  "char-grilled": {
+    "label": "Char-grilled",
+    "src": "/images/pdp/attribute-icons/char-grilled.png"
+  },
+  "vacuum-packed": {
+    "label": "Vacuum packed",
+    "src": "/images/pdp/attribute-icons/vacuum-packed.png"
+  },
+  "bulk-pack": {
+    "label": "Bulk pack",
+    "src": "/images/pdp/attribute-icons/bulk-pack.png"
+  },
+  "boilable-pouch": {
+    "label": "Boilable pouch",
+    "src": "/images/pdp/attribute-icons/boilable-pouch.png"
+  },
+  "aluminum-pan": {
+    "label": "Aluminum pan",
+    "src": "/images/pdp/attribute-icons/aluminum-pan.png"
+  },
+  "iqf": {
+    "label": "IQF",
+    "src": "/images/pdp/attribute-icons/iqf.png"
+  },
+  "free-delivery-eligible": {
+    "label": "Free delivery eligible",
+    "src": "/images/pdp/attribute-icons/free-delivery-eligible.png"
+  },
+  "hechsher-chassidish-shchita": {
+    "label": "Chassidish shchita",
+    "src": "/images/pdp/attribute-icons/hechsher-chassidish-shchita.png"
+  },
+  "hechsher-chk": {
+    "label": "CHK",
+    "src": "/images/pdp/attribute-icons/hechsher-chk.png"
+  },
+  "hechsher-rabbi-weissmandl": {
+    "label": "Rabbi Weissmandl",
+    "src": "/images/pdp/attribute-icons/hechsher-rabbi-weissmandl.png"
+  },
+  "hechsher-ou": {
+    "label": "OU",
+    "src": "/images/pdp/attribute-icons/hechsher-ou.png"
+  },
+  "hechsher-star-k": {
+    "label": "Star-K",
+    "src": "/images/pdp/attribute-icons/hechsher-star-k.png"
+  },
+  "hechsher-rabbi-teitelbaum": {
+    "label": "Rabbi Teitelbaum",
+    "src": "/images/pdp/attribute-icons/hechsher-rabbi-teitelbaum.png"
+  },
+  "hechsher-crc": {
+    "label": "CRC",
+    "src": "/images/pdp/attribute-icons/hechsher-crc.png"
+  },
+  "hechsher-lubavitch": {
+    "label": "Lubavitch",
+    "src": "/images/pdp/attribute-icons/hechsher-lubavitch.png"
+  }
+}

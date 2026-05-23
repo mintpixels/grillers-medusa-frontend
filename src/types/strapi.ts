@@ -86,7 +86,7 @@ export interface Metadata {
 
   // Dietary / ingredient flags.
   GlutenFree?: boolean
-  MSG?: boolean         // historical: `true` means "NO MSG" per existing card UI
+  MSG?: boolean // historical: `true` means "NO MSG" per existing card UI
   Pareve?: boolean
   Meat?: boolean
   Dairy?: boolean
@@ -111,10 +111,13 @@ export interface Metadata {
   Source?: string
   Brand?: string
   Origin?: string
+  Breed?: string
+  Supplier?: string
   Angus?: boolean
   GrassFed?: boolean
   Organic?: boolean
   FreeRange?: boolean
+  GrainFree?: boolean
   AntibioticFree?: boolean
   HormoneFree?: boolean
   NoSteroids?: boolean
@@ -129,16 +132,37 @@ export interface Metadata {
   Skinless?: boolean
   Trimmed?: boolean
   Untrimmed?: boolean
+  Netted?: boolean
+  FirstCut?: boolean
+  DeckelOn?: boolean
+  WholePacker?: boolean
+  CowboyCut?: boolean
+  Thickness?: string
+  Pargiot?: boolean
+  Capon?: boolean
+  Schnitzel?: boolean
+  Strips?: boolean
+  Marrow?: boolean
+  Kebab?: boolean
 
   // Preparation styles.
   Smoked?: boolean
   Pickled?: boolean
   Cured?: boolean
   Marinated?: boolean
+  MarinadeFlavor?: string
   CharGrilled?: boolean
   Sliced?: boolean
   Ground?: boolean
+  Bulk?: boolean
+  Offcut?: boolean
+
+  // Packaging.
   VacuumPacked?: boolean
+  BulkPack?: boolean
+  BoilablePouch?: boolean
+  AluminumPan?: boolean
+  IQF?: boolean
 }
 
 export interface MedusaProductVariant {

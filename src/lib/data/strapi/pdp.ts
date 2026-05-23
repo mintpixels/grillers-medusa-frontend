@@ -45,20 +45,69 @@ export const GetProductQuery = gql`
         url
       }
       Metadata {
-        GlutenFree
-        MSG
-        Meat
-        Pareve
-        Dairy
-        CholovYisroel
-        Uncooked
-        Cooked
-        HeatAndServe
         AvgPackSize
         AvgPackWeight
         Serves
         PiecesPerPack
+        Uncooked
+        Cooked
+        HeatAndServe
+        GlutenFree
+        MSG
+        Brand
+        Source
+        Origin
+        Breed
+        Supplier
+        Angus
+        GrassFed
+        Organic
+        FreeRange
+        SouthAmerican
+        GrainFree
+        AntibioticFree
+        HormoneFree
+        NoSteroids
+        NoNitrites
+        NoNitrates
+        BoneIn
+        Boneless
+        SkinOn
+        Skinless
+        Trimmed
+        Untrimmed
+        Netted
+        FirstCut
+        DeckelOn
+        WholePacker
+        CowboyCut
+        Thickness
+        Pargiot
+        Capon
+        Schnitzel
+        Strips
+        Marrow
+        Kebab
+        Smoked
+        Pickled
+        Cured
+        Marinated
+        MarinadeFlavor
+        CharGrilled
+        Sliced
+        Ground
+        Bulk
+        Offcut
+        VacuumPacked
+        BulkPack
+        BoilablePouch
+        AluminumPan
+        IQF
         KosherForPassover
+        Pareve
+        Meat
+        Dairy
+        CholovYisroel
         ChassidishShchita
         CHK
         RabbiWeissmandl
@@ -67,32 +116,6 @@ export const GetProductQuery = gql`
         RabbiTeitelbaum
         CRC
         Lubavitch
-        Angus
-        GrassFed
-        Organic
-        FreeRange
-        AntibioticFree
-        HormoneFree
-        NoSteroids
-        NoNitrites
-        NoNitrates
-        Brand
-        Source
-        Origin
-        SouthAmerican
-        BoneIn
-        Boneless
-        SkinOn
-        Skinless
-        Trimmed
-        Untrimmed
-        Smoked
-        Pickled
-        Cured
-        Marinated
-        Sliced
-        Ground
-        VacuumPacked
         QualifiesForFreeDeliveryOffers
         FreeDeliveryExclusionReason
       }

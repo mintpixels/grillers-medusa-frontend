@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react"
 
 import ProductFacts from "@modules/products/components/product-facts"
 import { buildProductFactGroups } from "@modules/products/components/product-facts"
+import { buildProductFactHighlights } from "@modules/products/components/product-facts"
 
 const productData = (overrides: Record<string, any> = {}) =>
   ({
@@ -67,6 +68,67 @@ describe("product facts", () => {
     expect(rows.some((row) => row.label === "Availability")).toBe(false)
   })
 
+  it("builds compact visual highlights from product metadata", () => {
+    const highlights = buildProductFactHighlights({
+      strapiProductData: productData({
+        Metadata: {
+          AvgPackSize: "2 x 8 oz",
+          OU: true,
+          KosherForPassover: true,
+          Angus: true,
+          GlutenFree: true,
+          MSG: true,
+          Uncooked: true,
+        },
+        Categorization: {
+          ProductTags: [{ Name: "L3: Flank Steak" }],
+          ProductCollections: [],
+        },
+      }),
+    })
+
+    expect(highlights).toEqual(
+      expect.arrayContaining([
+        {
+          key: "AvgPackSize",
+          label: "Pack size",
+          value: "2 x 8 oz",
+          iconSrc: "/images/pdp/attribute-icons/avg-pack-size.png",
+        },
+        {
+          key: "KosherForPassover",
+          label: "Kosher for Passover",
+          iconSrc: "/images/pdp/attribute-icons/kosher-for-passover.png",
+        },
+        {
+          key: "OU",
+          label: "OU",
+          iconSrc: "/images/pdp/attribute-icons/hechsher-ou.png",
+        },
+        {
+          key: "GlutenFree",
+          label: "Gluten free",
+          iconSrc: "/images/pdp/attribute-icons/gluten-free.png",
+        },
+        {
+          key: "MSG",
+          label: "No MSG",
+          iconSrc: "/images/pdp/attribute-icons/no-msg.png",
+        },
+        {
+          key: "Uncooked",
+          label: "Raw",
+          iconSrc: "/images/pdp/attribute-icons/raw.png",
+        },
+        {
+          key: "Angus",
+          label: "American Angus",
+          iconSrc: "/images/pdp/attribute-icons/american-angus.png",
+        },
+      ])
+    )
+  })
+
   it("keeps secondary details collapsed by default", () => {
     render(
       React.createElement(ProductFacts, {
@@ -84,6 +146,7 @@ describe("product facts", () => {
     )
 
     expect(screen.getByText("Product details")).toBeInTheDocument()
+    expect(screen.getByText("At a glance")).toBeInTheDocument()
     document.querySelectorAll("details").forEach((element) => {
       expect(element).not.toHaveAttribute("open")
     })
