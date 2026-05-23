@@ -396,25 +396,25 @@ export default function ButcherEducationHub({
 
       <section className="border-b border-Charcoal/10 bg-Scroll">
         <div className="content-container py-14 md:py-20 lg:py-24">
-          <div className="grid gap-10 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] lg:items-center lg:gap-14">
-            <div>
+          <div className="grid min-w-0 gap-10 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] lg:items-center lg:gap-14">
+            <div className="min-w-0">
               <Eyebrow>
                 {activeMission
                   ? "Ways to shop"
                   : "The Grillers Pride Butcher Guide"}
               </Eyebrow>
-              <h1 className="mt-5 max-w-[780px] font-gyst text-h1-mobile leading-tight text-Charcoal md:text-h1">
+              <h1 className="mt-5 w-full max-w-[780px] font-gyst text-h1-mobile leading-tight text-Charcoal md:text-h1">
                 {activeMission
                   ? `${activeMission.label} buying path`
                   : "Kosher meat, cut confidence, and cooking guidance from the counter outward."}
               </h1>
-              <p className="mt-6 max-w-[660px] font-maison-neue text-p-lg leading-[1.65] text-Charcoal/75">
+              <p className="mt-6 w-full max-w-[660px] font-maison-neue text-p-lg leading-[1.65] text-Charcoal/75">
                 {activeMission
                   ? `${activeMission.description} Start with the guide cards below, then move into matching collections or recipes when you are ready.`
                   : "A customer-facing hub for the questions that shape a good order: what a cut is, why it costs what it does, how to cook it successfully, and which kashruth details matter for your home."}
               </p>
 
-              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <div className="mt-8 flex min-w-0 flex-col gap-3 sm:flex-row">
                 <TrackedLink
                   href={hrefFor(
                     countryCode,
@@ -427,7 +427,7 @@ export default function ButcherEducationHub({
                       : "Explore the cut library"
                   }
                   section="hero"
-                  className="inline-flex min-h-[50px] items-center justify-center gap-3 rounded-[5px] bg-Charcoal px-6 py-3 font-rexton text-h6 font-bold uppercase text-Scroll transition-colors hover:bg-Charcoal/90"
+                  className="inline-flex min-h-[50px] w-full items-center justify-center gap-3 rounded-[5px] bg-Charcoal px-6 py-3 font-rexton text-h6 font-bold uppercase text-Scroll transition-colors hover:bg-Charcoal/90 sm:w-auto"
                 >
                   {activeMission
                     ? "Shop collections"
@@ -449,7 +449,7 @@ export default function ButcherEducationHub({
                       : "Verify supervision"
                   }
                   section="hero"
-                  className="inline-flex min-h-[50px] items-center justify-center gap-3 rounded-[5px] border border-Charcoal/25 px-6 py-3 font-rexton text-h6 font-bold uppercase text-Charcoal transition-colors hover:border-Charcoal hover:bg-white"
+                  className="inline-flex min-h-[50px] w-full items-center justify-center gap-3 rounded-[5px] border border-Charcoal/25 px-6 py-3 font-rexton text-h6 font-bold uppercase text-Charcoal transition-colors hover:border-Charcoal hover:bg-white sm:w-auto"
                 >
                   {activeMission ? "Cook recipes" : "Verify supervision"}
                   {activeMission ? (
@@ -462,7 +462,7 @@ export default function ButcherEducationHub({
 
               <nav
                 aria-label="Learning paths"
-                className="mt-6 flex gap-2 overflow-x-auto pb-2"
+                className="mt-6 flex max-w-full gap-2 overflow-x-auto pb-2"
               >
                 <Link
                   href={hrefFor(countryCode, "/learn")}
@@ -495,7 +495,7 @@ export default function ButcherEducationHub({
               </nav>
             </div>
 
-            <div className="grid min-h-[520px] grid-cols-6 grid-rows-[1fr_0.78fr] gap-3 md:gap-4">
+            <div className="grid min-h-[520px] min-w-0 grid-cols-6 grid-rows-[1fr_0.78fr] gap-3 md:gap-4">
               <figure className="relative col-span-6 row-span-1 overflow-hidden rounded-[6px] bg-Charcoal sm:col-span-4 sm:row-span-2">
                 <Image
                   src={assets.butcher}
