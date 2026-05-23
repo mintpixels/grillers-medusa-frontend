@@ -83,7 +83,8 @@ export default async function RecipePage({ params }: PageProps) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(recipeJsonLd) }}
       />
       <RecipeTemplate 
-        recipe={record as any}
+        recipe={record}
+        countryCode={countryCode}
         isLoggedIn={isLoggedIn}
         isFavorited={isFavorited}
       />

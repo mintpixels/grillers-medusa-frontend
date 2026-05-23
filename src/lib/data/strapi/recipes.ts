@@ -1,4 +1,5 @@
 import { gql } from "graphql-request"
+import type { StrapiCollectionProduct } from "./collections"
 import type { StrapiSEO, StrapiSocialMeta } from "./seo"
 
 export type RecipeCategory = {
@@ -39,6 +40,7 @@ export type RecipeData = {
   AverageRating?: number
   RatingCount?: number
   NutritionInfo?: RecipeNutritionInfo
+  RelatedProducts?: StrapiCollectionProduct[]
   SEO?: StrapiSEO
   SocialMeta?: StrapiSocialMeta
 }
@@ -73,6 +75,44 @@ export const GetRecipeBySlugQuery = gql`
       VideoUrl
       AverageRating
       RatingCount
+      RelatedProducts {
+        documentId
+        Title
+        FeaturedImage {
+          url
+        }
+        GalleryImages {
+          url
+        }
+        Metadata {
+          AvgPackSize
+          AvgPackWeight
+          Serves
+          PiecesPerPack
+          Uncooked
+          Cooked
+          HeatAndServe
+          GlutenFree
+          MSG
+          QualifiesForFreeDeliveryOffers
+          FreeDeliveryExclusionReason
+        }
+        MedusaProduct {
+          ProductId
+          Handle
+          ShortDescription
+          PricingMode
+          Variants {
+            VariantId
+            Sku
+            QualifiesForFreeDeliveryOffers
+            FreeDeliveryExclusionReason
+            Price {
+              CalculatedPriceNumber
+            }
+          }
+        }
+      }
       Ingredients {
         ingredient
         id

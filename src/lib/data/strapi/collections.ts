@@ -224,6 +224,7 @@ export type StrapiCollectionProduct = {
     Handle: string
     Description?: string
     ShortDescription?: string | null
+    PricingMode?: "per_lb" | "fixed_price" | null
     Variants?: Array<{
       VariantId: string
       Sku?: string
