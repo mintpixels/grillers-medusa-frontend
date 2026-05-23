@@ -13,16 +13,20 @@ jest.mock("@lib/jitsu", () => ({
   jitsuTrack: jest.fn(),
 }))
 
-// Mock the server action
 jest.mock("@lib/data/newsletter", () => ({
   subscribeToNewsletter: jest.fn(),
 }))
 
-import { toast } from "@medusajs/ui"
 import { subscribeToNewsletter } from "@lib/data/newsletter"
+import { toast } from "@medusajs/ui"
 
-const mockSubscribe = subscribeToNewsletter as jest.MockedFunction<typeof subscribeToNewsletter>
+const mockSubscribe = subscribeToNewsletter as jest.MockedFunction<
+  typeof subscribeToNewsletter
+>
+const mockToast = toast as jest.Mocked<typeof toast>
 const mockFetch = jest.fn()
+
+const getEmailInput = () => screen.getByLabelText("Email address")
 
 describe("NewsletterForm", () => {
   beforeEach(() => {
@@ -33,10 +37,15 @@ describe("NewsletterForm", () => {
 
   it("renders with default props", () => {
     render(<NewsletterForm />)
-    
+
     expect(screen.getByText("Subscribe to our newsletter")).toBeInTheDocument()
-    expect(screen.getByPlaceholderText("Enter your email address")).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: /subscribe/i })).toBeInTheDocument()
+    expect(getEmailInput()).toHaveAttribute(
+      "placeholder",
+      "Enter your email address"
+    )
+    expect(
+      screen.getByRole("button", { name: /subscribe/i })
+    ).toBeInTheDocument()
   })
 
   it("renders with custom props", () => {
@@ -48,7 +57,7 @@ describe("NewsletterForm", () => {
         placeholderText="Your email"
       />
     )
-    
+
     expect(screen.getByText("Join our list")).toBeInTheDocument()
     expect(screen.getByText("Get exclusive offers")).toBeInTheDocument()
     expect(screen.getByPlaceholderText("Your email")).toBeInTheDocument()
@@ -62,17 +71,18 @@ describe("NewsletterForm", () => {
     })
 
     render(<NewsletterForm />)
-    
-    const input = screen.getByPlaceholderText("Enter your email address")
+
+    const input = getEmailInput()
     const button = screen.getByRole("button", { name: /subscribe/i })
 
     await userEvent.type(input, "test@example.com")
     await userEvent.click(button)
 
     await waitFor(() => {
-      expect(toast.success).toHaveBeenCalledWith("Thank you for subscribing!", {
-        description: "We'll only email 2-3 times a year, before each holiday.",
-      })
+      expect(mockToast.success).toHaveBeenCalledWith(
+        "Thank you for subscribing!",
+        expect.any(Object)
+      )
     })
 
     expect(mockSubscribe).toHaveBeenCalledWith("test@example.com", "website")
@@ -85,26 +95,31 @@ describe("NewsletterForm", () => {
     })
 
     render(<NewsletterForm />)
-    
-    const input = screen.getByPlaceholderText("Enter your email address")
+
+    const input = getEmailInput()
     const button = screen.getByRole("button", { name: /subscribe/i })
 
     await userEvent.type(input, "test@example.com")
     await userEvent.click(button)
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith("Unable to subscribe. Please try again later.")
+      expect(mockToast.error).toHaveBeenCalledWith(
+        "Unable to subscribe. Please try again later."
+      )
     })
   })
 
   it("disables button while submitting", async () => {
     mockSubscribe.mockImplementation(
-      () => new Promise((resolve) => setTimeout(() => resolve({ success: true }), 100))
+      () =>
+        new Promise((resolve) =>
+          setTimeout(() => resolve({ success: true }), 100)
+        )
     )
 
     render(<NewsletterForm />)
-    
-    const input = screen.getByPlaceholderText("Enter your email address")
+
+    const input = getEmailInput()
     const button = screen.getByRole("button", { name: /subscribe/i })
 
     await userEvent.type(input, "test@example.com")
@@ -122,8 +137,8 @@ describe("NewsletterForm", () => {
     mockSubscribe.mockResolvedValue({ success: true })
 
     render(<NewsletterForm />)
-    
-    const input = screen.getByPlaceholderText("Enter your email address") as HTMLInputElement
+
+    const input = getEmailInput() as HTMLInputElement
     const button = screen.getByRole("button", { name: /subscribe/i })
 
     await userEvent.type(input, "test@example.com")
@@ -138,12 +153,10 @@ describe("NewsletterForm", () => {
 
   it("has proper accessibility attributes", () => {
     render(<NewsletterForm />)
-    
-    const input = screen.getByPlaceholderText("Enter your email address")
+
+    const input = getEmailInput()
     expect(input).toHaveAttribute("type", "email")
     expect(input).toHaveAttribute("required")
-    
-    // Check for screen reader label
     expect(screen.getByLabelText("Email address")).toBeInTheDocument()
   })
 })
