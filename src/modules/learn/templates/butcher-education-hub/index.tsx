@@ -25,9 +25,15 @@ import {
 } from "lucide-react"
 
 import LearnAnalytics from "@modules/learn/components/learn-analytics"
+import {
+  WAYS_TO_SHOP_MISSIONS,
+  getWaysToShopMission,
+  type WaysToShopMissionId,
+} from "@lib/content/ways-to-shop"
 
 type ButcherEducationHubProps = {
   countryCode: string
+  activeMissionId?: WaysToShopMissionId | null
 }
 
 type TrackedLinkProps = {
@@ -380,7 +386,10 @@ function Eyebrow({
 
 export default function ButcherEducationHub({
   countryCode,
+  activeMissionId = null,
 }: ButcherEducationHubProps) {
+  const activeMission = getWaysToShopMission(activeMissionId)
+
   return (
     <main className="bg-Scroll text-Charcoal overflow-hidden">
       <LearnAnalytics />
@@ -389,39 +398,101 @@ export default function ButcherEducationHub({
         <div className="content-container py-14 md:py-20 lg:py-24">
           <div className="grid gap-10 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] lg:items-center lg:gap-14">
             <div>
-              <Eyebrow>The Grillers Pride Butcher Guide</Eyebrow>
+              <Eyebrow>
+                {activeMission
+                  ? "Ways to shop"
+                  : "The Grillers Pride Butcher Guide"}
+              </Eyebrow>
               <h1 className="mt-5 max-w-[780px] font-gyst text-h1-mobile leading-tight text-Charcoal md:text-h1">
-                Kosher meat, cut confidence, and cooking guidance from the
-                counter outward.
+                {activeMission
+                  ? `${activeMission.label} buying path`
+                  : "Kosher meat, cut confidence, and cooking guidance from the counter outward."}
               </h1>
               <p className="mt-6 max-w-[660px] font-maison-neue text-p-lg leading-[1.65] text-Charcoal/75">
-                A customer-facing hub for the questions that shape a good
-                order: what a cut is, why it costs what it does, how to cook it
-                successfully, and which kashruth details matter for your home.
+                {activeMission
+                  ? `${activeMission.description} Start with the guide cards below, then move into matching collections or recipes when you are ready.`
+                  : "A customer-facing hub for the questions that shape a good order: what a cut is, why it costs what it does, how to cook it successfully, and which kashruth details matter for your home."}
               </p>
 
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                 <TrackedLink
-                  href={hrefFor(countryCode, "/learn/cuts")}
+                  href={hrefFor(
+                    countryCode,
+                    activeMission?.shopHref || "/learn/cuts"
+                  )}
                   event="view_cut_guide"
-                  label="Explore the cut library"
+                  label={
+                    activeMission
+                      ? `${activeMission.label} collections`
+                      : "Explore the cut library"
+                  }
                   section="hero"
                   className="inline-flex min-h-[50px] items-center justify-center gap-3 rounded-[5px] bg-Charcoal px-6 py-3 font-rexton text-h6 font-bold uppercase text-Scroll transition-colors hover:bg-Charcoal/90"
                 >
-                  Explore the cut library
+                  {activeMission
+                    ? "Shop collections"
+                    : "Explore the cut library"}
                   <ArrowRight className="h-4 w-4" strokeWidth={2} />
                 </TrackedLink>
                 <TrackedLink
-                  href="#kashruth-supervision"
-                  event="view_kashruth_guide"
-                  label="Verify supervision"
+                  href={
+                    activeMission
+                      ? hrefFor(countryCode, activeMission.cookHref)
+                      : "#kashruth-supervision"
+                  }
+                  event={
+                    activeMission ? "view_cut_guide" : "view_kashruth_guide"
+                  }
+                  label={
+                    activeMission
+                      ? `${activeMission.label} recipes`
+                      : "Verify supervision"
+                  }
                   section="hero"
                   className="inline-flex min-h-[50px] items-center justify-center gap-3 rounded-[5px] border border-Charcoal/25 px-6 py-3 font-rexton text-h6 font-bold uppercase text-Charcoal transition-colors hover:border-Charcoal hover:bg-white"
                 >
-                  Verify supervision
-                  <ShieldCheck className="h-4 w-4" strokeWidth={2} />
+                  {activeMission ? "Cook recipes" : "Verify supervision"}
+                  {activeMission ? (
+                    <ArrowRight className="h-4 w-4" strokeWidth={2} />
+                  ) : (
+                    <ShieldCheck className="h-4 w-4" strokeWidth={2} />
+                  )}
                 </TrackedLink>
               </div>
+
+              <nav
+                aria-label="Learning paths"
+                className="mt-6 flex gap-2 overflow-x-auto pb-2"
+              >
+                <Link
+                  href={hrefFor(countryCode, "/learn")}
+                  className={`inline-flex h-10 shrink-0 items-center rounded-full px-4 font-maison-neue text-sm font-semibold ${
+                    activeMission
+                      ? "border border-Charcoal/15 bg-white text-Charcoal hover:border-Charcoal"
+                      : "bg-Charcoal text-white"
+                  }`}
+                  aria-current={!activeMission ? "page" : undefined}
+                >
+                  All
+                </Link>
+                {WAYS_TO_SHOP_MISSIONS.map((mission) => {
+                  const isActive = activeMission?.id === mission.id
+                  return (
+                    <Link
+                      key={mission.id}
+                      href={hrefFor(countryCode, mission.learnHref)}
+                      className={`inline-flex h-10 shrink-0 items-center rounded-full px-4 font-maison-neue text-sm font-semibold ${
+                        isActive
+                          ? "bg-Charcoal text-white"
+                          : "border border-Charcoal/15 bg-white text-Charcoal hover:border-Charcoal"
+                      }`}
+                      aria-current={isActive ? "page" : undefined}
+                    >
+                      {mission.navLabel}
+                    </Link>
+                  )
+                })}
+              </nav>
             </div>
 
             <div className="grid min-h-[520px] grid-cols-6 grid-rows-[1fr_0.78fr] gap-3 md:gap-4">
@@ -488,6 +559,80 @@ export default function ButcherEducationHub({
           </div>
         </div>
       </section>
+
+      {activeMission && (
+        <section
+          id="learning-path"
+          className="border-b border-Charcoal/10 bg-white"
+        >
+          <div className="content-container py-12 md:py-16">
+            <div className="grid gap-8 lg:grid-cols-[minmax(0,0.78fr)_minmax(0,1.22fr)] lg:items-start">
+              <div>
+                <Eyebrow>{activeMission.eyebrow}</Eyebrow>
+                <h2 className="mt-4 max-w-[620px] font-gyst text-h2-mobile leading-tight text-Charcoal md:text-h2">
+                  Start with the guides that fit this order.
+                </h2>
+                <p className="mt-5 max-w-[560px] font-maison-neue text-p-md leading-[1.7] text-Charcoal/75 md:text-p-lg">
+                  This path keeps the next few choices focused: what to buy, how
+                  much to buy, and what to verify before cooking or checkout.
+                </p>
+                <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+                  <TrackedLink
+                    href={hrefFor(countryCode, activeMission.shopHref)}
+                    event="view_cut_guide"
+                    label={`${activeMission.label} collections`}
+                    section="learning_path"
+                    className="inline-flex min-h-[48px] items-center justify-center gap-3 rounded-[5px] bg-Charcoal px-6 py-3 font-rexton text-h6 font-bold uppercase text-Scroll transition-colors hover:bg-Charcoal/90"
+                  >
+                    Shop collections
+                    <ArrowRight className="h-4 w-4" strokeWidth={2} />
+                  </TrackedLink>
+                  <TrackedLink
+                    href={hrefFor(countryCode, activeMission.cookHref)}
+                    event="view_cut_guide"
+                    label={`${activeMission.label} recipes`}
+                    section="learning_path"
+                    className="inline-flex min-h-[48px] items-center justify-center gap-3 rounded-[5px] border border-Charcoal/25 px-6 py-3 font-rexton text-h6 font-bold uppercase text-Charcoal transition-colors hover:border-Charcoal hover:bg-Scroll"
+                  >
+                    Cook recipes
+                    <ArrowRight className="h-4 w-4" strokeWidth={2} />
+                  </TrackedLink>
+                </div>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-3">
+                {activeMission.learnLinks.map((item) => (
+                  <TrackedLink
+                    key={item.href}
+                    href={hrefFor(countryCode, item.href)}
+                    event="view_cut_guide"
+                    label={item.title}
+                    section="learning_path"
+                    className="group flex min-h-full flex-col rounded-[6px] border border-Charcoal/10 bg-Scroll p-5 transition-colors hover:border-Gold hover:bg-white"
+                  >
+                    <div className="mb-5 flex h-10 w-10 items-center justify-center rounded-[4px] border border-Charcoal/15 bg-white text-VibrantRed">
+                      <BookOpen className="h-5 w-5" strokeWidth={1.8} />
+                    </div>
+                    <h3 className="font-rexton text-[22px] leading-tight text-Charcoal">
+                      {item.title}
+                    </h3>
+                    <p className="mt-3 flex-1 font-maison-neue text-p-sm leading-[1.65] text-Charcoal/70">
+                      {item.body}
+                    </p>
+                    <span className="mt-5 inline-flex min-h-[36px] items-center gap-2 font-rexton text-h6 font-bold uppercase text-Charcoal transition-colors group-hover:text-VibrantRed">
+                      {item.cta}
+                      <ArrowRight
+                        className="h-4 w-4 transition-transform group-hover:translate-x-1"
+                        strokeWidth={2}
+                      />
+                    </span>
+                  </TrackedLink>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
 
       <section className="bg-white">
         <div className="content-container py-12 md:py-16">
@@ -687,10 +832,10 @@ export default function ButcherEducationHub({
             </div>
             <div>
               <p className="max-w-[680px] font-maison-neue text-p-md leading-[1.7] text-Charcoal/75 md:text-p-lg">
-                Each family starts with the same butcher-counter questions:
-                what is it, where does it come from, how fatty or lean is it,
-                what usually goes wrong, and what should I buy instead if this
-                is not the right fit?
+                Each family starts with the same butcher-counter questions: what
+                is it, where does it come from, how fatty or lean is it, what
+                usually goes wrong, and what should I buy instead if this is not
+                the right fit?
               </p>
               <TrackedLink
                 href={hrefFor(countryCode, "/learn/cuts")}

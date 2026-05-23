@@ -6,6 +6,7 @@ import type {
   NavSection,
 } from "@lib/data/strapi/header"
 import { generatedSiteImages } from "@lib/content/generated-site-images"
+import { WAYS_TO_SHOP_MISSIONS } from "@lib/content/ways-to-shop"
 
 const FALLBACK_FEATURED_IMAGES: Record<string, string> = {
   "butcher-counter": generatedSiteImages.navButcherFeature,
@@ -21,39 +22,32 @@ const BEEF_TOP_CUTS: NavItem[] = [
   { Text: "Brisket", Url: "/search?q=brisket" },
 ]
 
+const WAYS_TO_SHOP_MENU_MISSIONS = WAYS_TO_SHOP_MISSIONS.slice(0, 8)
+
 const WAYS_TO_SHOP_NAV_SECTIONS: NavSection[] = [
   {
-    title: "Build a Kosher Cart",
+    title: "Shop Collections",
     Url: "/collections",
-    items: [
-      { Text: "First Order Starter", Url: "/collections/welcome-pack" },
-      {
-        Text: "Shabbos Dinner",
-        Url: "/collections/shabbos-dinner-made-easy",
-      },
-      {
-        Text: "Weeknight Dinners",
-        Url: "/collections/weeknight-low-prep-family",
-      },
-    ],
+    items: WAYS_TO_SHOP_MENU_MISSIONS.map((mission) => ({
+      Text: mission.navLabel,
+      Url: mission.shopHref,
+    })),
   },
   {
-    title: "Stock the Freezer",
-    Url: "/collections/freezer-basics",
-    items: [
-      { Text: "Freezer Stock-Up", Url: "/collections/freezer-basics" },
-      { Text: "Grill & Steak Night", Url: "/collections/steak-night" },
-      { Text: "Shop Bestsellers", Url: "/#bestsellers" },
-    ],
+    title: "Cook Recipes",
+    Url: "/recipes",
+    items: WAYS_TO_SHOP_MENU_MISSIONS.map((mission) => ({
+      Text: mission.navLabel,
+      Url: mission.cookHref,
+    })),
   },
   {
-    title: "Holiday and Standards",
-    Url: "/collections/rosh-hashanah-table",
-    items: [
-      { Text: "Holiday Table", Url: "/collections/rosh-hashanah-table" },
-      { Text: "Kosher for Passover", Url: "/kashruth/passover" },
-      { Text: "Hechsher Details", Url: "/kashruth/hechsherim" },
-    ],
+    title: "Learn Before Ordering",
+    Url: "/learn",
+    items: WAYS_TO_SHOP_MENU_MISSIONS.map((mission) => ({
+      Text: mission.navLabel,
+      Url: mission.learnHref,
+    })),
   },
 ]
 
@@ -65,19 +59,19 @@ const WAYS_TO_SHOP_NAV: HeaderNavLink = {
   featured: {
     title: "Start with the meal, not just the cut",
     description:
-      "Shop by Shabbos table, weeknight plan, freezer stock-up, grill night, or holiday meal.",
+      "Choose a shopping path, then move between collections, recipes, and buying guidance for the same meal.",
     badge: "Guided shopping",
     image: { url: generatedSiteImages.navButcherFeature },
-    url: "/collections",
+    url: "/collections?mission=shabbos#collections-results",
   },
   bottomBar: {
     certifications: [
-      { icon: "star", text: "Meal-ready collections" },
-      { icon: "award", text: "Item-level kosher details" },
-      { icon: "clock", text: "Frozen delivery lanes" },
+      { icon: "star", text: "Filtered collection paths" },
+      { icon: "award", text: "Recipe shelves by mission" },
+      { icon: "clock", text: "Buying guides before checkout" },
     ],
-    viewAllText: "View all collections",
-    viewAllUrl: "/collections",
+    viewAllText: "Open guided shopping",
+    viewAllUrl: "/collections#collections-results",
   },
 }
 

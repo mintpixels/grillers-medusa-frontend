@@ -3,9 +3,14 @@ import { Metadata } from "next"
 import { getBaseURL } from "@lib/util/env"
 import { generateAlternates } from "@lib/util/seo"
 import CollectionsHub from "@modules/collections/templates/collections-hub"
+import {
+  isCollectionOccasion,
+  isWaysToShopMissionId,
+} from "@lib/content/ways-to-shop"
 
 type PageProps = {
   params: Promise<{ countryCode: string }>
+  searchParams?: Promise<{ mission?: string; occasion?: string }>
 }
 
 const title = "Shop Collections | Grillers Pride"
@@ -38,8 +43,21 @@ export async function generateMetadata({
   }
 }
 
-export default async function CollectionsPage({ params }: PageProps) {
+export default async function CollectionsPage({
+  params,
+  searchParams,
+}: PageProps) {
   const { countryCode } = await params
+  const resolvedSearchParams = await searchParams
+  const missionParam = resolvedSearchParams?.mission
+  const occasionParam = resolvedSearchParams?.occasion
+  const activeMissionId = isWaysToShopMissionId(missionParam)
+    ? missionParam
+    : null
+  const activeOccasion =
+    !activeMissionId && isCollectionOccasion(occasionParam)
+      ? occasionParam
+      : null
   const pageUrl = `${getBaseURL()}/${countryCode}/collections`
   const jsonLd = {
     "@context": "https://schema.org",
@@ -60,7 +78,11 @@ export default async function CollectionsPage({ params }: PageProps) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <CollectionsHub countryCode={countryCode} />
+      <CollectionsHub
+        countryCode={countryCode}
+        activeMissionId={activeMissionId}
+        activeOccasion={activeOccasion}
+      />
     </>
   )
 }

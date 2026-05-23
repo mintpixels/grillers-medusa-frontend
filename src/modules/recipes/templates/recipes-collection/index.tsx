@@ -20,6 +20,10 @@ import RecipeFilters, {
 import RecipeSearch from "@modules/recipes/components/recipe-search"
 import { RecipeHubAnalytics } from "@modules/recipes/components/recipe-analytics"
 import {
+  getWaysToShopMission,
+  type WaysToShopMissionId,
+} from "@lib/content/ways-to-shop"
+import {
   getBucketById,
   getRecipeClassification,
   getRecipeBucketLabels,
@@ -65,6 +69,7 @@ type RecipesCollectionProps = {
     dietary?: string
     search?: string
     bucket?: string
+    mission?: WaysToShopMissionId
   }
 }
 
@@ -104,6 +109,7 @@ const RecipesCollection = ({
     [...hubRecipes, ...displayRecipes].filter(isUsableRecipe)
   )
   const activeBucket = getBucketById(currentFilters?.bucket)
+  const activeMission = getWaysToShopMission(currentFilters?.mission)
   const hasActiveFilters = Boolean(
     currentFilters?.bucket ||
       currentFilters?.category ||
@@ -128,7 +134,8 @@ const RecipesCollection = ({
       params.set("difficulty", currentFilters.difficulty)
     if (currentFilters?.dietary) params.set("dietary", currentFilters.dietary)
     if (currentFilters?.search) params.set("q", currentFilters.search)
-    if (currentFilters?.bucket) params.set("bucket", currentFilters.bucket)
+    if (currentFilters?.mission) params.set("mission", currentFilters.mission)
+    else if (currentFilters?.bucket) params.set("bucket", currentFilters.bucket)
     const queryString = params.toString()
     return `/recipes${queryString ? `?${queryString}` : ""}`
   }
@@ -137,6 +144,8 @@ const RecipesCollection = ({
     ? activeBucket
       ? `${activeBucket.label} matching "${currentFilters.search}"`
       : `Recipes matching "${currentFilters.search}"`
+    : activeMission
+    ? `${activeMission.label} recipes`
     : activeBucket
     ? activeBucket.label
     : hasActiveFilters
@@ -311,8 +320,10 @@ const RecipesCollection = ({
           </div>
 
           <p className="mt-2 text-p-sm font-maison-neue text-Charcoal/65">
-            {activeBucket
-              ? `${total} ${total === 1 ? "recipe" : "recipes"} shown for ${activeBucket.label}.`
+            {activeMission || activeBucket
+              ? `${total} ${total === 1 ? "recipe" : "recipes"} shown for ${
+                  activeMission?.label || activeBucket?.label
+                }.`
               : `${total} recipe ideas across every path.`}
           </p>
         </section>
@@ -328,7 +339,7 @@ const RecipesCollection = ({
               </h2>
               {activeBucket?.description && (
                 <p className="mt-2 max-w-2xl text-p-md font-maison-neue leading-relaxed text-Charcoal/72">
-                  {activeBucket.description}
+                  {activeMission?.description || activeBucket.description}
                 </p>
               )}
               <p className="mt-4 inline-flex min-h-[32px] items-center rounded-full bg-white px-3 font-maison-neue-mono text-[11px] font-bold uppercase tracking-wide text-Charcoal/60 ring-1 ring-Charcoal/10">
@@ -391,7 +402,9 @@ const RecipesCollection = ({
                 Full browse
               </p>
               <h2 className="mt-2 font-gyst text-h3 text-Charcoal">
-                {activeBucket
+                {activeMission
+                  ? `${activeMission.label} recipes`
+                  : activeBucket
                   ? `${activeBucket.label} recipes`
                   : hasActiveFilters
                   ? "Matching recipes"

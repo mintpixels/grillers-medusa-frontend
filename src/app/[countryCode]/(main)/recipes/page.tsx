@@ -10,6 +10,10 @@ import {
 } from "@modules/recipes/lib/recipe-taxonomy"
 import { generateAlternates } from "@lib/util/seo"
 import { getBaseURL } from "@lib/util/env"
+import {
+  getWaysToShopMission,
+  isWaysToShopMissionId,
+} from "@lib/content/ways-to-shop"
 
 type PageProps = {
   params: Promise<{ countryCode: string }>
@@ -21,6 +25,7 @@ type PageProps = {
     dietary?: string
     q?: string
     bucket?: string
+    mission?: string
   }>
 }
 
@@ -64,6 +69,10 @@ export default async function RecipesPage(props: PageProps) {
   const searchParams = await props.searchParams
   const page = Math.max(1, parseInt(searchParams.page || "1", 10))
   const pageSize = DEFAULT_PAGE_SIZE
+  const mission = isWaysToShopMissionId(searchParams.mission)
+    ? getWaysToShopMission(searchParams.mission)
+    : null
+  const resolvedBucket = searchParams.bucket || mission?.recipeBucket
 
   // Extract filter params
   const filterParams = {
@@ -72,7 +81,8 @@ export default async function RecipesPage(props: PageProps) {
     difficulty: searchParams.difficulty,
     dietary: searchParams.dietary,
     search: searchParams.q,
-    bucket: searchParams.bucket,
+    bucket: resolvedBucket,
+    mission: mission?.id,
   }
 
   const hubRecipes = await getAllRecipeCards()

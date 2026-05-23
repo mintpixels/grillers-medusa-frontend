@@ -3,9 +3,11 @@ import { Metadata } from "next"
 import { getBaseURL } from "@lib/util/env"
 import { generateAlternates } from "@lib/util/seo"
 import ButcherEducationHub from "@modules/learn/templates/butcher-education-hub"
+import { isWaysToShopMissionId } from "@lib/content/ways-to-shop"
 
 type PageProps = {
   params: Promise<{ countryCode: string }>
+  searchParams?: Promise<{ mission?: string }>
 }
 
 const title = "The Butcher Guide | Grillers Pride"
@@ -47,8 +49,13 @@ export async function generateMetadata({
   }
 }
 
-export default async function LearnPage({ params }: PageProps) {
+export default async function LearnPage({ params, searchParams }: PageProps) {
   const { countryCode } = await params
+  const resolvedSearchParams = await searchParams
+  const missionParam = resolvedSearchParams?.mission
+  const activeMissionId = isWaysToShopMissionId(missionParam)
+    ? missionParam
+    : null
   const pageUrl = `${getBaseURL()}/${countryCode}/learn`
   const jsonLd = {
     "@context": "https://schema.org",
@@ -75,7 +82,10 @@ export default async function LearnPage({ params }: PageProps) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <ButcherEducationHub countryCode={countryCode} />
+      <ButcherEducationHub
+        countryCode={countryCode}
+        activeMissionId={activeMissionId}
+      />
     </>
   )
 }
