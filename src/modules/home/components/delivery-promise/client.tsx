@@ -62,7 +62,8 @@ function getPromise(
       kind: "invalid",
       eyebrow: "Delivery check",
       headline: "Enter a 5-digit ZIP code",
-      detail: "We will use it to estimate local delivery or UPS cold-chain transit before checkout.",
+      detail:
+        "We will use it to estimate local delivery or UPS cold-chain transit before checkout.",
       ctaHref: "/shipping/ups",
       ctaLabel: "Shipping details",
       badge: "Check ZIP",
@@ -185,7 +186,10 @@ export default function DeliveryPromiseClient({
   const sourceCopy = getZipSourceCopy(submittedZip, zipSource, isLoggedIn)
 
   return (
-    <section className="bg-Scroll border-y border-Charcoal/10">
+    <section
+      id="delivery-promise"
+      className="bg-Scroll border-y border-Charcoal/10"
+    >
       <div className="content-container py-7 md:py-9">
         <div className="grid gap-5 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] lg:items-center">
           <div className="min-w-0">

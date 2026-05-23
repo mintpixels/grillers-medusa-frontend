@@ -22,14 +22,14 @@ const Pill: React.FC<{
   href?: string
 }> = ({ icon, children, href }) => {
   const className =
-    "flex items-center gap-2.5 text-Charcoal text-p-sm font-maison-neue leading-snug"
+    "flex min-h-[44px] items-start gap-2.5 text-Charcoal text-[13px] font-maison-neue leading-snug sm:text-p-sm"
   if (href) {
     return (
       <a
         href={href}
-        className={`min-h-[44px] ${className} hover:text-Gold transition-colors`}
+        className={`${className} transition-colors hover:text-Gold`}
       >
-        <span aria-hidden="true" className="shrink-0 text-Gold">
+        <span aria-hidden="true" className="mt-0.5 shrink-0 text-Gold">
           {icon}
         </span>
         <span>{children}</span>
@@ -38,7 +38,7 @@ const Pill: React.FC<{
   }
   return (
     <div className={className}>
-      <span aria-hidden="true" className="shrink-0 text-Gold">
+      <span aria-hidden="true" className="mt-0.5 shrink-0 text-Gold">
         {icon}
       </span>
       <span>{children}</span>
@@ -52,17 +52,16 @@ export default function TrustBand({ customer, phoneNumber }: TrustBandProps) {
     customer?.addresses?.[0]
   const shipState = (defaultShipping?.province || "").toUpperCase()
   const isInRegion =
-    !!shipState &&
-    (IN_REGION_STATES as readonly string[]).includes(shipState)
+    !!shipState && (IN_REGION_STATES as readonly string[]).includes(shipState)
   const isOutOfRegion = !!shipState && !isInRegion
 
   let shippingPill: string
   if (isInRegion) {
-    shippingPill = `Free over $${IN_REGION_THRESHOLD} in your area · Choose Southeast Pickup for a $15 credit`
+    shippingPill = `Frozen with dry ice · free delivery over $${IN_REGION_THRESHOLD} in your area`
   } else if (isOutOfRegion) {
-    shippingPill = `Free shipping over $${NATIONAL_THRESHOLD} nationwide`
+    shippingPill = `Frozen with dry ice · free shipping over $${NATIONAL_THRESHOLD} nationwide`
   } else {
-    shippingPill = `Free over $${IN_REGION_THRESHOLD} in our core region · Free over $${NATIONAL_THRESHOLD} nationally · $15 credit on Southeast Pickup`
+    shippingPill = `Frozen with dry ice · free over $${IN_REGION_THRESHOLD} regionally / $${NATIONAL_THRESHOLD} nationally`
   }
 
   const phoneDigits = phoneNumber?.replace(/\D/g, "") || "7704548108"
@@ -73,8 +72,8 @@ export default function TrustBand({ customer, phoneNumber }: TrustBandProps) {
       aria-label="Why shop Griller's Pride"
       className="bg-Scroll border-y border-Charcoal/10"
     >
-      <div className="content-container py-5 md:py-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 items-center">
+      <div className="content-container py-4 md:py-6">
+        <div className="grid grid-cols-1 gap-x-4 gap-y-4 2xsmall:grid-cols-2 lg:grid-cols-4 lg:items-center">
           <Pill
             icon={
               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
@@ -87,9 +86,20 @@ export default function TrustBand({ customer, phoneNumber }: TrustBandProps) {
             </span>
           </Pill>
           <Pill
+            href="#delivery-promise"
             icon={
-              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 7h13l5 5v6h-2a2 2 0 11-4 0H9a2 2 0 11-4 0H3V7z" />
+              <svg
+                className="w-5 h-5"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M3 7h13l5 5v6h-2a2 2 0 11-4 0H9a2 2 0 11-4 0H3V7z"
+                />
               </svg>
             }
           >
@@ -97,8 +107,18 @@ export default function TrustBand({ customer, phoneNumber }: TrustBandProps) {
           </Pill>
           <Pill
             icon={
-              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l9-9 9 9M5 10v10h14V10" />
+              <svg
+                className="w-5 h-5"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M3 12l9-9 9 9M5 10v10h14V10"
+                />
               </svg>
             }
           >

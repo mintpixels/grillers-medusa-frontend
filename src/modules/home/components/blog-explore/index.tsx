@@ -22,15 +22,15 @@ export default function BlogExploreSection({
   }
 }) {
   return (
-    <section className="py-10 md:py-[106px] bg-RichGold overflow-hidden">
-      <div className="mx-auto max-w-7xl bg-Gold relative">
-        <div className="grid grid-cols-1 md:grid-cols-2 items-center gap-6">
-          <div className="p-6 md:px-14 md:py-[70px]">
+    <section className="overflow-hidden bg-RichGold py-10 md:py-16">
+      <div className="content-container">
+        <div className="grid overflow-hidden bg-Gold md:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] md:items-stretch">
+          <div className="p-6 md:px-10 md:py-12 lg:px-14">
             <p className="text-h6 font-rexton font-bold uppercase text-Scroll mb-3">
               {data?.CategoryLabel}
             </p>
-            <div className="h-[1px] w-[473px] bg-Scroll mb-5" />
-            <h2 className="text-h2 font-gyst text-Charcoal mb-12">
+            <div className="mb-5 h-px w-full max-w-[473px] bg-Scroll" />
+            <h2 className="mb-8 max-w-[10ch] font-gyst text-h2-mobile leading-tight text-Charcoal md:text-h2">
               {data?.BlogExploreTitle}
             </h2>
             {data?.Button?.Text && data?.Button?.Url && (
@@ -52,24 +52,27 @@ export default function BlogExploreSection({
             )}
           </div>
 
-          {data?.QuoteDecorImage?.url && (
-            <Image
-              className="hidden md:block absolute -right-[70px] -top-[100px]"
-              src={data.QuoteDecorImage.url}
-              alt="quotes"
-              width={259}
-              height={650}
-            />
-          )}
-          {data?.MainImage?.url && (
-            <Image
-              src={data.MainImage.url}
-              alt="Delicious potatoes and steak"
-              className="object-contain object-bottom max-w-[830px] aspect-[4/3] md:aspect-[5/4] absolute -right-[100px] -bottom-[106px] "
-              width={830}
-              height={650}
-            />
-          )}
+          <figure className="relative min-h-[280px] overflow-hidden bg-Gold md:min-h-[420px] lg:min-h-[460px]">
+            {data?.QuoteDecorImage?.url && (
+              <Image
+                className="pointer-events-none absolute right-4 top-4 z-10 hidden h-28 w-auto opacity-25 xl:block"
+                src={data.QuoteDecorImage.url}
+                alt=""
+                width={72}
+                height={180}
+                aria-hidden="true"
+              />
+            )}
+            {data?.MainImage?.url && (
+              <Image
+                src={data.MainImage.url}
+                alt="Delicious potatoes and steak"
+                className="object-cover object-[62%_50%]"
+                fill
+                sizes="(min-width: 1280px) 620px, (min-width: 768px) 52vw, 100vw"
+              />
+            )}
+          </figure>
         </div>
       </div>
     </section>

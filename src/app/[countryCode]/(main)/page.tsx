@@ -262,16 +262,10 @@ export default async function Home(props: {
   const renderSections = () => {
     if (strapiData?.home?.Sections) {
       return strapiData?.home?.Sections.map((section: any, index: number) => {
-        // Above-the-fold sections (first 3) render immediately
         const isAboveFold = index < 3
 
         switch (section.__typename) {
           case "ComponentHomeHero":
-            // Hero always renders immediately. TrustBand sits directly under
-            // it so the value props are visible above the fold (#58).
-            // HolidayBanner renders below TrustBand when a holiday is inside
-            // its lead-time window — gated by date so most of the year it
-            // returns null. (#59)
             return (
               <React.Fragment key={section.__typename}>
                 <Hero
@@ -280,22 +274,11 @@ export default async function Home(props: {
                   isLoggedIn={isLoggedIn}
                   hasOrders={hasOrders}
                 />
-                <DeliveryPromiseSection
-                  countryCode={countryCode}
-                  customerZip={customerZip}
-                  customerZipSource={customerZipSource}
-                  isLoggedIn={isLoggedIn}
-                />
                 <TrustBand customer={customer} phoneNumber={null} />
-                <StandardsComparison />
                 <HolidayBanner />
               </React.Fragment>
             )
           case "ComponentHomeBestsellers":
-            // Returning customers (logged-in + at least one order) get a
-            // personalized "Reorder your favorites" row rendered right
-            // before Bestsellers — Bestsellers stays as the fallback /
-            // discovery path for everyone else. (#53)
             return (
               <React.Fragment key={section.__typename}>
                 {isLoggedIn && hasOrders && purchaseHistory.length > 0 && (
@@ -314,24 +297,23 @@ export default async function Home(props: {
                       countryCode={countryCode}
                       collections={homeCuratedCollections}
                     />
+                    <DeliveryPromiseSection
+                      countryCode={countryCode}
+                      customerZip={customerZip}
+                      customerZipSource={customerZipSource}
+                      isLoggedIn={isLoggedIn}
+                    />
+                    <StandardsComparison />
                     <LearnEntrySection />
                   </>
                 )}
               </React.Fragment>
             )
           case "ComponentHomeKosherPromise":
-            // SpecialtyRow ("Cuts you can't get from your supermarket")
-            // sits between KosherPromise (dark) and WholesaleBand (dark)
-            // so the homepage alternates cream/dark sections — gives the
-            // specialty row breathing room on a cream background while
-            // the dark slabs above and below frame it. The hard-to-find
-            // surface for #98 customers Yelp is already sending us from
-            // "Bison Meat in Atlanta" / "Grass-fed Beef Butchers in
-            // Atlanta" searches.
             return (
               <React.Fragment key={section.__typename}>
-                <KosherPromiseSection data={section} />
                 <SpecialtyRow countryCode={countryCode} />
+                <KosherPromiseSection data={section} />
                 <WholesaleBand />
               </React.Fragment>
             )
@@ -343,29 +325,31 @@ export default async function Home(props: {
                   countryCode={countryCode}
                   collections={homeCuratedCollections}
                 />
+                <DeliveryPromiseSection
+                  countryCode={countryCode}
+                  customerZip={customerZip}
+                  customerZipSource={customerZipSource}
+                  isLoggedIn={isLoggedIn}
+                />
+                <StandardsComparison />
                 <LearnEntrySection />
               </React.Fragment>
             )
           case "ComponentHomeTestimonial":
-            // The oversized single-quote testimonial block is intentionally
-            // suppressed on the homepage. Real review proof should come back
-            // later as compact, sourced proof attached to shopping decisions.
             return null
           case "ComponentHomeFollowUs":
-            // Lazy load follow us section (typically below fold)
             return isAboveFold ? (
               <FollowUsSection key={section.__typename} data={section} />
             ) : (
-              <LazySection key={section.__typename} minHeight="400px">
+              <LazySection key={section.__typename} minHeight="360px">
                 <FollowUsSection data={section} />
               </LazySection>
             )
           case "ComponentHomeBlogExplore":
-            // Lazy load blog section (typically below fold)
             return isAboveFold ? (
               <BlogExploreSection key={section.__typename} data={section} />
             ) : (
-              <LazySection key={section.__typename} minHeight="500px">
+              <LazySection key={section.__typename} minHeight="360px">
                 <BlogExploreSection data={section} />
               </LazySection>
             )
