@@ -29,7 +29,7 @@ export default function BestsellersSwiper({
 
   return (
     <div className="content-container">
-      <div className="flex justify-between items-end mb-12">
+      <div className="mb-7 flex items-end justify-between md:mb-10">
         <h2 className="text-h2-mobile md:text-h2 font-gyst text-Charcoal">
           {title}
         </h2>

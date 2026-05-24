@@ -422,9 +422,9 @@ export default function ProductDetail({
             />
           </div>
 
-          {/* Legacy "Details & Certifications" grid removed in #126 —
-              the data-driven Product details accordions carry item, pack,
-              kashruth, and sourcing facts without duplicating the buybox. */}
+          {/* Legacy "Details & Certifications" grid removed in #126.
+              ProductFacts now keeps the data-backed at-a-glance facts only,
+              with deeper PDP content handled by dedicated downstream sections. */}
         </div>
       </div>
 

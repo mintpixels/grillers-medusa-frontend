@@ -7,16 +7,6 @@ type ProductFactsProps = {
   countryCode?: string
 }
 
-export type ProductFactRow = {
-  label: string
-  value: string
-}
-
-export type ProductFactGroup = {
-  title: string
-  rows: ProductFactRow[]
-}
-
 export type ProductFactHighlight = {
   key: string
   label: string
@@ -24,7 +14,7 @@ export type ProductFactHighlight = {
   value?: string
 }
 
-type FlagDefinition = {
+export type FlagDefinition = {
   key: keyof Metadata
   label: string
   slug: string
@@ -298,16 +288,6 @@ function numberValue(value: unknown) {
     : null
 }
 
-function flagLabels(
-  metadata: Metadata | null | undefined,
-  flags: FlagDefinition[]
-) {
-  if (!metadata) return []
-  return flags
-    .filter((flag) => Boolean(metadata[flag.key]))
-    .map((flag) => flag.label)
-}
-
 function attributeIconSrc(slug: string) {
   return `${ATTRIBUTE_ICON_BASE}/${slug}.png`
 }
@@ -373,32 +353,6 @@ function buildBooleanHighlight(
   }
 }
 
-function addRow(rows: ProductFactRow[], label: string, value: string | null) {
-  if (!value) return
-  if (rows.some((row) => row.label === label && row.value === value)) return
-  rows.push({ label, value })
-}
-
-function stripTagPrefix(value: string) {
-  return value.replace(/^L[123]:\s*/i, "").trim()
-}
-
-function firstTagMatching(
-  strapiProductData: StrapiProductData,
-  pattern: RegExp
-) {
-  const tags =
-    strapiProductData?.Categorization?.ProductTags?.map(
-      (tag: { Name?: string }) => tag.Name || ""
-    ) || []
-
-  return tags.find((tag: string) => pattern.test(tag)) || null
-}
-
-function group(title: string, rows: ProductFactRow[]): ProductFactGroup | null {
-  return rows.length > 0 ? { title, rows } : null
-}
-
 export function buildProductFactHighlights({
   strapiProductData,
 }: ProductFactsProps): ProductFactHighlight[] {
@@ -435,77 +389,9 @@ export function buildProductFactHighlights({
     })
 }
 
-export function buildProductFactGroups({
-  strapiProductData,
-}: ProductFactsProps): ProductFactGroup[] {
-  const metadata = strapiProductData?.Metadata || {}
-  const collection = strapiProductData?.Categorization?.ProductCollections?.[0]
-  const l3Tag = firstTagMatching(strapiProductData, /^L3:/i)
-  const l2Tag = firstTagMatching(strapiProductData, /^L2:/i)
-
-  const itemRows: ProductFactRow[] = []
-  addRow(itemRows, "Collection", textValue(collection?.Name))
-  addRow(
-    itemRows,
-    "Cut family",
-    textValue(stripTagPrefix(l3Tag || l2Tag || ""))
-  )
-
-  const packRows: ProductFactRow[] = []
-  addRow(packRows, "Pack size", textValue(metadata.AvgPackSize))
-  addRow(packRows, "Average weight", textValue(metadata.AvgPackWeight))
-  addRow(packRows, "Pieces per pack", numberValue(metadata.PiecesPerPack))
-  addRow(packRows, "Serves", textValue(metadata.Serves))
-  addRow(
-    packRows,
-    "Preparation",
-    flagLabels(metadata, PREP_FLAGS).join(", ") || null
-  )
-  addRow(
-    packRows,
-    "Preparation style",
-    flagLabels(metadata, PREPARATION_STYLE_FLAGS).join(", ") || null
-  )
-  addRow(packRows, "Marinade", textValue(metadata.MarinadeFlavor))
-  addRow(
-    packRows,
-    "Packaging",
-    flagLabels(metadata, PACKAGING_FLAGS).join(", ") || null
-  )
-  addRow(
-    packRows,
-    "Form",
-    flagLabels(metadata, CUT_FORM_FLAGS).join(", ") || null
-  )
-  addRow(packRows, "Thickness", textValue(metadata.Thickness))
-
-  const trustRows: ProductFactRow[] = []
-  addRow(
-    trustRows,
-    "Hechsher",
-    flagLabels(metadata, HECHSHER_FLAGS).join(", ") || null
-  )
-  addRow(
-    trustRows,
-    "Dietary",
-    flagLabels(metadata, DIETARY_FLAGS).join(", ") || null
-  )
-  addRow(trustRows, "Brand", textValue(metadata.Brand))
-  addRow(trustRows, "Source", textValue(metadata.Source))
-  addRow(trustRows, "Origin", textValue(metadata.Origin))
-  addRow(trustRows, "Breed", textValue(metadata.Breed))
-  addRow(trustRows, "Supplier", textValue(metadata.Supplier))
-  addRow(
-    trustRows,
-    "Sourcing flags",
-    flagLabels(metadata, SOURCING_FLAGS).join(", ") || null
-  )
-
-  return [
-    group("Item", itemRows),
-    group("Pack", packRows),
-    group("Kashruth and sourcing", trustRows),
-  ].filter((factGroup): factGroup is ProductFactGroup => Boolean(factGroup))
+function hasKashruthSignal(highlights: ProductFactHighlight[]) {
+  const hechsherKeys = new Set(HECHSHER_FLAGS.map((flag) => String(flag.key)))
+  return highlights.some((highlight) => hechsherKeys.has(highlight.key))
 }
 
 export default function ProductFacts({
@@ -513,11 +399,11 @@ export default function ProductFacts({
   description,
   countryCode = "us",
 }: ProductFactsProps) {
-  const groups = buildProductFactGroups({ strapiProductData })
   const highlights = buildProductFactHighlights({ strapiProductData })
   const normalizedDescription = description?.trim()
+  const showKashruthPolicyLink = hasKashruthSignal(highlights)
 
-  if (!normalizedDescription && groups.length === 0) return null
+  if (!normalizedDescription && highlights.length === 0) return null
 
   return (
     <section
@@ -528,30 +414,13 @@ export default function ProductFacts({
         id="product-facts-heading"
         className="font-maison-neue-mono text-p-sm-mono font-bold uppercase tracking-wide text-Charcoal"
       >
-        Product details
+        At a glance
       </h2>
-
-      {normalizedDescription && (
-        <div className="mt-4 border-t border-Charcoal/10 pt-4">
-          <h3 className="font-maison-neue text-sm font-bold text-Charcoal">
-            Description
-          </h3>
-          <p
-            className="mt-3 font-maison-neue text-base leading-relaxed text-Charcoal/80"
-            data-testid="product-description"
-          >
-            {normalizedDescription}
-          </p>
-        </div>
-      )}
 
       {highlights.length > 0 && (
         <div className="mt-5">
-          <h3 className="font-maison-neue text-sm font-bold text-Charcoal">
-            At a glance
-          </h3>
           <ul
-            className="mt-4 grid grid-cols-2 gap-x-5 gap-y-4 sm:grid-cols-3"
+            className="grid grid-cols-2 gap-x-5 gap-y-4 sm:grid-cols-3"
             role="list"
           >
             {highlights.map((highlight) => (
@@ -585,47 +454,30 @@ export default function ProductFacts({
         </div>
       )}
 
-      {groups.length > 0 && (
-        <div className="mt-5 divide-y divide-Charcoal/10 border-t border-Charcoal/10">
-          {groups.map((factGroup) => (
-            <details key={factGroup.title} className="group">
-              <summary className="flex min-h-[44px] cursor-pointer list-none items-center justify-between gap-4 py-3 font-maison-neue text-sm font-bold text-Charcoal [&::-webkit-details-marker]:hidden">
-                <span>{factGroup.title}</span>
-                <span
-                  aria-hidden="true"
-                  className="text-lg leading-none text-Charcoal/60 transition-transform group-open:rotate-45"
-                >
-                  +
-                </span>
-              </summary>
-              <dl className="grid gap-3 pb-4 font-maison-neue text-sm sm:grid-cols-2">
-                {factGroup.rows.map((row) => (
-                  <div
-                    key={`${factGroup.title}-${row.label}`}
-                    className="min-w-0"
-                  >
-                    <dt className="font-maison-neue-mono text-[11px] font-bold uppercase tracking-wide text-Charcoal/60">
-                      {row.label}
-                    </dt>
-                    <dd className="mt-1 break-words leading-relaxed text-Charcoal/80">
-                      {row.value}
-                    </dd>
-                  </div>
-                ))}
-              </dl>
-              {factGroup.title === "Kashruth and sourcing" && (
-                <p className="pb-4 font-maison-neue text-sm leading-relaxed text-Charcoal/70">
-                  Hechsher and supervision details for every cut:{" "}
-                  <a
-                    href={`/${countryCode}/kashruth/hechsherim`}
-                    className="underline underline-offset-2 text-Charcoal hover:text-Gold focus-visible:text-Gold"
-                  >
-                    view our kashruth policy
-                  </a>
-                </p>
-              )}
-            </details>
-          ))}
+      {showKashruthPolicyLink && (
+        <p className="mt-5 border-t border-Charcoal/10 pt-4 font-maison-neue text-sm leading-relaxed text-Charcoal/70">
+          Need supervision details?{" "}
+          <a
+            href={`/${countryCode}/kashruth/hechsherim`}
+            className="text-Charcoal underline underline-offset-2 hover:text-Gold focus-visible:text-Gold"
+          >
+            View our kashruth policy
+          </a>
+          .
+        </p>
+      )}
+
+      {normalizedDescription && (
+        <div className="mt-5 border-t border-Charcoal/10 pt-4">
+          <h3 className="font-maison-neue text-sm font-bold text-Charcoal">
+            Description
+          </h3>
+          <p
+            className="mt-3 font-maison-neue text-base leading-relaxed text-Charcoal/80"
+            data-testid="product-description"
+          >
+            {normalizedDescription}
+          </p>
         </div>
       )}
     </section>

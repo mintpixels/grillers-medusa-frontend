@@ -36,7 +36,7 @@ export default async function BestsellersSection({
   return (
     <section
       id="bestsellers"
-      className="py-10 md:py-20 bg-Scroll overflow-hidden scroll-mt-[120px]"
+      className="overflow-hidden bg-Scroll py-8 scroll-mt-[120px] md:py-12"
     >
       <BestsellersSwiper
         title={data?.BestsellersTitle || "Shop Bestsellers"}
