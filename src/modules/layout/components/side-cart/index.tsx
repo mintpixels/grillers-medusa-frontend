@@ -392,10 +392,10 @@ export default function SideCart({
                   leaveFrom="translate-x-0"
                   leaveTo="translate-x-full"
                 >
-                  <DialogPanel className="pointer-events-auto w-screen max-w-[420px]">
-                    <div className="flex h-full flex-col bg-white">
+                  <DialogPanel className="pointer-events-auto h-screen h-[100dvh] max-h-screen max-h-[100dvh] w-screen max-w-[420px]">
+                    <div className="flex h-full min-h-0 flex-col bg-white">
                       {/* Header */}
-                      <div className="flex items-center justify-between px-6 py-5 border-b border-Charcoal/10">
+                      <div className="flex shrink-0 items-center justify-between px-6 py-5 border-b border-Charcoal/10">
                         <h2 className="text-h5 font-rexton font-bold text-Charcoal uppercase tracking-wider">
                           Cart
                           {totalItems > 0 && (
@@ -425,10 +425,13 @@ export default function SideCart({
                       </div>
 
                       {cart && cart.items?.length ? (
-                        <>
-                          {/* Items */}
-                          <div className="flex-1 overflow-y-auto">
-                            <ul>
+                        <div
+                          data-side-cart-scroll
+                          className="flex-1 min-h-0 overflow-y-auto overscroll-contain touch-pan-y [-webkit-overflow-scrolling:touch]"
+                        >
+                          <div className="flex min-h-full flex-col">
+                            {/* Items */}
+                            <ul className="shrink-0">
                               {sortedItems.map((item, index) => {
                                 const productId =
                                   item.product_id || item.product?.id || ""
@@ -563,125 +566,130 @@ export default function SideCart({
                                 )
                               })}
                             </ul>
-                          </div>
 
-                          {/* Cart upsells */}
-                          <div className="px-6 py-4 bg-Scroll/30 border-t border-Charcoal/5">
-                            <CartUpsells
-                              surface="side_cart"
-                              products={upsellProducts}
-                              countryCode={countryCode}
-                              compact
-                              excludeProductIds={cart.items?.map(
-                                (item) => item.product_id
-                              )}
-                            />
-                          </div>
+                            {/* Cart upsells */}
+                            <div className="shrink-0 px-6 py-4 bg-Scroll/30 border-t border-Charcoal/5">
+                              <CartUpsells
+                                surface="side_cart"
+                                products={upsellProducts}
+                                countryCode={countryCode}
+                                compact
+                                excludeProductIds={cart.items?.map(
+                                  (item) => item.product_id
+                                )}
+                              />
+                            </div>
 
-                          {/* Kosher trust badge */}
-                          <div className="px-6 py-3 bg-Scroll/50 border-t border-Charcoal/5">
-                            <div className="flex items-center justify-center gap-2">
+                            {/* Kosher trust badge */}
+                            <div className="shrink-0 px-6 py-3 bg-Scroll/50 border-t border-Charcoal/5">
+                              <div className="flex items-center justify-center gap-2">
+                                <svg
+                                  width="16"
+                                  height="16"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                  className="text-Gold"
+                                >
+                                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                                </svg>
+                                <span className="text-xs font-maison-neue-mono uppercase tracking-wider text-Charcoal/60">
+                                  Certified Kosher &bull; Premium Quality
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Footer */}
+                            <div className="shrink-0 border-t border-Charcoal/10 px-6 py-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))]">
+                              {/* Subtotal */}
+                              <div className="flex items-center justify-between mb-3">
+                                <span className="text-p-sm font-maison-neue-mono uppercase tracking-wider text-Charcoal/60">
+                                  Subtotal
+                                </span>
+                                <span className="text-[20px] font-maison-neue font-bold text-Charcoal">
+                                  {convertToLocale({
+                                    amount: subtotal,
+                                    currency_code: cart.currency_code,
+                                  })}
+                                </span>
+                              </div>
+
+                              <FulfillmentProgress
+                                subtotal={Math.max(0, eligibleSubtotal)}
+                                cartSubtotal={subtotal}
+                                excludedSubtotal={excludedSubtotal}
+                                currencyCode={cart.currency_code}
+                                shipState={cart.shipping_address?.province}
+                                fulfillmentType={
+                                  (cart.metadata as Record<string, any> | null)
+                                    ?.fulfillmentType
+                                }
+                                postalCode={postalCode}
+                                atlantaZipConfig={atlantaZipConfig}
+                                context="cart"
+                                className="mb-3"
+                              />
+
+                              <p className="text-xs font-maison-neue text-Charcoal/60 mb-4">
+                                Shipping and taxes calculated at checkout.
+                              </p>
+
+                              {/* Checkout button */}
+                              <LocalizedClientLink
+                                href={checkoutUrl}
+                                onClick={closeCart}
+                                className="block w-full py-3.5 rounded-[5px] border border-Charcoal bg-Gold text-Charcoal font-rexton text-sm font-bold uppercase tracking-wide text-center transition-opacity hover:opacity-90"
+                              >
+                                Checkout
+                              </LocalizedClientLink>
+
+                              {/* Continue shopping */}
+                              <button
+                                type="button"
+                                onClick={closeCart}
+                                className="block w-full mt-3 py-3 text-center text-p-sm font-maison-neue text-Charcoal/60 hover:text-Charcoal transition-colors"
+                              >
+                                Continue Shopping
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        /* Empty state */
+                        <div
+                          data-side-cart-scroll
+                          className="flex-1 min-h-0 overflow-y-auto overscroll-contain touch-pan-y [-webkit-overflow-scrolling:touch]"
+                        >
+                          <div className="flex min-h-full flex-col items-center justify-center px-8 py-16 pb-[calc(4rem+env(safe-area-inset-bottom))]">
+                            <div className="w-20 h-20 bg-Scroll/50 rounded-full flex items-center justify-center mb-6">
                               <svg
-                                width="16"
-                                height="16"
+                                width="32"
+                                height="32"
                                 viewBox="0 0 24 24"
                                 fill="none"
                                 stroke="currentColor"
-                                strokeWidth="2"
-                                className="text-Gold"
+                                strokeWidth="1.5"
+                                className="text-Charcoal/30"
                               >
-                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                                <path d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
                               </svg>
-                              <span className="text-xs font-maison-neue-mono uppercase tracking-wider text-Charcoal/60">
-                                Certified Kosher &bull; Premium Quality
-                              </span>
                             </div>
-                          </div>
-
-                          {/* Footer */}
-                          <div className="border-t border-Charcoal/10 px-6 py-5">
-                            {/* Subtotal */}
-                            <div className="flex items-center justify-between mb-3">
-                              <span className="text-p-sm font-maison-neue-mono uppercase tracking-wider text-Charcoal/60">
-                                Subtotal
-                              </span>
-                              <span className="text-[20px] font-maison-neue font-bold text-Charcoal">
-                                {convertToLocale({
-                                  amount: subtotal,
-                                  currency_code: cart.currency_code,
-                                })}
-                              </span>
-                            </div>
-
-                            <FulfillmentProgress
-                              subtotal={Math.max(0, eligibleSubtotal)}
-                              cartSubtotal={subtotal}
-                              excludedSubtotal={excludedSubtotal}
-                              currencyCode={cart.currency_code}
-                              shipState={cart.shipping_address?.province}
-                              fulfillmentType={
-                                (cart.metadata as Record<string, any> | null)
-                                  ?.fulfillmentType
-                              }
-                              postalCode={postalCode}
-                              atlantaZipConfig={atlantaZipConfig}
-                              context="cart"
-                              className="mb-3"
-                            />
-
-                            <p className="text-xs font-maison-neue text-Charcoal/60 mb-4">
-                              Shipping and taxes calculated at checkout.
+                            <h3 className="text-[20px] font-maison-neue font-bold text-Charcoal mb-2">
+                              Your cart is empty
+                            </h3>
+                            <p className="text-p-sm font-maison-neue text-Charcoal/60 text-center mb-8">
+                              Explore our premium kosher selection and add your
+                              favorites.
                             </p>
-
-                            {/* Checkout button */}
                             <LocalizedClientLink
-                              href={checkoutUrl}
+                              href="/store"
                               onClick={closeCart}
-                              className="block w-full py-3.5 rounded-[5px] border border-Charcoal bg-Gold text-Charcoal font-rexton text-sm font-bold uppercase tracking-wide text-center transition-opacity hover:opacity-90"
+                              className="px-8 py-3 rounded-[5px] border border-Charcoal bg-Gold text-Charcoal font-rexton text-sm font-bold uppercase tracking-wide text-center transition-opacity hover:opacity-90"
                             >
-                              Checkout
+                              Start Shopping
                             </LocalizedClientLink>
-
-                            {/* Continue shopping */}
-                            <button
-                              type="button"
-                              onClick={closeCart}
-                              className="block w-full mt-3 py-3 text-center text-p-sm font-maison-neue text-Charcoal/60 hover:text-Charcoal transition-colors"
-                            >
-                              Continue Shopping
-                            </button>
                           </div>
-                        </>
-                      ) : (
-                        /* Empty state */
-                        <div className="flex-1 flex flex-col items-center justify-center px-8 py-16">
-                          <div className="w-20 h-20 bg-Scroll/50 rounded-full flex items-center justify-center mb-6">
-                            <svg
-                              width="32"
-                              height="32"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="1.5"
-                              className="text-Charcoal/30"
-                            >
-                              <path d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-                            </svg>
-                          </div>
-                          <h3 className="text-[20px] font-maison-neue font-bold text-Charcoal mb-2">
-                            Your cart is empty
-                          </h3>
-                          <p className="text-p-sm font-maison-neue text-Charcoal/60 text-center mb-8">
-                            Explore our premium kosher selection and add your
-                            favorites.
-                          </p>
-                          <LocalizedClientLink
-                            href="/store"
-                            onClick={closeCart}
-                            className="px-8 py-3 rounded-[5px] border border-Charcoal bg-Gold text-Charcoal font-rexton text-sm font-bold uppercase tracking-wide text-center transition-opacity hover:opacity-90"
-                          >
-                            Start Shopping
-                          </LocalizedClientLink>
                         </div>
                       )}
                     </div>
