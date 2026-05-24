@@ -225,10 +225,16 @@ export default async function ProductPage(props: Props) {
       ingredientDisclosuresPromise,
       purchaseHistoryItemPromise,
     ])
-  const strapiProduct = strapiProductData?.products?.[0]
+  const productFromStrapi = strapiProductData?.products?.[0]
+  const resolvedIngredientDisclosures = Array.isArray(
+    productFromStrapi?.IngredientDisclosures
+  )
+    ? productFromStrapi.IngredientDisclosures
+    : ingredientDisclosures
+  const strapiProduct = productFromStrapi
     ? {
-        ...strapiProductData.products[0],
-        IngredientDisclosures: ingredientDisclosures,
+        ...productFromStrapi,
+        IngredientDisclosures: resolvedIngredientDisclosures,
       }
     : null
 

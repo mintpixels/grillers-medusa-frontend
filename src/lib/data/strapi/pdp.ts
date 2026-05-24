@@ -146,6 +146,16 @@ export const GetProductQuery = gql`
           }
         }
       }
+      IngredientDisclosures {
+        id
+        Sku
+        Ingredients
+        Contains
+        Directions
+        SourceLabelFile
+        ReviewStatus
+        VerifiedAt
+      }
       Categorization {
         ProductTags {
           Name
