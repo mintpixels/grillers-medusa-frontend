@@ -11,6 +11,7 @@ import { MobileNavMenu } from "./menu"
 import SearchBar from "./search-bar"
 import MobileSearch from "./mobile-search"
 import { isStaffCustomer } from "@lib/util/staff-access"
+import { ShieldCheck } from "lucide-react"
 
 type HeaderProps = {
   navLinks: HeaderNavLink[]
@@ -162,22 +163,29 @@ const Header = ({
           </div>
         </div>
       </nav>
-      <div className="hidden md:flex items-center justify-center gap-2 border-t border-Charcoal/10 bg-Scroll/60 px-4 py-2 text-[11px] font-maison-neue-mono uppercase tracking-wide text-Charcoal">
-        <span className="font-bold">Hechsher details:</span>
+      <div className="hidden md:flex items-center justify-center gap-2 border-t border-Charcoal/10 bg-Scroll/70 px-4 py-2 font-maison-neue text-[12px] text-Charcoal">
+        <ShieldCheck
+          aria-hidden="true"
+          className="h-4 w-4 shrink-0 text-Charcoal"
+          strokeWidth={1.75}
+        />
+        <span className="font-semibold">Kosher supervision shown by item</span>
         {["OU", "Star-K", "CHK", "CRC"].map((cert) => (
           <LocalizedClientLink
             key={cert}
             href="/kashruth/hechsherim"
-            className="inline-flex h-6 min-w-10 items-center justify-center rounded-full border border-Charcoal/20 bg-white px-2 font-bold hover:border-Gold hover:text-Gold"
+            prefetch={false}
+            className="inline-flex h-6 min-w-10 items-center justify-center rounded-full border border-Charcoal/20 bg-white px-2 font-maison-neue-mono text-[11px] font-semibold tracking-wide transition-colors hover:border-Gold hover:text-Gold focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold"
           >
             {cert}
           </LocalizedClientLink>
         ))}
         <LocalizedClientLink
           href="/kashruth/hechsherim"
-          className="ml-1 underline underline-offset-4 hover:text-Gold"
+          prefetch={false}
+          className="ml-1 font-maison-neue-mono text-[11px] font-semibold uppercase tracking-wide underline underline-offset-4 transition-colors hover:text-Gold focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold"
         >
-          item-level supervision
+          Supervision details
         </LocalizedClientLink>
       </div>
     </header>
