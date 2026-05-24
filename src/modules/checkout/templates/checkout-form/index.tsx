@@ -1,5 +1,8 @@
 import { listCartShippingMethods } from "@lib/data/fulfillment"
-import { getSavedPaymentMethods, listCartPaymentMethods } from "@lib/data/payment"
+import {
+  getSavedPaymentMethods,
+  listCartPaymentMethods,
+} from "@lib/data/payment"
 import { HttpTypes } from "@medusajs/types"
 import Addresses from "@modules/checkout/components/addresses"
 import Payment from "@modules/checkout/components/payment"
@@ -9,10 +12,15 @@ import CheckoutLoginBanner from "@modules/checkout/components/checkout-login-ban
 import CheckoutStepsGate from "@modules/checkout/components/checkout-steps-gate"
 import { FulfillmentEditProvider } from "@modules/checkout/context/fulfillment-edit-context"
 import type { FulfillmentType } from "@lib/data/cart"
-import type { FulfillmentConfigData, PickupCreditConfig } from "@lib/data/strapi/checkout"
+import type {
+  FulfillmentConfigData,
+  PickupCreditConfig,
+} from "@lib/data/strapi/checkout"
 
 function needsShippingMethodSelection(cart: HttpTypes.StoreCart): boolean {
-  const fulfillmentType = cart.metadata?.fulfillmentType as FulfillmentType | undefined
+  const fulfillmentType = cart.metadata?.fulfillmentType as
+    | FulfillmentType
+    | undefined
   return fulfillmentType === "ups_shipping"
 }
 
@@ -35,16 +43,23 @@ export default async function CheckoutForm({
     return null
   }
 
-  const shippingMethods = await listCartShippingMethods(cart.id)
-  const paymentMethods = await listCartPaymentMethods(cart.region?.id ?? "")
-  const savedPaymentMethods = customer ? await getSavedPaymentMethods() : []
+  const [shippingMethods, paymentMethods, savedPaymentMethods] =
+    await Promise.all([
+      listCartShippingMethods(cart.id),
+      listCartPaymentMethods(cart.region?.id ?? ""),
+      customer ? getSavedPaymentMethods() : Promise.resolve([]),
+    ])
 
   if (!shippingMethods || !paymentMethods) {
     return null
   }
 
-  const fulfillmentType = cart.metadata?.fulfillmentType as FulfillmentType | undefined
-  const hasFulfillment = Boolean(fulfillmentType && String(fulfillmentType).length > 0)
+  const fulfillmentType = cart.metadata?.fulfillmentType as
+    | FulfillmentType
+    | undefined
+  const hasFulfillment = Boolean(
+    fulfillmentType && String(fulfillmentType).length > 0
+  )
   const showShippingMethodSelection = needsShippingMethodSelection(cart)
 
   const isLoggedIn = Boolean(customer)
@@ -82,23 +97,28 @@ export default async function CheckoutForm({
             )}
 
             {/* Step 3: Delivery options — only for UPS shipping, only after address */}
-            {hasFulfillment && addressComplete && showShippingMethodSelection && (
-              <Shipping
-                cart={cart}
-                availableShippingMethods={shippingMethods}
-                serverNowIso={new Date().toISOString()}
-                atlantaZipConfig={fulfillmentConfig.AtlantaDeliveryZipDays}
-              />
-            )}
+            {hasFulfillment &&
+              addressComplete &&
+              showShippingMethodSelection && (
+                <Shipping
+                  cart={cart}
+                  availableShippingMethods={shippingMethods}
+                  serverNowIso={new Date().toISOString()}
+                  atlantaZipConfig={fulfillmentConfig.AtlantaDeliveryZipDays}
+                />
+              )}
 
             {/* Step 4: Payment — only after all previous steps complete and delivery step is closed */}
-            {hasFulfillment && addressComplete && (!showShippingMethodSelection || hasShippingMethod) && currentStep !== "delivery" && (
-              <Payment
-                cart={cart}
-                availablePaymentMethods={paymentMethods}
-                savedPaymentMethods={savedPaymentMethods}
-              />
-            )}
+            {hasFulfillment &&
+              addressComplete &&
+              (!showShippingMethodSelection || hasShippingMethod) &&
+              currentStep !== "delivery" && (
+                <Payment
+                  cart={cart}
+                  availablePaymentMethods={paymentMethods}
+                  savedPaymentMethods={savedPaymentMethods}
+                />
+              )}
           </CheckoutStepsGate>
         </FulfillmentEditProvider>
       )}

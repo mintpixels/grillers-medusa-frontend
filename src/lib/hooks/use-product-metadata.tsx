@@ -4,9 +4,11 @@ import strapiClient from "@lib/strapi"
 import { GetProductMetadataQuery, ProductMetadata } from "@lib/data/strapi/pdp"
 
 export function useProductMetadata(
-  medusaProductId?: string
+  medusaProductId?: string,
+  prefetchedMetadata?: ProductMetadata | Record<string, unknown> | null
 ): ProductMetadata | null {
-  const shouldFetch = Boolean(medusaProductId)
+  const shouldFetch =
+    Boolean(medusaProductId) && prefetchedMetadata === undefined
 
   const { data } = useSWR<ProductMetadata | null>(
     shouldFetch ? ["product-metadata", medusaProductId] : null,
@@ -25,7 +27,7 @@ export function useProductMetadata(
     }
   )
 
-  return data ?? null
+  return (
+    (prefetchedMetadata as ProductMetadata | null | undefined) ?? data ?? null
+  )
 }
-
-

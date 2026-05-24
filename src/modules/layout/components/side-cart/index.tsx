@@ -21,9 +21,7 @@ import { useCart } from "./cart-context"
 import { updateLineItem } from "@lib/data/cart"
 import { jitsuTrack } from "@lib/jitsu"
 import Spinner from "@modules/common/icons/spinner"
-import {
-  CatchWeightBadge,
-} from "@modules/common/components/cart-helpers"
+import { CatchWeightBadge } from "@modules/common/components/cart-helpers"
 import CartUpsells from "@modules/cart/components/cart-upsells"
 import type { CartUpsellProduct } from "@modules/cart/components/cart-upsells/types"
 import FulfillmentProgress from "@modules/common/components/fulfillment-progress"
@@ -41,12 +39,23 @@ import {
   normalizeDeliveryZip,
 } from "@lib/util/delivery-zip"
 import { dispatchCartUpdated } from "@lib/util/cart-events"
+import type {
+  CartProductDetails,
+  CartProductDetailsMap,
+} from "@lib/util/cart-product-details"
 
 // Cart item image with Strapi fallback
-const CartItemImage = ({ item }: { item: HttpTypes.StoreCartLineItem }) => {
+const CartItemImage = ({
+  item,
+  productDetails,
+}: {
+  item: HttpTypes.StoreCartLineItem
+  productDetails?: CartProductDetails
+}) => {
   const imgSrc = useProductFeaturedImageSrc(
     item.product_id || item?.product?.id,
-    "https://placehold.co/96x96"
+    item.thumbnail || "https://placehold.co/96x96",
+    productDetails?.image
   )
 
   return (
@@ -56,6 +65,7 @@ const CartItemImage = ({ item }: { item: HttpTypes.StoreCartLineItem }) => {
         alt={item.title || "Product"}
         fill
         className="object-cover"
+        sizes="88px"
       />
     </div>
   )
@@ -69,12 +79,14 @@ const CartItemImage = ({ item }: { item: HttpTypes.StoreCartLineItem }) => {
  */
 const CartItemPrice = ({
   item,
+  productDetails,
 }: {
   item: HttpTypes.StoreCartLineItem
   currencyCode: string
+  productDetails?: CartProductDetails
 }) => {
   const productId = item.product_id || item.product?.id
-  const metadata = useProductMetadata(productId)
+  const metadata = useProductMetadata(productId, productDetails?.metadata)
   const unit = item.unit_price ?? 0
   // formatProductPriceDisplay already does the per-lb math (pack price
   // ÷ avg weight) and returns the headline, so render `display.primary`
@@ -110,11 +122,17 @@ const CartItemPrice = ({
 const CartItemTitle = ({
   item,
   closeCart,
+  productDetails,
 }: {
   item: HttpTypes.StoreCartLineItem
   closeCart: () => void
+  productDetails?: CartProductDetails
 }) => {
-  const title = useProductTitle(item.product_id || item?.product?.id, item.product_title)
+  const title = useProductTitle(
+    item.product_id || item?.product?.id,
+    item.product_title,
+    productDetails?.title
+  )
 
   return (
     <LocalizedClientLink
@@ -192,7 +210,10 @@ const QuantitySelector = ({
       >
         <span className="text-sm font-maison-neue">−</span>
       </button>
-      <span className="w-8 text-center text-p-sm font-maison-neue font-semibold text-Charcoal tabular-nums" aria-label={`Quantity: ${optimisticQuantity}`}>
+      <span
+        className="w-8 text-center text-p-sm font-maison-neue font-semibold text-Charcoal tabular-nums"
+        aria-label={`Quantity: ${optimisticQuantity}`}
+      >
         {isUpdating ? <Spinner size={14} /> : optimisticQuantity}
       </span>
       <button
@@ -214,6 +235,7 @@ type SideCartProps = {
   countryCode?: string
   atlantaZipConfig?: Record<string, AtlantaZipDayConfig>
   initialDeliveryZip?: string | null
+  productDetailsMap?: CartProductDetailsMap
 }
 
 export default function SideCart({
@@ -222,6 +244,7 @@ export default function SideCart({
   countryCode = "us",
   atlantaZipConfig,
   initialDeliveryZip,
+  productDetailsMap = {},
 }: SideCartProps) {
   const { isOpen, closeCart, openCart } = useCart()
   const [announcement, setAnnouncement] = useState("")
@@ -243,10 +266,13 @@ export default function SideCart({
     }
   }, [cart?.subtotal])
 
-  const handleOptimisticDelta = useCallback((delta: number, eligibleDelta = delta) => {
-    setOptimisticDelta((prev) => prev + delta)
-    setOptimisticEligibleDelta((prev) => prev + eligibleDelta)
-  }, [])
+  const handleOptimisticDelta = useCallback(
+    (delta: number, eligibleDelta = delta) => {
+      setOptimisticDelta((prev) => prev + delta)
+      setOptimisticEligibleDelta((prev) => prev + eligibleDelta)
+    },
+    []
+  )
 
   const totalItems =
     cart?.items?.reduce((acc, item) => acc + item.quantity, 0) || 0
@@ -265,12 +291,13 @@ export default function SideCart({
   const sortedItems =
     cart?.items
       ?.slice()
-      .sort((a, b) =>
-        (a.created_at ?? "") > (b.created_at ?? "") ? -1 : 1
-      ) || []
+      .sort((a, b) => ((a.created_at ?? "") > (b.created_at ?? "") ? -1 : 1)) ||
+    []
 
   useEffect(() => {
-    setDeliveryZip(getStoredDeliveryZip() || normalizeDeliveryZip(initialDeliveryZip))
+    setDeliveryZip(
+      getStoredDeliveryZip() || normalizeDeliveryZip(initialDeliveryZip)
+    )
 
     const handleDeliveryZipUpdate = (event: Event) => {
       const nextZip = (event as CustomEvent<{ zip?: string }>).detail?.zip
@@ -308,11 +335,18 @@ export default function SideCart({
       return
     }
 
-    if (previousItemCount.current !== null && totalItems > previousItemCount.current) {
+    if (
+      previousItemCount.current !== null &&
+      totalItems > previousItemCount.current
+    ) {
       openCart()
       const diff = totalItems - previousItemCount.current
       setAnnouncement(
-        `${diff} item${diff > 1 ? "s" : ""} added to cart. Cart now has ${totalItems} item${totalItems > 1 ? "s" : ""}.`
+        `${diff} item${
+          diff > 1 ? "s" : ""
+        } added to cart. Cart now has ${totalItems} item${
+          totalItems > 1 ? "s" : ""
+        }.`
       )
     }
     previousItemCount.current = totalItems
@@ -321,7 +355,12 @@ export default function SideCart({
   return (
     <>
       {/* ARIA live region */}
-      <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+      <div
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        className="sr-only"
+      >
         {announcement}
       </div>
 
@@ -361,7 +400,8 @@ export default function SideCart({
                           Cart
                           {totalItems > 0 && (
                             <span className="text-p-sm font-maison-neue font-normal text-Charcoal/60 normal-case tracking-normal ml-2">
-                              ({totalItems} {totalItems === 1 ? "item" : "items"})
+                              ({totalItems}{" "}
+                              {totalItems === 1 ? "item" : "items"})
                             </span>
                           )}
                         </h2>
@@ -371,7 +411,14 @@ export default function SideCart({
                           className="min-w-[44px] min-h-[44px] inline-flex items-center justify-center text-Charcoal/40 hover:text-Charcoal transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold rounded"
                           aria-label="Close cart"
                         >
-                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <svg
+                            width="20"
+                            height="20"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                          >
                             <path d="M18 6L6 18M6 6l12 12" />
                           </svg>
                         </button>
@@ -383,7 +430,12 @@ export default function SideCart({
                           <div className="flex-1 overflow-y-auto">
                             <ul>
                               {sortedItems.map((item, index) => {
-                                const metadata = (item.metadata || {}) as Record<string, any>
+                                const productId =
+                                  item.product_id || item.product?.id || ""
+                                const productDetails =
+                                  productDetailsMap[productId]
+                                const metadata = (item.metadata ||
+                                  {}) as Record<string, any>
                                 const countsTowardFreeDelivery =
                                   isLineItemFreeDeliveryEligible(item)
                                 const exclusionReason =
@@ -391,7 +443,8 @@ export default function SideCart({
                                 const substitutionStatus =
                                   metadata.substitution_status
                                 const originalProductName =
-                                  typeof metadata.original_product_name === "string"
+                                  typeof metadata.original_product_name ===
+                                  "string"
                                     ? metadata.original_product_name
                                     : null
                                 const substitutionNote =
@@ -401,8 +454,8 @@ export default function SideCart({
                                 const collectionTitle =
                                   metadata.curated_collection_title ||
                                   metadata.bundle_title
-                                const previousMetadata =
-                                  (sortedItems[index - 1]?.metadata || {}) as Record<string, any>
+                                const previousMetadata = (sortedItems[index - 1]
+                                  ?.metadata || {}) as Record<string, any>
                                 const previousCollectionTitle =
                                   previousMetadata.curated_collection_title ||
                                   previousMetadata.bundle_title
@@ -420,77 +473,92 @@ export default function SideCart({
                                       </li>
                                     )}
                                     <li className="border-b border-Charcoal/5">
-                                    <div className="flex gap-4 px-6 py-5">
-                                      {/* Image */}
-                                      <LocalizedClientLink
-                                        href={`/products/${item.product_handle}`}
-                                        className="flex-shrink-0 w-[88px] h-[88px] bg-gray-50 overflow-hidden"
-                                        onClick={closeCart}
-                                      >
-                                        <CartItemImage item={item} />
-                                      </LocalizedClientLink>
+                                      <div className="flex gap-4 px-6 py-5">
+                                        {/* Image */}
+                                        <LocalizedClientLink
+                                          href={`/products/${item.product_handle}`}
+                                          className="flex-shrink-0 w-[88px] h-[88px] bg-gray-50 overflow-hidden"
+                                          onClick={closeCart}
+                                        >
+                                          <CartItemImage
+                                            item={item}
+                                            productDetails={productDetails}
+                                          />
+                                        </LocalizedClientLink>
 
-                                      {/* Details */}
-                                      <div className="flex-1 min-w-0 flex flex-col justify-between">
-                                        <div>
-                                          <CartItemTitle item={item} closeCart={closeCart} />
-                                          {collectionTitle && (
-                                            <p className="mt-1 font-maison-neue-mono text-[10px] font-bold uppercase tracking-wide text-VibrantRed">
-                                              Collection item
-                                            </p>
-                                          )}
-                                          {substitutionStatus && (
-                                            <p className="mt-1 font-maison-neue text-xs leading-snug text-Charcoal/60">
-                                              Substituted
-                                              {originalProductName
-                                                ? ` for ${originalProductName}`
-                                                : ""}
-                                              {substitutionNote
-                                                ? `: ${substitutionNote}`
-                                                : "."}
-                                            </p>
-                                          )}
-                                          {/* Price — per-lb vs per-pack
+                                        {/* Details */}
+                                        <div className="flex-1 min-w-0 flex flex-col justify-between">
+                                          <div>
+                                            <CartItemTitle
+                                              item={item}
+                                              closeCart={closeCart}
+                                              productDetails={productDetails}
+                                            />
+                                            {collectionTitle && (
+                                              <p className="mt-1 font-maison-neue-mono text-[10px] font-bold uppercase tracking-wide text-VibrantRed">
+                                                Collection item
+                                              </p>
+                                            )}
+                                            {substitutionStatus && (
+                                              <p className="mt-1 font-maison-neue text-xs leading-snug text-Charcoal/60">
+                                                Substituted
+                                                {originalProductName
+                                                  ? ` for ${originalProductName}`
+                                                  : ""}
+                                                {substitutionNote
+                                                  ? `: ${substitutionNote}`
+                                                  : "."}
+                                              </p>
+                                            )}
+                                            {/* Price — per-lb vs per-pack
                                               decided by the same helper
                                               used on PLP + PDP (#31 / #104). */}
-                                          <CartItemPrice
-                                            item={item}
-                                            currencyCode={cart.currency_code}
-                                          />
-                                          {!countsTowardFreeDelivery && (
-                                            <p className="mt-1 font-maison-neue text-xs leading-snug text-Charcoal/60">
-                                              Does not count toward free delivery
-                                              {exclusionReason
-                                                ? `: ${exclusionReason}`
-                                                : "."}
-                                            </p>
-                                          )}
-                                        </div>
+                                            <CartItemPrice
+                                              item={item}
+                                              currencyCode={cart.currency_code}
+                                              productDetails={productDetails}
+                                            />
+                                            {!countsTowardFreeDelivery && (
+                                              <p className="mt-1 font-maison-neue text-xs leading-snug text-Charcoal/60">
+                                                Does not count toward free
+                                                delivery
+                                                {exclusionReason
+                                                  ? `: ${exclusionReason}`
+                                                  : "."}
+                                              </p>
+                                            )}
+                                          </div>
 
-                                        {/* Quantity + Remove */}
-                                        <div className="flex items-center justify-between mt-3">
-                                          <QuantitySelector
-                                            item={item}
-                                            countsTowardFreeDelivery={countsTowardFreeDelivery}
-                                            onOptimisticDelta={handleOptimisticDelta}
-                                          />
-                                          <DeleteButton
-                                            id={item.id}
-                                            onDeleted={() =>
-                                              handleOptimisticDelta(
-                                                -getLineItemSubtotal(item),
+                                          {/* Quantity + Remove */}
+                                          <div className="flex items-center justify-between mt-3">
+                                            <QuantitySelector
+                                              item={item}
+                                              countsTowardFreeDelivery={
                                                 countsTowardFreeDelivery
-                                                  ? -getLineItemSubtotal(item)
-                                                  : 0
-                                              )
-                                            }
-                                          >
-                                            <span className="text-xs font-maison-neue underline">Remove</span>
-                                          </DeleteButton>
+                                              }
+                                              onOptimisticDelta={
+                                                handleOptimisticDelta
+                                              }
+                                            />
+                                            <DeleteButton
+                                              id={item.id}
+                                              onDeleted={() =>
+                                                handleOptimisticDelta(
+                                                  -getLineItemSubtotal(item),
+                                                  countsTowardFreeDelivery
+                                                    ? -getLineItemSubtotal(item)
+                                                    : 0
+                                                )
+                                              }
+                                            >
+                                              <span className="text-xs font-maison-neue underline">
+                                                Remove
+                                              </span>
+                                            </DeleteButton>
+                                          </div>
                                         </div>
                                       </div>
-                                    </div>
-                                  </li>
+                                    </li>
                                   </Fragment>
                                 )
                               })}
@@ -504,14 +572,24 @@ export default function SideCart({
                               products={upsellProducts}
                               countryCode={countryCode}
                               compact
-                              excludeProductIds={cart.items?.map((item) => item.product_id)}
+                              excludeProductIds={cart.items?.map(
+                                (item) => item.product_id
+                              )}
                             />
                           </div>
 
                           {/* Kosher trust badge */}
                           <div className="px-6 py-3 bg-Scroll/50 border-t border-Charcoal/5">
                             <div className="flex items-center justify-center gap-2">
-                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-Gold">
+                              <svg
+                                width="16"
+                                height="16"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                className="text-Gold"
+                              >
                                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
                               </svg>
                               <span className="text-xs font-maison-neue-mono uppercase tracking-wider text-Charcoal/60">
@@ -578,7 +656,15 @@ export default function SideCart({
                         /* Empty state */
                         <div className="flex-1 flex flex-col items-center justify-center px-8 py-16">
                           <div className="w-20 h-20 bg-Scroll/50 rounded-full flex items-center justify-center mb-6">
-                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-Charcoal/30">
+                            <svg
+                              width="32"
+                              height="32"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="1.5"
+                              className="text-Charcoal/30"
+                            >
                               <path d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
                             </svg>
                           </div>
@@ -586,7 +672,8 @@ export default function SideCart({
                             Your cart is empty
                           </h3>
                           <p className="text-p-sm font-maison-neue text-Charcoal/60 text-center mb-8">
-                            Explore our premium kosher selection and add your favorites.
+                            Explore our premium kosher selection and add your
+                            favorites.
                           </p>
                           <LocalizedClientLink
                             href="/store"

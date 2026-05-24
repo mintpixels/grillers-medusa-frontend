@@ -1,10 +1,11 @@
+import { Suspense } from "react"
 import { Metadata } from "next"
 
 import { listCartOptions, retrieveCart } from "@lib/data/cart"
 import { retrieveCustomer } from "@lib/data/customer"
 import { getStaffImpersonationSession } from "@lib/data/staff/impersonation"
 import { getBaseURL } from "@lib/util/env"
-import { StoreCartShippingOption } from "@medusajs/types"
+import type { HttpTypes } from "@medusajs/types"
 import { Toaster } from "@medusajs/ui"
 import Footer from "@modules/layout/templates/footer"
 import Nav from "@modules/layout/templates/nav"
@@ -16,6 +17,29 @@ import StaffContextActions from "@modules/staff/components/staff-context-actions
 
 export const metadata: Metadata = {
   metadataBase: new URL(getBaseURL()),
+}
+
+async function FreeShippingNudgeBlock({
+  cart,
+}: {
+  cart: HttpTypes.StoreCart | null
+}) {
+  if (!cart) return null
+
+  const { shipping_options } = await withTimeout(
+    listCartOptions().catch(() => ({ shipping_options: [] })),
+    800,
+    { shipping_options: [] },
+    "main layout shipping options"
+  )
+
+  return (
+    <FreeShippingPriceNudge
+      variant="popup"
+      cart={cart}
+      shippingOptions={shipping_options}
+    />
+  )
 }
 
 export default async function PageLayout(props: {
@@ -43,18 +67,6 @@ export default async function PageLayout(props: {
     null,
     "main layout staff impersonation"
   )
-  let shippingOptions: StoreCartShippingOption[] = []
-
-  if (cart) {
-    const { shipping_options } = await withTimeout(
-      listCartOptions().catch(() => ({ shipping_options: [] })),
-      800,
-      { shipping_options: [] },
-      "main layout shipping options"
-    )
-
-    shippingOptions = shipping_options
-  }
 
   return (
     <CartProvider>
@@ -72,20 +84,18 @@ export default async function PageLayout(props: {
           </div>
         </div>
       )}
-      {cart && (
-        <FreeShippingPriceNudge
-          variant="popup"
-          cart={cart}
-          shippingOptions={shippingOptions}
-        />
-      )}
+      <Suspense fallback={null}>
+        <FreeShippingNudgeBlock cart={cart} />
+      </Suspense>
       {props.children}
       <Footer />
-      <SideCartWrapper
-        countryCode={countryCode}
-        cart={cart}
-        customer={customer}
-      />
+      <Suspense fallback={null}>
+        <SideCartWrapper
+          countryCode={countryCode}
+          cart={cart}
+          customer={customer}
+        />
+      </Suspense>
       <Toaster position="bottom-center" />
     </CartProvider>
   )

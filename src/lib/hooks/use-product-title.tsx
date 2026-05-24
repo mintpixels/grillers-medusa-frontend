@@ -5,10 +5,13 @@ import { GetProductTitleQuery } from "@lib/data/strapi/pdp"
 
 export function useProductTitle(
   medusaProductId?: string,
-  fallbackTitle?: string
+  fallbackTitle?: string,
+  prefetchedTitle?: string | null
 ): string {
   const { data: strapiTitle } = useSWR<string | null>(
-    medusaProductId ? ["product-title", medusaProductId] : null,
+    medusaProductId && !prefetchedTitle
+      ? ["product-title", medusaProductId]
+      : null,
     async () => {
       try {
         const res = await strapiClient.request<{
@@ -25,5 +28,5 @@ export function useProductTitle(
   )
 
   // Return Strapi title if available, otherwise fallback
-  return strapiTitle ?? fallbackTitle ?? ""
+  return prefetchedTitle ?? strapiTitle ?? fallbackTitle ?? ""
 }

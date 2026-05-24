@@ -4,12 +4,17 @@ import { Heading, Table } from "@medusajs/ui"
 
 import Item from "@modules/cart/components/item"
 import SkeletonLineItem from "@modules/skeletons/components/skeleton-line-item"
+import type { CartProductDetailsMap } from "@lib/util/cart-product-details"
 
 type ItemsTemplateProps = {
   cart?: HttpTypes.StoreCart
+  productDetailsMap?: CartProductDetailsMap
 }
 
-const ItemsTemplate = ({ cart }: ItemsTemplateProps) => {
+const ItemsTemplate = ({
+  cart,
+  productDetailsMap = {},
+}: ItemsTemplateProps) => {
   const items = cart?.items
   return (
     <div>
@@ -42,6 +47,7 @@ const ItemsTemplate = ({ cart }: ItemsTemplateProps) => {
                       key={item.id}
                       item={item}
                       currencyCode={cart?.currency_code}
+                      productDetailsMap={productDetailsMap}
                     />
                   )
                 })

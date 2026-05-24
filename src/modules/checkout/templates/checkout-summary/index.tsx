@@ -15,19 +15,26 @@ import {
   getLineItemFreeDeliveryExclusionReason,
   isLineItemFreeDeliveryEligible,
 } from "@lib/util/free-delivery-eligibility"
+import type {
+  CartProductDetails,
+  CartProductDetailsMap,
+} from "@lib/util/cart-product-details"
 
 type CheckoutSummaryProps = {
   cart: HttpTypes.StoreCart
   atlantaZipConfig?: Record<string, AtlantaZipDayConfig>
+  productDetailsMap?: CartProductDetailsMap
 }
 
 // Item component that fetches Strapi image and title
 const CheckoutItem = ({
   item,
   currencyCode,
+  productDetails,
 }: {
   item: HttpTypes.StoreCartLineItem
   currencyCode: string
+  productDetails?: CartProductDetails
 }) => {
   const productId = item.product_id || item?.product?.id
   const countsTowardFreeDelivery = isLineItemFreeDeliveryEligible(item)
@@ -44,16 +51,21 @@ const CheckoutItem = ({
       : null
   const imgSrc = useProductFeaturedImageSrc(
     productId,
-    "https://placehold.co/64x64"
+    item.thumbnail || "https://placehold.co/64x64",
+    productDetails?.image
   )
-  const title = useProductTitle(productId, item.product_title)
+  const title = useProductTitle(
+    productId,
+    item.product_title,
+    productDetails?.title
+  )
 
   return (
     <div className="flex gap-4">
       {/* Thumbnail with quantity badge */}
       <div className="relative flex-shrink-0">
         <div className="w-16 h-16 rounded-md overflow-hidden bg-gray-700">
-          <Thumbnail thumbnail={imgSrc} size="square" />
+          <Thumbnail thumbnail={imgSrc} size="square" imageSizes="64px" />
         </div>
         {/* Quantity badge */}
         <span className="absolute -top-2 -right-2 w-5 h-5 bg-gray-500 text-white text-xs rounded-full flex items-center justify-center font-medium">
@@ -102,15 +114,22 @@ function isFreeShipPromoApplied(cart: HttpTypes.StoreCart): boolean {
   )
 }
 
-const CheckoutSummary = ({ cart, atlantaZipConfig }: CheckoutSummaryProps) => {
+const CheckoutSummary = ({
+  cart,
+  atlantaZipConfig,
+  productDetailsMap = {},
+}: CheckoutSummaryProps) => {
   const items = cart.items || []
   const totalItems = items.reduce((acc, item) => acc + item.quantity, 0)
   const eligibleSubtotal = getFreeDeliveryEligibleSubtotal(items)
   const excludedSubtotal = getExcludedFreeDeliverySubtotal(items)
-  
+
   // Check if this is a pickup order (no shipping needed)
-  const fulfillmentType = cart.metadata?.fulfillmentType as FulfillmentType | undefined
-  const isPickup = fulfillmentType === "plant_pickup" || fulfillmentType === "southeast_pickup"
+  const fulfillmentType = cart.metadata?.fulfillmentType as
+    | FulfillmentType
+    | undefined
+  const isPickup =
+    fulfillmentType === "plant_pickup" || fulfillmentType === "southeast_pickup"
 
   const freeShipApplied = isFreeShipPromoApplied(cart)
   const shippingSavings = Math.max(
@@ -119,10 +138,7 @@ const CheckoutSummary = ({ cart, atlantaZipConfig }: CheckoutSummaryProps) => {
   )
   // Show any non-shipping discount as its own line. Shipping savings are
   // already reflected in the struck-through Shipping line.
-  const itemDiscount = Math.max(
-    0,
-    (cart.discount_total ?? 0) - shippingSavings
-  )
+  const itemDiscount = Math.max(0, (cart.discount_total ?? 0) - shippingSavings)
   // Trust Medusa's cart.total — that's what Stripe will charge. The line
   // items themselves are post-discount, so showing the same number here
   // keeps the math internally consistent for the customer.
@@ -147,12 +163,17 @@ const CheckoutSummary = ({ cart, atlantaZipConfig }: CheckoutSummaryProps) => {
       {/* Items */}
       <div className="space-y-4 py-6 border-b border-gray-700">
         {items
-          .sort((a, b) => ((a.created_at ?? "") > (b.created_at ?? "") ? -1 : 1))
+          .sort((a, b) =>
+            (a.created_at ?? "") > (b.created_at ?? "") ? -1 : 1
+          )
           .map((item) => (
             <CheckoutItem
               key={item.id}
               item={item}
               currencyCode={cart.currency_code}
+              productDetails={
+                productDetailsMap[item.product_id || item.product?.id || ""]
+              }
             />
           ))}
       </div>

@@ -1,6 +1,18 @@
 "use client"
 
-import { createContext, useContext, useState, useCallback, ReactNode } from "react"
+import {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useEffect,
+  ReactNode,
+} from "react"
+import { useRouter } from "next/navigation"
+import {
+  CART_UPDATED_EVENT,
+  type CartUpdatedDetail,
+} from "@lib/util/cart-events"
 
 type CartContextType = {
   isOpen: boolean
@@ -12,6 +24,7 @@ type CartContextType = {
 const CartContext = createContext<CartContextType | undefined>(undefined)
 
 export function CartProvider({ children }: { children: ReactNode }) {
+  const router = useRouter()
   const [isOpen, setIsOpen] = useState(false)
 
   const openCart = useCallback(() => {
@@ -25,6 +38,20 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const toggleCart = useCallback(() => {
     setIsOpen((prev) => !prev)
   }, [])
+
+  useEffect(() => {
+    const handleCartUpdated = (event: Event) => {
+      const detail = (event as CustomEvent<CartUpdatedDetail>).detail
+      if (detail?.action === "add" || detail?.action === "bundle-add") {
+        setIsOpen(true)
+        router.refresh()
+      }
+    }
+
+    window.addEventListener(CART_UPDATED_EVENT, handleCartUpdated)
+    return () =>
+      window.removeEventListener(CART_UPDATED_EVENT, handleCartUpdated)
+  }, [router])
 
   return (
     <CartContext.Provider value={{ isOpen, openCart, closeCart, toggleCart }}>

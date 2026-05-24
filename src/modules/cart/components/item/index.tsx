@@ -10,11 +10,10 @@ import DeleteButton from "@modules/common/components/delete-button"
 import LineItemOptions from "@modules/common/components/line-item-options"
 import LineItemPrice from "@modules/common/components/line-item-price"
 import LineItemUnitPrice from "@modules/common/components/line-item-unit-price"
-import NetWeightPricing, { NetWeightBadge } from "@modules/common/components/net-weight-pricing"
-import {
-  parseAvgPackWeight,
-  resolvePricingMode,
-} from "@lib/util/price-display"
+import NetWeightPricing, {
+  NetWeightBadge,
+} from "@modules/common/components/net-weight-pricing"
+import { parseAvgPackWeight, resolvePricingMode } from "@lib/util/price-display"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import Spinner from "@modules/common/icons/spinner"
 import Thumbnail from "@modules/products/components/thumbnail"
@@ -23,14 +22,24 @@ import { useProductFeaturedImageSrc } from "@lib/hooks/use-product-featured-imag
 import { useProductMetadata } from "@lib/hooks/use-product-metadata"
 import { useProductTitle } from "@lib/hooks/use-product-title"
 import { dispatchCartUpdated } from "@lib/util/cart-events"
+import type {
+  CartProductDetails,
+  CartProductDetailsMap,
+} from "@lib/util/cart-product-details"
 
 type ItemProps = {
   item: HttpTypes.StoreCartLineItem
   type?: "full" | "preview"
   currencyCode: string
+  productDetailsMap?: CartProductDetailsMap
 }
 
-const Item = ({ item, type = "full", currencyCode }: ItemProps) => {
+const Item = ({
+  item,
+  type = "full",
+  currencyCode,
+  productDetailsMap = {},
+}: ItemProps) => {
   const router = useRouter()
   const [updating, setUpdating] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -65,16 +74,24 @@ const Item = ({ item, type = "full", currencyCode }: ItemProps) => {
   const maxQuantity = item.variant?.manage_inventory ? 10 : maxQtyFromInventory
 
   const productId = item.product_id || item?.product?.id
+  const productDetails: CartProductDetails | undefined = productId
+    ? productDetailsMap[productId]
+    : undefined
   const imgSrc = useProductFeaturedImageSrc(
     productId,
-    "https://placehold.co/96x96"
+    item.thumbnail || "https://placehold.co/96x96",
+    productDetails?.image
   )
 
   // Fetch Strapi product title
-  const productTitle = useProductTitle(productId, item.product_title)
+  const productTitle = useProductTitle(
+    productId,
+    item.product_title,
+    productDetails?.title
+  )
 
   // Fetch product metadata for net-weight pricing
-  const metadata = useProductMetadata(productId)
+  const metadata = useProductMetadata(productId, productDetails?.metadata)
   // Gate NetWeightPricing on the actual resolved pricing mode, not just
   // on whether `AvgPackWeight` is present. A fixed-price item that
   // happens to carry an `AvgPackWeight` (e.g. 10-08-22-1 prepared food
@@ -88,7 +105,8 @@ const Item = ({ item, type = "full", currencyCode }: ItemProps) => {
     item.variant?.sku ?? null,
     parsedWeight
   )
-  const isNetWeight = pricingMode === "per_lb" && Boolean(metadata?.AvgPackWeight)
+  const isNetWeight =
+    pricingMode === "per_lb" && Boolean(metadata?.AvgPackWeight)
 
   return (
     <Table.Row className="w-full" data-testid="product-row">
@@ -104,6 +122,7 @@ const Item = ({ item, type = "full", currencyCode }: ItemProps) => {
             thumbnail={imgSrc}
             images={item.variant?.product?.images}
             size="square"
+            imageSizes={type === "preview" ? "64px" : "96px"}
           />
         </LocalizedClientLink>
       </Table.Cell>
@@ -133,12 +152,12 @@ const Item = ({ item, type = "full", currencyCode }: ItemProps) => {
       {type === "full" && (
         <Table.Cell>
           <div className="flex gap-2 items-center w-28">
-            <DeleteButton 
-              id={item.id} 
+            <DeleteButton
+              id={item.id}
               data-testid="product-delete-button"
               productInfo={{
                 id: item.product_id || item.id,
-                title: item.product_title || '',
+                title: item.product_title || "",
                 price: item.unit_price ? item.unit_price / 100 : undefined,
                 quantity: item.quantity,
                 currency: currencyCode,

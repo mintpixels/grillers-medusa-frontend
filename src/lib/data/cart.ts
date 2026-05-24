@@ -1191,15 +1191,58 @@ export async function listCartOptions() {
 export async function addMultipleToCart(
   items: Array<{ variantId: string; quantity: number; countryCode: string }>
 ): Promise<{ added: number; failed: number }> {
-  let added = 0
-  let failed = 0
+  const validItems = items.filter((item) => item.variantId && item.quantity > 0)
+  if (!validItems.length) return { added: 0, failed: items.length }
 
-  for (const item of items) {
+  const cart = await getOrSetCart(validItems[0].countryCode)
+  if (!cart) {
+    return { added: 0, failed: validItems.length }
+  }
+
+  const active = await getCartStaffContext()
+  const headers = await cartHeadersForStaffContext(active)
+  let added = 0
+  let failed = items.length - validItems.length
+
+  for (const item of validItems) {
     try {
-      await addToCart(item)
+      await sdk.store.cart.createLineItem(
+        cart.id,
+        {
+          variant_id: item.variantId,
+          quantity: item.quantity,
+          metadata: active
+            ? staffAuditFields(active.session, "cart_line_add", {
+                variantId: item.variantId,
+                quantity: item.quantity,
+                source: "staff_impersonation",
+                batch: true,
+              })
+            : undefined,
+        },
+        {},
+        headers
+      )
       added++
     } catch {
       failed++
+    }
+  }
+
+  if (added > 0) {
+    const cartCacheTag = await getCacheTag("carts")
+    revalidateTag(cartCacheTag)
+
+    const fulfillmentCacheTag = await getCacheTag("fulfillment")
+    revalidateTag(fulfillmentCacheTag)
+
+    try {
+      const { syncFreeShippingPromotionByCartId } = await import(
+        "./free-shipping-promo"
+      )
+      await syncFreeShippingPromotionByCartId(cart.id)
+    } catch {
+      /* logged inside helper */
     }
   }
 

@@ -4,13 +4,10 @@ import strapiClient from "@lib/strapi"
 import { GetProductFeaturedImageQuery } from "@lib/data/strapi/pdp"
 export function useProductFeaturedImageSrc(
   medusaProductId?: string,
-  placeholderUrl: string = "https://placehold.co/600x400"
+  placeholderUrl: string = "https://placehold.co/600x400",
+  prefetchedUrl?: string | null
 ): string {
-  if (!medusaProductId) {
-    return placeholderUrl
-  }
-
-  const shouldFetch = Boolean(medusaProductId)
+  const shouldFetch = Boolean(medusaProductId) && !prefetchedUrl
 
   const { data: featuredUrl } = useSWR<string>(
     shouldFetch ? ["product-featured-image", medusaProductId] : null,
@@ -29,5 +26,5 @@ export function useProductFeaturedImageSrc(
     }
   )
 
-  return featuredUrl ?? placeholderUrl
+  return prefetchedUrl ?? featuredUrl ?? placeholderUrl
 }

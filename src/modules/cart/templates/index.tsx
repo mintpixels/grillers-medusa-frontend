@@ -1,4 +1,5 @@
 import { HttpTypes } from "@medusajs/types"
+import { Suspense } from "react"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import EmptyCartMessage from "../components/empty-cart-message"
 import SignInPrompt from "../components/sign-in-prompt"
@@ -7,24 +8,49 @@ import { getCartUpsellProducts } from "../components/cart-upsells/server"
 import ItemsTemplate from "./items"
 import Summary from "./summary"
 import type { AtlantaZipDayConfig } from "@lib/util/eligible-arrival-dates"
+import { withTimeout } from "@lib/util/promise-timeout"
+import type { CartProductDetailsMap } from "@lib/util/cart-product-details"
 
-const CartTemplate = async ({
+async function CartUpsellsBlock({
+  countryCode,
+  cart,
+}: {
+  countryCode: string
+  cart: HttpTypes.StoreCart
+}) {
+  const upsellProducts = await withTimeout(
+    getCartUpsellProducts(countryCode).catch(() => []),
+    800,
+    [],
+    "cart page upsells"
+  )
+
+  return (
+    <CartUpsells
+      surface="cart_page"
+      products={upsellProducts}
+      countryCode={countryCode}
+      excludeProductIds={cart.items?.map((item) => item.product_id)}
+      className="mt-8"
+    />
+  )
+}
+
+const CartTemplate = ({
   cart,
   customer,
   countryCode = "us",
   deliveryZip,
   atlantaZipConfig,
+  productDetailsMap = {},
 }: {
   cart: HttpTypes.StoreCart | null
   customer: HttpTypes.StoreCustomer | null
   countryCode?: string
   deliveryZip?: string | null
   atlantaZipConfig?: Record<string, AtlantaZipDayConfig>
+  productDetailsMap?: CartProductDetailsMap
 }) => {
-  const upsellProducts = cart?.items?.length
-    ? await getCartUpsellProducts(countryCode)
-    : []
-
   return (
     <div className="py-12">
       <div className="content-container" data-testid="cart-container">
@@ -37,14 +63,13 @@ const CartTemplate = async ({
                   <div className="my-8 border-b border-gray-200" />
                 </>
               )}
-              <ItemsTemplate cart={cart} />
-              <CartUpsells
-                surface="cart_page"
-                products={upsellProducts}
-                countryCode={countryCode}
-                excludeProductIds={cart.items?.map((item) => item.product_id)}
-                className="mt-8"
+              <ItemsTemplate
+                cart={cart}
+                productDetailsMap={productDetailsMap}
               />
+              <Suspense fallback={null}>
+                <CartUpsellsBlock countryCode={countryCode} cart={cart} />
+              </Suspense>
             </div>
             <div className="relative">
               <div className="flex flex-col gap-y-8 sticky top-12">

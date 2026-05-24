@@ -7,6 +7,7 @@ import { toast } from "@medusajs/ui"
 import { addToCart } from "@lib/data/cart"
 import { trackSelectItem } from "@lib/gtm"
 import { jitsuTrack } from "@lib/jitsu"
+import { dispatchCartUpdated } from "@lib/util/cart-events"
 import type { CartUpsellProduct } from "./types"
 
 type CartUpsellsProps = {
@@ -35,7 +36,8 @@ export default function CartUpsells({
   if (!products.length) return null
 
   const listId = `cart_upsells_${surface}`
-  const listName = surface === "side_cart" ? "Side Cart Upsells" : "Cart Page Upsells"
+  const listName =
+    surface === "side_cart" ? "Side Cart Upsells" : "Cart Page Upsells"
 
   const handleClick = (product: CartUpsellProduct, index: number) => {
     trackSelectItem({
@@ -73,6 +75,11 @@ export default function CartUpsells({
         quantity: 1,
         countryCode,
       })
+      dispatchCartUpdated({
+        action: "add",
+        variantId: product.variantId,
+        quantity: 1,
+      })
       toast.success("Added to cart", { description: product.title })
       jitsuTrack("cart_upsell_added", {
         surface,
@@ -98,7 +105,11 @@ export default function CartUpsells({
           Add to your order
         </h2>
       </div>
-      <div className={compact ? "space-y-2" : "grid grid-cols-1 small:grid-cols-3 gap-3"}>
+      <div
+        className={
+          compact ? "space-y-2" : "grid grid-cols-1 small:grid-cols-3 gap-3"
+        }
+      >
         {products.map((product, index) => (
           <div
             key={product.id}
@@ -112,9 +123,7 @@ export default function CartUpsells({
               href={`/products/${product.handle}`}
               onClick={() => handleClick(product, index)}
               className={
-                compact
-                  ? "flex min-w-0 flex-1 items-center gap-3"
-                  : "block"
+                compact ? "flex min-w-0 flex-1 items-center gap-3" : "block"
               }
             >
               <div

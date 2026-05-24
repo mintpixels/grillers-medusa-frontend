@@ -7,6 +7,7 @@ import type { HttpTypes } from "@medusajs/types"
 import SideCart from "./index"
 import { getCartUpsellProducts } from "@modules/cart/components/cart-upsells/server"
 import { withTimeout } from "@lib/util/promise-timeout"
+import { buildCartProductDetailsMap } from "@lib/util/cart-product-details"
 
 /**
  * Server component wrapper that fetches cart data and renders the SideCart.
@@ -46,14 +47,22 @@ export default async function SideCartWrapper({
           "side cart customer"
         ),
   ])
-  const upsellProducts = cart?.items?.length
-    ? await withTimeout(
-        getCartUpsellProducts(countryCode).catch(() => []),
-        800,
-        [],
-        "side cart upsells"
-      )
-    : []
+  const [upsellProducts, productDetailsMap] = cart?.items?.length
+    ? await Promise.all([
+        withTimeout(
+          getCartUpsellProducts(countryCode).catch(() => []),
+          800,
+          [],
+          "side cart upsells"
+        ),
+        withTimeout(
+          buildCartProductDetailsMap(cart.items),
+          1000,
+          {},
+          "side cart product details"
+        ),
+      ])
+    : [[], {}]
   const initialDeliveryZip =
     cart?.shipping_address?.postal_code ||
     savedZip ||
@@ -66,6 +75,7 @@ export default async function SideCartWrapper({
       countryCode={countryCode}
       atlantaZipConfig={atlantaZipConfig}
       initialDeliveryZip={initialDeliveryZip}
+      productDetailsMap={productDetailsMap}
     />
   )
 }

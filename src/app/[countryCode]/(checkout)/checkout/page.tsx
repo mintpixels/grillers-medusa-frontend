@@ -1,6 +1,8 @@
 import { retrieveCart } from "@lib/data/cart"
 import { retrieveCustomer } from "@lib/data/customer"
 import { getAvailableFulfillmentTypes } from "@lib/data/fulfillment"
+import { buildCartProductDetailsMap } from "@lib/util/cart-product-details"
+import { withTimeout } from "@lib/util/promise-timeout"
 import strapiClient from "@lib/strapi"
 import {
   GetCheckoutSEOQuery,
@@ -290,12 +292,22 @@ export default async function Checkout({ params, searchParams }: PageProps) {
   }
 
   const customer = await retrieveCustomer()
-  const [fulfillmentConfig, pickupCreditConfig, availableFulfillmentTypes] =
-    await Promise.all([
-      getFulfillmentConfig(),
-      getPickupCreditConfig(),
-      getAvailableFulfillmentTypes(cart.id),
-    ])
+  const [
+    fulfillmentConfig,
+    pickupCreditConfig,
+    availableFulfillmentTypes,
+    productDetailsMap,
+  ] = await Promise.all([
+    getFulfillmentConfig(),
+    getPickupCreditConfig(),
+    getAvailableFulfillmentTypes(cart.id),
+    withTimeout(
+      buildCartProductDetailsMap(cart.items),
+      1000,
+      {},
+      "checkout product details"
+    ),
+  ])
 
   return (
     <div className="relative min-h-[calc(100vh-8rem)]">
@@ -329,6 +341,7 @@ export default async function Checkout({ params, searchParams }: PageProps) {
           <CheckoutSummary
             cart={cart}
             atlantaZipConfig={fulfillmentConfig.AtlantaDeliveryZipDays}
+            productDetailsMap={productDetailsMap}
           />
         </div>
       </div>
