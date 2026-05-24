@@ -1,6 +1,7 @@
 import strapiClient from "@lib/strapi"
 import { getProductsByHandles } from "@lib/data/strapi/collections"
 import { enrichStrapiProductsWithMedusaPrices } from "@lib/data/products"
+import { compactCollectionProducts } from "@lib/util/collection-product"
 import { suppressInvalidProductTag } from "@lib/util/product-claims"
 import SpecialtySwiper from "./swiper"
 
@@ -57,7 +58,8 @@ export default async function SpecialtyRow({
     strapiProducts,
     countryCode
   )
-  if (!products.length) return null
+  const compactProducts = compactCollectionProducts(products)
+  if (!compactProducts.length) return null
 
   const tagByHandle = Object.fromEntries(
     Object.entries(PRODUCT_TAGS).flatMap(([handle, tag]) => {
@@ -72,7 +74,7 @@ export default async function SpecialtyRow({
       className="py-10 md:py-20 bg-Scroll overflow-hidden scroll-mt-[120px]"
     >
       <SpecialtySwiper
-        products={products}
+        products={compactProducts}
         countryCode={countryCode}
         tagByHandle={tagByHandle}
       />

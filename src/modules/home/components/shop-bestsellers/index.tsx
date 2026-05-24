@@ -1,6 +1,7 @@
 import strapiClient from "@lib/strapi"
 import { getProductsByHandles } from "@lib/data/strapi/collections"
 import { enrichStrapiProductsWithMedusaPrices } from "@lib/data/products"
+import { compactCollectionProducts } from "@lib/util/collection-product"
 import BestsellersSwiper from "./swiper"
 
 // Strapi seeds this section with a curated list — each entry's `Slug` field
@@ -32,6 +33,7 @@ export default async function BestsellersSection({
     strapiProducts,
     countryCode
   )
+  const compactProducts = compactCollectionProducts(products)
 
   return (
     <section
@@ -40,7 +42,7 @@ export default async function BestsellersSection({
     >
       <BestsellersSwiper
         title={data?.BestsellersTitle || "Shop Bestsellers"}
-        products={products}
+        products={compactProducts}
         countryCode={countryCode}
       />
     </section>

@@ -22,6 +22,31 @@ const robots = isProductionHost()
   ? { index: true, follow: true }
   : { index: false, follow: false }
 
+function getStrapiMediaOrigin() {
+  const endpoint = process.env.STRAPI_ENDPOINT
+  if (!endpoint) return null
+
+  try {
+    const url = new URL(endpoint)
+    if (url.hostname.endsWith(".strapiapp.com")) {
+      url.hostname = url.hostname.replace(
+        ".strapiapp.com",
+        ".media.strapiapp.com"
+      )
+      return url.origin
+    }
+  } catch {
+    return null
+  }
+
+  return null
+}
+
+function getAlgoliaDsnOrigin() {
+  const appId = process.env.ALGOLIA_APPLICATION_ID?.replace(/^['"]|['"]$/g, "")
+  return appId ? `https://${appId.toLowerCase()}-dsn.algolia.net` : null
+}
+
 export const metadata: Metadata = {
   metadataBase: new URL(getBaseURL()),
   applicationName: SITE_NAME,
@@ -46,6 +71,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout(props: { children: React.ReactNode }) {
   const baseUrl = getBaseURL()
+  const strapiMediaOrigin = getStrapiMediaOrigin()
+  const algoliaDsnOrigin = getAlgoliaDsnOrigin()
   const siteJsonLd = {
     "@context": "https://schema.org",
     "@graph": [
@@ -81,6 +108,12 @@ export default function RootLayout(props: { children: React.ReactNode }) {
       className={`${rexton.variable} ${maisonNeue.variable} ${maisonNeueMono.variable}`}
     >
       <head>
+        {strapiMediaOrigin && (
+          <link rel="preconnect" href={strapiMediaOrigin} crossOrigin="" />
+        )}
+        {algoliaDsnOrigin && (
+          <link rel="preconnect" href={algoliaDsnOrigin} crossOrigin="" />
+        )}
         <link rel="stylesheet" href="https://use.typekit.net/ddo8gwe.css" />
         <script
           type="application/ld+json"

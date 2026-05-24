@@ -84,6 +84,7 @@ export default function RelatedProductsSwiper({
               product={product}
               countryCode={countryCode}
               viewMode="grid"
+              imageSizes="(max-width: 519px) 87vw, (max-width: 899px) 50vw, 33vw"
             />
           </SwiperSlide>
         ))}

@@ -31,11 +31,13 @@ export function ProductCard({
   countryCode,
   viewMode = "grid",
   previouslyOrdered = false,
+  imageSizes,
 }: {
   product: StrapiCollectionProduct
   countryCode: string
   viewMode?: "grid" | "list"
   previouslyOrdered?: boolean
+  imageSizes?: string
 }) {
   const [isAdding, setIsAdding] = useState(false)
 
@@ -67,7 +69,8 @@ export function ProductCard({
     }
   }
 
-  const price = product?.MedusaProduct?.Variants?.[0]?.Price?.CalculatedPriceNumber
+  const price =
+    product?.MedusaProduct?.Variants?.[0]?.Price?.CalculatedPriceNumber
   const productIdentity = {
     handle: product?.MedusaProduct?.Handle,
     title: product?.Title,
@@ -86,7 +89,11 @@ export function ProductCard({
         Number(price),
         product?.Metadata,
         product?.MedusaProduct?.Variants?.[0]?.Sku,
-        (product?.MedusaProduct as { PricingMode?: "per_lb" | "fixed_price" } | undefined)?.PricingMode
+        (
+          product?.MedusaProduct as
+            | { PricingMode?: "per_lb" | "fixed_price" }
+            | undefined
+        )?.PricingMode
       )
     : null
   const compactSecondaryPrice = priceDisplay?.secondary
@@ -111,7 +118,7 @@ export function ProductCard({
             <ProductCardCarousel
               images={galleryImages}
               alt={product.Title}
-              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 160px, 180px"
+              sizes="(max-width: 639px) 100vw, (max-width: 1023px) 160px, 180px"
             />
             {previouslyOrdered && (
               <span className="absolute left-2 top-2 rounded-full bg-white/95 px-2.5 py-1 font-maison-neue-mono text-[9px] font-bold uppercase tracking-wide text-Charcoal shadow-sm">
@@ -143,7 +150,10 @@ export function ProductCard({
           <TooltipProvider delayDuration={100}>
             <div className="flex items-center flex-wrap gap-4 mb-3">
               {product?.Metadata?.GlutenFree && (
-                <Tooltip content="Gluten Free" className="bg-Charcoal text-white">
+                <Tooltip
+                  content="Gluten Free"
+                  className="bg-Charcoal text-white"
+                >
                   <span className="inline-flex items-center cursor-default">
                     <Image
                       src="/images/icons/gluten-free.png"
@@ -156,7 +166,10 @@ export function ProductCard({
                 </Tooltip>
               )}
               {product?.Metadata?.Cooked ? (
-                <Tooltip content="Ready to Eat" className="bg-Charcoal text-white">
+                <Tooltip
+                  content="Ready to Eat"
+                  className="bg-Charcoal text-white"
+                >
                   <span className="inline-flex items-center cursor-default">
                     <Image
                       src="/images/icons/ready-to-eat.png"
@@ -195,7 +208,6 @@ export function ProductCard({
               )}
             </div>
           </TooltipProvider>
-
         </div>
 
         {/* Col 3: Price & Actions */}
@@ -230,13 +242,22 @@ export function ProductCard({
               href={`/products/${product?.MedusaProduct?.Handle}`}
               className="min-h-[44px] min-w-0 inline-flex gap-2 items-center justify-center hover:opacity-70 focus-visible:opacity-100 focus-visible:underline transition-opacity w-full"
             >
-              <span className="text-Charcoal font-rexton text-[10px] font-bold uppercase whitespace-nowrap">View Details</span>
-              <Image src="/images/icons/arrow-right.svg" width={16} height={10} alt="view details" />
+              <span className="text-Charcoal font-rexton text-[10px] font-bold uppercase whitespace-nowrap">
+                View Details
+              </span>
+              <Image
+                src="/images/icons/arrow-right.svg"
+                width={16}
+                height={10}
+                alt="view details"
+              />
             </LocalizedClientLink>
 
             <button
               onClick={handleAddToCart}
-              disabled={isAdding || !product?.MedusaProduct?.Variants?.[0]?.VariantId}
+              disabled={
+                isAdding || !product?.MedusaProduct?.Variants?.[0]?.VariantId
+              }
               className="w-full min-h-[44px] min-w-0 px-4 py-2.5 rounded-[5px] border border-Charcoal bg-Gold text-Charcoal font-rexton text-xs font-bold uppercase transition-opacity hover:opacity-95 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap text-center"
               data-agent-action="add-to-cart"
               data-product-handle={product?.MedusaProduct?.Handle}
@@ -269,7 +290,10 @@ export function ProductCard({
             <ProductCardCarousel
               images={galleryImages}
               alt={product.Title}
-              sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 33vw"
+              sizes={
+                imageSizes ||
+                "(max-width: 639px) 50vw, (max-width: 1023px) 33vw, 33vw"
+              }
             />
           </div>
           {previouslyOrdered && (
@@ -301,7 +325,9 @@ export function ProductCard({
               </p>
             )}
           </div>
-        ) : <span />}
+        ) : (
+          <span />
+        )}
       </div>
 
       {/* Row 3: Title */}
@@ -309,9 +335,7 @@ export function ProductCard({
         href={`/products/${product?.MedusaProduct?.Handle}`}
         className="block min-w-0 min-h-[44px] mt-3"
       >
-        <h2
-          className="text-[15px] leading-[1.22] font-maison-neue font-semibold text-Charcoal hover:text-VibrantRed transition-colors whitespace-normal break-normal line-clamp-3 [hyphens:none] [overflow-wrap:normal] [word-break:keep-all] sm:font-gyst sm:text-[16px] sm:font-bold sm:text-balance lg:text-h4 lg:leading-normal"
-        >
+        <h2 className="text-[15px] leading-[1.22] font-maison-neue font-semibold text-Charcoal hover:text-VibrantRed transition-colors whitespace-normal break-normal line-clamp-3 [hyphens:none] [overflow-wrap:normal] [word-break:keep-all] sm:font-gyst sm:text-[16px] sm:font-bold sm:text-balance lg:text-h4 lg:leading-normal">
           {product.Title}
         </h2>
       </LocalizedClientLink>
@@ -382,7 +406,9 @@ export function ProductCard({
       <div className="grid min-w-0 grid-cols-1 gap-2 mt-4 sm:flex sm:items-center sm:justify-between">
         <button
           onClick={handleAddToCart}
-          disabled={isAdding || !product?.MedusaProduct?.Variants?.[0]?.VariantId}
+          disabled={
+            isAdding || !product?.MedusaProduct?.Variants?.[0]?.VariantId
+          }
           className="min-h-[44px] min-w-0 px-4 py-2 rounded-[5px] border border-Charcoal bg-Gold text-Charcoal font-rexton text-xs font-bold uppercase transition-opacity hover:opacity-95 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
           data-agent-action="add-to-cart"
           data-product-handle={product?.MedusaProduct?.Handle}
@@ -419,13 +445,19 @@ export default function StrapiProductGrid({
   recentProductIds = [],
 }: StrapiProductGridProps) {
   const recentSet = new Set(recentProductIds)
+  const gridImageSizes = wide
+    ? "(max-width: 639px) 50vw, (max-width: 1023px) 33vw, (max-width: 1279px) 33vw, 25vw"
+    : "(max-width: 639px) 50vw, (max-width: 1023px) 33vw, 33vw"
 
   if (products.length === 0) {
     return (
       <div className="text-center py-12">
-        <p className="text-h4 font-gyst text-Charcoal mb-2">No products found</p>
+        <p className="text-h4 font-gyst text-Charcoal mb-2">
+          No products found
+        </p>
         <p className="text-p-md text-gray-600">
-          Products with this tag will appear here once they are tagged in the system.
+          Products with this tag will appear here once they are tagged in the
+          system.
         </p>
       </div>
     )
@@ -443,11 +475,12 @@ export default function StrapiProductGrid({
         }
       >
         {products.map((product) => (
-          <ProductCard 
-            key={product.documentId} 
-            product={product} 
+          <ProductCard
+            key={product.documentId}
+            product={product}
             countryCode={countryCode}
             viewMode={viewMode}
+            imageSizes={gridImageSizes}
             previouslyOrdered={
               !!product.MedusaProduct?.ProductId &&
               recentSet.has(product.MedusaProduct.ProductId)

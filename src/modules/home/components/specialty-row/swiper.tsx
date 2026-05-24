@@ -107,6 +107,7 @@ export default function SpecialtySwiper({
                   product={product}
                   countryCode={countryCode}
                   viewMode="grid"
+                  imageSizes="(max-width: 519px) 87vw, (max-width: 899px) 46vw, 31vw"
                 />
               </div>
             </SwiperSlide>

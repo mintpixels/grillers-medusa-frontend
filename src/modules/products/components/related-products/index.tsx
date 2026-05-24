@@ -1,5 +1,6 @@
 import type { StrapiCollectionProduct } from "@lib/data/strapi/collections"
 import { enrichStrapiProductsWithMedusaPrices } from "@lib/data/products"
+import { compactCollectionProducts } from "@lib/util/collection-product"
 import { withTimeout } from "@lib/util/promise-timeout"
 import RelatedProductsSwiper from "./swiper"
 
@@ -368,8 +369,8 @@ export default async function RelatedProducts({
   countryCode,
 }: RelatedProductsProps) {
   // Filter out the current product if it happens to be one of the curated 8
-  const products = CURATED_PRODUCTS.filter(
-    (p) => p.MedusaProduct?.ProductId !== product.id
+  const products = compactCollectionProducts(
+    CURATED_PRODUCTS.filter((p) => p.MedusaProduct?.ProductId !== product.id)
   )
 
   if (!products.length) return null
@@ -384,6 +385,9 @@ export default async function RelatedProducts({
   )
 
   return (
-    <RelatedProductsSwiper products={enriched} countryCode={countryCode} />
+    <RelatedProductsSwiper
+      products={compactCollectionProducts(enriched)}
+      countryCode={countryCode}
+    />
   )
 }

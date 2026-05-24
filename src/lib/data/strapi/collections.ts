@@ -1,4 +1,5 @@
 import { gql } from "graphql-request"
+import { compactCollectionProducts } from "@lib/util/collection-product"
 import type { StrapiSEO, StrapiSocialMeta } from "./seo"
 
 export type ProductCollectionData = {
@@ -76,7 +77,7 @@ export function generateTagSlug(tagValue: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "")
-  
+
   return `kosher-${baseSlug}`
 }
 
@@ -107,14 +108,14 @@ export async function getProductTagBySlug(
   try {
     const result = await client.request(GetProductTagBySlugQuery)
     const tags = result.productTags || []
-    
+
     // Find tag where generated slug matches the handle
     const matchedTag = tags.find((tag: ProductTag) => {
       const tagValue = extractTagValue(tag.Name)
       const tagSlug = generateTagSlug(tagValue)
       return tagSlug === handle
     })
-    
+
     return matchedTag || null
   } catch (error) {
     console.error("Error fetching product tag:", error)
@@ -241,11 +242,7 @@ export const GetProductsByTagQuery = gql`
   query GetProductsByTag($tagName: String!, $limit: Int, $start: Int) {
     products(
       filters: {
-        Categorization: {
-          ProductTags: {
-            Name: { contains: $tagName }
-          }
-        }
+        Categorization: { ProductTags: { Name: { contains: $tagName } } }
       }
       pagination: { limit: $limit, start: $start }
     ) {
@@ -340,7 +337,6 @@ export const GetProductsByTagQuery = gql`
       MedusaProduct {
         ProductId
         Handle
-        Description
         ShortDescription
         Variants {
           VariantId
@@ -360,11 +356,7 @@ export const GetProductsByCollectionSlugQuery = gql`
   query GetProductsByCollectionSlug($slug: String!, $limit: Int, $start: Int) {
     products(
       filters: {
-        Categorization: {
-          ProductCollections: {
-            Slug: { eq: $slug }
-          }
-        }
+        Categorization: { ProductCollections: { Slug: { eq: $slug } } }
       }
       pagination: { limit: $limit, start: $start }
     ) {
@@ -459,7 +451,6 @@ export const GetProductsByCollectionSlugQuery = gql`
       MedusaProduct {
         ProductId
         Handle
-        Description
         ShortDescription
         Variants {
           VariantId
@@ -561,13 +552,13 @@ export async function getProductsByCollectionSlug(
 
 // Query to fetch products by multiple Medusa product IDs
 export const GetProductsByMedusaIdsQuery = gql`
-  query GetProductsByMedusaIds($productIds: [String]!, $limit: Int, $start: Int) {
+  query GetProductsByMedusaIds(
+    $productIds: [String]!
+    $limit: Int
+    $start: Int
+  ) {
     products(
-      filters: {
-        MedusaProduct: {
-          ProductId: { in: $productIds }
-        }
-      }
+      filters: { MedusaProduct: { ProductId: { in: $productIds } } }
       pagination: { limit: $limit, start: $start }
     ) {
       documentId
@@ -658,7 +649,6 @@ export const GetProductsByMedusaIdsQuery = gql`
       MedusaProduct {
         ProductId
         Handle
-        Description
         ShortDescription
         Variants {
           VariantId
@@ -692,7 +682,7 @@ export async function getProductsByMedusaIds(
       start: 0,
     })
 
-    return result.products || []
+    return compactCollectionProducts(result.products || [])
   } catch (error) {
     console.error("Error fetching products by Medusa IDs:", error)
   }
@@ -704,7 +694,7 @@ export async function getProductsByMedusaIds(
       start: 0,
     })
 
-    return result.products || []
+    return compactCollectionProducts(result.products || [])
   } catch (error) {
     console.error("Error fetching legacy products by Medusa IDs:", error)
     return []
@@ -722,8 +712,12 @@ export const GetProductsByHandlesQuery = gql`
     ) {
       documentId
       Title
-      FeaturedImage { url }
-      GalleryImages { url }
+      FeaturedImage {
+        url
+      }
+      GalleryImages {
+        url
+      }
       Metadata {
         AvgPackSize
         AvgPackWeight
@@ -751,18 +745,23 @@ export const GetProductsByHandlesQuery = gql`
         QualifiesForFreeDeliveryOffers
         FreeDeliveryExclusionReason
       }
-      Categorization { ProductTags { Name } }
+      Categorization {
+        ProductTags {
+          Name
+        }
+      }
       MedusaProduct {
         ProductId
         Handle
-        Description
         ShortDescription
         Variants {
           VariantId
           Sku
           QualifiesForFreeDeliveryOffers
           FreeDeliveryExclusionReason
-          Price { CalculatedPriceNumber }
+          Price {
+            CalculatedPriceNumber
+          }
         }
       }
     }
@@ -795,7 +794,9 @@ export async function getProductsByHandles(
     const products: StrapiCollectionProduct[] = result.products || []
     // Strapi doesn't preserve the input order — re-sort to match the curated
     // sequence so editors control the display order in Strapi.
-    return sortProductsByHandleOrder(products, handles)
+    return compactCollectionProducts(
+      sortProductsByHandleOrder(products, handles)
+    )
   } catch (error) {
     console.error("Error fetching products by handles:", error)
   }
@@ -804,7 +805,9 @@ export async function getProductsByHandles(
     const result = await client.request(LegacyGetProductsByHandlesQuery, {
       handles,
     })
-    return sortProductsByHandleOrder(result.products || [], handles)
+    return compactCollectionProducts(
+      sortProductsByHandleOrder(result.products || [], handles)
+    )
   } catch (error) {
     console.error("Error fetching legacy products by handles:", error)
     return []
@@ -814,9 +817,7 @@ export async function getProductsByHandles(
 // Query to fetch all products (image filtering done client-side since Strapi can't filter on media fields)
 export const GetProductsWithImagesQuery = gql`
   query GetProductsWithImages($limit: Int, $start: Int) {
-    products(
-      pagination: { limit: $limit, start: $start }
-    ) {
+    products(pagination: { limit: $limit, start: $start }) {
       documentId
       Title
       FeaturedImage {
@@ -908,7 +909,6 @@ export const GetProductsWithImagesQuery = gql`
       MedusaProduct {
         ProductId
         Handle
-        Description
         ShortDescription
         Variants {
           VariantId
@@ -973,8 +973,12 @@ export async function getProductsByMedusaLookupRefs(
   },
   client: any
 ): Promise<StrapiCollectionProduct[]> {
-  const productIds = Array.from(new Set((input.productIds || []).filter(Boolean)))
-  const variantIds = Array.from(new Set((input.variantIds || []).filter(Boolean)))
+  const productIds = Array.from(
+    new Set((input.productIds || []).filter(Boolean))
+  )
+  const variantIds = Array.from(
+    new Set((input.variantIds || []).filter(Boolean))
+  )
   const skus = Array.from(
     new Set((input.skus || []).map(normalizeLookupSku).filter(Boolean))
   )
@@ -1012,7 +1016,7 @@ export async function getProductsByMedusaLookupRefs(
   )
 
   if (!hasMissingVariantMatch && !hasMissingSkuMatch) {
-    return directMatches
+    return compactCollectionProducts(directMatches)
   }
 
   try {
@@ -1022,12 +1026,14 @@ export async function getProductsByMedusaLookupRefs(
       {},
       100
     )
-    return uniqueProductsByDocumentId([
-      ...directMatches,
-      ...catalogProducts.filter((product) =>
-        productMatchesMedusaLookup(product, refs)
-      ),
-    ])
+    return compactCollectionProducts(
+      uniqueProductsByDocumentId([
+        ...directMatches,
+        ...catalogProducts.filter((product) =>
+          productMatchesMedusaLookup(product, refs)
+        ),
+      ])
+    )
   } catch (error) {
     console.error("Error fetching products for Medusa lookup refs:", error)
   }
@@ -1039,18 +1045,20 @@ export async function getProductsByMedusaLookupRefs(
       {},
       100
     )
-    return uniqueProductsByDocumentId([
-      ...directMatches,
-      ...catalogProducts.filter((product) =>
-        productMatchesMedusaLookup(product, refs)
-      ),
-    ])
+    return compactCollectionProducts(
+      uniqueProductsByDocumentId([
+        ...directMatches,
+        ...catalogProducts.filter((product) =>
+          productMatchesMedusaLookup(product, refs)
+        ),
+      ])
+    )
   } catch (error) {
     console.error(
       "Error fetching legacy products for Medusa lookup refs:",
       error
     )
-    return directMatches
+    return compactCollectionProducts(directMatches)
   }
 }
 
@@ -1102,14 +1110,12 @@ async function getEligibleProductPool(
       // Filter to only those with both a FeaturedImage and at least one GalleryImage
       const eligible = allProducts.filter(
         (p) =>
-          p.FeaturedImage?.url &&
-          p.GalleryImages &&
-          p.GalleryImages.length > 0
+          p.FeaturedImage?.url && p.GalleryImages && p.GalleryImages.length > 0
       )
 
-      _cachedEligibleProducts = eligible
+      _cachedEligibleProducts = compactCollectionProducts(eligible)
       _cacheTimestamp = Date.now()
-      return eligible
+      return _cachedEligibleProducts
     } catch (error) {
       console.error("Error building related products cache:", error)
       // Return stale cache if available, otherwise empty

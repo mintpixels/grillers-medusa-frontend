@@ -1,6 +1,7 @@
 import { gql } from "graphql-request"
 import strapiClient from "@lib/strapi"
 import { enrichStrapiProductsWithMedusaPrices } from "@lib/data/products"
+import { compactCollectionProduct } from "@lib/util/collection-product"
 import type { StrapiSEO, StrapiSocialMeta } from "./seo"
 import type { StrapiCollectionProduct } from "./collections"
 
@@ -209,7 +210,6 @@ const CuratedProductFields = gql`
     MedusaProduct {
       ProductId
       Handle
-      Description
       ShortDescription
       Variants {
         VariantId
@@ -405,7 +405,6 @@ const LegacyCuratedProductFields = gql`
     MedusaProduct {
       ProductId
       Handle
-      Description
       ShortDescription
       Variants {
         VariantId
@@ -607,8 +606,30 @@ function replaceProducts(
     Items: (collection.Items || []).map((item) => {
       const id =
         item.Product?.MedusaProduct?.ProductId || item.Product?.documentId
-      return id && byId.has(id) ? { ...item, Product: byId.get(id)! } : item
+      return id && byId.has(id)
+        ? { ...item, Product: compactCollectionProduct(byId.get(id)!) }
+        : compactCuratedCollectionItem(item)
     }),
+  }))
+}
+
+function compactCuratedCollectionItem(item: CuratedCollectionItem) {
+  return {
+    ...item,
+    Product: item.Product
+      ? compactCollectionProduct(item.Product)
+      : item.Product,
+    OriginalProduct: item.OriginalProduct
+      ? compactCollectionProduct(item.OriginalProduct)
+      : item.OriginalProduct,
+  }
+}
+
+function compactCuratedCollections(collections: CuratedCollection[]) {
+  return collections.map((collection) => ({
+    ...collection,
+    Items:
+      collection.Items?.map(compactCuratedCollectionItem) || collection.Items,
   }))
 }
 
@@ -617,7 +638,7 @@ async function enrichCollections(
   countryCode: string
 ) {
   const products = uniqueProducts(collections)
-  if (!products.length) return collections
+  if (!products.length) return compactCuratedCollections(collections)
   const enriched = await enrichStrapiProductsWithMedusaPrices(
     products,
     countryCode
@@ -658,7 +679,7 @@ export async function getCuratedCollections({
     const collections = applyFilters(data.curatedCollections)
     return enrichPrices
       ? enrichCollections(collections, countryCode)
-      : collections
+      : compactCuratedCollections(collections)
   } catch (error) {
     console.error("Error fetching curated collections:", error)
   }
@@ -670,7 +691,7 @@ export async function getCuratedCollections({
     const collections = applyFilters(data.curatedCollections)
     return enrichPrices
       ? enrichCollections(collections, countryCode)
-      : collections
+      : compactCuratedCollections(collections)
   } catch (error) {
     console.error("Error fetching legacy curated collections:", error)
     return []

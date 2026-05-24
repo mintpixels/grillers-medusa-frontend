@@ -48,8 +48,137 @@ type PageProps = {
   params: Promise<{ countryCode: string }>
 }
 
+type PurchaseHistory = Awaited<ReturnType<typeof listPurchaseHistory>>
+type ReorderStrapiMap = Record<string, StrapiCollectionProduct>
+type CuratedCollectionCards = Awaited<
+  ReturnType<typeof getCuratedCollectionCards>
+>
+type CustomerZipSource = "cart" | "address" | "recent_order" | null
+type CustomerZipState = {
+  customerZip: string | null
+  customerZipSource: CustomerZipSource
+}
+
 function presentString(value: string | null | undefined): value is string {
   return Boolean(value)
+}
+
+async function getReorderStrapiMap(
+  purchaseHistory: PurchaseHistory
+): Promise<ReorderStrapiMap> {
+  const reorderStrapiMap: ReorderStrapiMap = {}
+
+  if (!purchaseHistory.length) {
+    return reorderStrapiMap
+  }
+
+  const ids = Array.from(
+    new Set(purchaseHistory.map((h) => h.productId).filter(presentString))
+  )
+  const variantIds = Array.from(
+    new Set(purchaseHistory.map((h) => h.variantId).filter(presentString))
+  )
+  const skus = Array.from(
+    new Set(purchaseHistory.map((h) => h.sku).filter(presentString))
+  )
+
+  if (!ids.length && !variantIds.length && !skus.length) {
+    return reorderStrapiMap
+  }
+
+  try {
+    const strapiProducts = await withTimeout(
+      getProductsByMedusaLookupRefs(
+        { productIds: ids, variantIds, skus },
+        strapiClient
+      ),
+      1800,
+      [],
+      "home reorder enrichment"
+    )
+
+    for (const sp of strapiProducts) {
+      if (sp.MedusaProduct?.ProductId) {
+        reorderStrapiMap[sp.MedusaProduct.ProductId] = sp
+      }
+      for (const variant of sp.MedusaProduct?.Variants || []) {
+        if (variant.VariantId) {
+          reorderStrapiMap[variant.VariantId] = sp
+        }
+        if (variant.Sku) {
+          reorderStrapiMap[variant.Sku.trim().toLowerCase()] = sp
+        }
+      }
+    }
+  } catch (error) {
+    console.error("Error fetching reorder strapi enrichment:", error)
+  }
+
+  return reorderStrapiMap
+}
+
+async function ReorderRowBlock({
+  history,
+  strapiMapPromise,
+  firstName,
+  countryCode,
+}: {
+  history: PurchaseHistory
+  strapiMapPromise: Promise<ReorderStrapiMap>
+  firstName?: string | null
+  countryCode: string
+}) {
+  const strapiMap = await strapiMapPromise
+
+  return (
+    <ReorderRow
+      history={history}
+      strapiMap={strapiMap}
+      firstName={firstName}
+      countryCode={countryCode}
+    />
+  )
+}
+
+async function ShopCollectionsBlock({
+  data,
+  countryCode,
+  collectionsPromise,
+}: {
+  data: any
+  countryCode: string
+  collectionsPromise: Promise<CuratedCollectionCards>
+}) {
+  const collections = await collectionsPromise
+
+  return (
+    <ShopCollectionsSection
+      data={data}
+      countryCode={countryCode}
+      collections={collections}
+    />
+  )
+}
+
+async function DeliveryPromiseBlock({
+  countryCode,
+  customerZipPromise,
+  isLoggedIn,
+}: {
+  countryCode: string
+  customerZipPromise: Promise<CustomerZipState>
+  isLoggedIn: boolean
+}) {
+  const { customerZip, customerZipSource } = await customerZipPromise
+
+  return (
+    <DeliveryPromiseSection
+      countryCode={countryCode}
+      customerZip={customerZip}
+      customerZipSource={customerZipSource}
+      isLoggedIn={isLoggedIn}
+    />
+  )
 }
 
 export async function generateMetadata({
@@ -159,23 +288,28 @@ export default async function Home(props: {
   const isLoggedIn = !!customer
   const cartZip = normalizeDeliveryZip(cart?.shipping_address?.postal_code)
   const addressBookZip = getAddressBookDeliveryZip(customer?.addresses)
-  const latestOrderZip =
+  const latestOrderZipPromise =
     isLoggedIn && !cartZip && !addressBookZip
-      ? await withTimeout(
+      ? withTimeout(
           getLatestOrderDeliveryZip().catch(() => ""),
           1000,
           "",
           "home latest order delivery zip"
         )
-      : ""
-  const customerZip = cartZip || addressBookZip || latestOrderZip || null
-  const customerZipSource = cartZip
-    ? "cart"
-    : addressBookZip
-    ? "address"
-    : latestOrderZip
-    ? "recent_order"
-    : null
+      : Promise.resolve("")
+  const customerZipPromise: Promise<CustomerZipState> =
+    latestOrderZipPromise.then((latestOrderZip) => {
+      const customerZip = cartZip || addressBookZip || latestOrderZip || null
+      const customerZipSource: CustomerZipSource = cartZip
+        ? "cart"
+        : addressBookZip
+        ? "address"
+        : latestOrderZip
+        ? "recent_order"
+        : null
+
+      return { customerZip, customerZipSource }
+    })
 
   // Reorder-row data: fetch purchase history for logged-in customers. This
   // combines native Medusa orders and the QuickBooks-backed legacy projection.
@@ -189,48 +323,9 @@ export default async function Home(props: {
       )
     : []
   const hasOrders = purchaseHistory.length > 0
-  const reorderStrapiMap: Record<string, StrapiCollectionProduct> = {}
-  if (purchaseHistory.length > 0) {
-    const ids = Array.from(
-      new Set(purchaseHistory.map((h) => h.productId).filter(presentString))
-    )
-    const variantIds = Array.from(
-      new Set(purchaseHistory.map((h) => h.variantId).filter(presentString))
-    )
-    const skus = Array.from(
-      new Set(purchaseHistory.map((h) => h.sku).filter(presentString))
-    )
-    if (ids.length > 0 || variantIds.length > 0 || skus.length > 0) {
-      try {
-        const strapiProducts = await withTimeout(
-          getProductsByMedusaLookupRefs(
-            { productIds: ids, variantIds, skus },
-            strapiClient
-          ),
-          1800,
-          [],
-          "home reorder enrichment"
-        )
-        for (const sp of strapiProducts) {
-          if (sp.MedusaProduct?.ProductId) {
-            reorderStrapiMap[sp.MedusaProduct.ProductId] = sp
-          }
-          for (const variant of sp.MedusaProduct?.Variants || []) {
-            if (variant.VariantId) {
-              reorderStrapiMap[variant.VariantId] = sp
-            }
-            if (variant.Sku) {
-              reorderStrapiMap[variant.Sku.trim().toLowerCase()] = sp
-            }
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching reorder strapi enrichment:", error)
-      }
-    }
-  }
+  const reorderStrapiMapPromise = getReorderStrapiMap(purchaseHistory)
 
-  const homeCuratedCollections = await withTimeout(
+  const homeCuratedCollectionsPromise = withTimeout(
     getCuratedCollectionCards({
       surface: "homepage",
       customerState: hasOrders ? "returning" : "guest_or_no_orders",
@@ -282,27 +377,37 @@ export default async function Home(props: {
             return (
               <React.Fragment key={section.__typename}>
                 {isLoggedIn && hasOrders && purchaseHistory.length > 0 && (
-                  <ReorderRow
-                    history={purchaseHistory}
-                    strapiMap={reorderStrapiMap}
-                    firstName={customer?.first_name}
+                  <React.Suspense fallback={null}>
+                    <ReorderRowBlock
+                      history={purchaseHistory}
+                      strapiMapPromise={reorderStrapiMapPromise}
+                      firstName={customer?.first_name}
+                      countryCode={countryCode}
+                    />
+                  </React.Suspense>
+                )}
+                <React.Suspense fallback={null}>
+                  <BestsellersSection
+                    data={section}
                     countryCode={countryCode}
                   />
-                )}
-                <BestsellersSection data={section} countryCode={countryCode} />
+                </React.Suspense>
                 {!hasShopCollectionsSection && (
                   <>
-                    <ShopCollectionsSection
-                      data={fallbackCollectionsSection}
-                      countryCode={countryCode}
-                      collections={homeCuratedCollections}
-                    />
-                    <DeliveryPromiseSection
-                      countryCode={countryCode}
-                      customerZip={customerZip}
-                      customerZipSource={customerZipSource}
-                      isLoggedIn={isLoggedIn}
-                    />
+                    <React.Suspense fallback={null}>
+                      <ShopCollectionsBlock
+                        data={fallbackCollectionsSection}
+                        countryCode={countryCode}
+                        collectionsPromise={homeCuratedCollectionsPromise}
+                      />
+                    </React.Suspense>
+                    <React.Suspense fallback={null}>
+                      <DeliveryPromiseBlock
+                        countryCode={countryCode}
+                        customerZipPromise={customerZipPromise}
+                        isLoggedIn={isLoggedIn}
+                      />
+                    </React.Suspense>
                     <StandardsComparison />
                     <LearnEntrySection />
                   </>
@@ -312,7 +417,9 @@ export default async function Home(props: {
           case "ComponentHomeKosherPromise":
             return (
               <React.Fragment key={section.__typename}>
-                <SpecialtyRow countryCode={countryCode} />
+                <React.Suspense fallback={null}>
+                  <SpecialtyRow countryCode={countryCode} />
+                </React.Suspense>
                 <KosherPromiseSection data={section} />
                 <WholesaleBand />
               </React.Fragment>
@@ -320,17 +427,20 @@ export default async function Home(props: {
           case "ComponentHomeShopCollections":
             return (
               <React.Fragment key={section.__typename}>
-                <ShopCollectionsSection
-                  data={section}
-                  countryCode={countryCode}
-                  collections={homeCuratedCollections}
-                />
-                <DeliveryPromiseSection
-                  countryCode={countryCode}
-                  customerZip={customerZip}
-                  customerZipSource={customerZipSource}
-                  isLoggedIn={isLoggedIn}
-                />
+                <React.Suspense fallback={null}>
+                  <ShopCollectionsBlock
+                    data={section}
+                    countryCode={countryCode}
+                    collectionsPromise={homeCuratedCollectionsPromise}
+                  />
+                </React.Suspense>
+                <React.Suspense fallback={null}>
+                  <DeliveryPromiseBlock
+                    countryCode={countryCode}
+                    customerZipPromise={customerZipPromise}
+                    isLoggedIn={isLoggedIn}
+                  />
+                </React.Suspense>
                 <StandardsComparison />
                 <LearnEntrySection />
               </React.Fragment>
