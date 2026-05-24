@@ -17,6 +17,7 @@ import CuratedCollectionTemplate from "@modules/collections/templates/curated-co
 import { getBaseURL } from "@lib/util/env"
 import { retrieveCustomer } from "@lib/data/customer"
 import { listPurchaseHistory } from "@lib/data/orders"
+import { compactCollectionProducts } from "@lib/util/collection-product"
 import {
   getCuratedCollectionBySlug,
   type CuratedCollection,
@@ -102,7 +103,7 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
   // If not found as collection, check if it's a product tag
   if (!collection) {
     tag = await getProductTagBySlug(handle, strapiClient)
-    
+
     if (tag) {
       const tagValue = extractTagValue(tag.Name)
       collection = {
@@ -340,7 +341,7 @@ export default async function CollectionPage(props: Props) {
         slug={handle}
         countryCode={countryCode}
         collection={collection}
-        products={products}
+        products={compactCollectionProducts(products)}
         recentProductIds={recentProductIds}
       />
     </>

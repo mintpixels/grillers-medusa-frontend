@@ -11,9 +11,10 @@ import Menu from "./menu"
 
 type NavProps = {
   customer?: HttpTypes.StoreCustomer | null
+  cart?: HttpTypes.StoreCart | null
 }
 
-export default async function Nav({ customer }: NavProps = {}) {
+export default async function Nav({ customer, cart }: NavProps = {}) {
   const [navLinksData, regions] = await Promise.all([
     withTimeout(
       strapiClient.request<any>(HeaderNavQuery).catch(() => null),
@@ -42,6 +43,7 @@ export default async function Nav({ customer }: NavProps = {}) {
         regions={regions || []}
         phoneNumber={phoneNumber}
         customer={customer}
+        cart={cart}
         navCounts={navCounts}
       />
       <Menu navLinks={navLinks} navCounts={navCounts} />

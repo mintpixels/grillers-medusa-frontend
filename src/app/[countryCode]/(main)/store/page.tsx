@@ -6,6 +6,10 @@ import { PRODUCT_INDEX } from "@lib/algolia/indexes"
 import { enrichStrapiProductsWithMedusaPrices } from "@lib/data/products"
 import type { StrapiCollectionProduct } from "@lib/data/strapi/collections"
 import { withTimeout } from "@lib/util/promise-timeout"
+import {
+  ALGOLIA_COLLECTION_PRODUCT_ATTRIBUTES,
+  compactCollectionProducts,
+} from "@lib/util/collection-product"
 import CollectionTemplate from "@modules/collections/templates"
 
 type Params = {
@@ -46,7 +50,9 @@ async function browseAlgoliaCatalog(): Promise<StrapiCollectionProduct[]> {
 
   try {
     const res = await fetch(
-      `https://${appId}-dsn.algolia.net/1/indexes/${encodeURIComponent(PRODUCT_INDEX)}/query`,
+      `https://${appId}-dsn.algolia.net/1/indexes/${encodeURIComponent(
+        PRODUCT_INDEX
+      )}/query`,
       {
         method: "POST",
         headers: {
@@ -57,7 +63,11 @@ async function browseAlgoliaCatalog(): Promise<StrapiCollectionProduct[]> {
         // Empty `query` browses the index. 1000 is Algolia's per-request
         // cap and is well above the current catalog (~400-500 records).
         // If/when the catalog crosses that, swap to a paginated browse.
-        body: JSON.stringify({ query: "", hitsPerPage: 1000 }),
+        body: JSON.stringify({
+          query: "",
+          hitsPerPage: 1000,
+          attributesToRetrieve: ALGOLIA_COLLECTION_PRODUCT_ATTRIBUTES,
+        }),
         // ISR: catalog doesn't change in real-time, so cache the Algolia
         // response for 5 min. Medusa prices are re-enriched on each render
         // by the helper below, which has its own Next.js Data Cache layer.
@@ -99,7 +109,7 @@ export default async function StorePage(props: Params) {
       title="All Products"
       slug="store"
       countryCode={countryCode}
-      products={products}
+      products={compactCollectionProducts(products)}
     />
   )
 }

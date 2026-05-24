@@ -1,4 +1,5 @@
 import Link from "next/link"
+import Image from "next/image"
 import { generatedSiteImages } from "@lib/content/generated-site-images"
 
 type HeroProps = {
@@ -56,12 +57,22 @@ const Hero = ({
 
   return (
     <section
-      className="min-h-[440px] h-[54vh] max-h-[560px] w-full bg-no-repeat bg-center bg-cover flex flex-col justify-center items-center relative"
+      className="min-h-[440px] h-[54vh] max-h-[560px] w-full flex flex-col justify-center items-center relative overflow-hidden"
       aria-labelledby="home-hero-heading"
-      style={{
-        backgroundImage: `linear-gradient(90deg, rgba(0, 27, 35, 0.62), rgba(0, 27, 35, 0.26)), url('${heroImage}')`,
-      }}
     >
+      <Image
+        src={heroImage}
+        alt=""
+        fill
+        priority
+        sizes="100vw"
+        className="absolute inset-0 object-cover"
+        aria-hidden="true"
+      />
+      <div
+        className="absolute inset-0 bg-[linear-gradient(90deg,rgba(0,27,35,0.62),rgba(0,27,35,0.26))]"
+        aria-hidden="true"
+      />
       <div className="text-center px-6 small:p-32 gap-6 flex flex-col items-center relative z-10">
         <div className="max-w-[820px]">
           <p className="mb-4 font-maison-neue-mono text-p-sm-mono font-bold uppercase tracking-wide text-Gold drop-shadow">

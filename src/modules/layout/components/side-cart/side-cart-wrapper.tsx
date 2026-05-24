@@ -3,6 +3,7 @@ import { retrieveCustomer } from "@lib/data/customer"
 import { getDeliveryZipCookie } from "@lib/data/delivery-zip"
 import { getAtlantaDeliveryZipConfig } from "@lib/data/strapi/fulfillment"
 import { getAddressBookDeliveryZip } from "@lib/util/delivery-zip"
+import type { HttpTypes } from "@medusajs/types"
 import SideCart from "./index"
 import { getCartUpsellProducts } from "@modules/cart/components/cart-upsells/server"
 import { withTimeout } from "@lib/util/promise-timeout"
@@ -13,16 +14,22 @@ import { withTimeout } from "@lib/util/promise-timeout"
  */
 export default async function SideCartWrapper({
   countryCode = "us",
+  cart: prefetchedCart,
+  customer: prefetchedCustomer,
 }: {
   countryCode?: string
+  cart?: HttpTypes.StoreCart | null
+  customer?: HttpTypes.StoreCustomer | null
 }) {
   const [cart, atlantaZipConfig, savedZip, customer] = await Promise.all([
-    withTimeout(
-      retrieveCart().catch(() => null),
-      800,
-      null,
-      "side cart cart"
-    ),
+    prefetchedCart !== undefined
+      ? prefetchedCart
+      : withTimeout(
+          retrieveCart().catch(() => null),
+          800,
+          null,
+          "side cart cart"
+        ),
     withTimeout(
       getAtlantaDeliveryZipConfig().catch(() => undefined),
       800,
@@ -30,12 +37,14 @@ export default async function SideCartWrapper({
       "side cart delivery config"
     ),
     getDeliveryZipCookie(),
-    withTimeout(
-      retrieveCustomer().catch(() => null),
-      800,
-      null,
-      "side cart customer"
-    ),
+    prefetchedCustomer !== undefined
+      ? prefetchedCustomer
+      : withTimeout(
+          retrieveCustomer().catch(() => null),
+          800,
+          null,
+          "side cart customer"
+        ),
   ])
   const upsellProducts = cart?.items?.length
     ? await withTimeout(

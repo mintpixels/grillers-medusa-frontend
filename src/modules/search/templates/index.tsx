@@ -18,6 +18,7 @@ import {
 } from "@lib/algolia/search-relevance"
 import type { StrapiCollectionProduct } from "@lib/data/strapi/collections"
 import { enrichStrapiProductsWithMedusaPrices } from "@lib/data/products"
+import { ALGOLIA_COLLECTION_PRODUCT_ATTRIBUTES } from "@lib/util/collection-product"
 import StrapiProductGrid from "@modules/collections/components/strapi-product-grid"
 import CollectionFilters, {
   type ActiveFilters,
@@ -375,7 +376,10 @@ export default function SearchResults({ initialQuery }: SearchResultsProps) {
         {/* Pull every matching hit so we can filter + paginate client-side
             with the same components the collection page uses. 1000 is the
             Algolia per-request cap and is way above our current catalog. */}
-        <Configure hitsPerPage={1000} />
+        <Configure
+          hitsPerPage={1000}
+          attributesToRetrieve={ALGOLIA_COLLECTION_PRODUCT_ATTRIBUTES}
+        />
         <QuerySync q={initialQuery} />
         <SearchBody initialQuery={initialQuery} countryCode={countryCode} />
       </InstantSearch>

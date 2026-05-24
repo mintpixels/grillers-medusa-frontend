@@ -1,3 +1,4 @@
+import { Suspense } from "react"
 import { getBaseURL, isProductionHost } from "@lib/util/env"
 import { Metadata } from "next"
 import { rexton, maisonNeue, maisonNeueMono } from "styles/fonts/fonts"
@@ -87,9 +88,13 @@ export default function RootLayout(props: { children: React.ReactNode }) {
         />
       </head>
       <body>
-        <AnalyticsProvider />
+        <Suspense fallback={null}>
+          <AnalyticsProvider />
+        </Suspense>
         <JitsuScript />
-        <CookieConsentProvider />
+        <Suspense fallback={null}>
+          <CookieConsentProvider />
+        </Suspense>
         <NextTopLoader
           color="#1A1A1A"
           initialPosition={0.08}

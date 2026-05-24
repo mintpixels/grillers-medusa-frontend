@@ -17,12 +17,22 @@ type HeaderProps = {
   regions: HttpTypes.StoreRegion[]
   phoneNumber?: string | null
   customer?: HttpTypes.StoreCustomer | null
+  cart?: HttpTypes.StoreCart | null
   navCounts?: Record<string, number | null>
 }
 
-const Header = ({ navLinks, regions, phoneNumber, customer, navCounts }: HeaderProps) => {
+const Header = ({
+  navLinks,
+  regions,
+  phoneNumber,
+  customer,
+  cart,
+  navCounts,
+}: HeaderProps) => {
   const initials = customer
-    ? `${(customer.first_name?.[0] || "").toUpperCase()}${(customer.last_name?.[0] || "").toUpperCase()}`
+    ? `${(customer.first_name?.[0] || "").toUpperCase()}${(
+        customer.last_name?.[0] || ""
+      ).toUpperCase()}`
     : null
   const canUseStaffTools = isStaffCustomer(customer)
   return (
@@ -76,7 +86,10 @@ const Header = ({ navLinks, regions, phoneNumber, customer, navCounts }: HeaderP
           </div>
 
           {phoneNumber && (
-            <a href={`tel:${phoneNumber.replace(/\D/g, "")}`} className="hidden md:inline-block text-p-md font-maison-neue text-Charcoal hover:underline">
+            <a
+              href={`tel:${phoneNumber.replace(/\D/g, "")}`}
+              className="hidden md:inline-block text-p-md font-maison-neue text-Charcoal hover:underline"
+            >
               {phoneNumber}
             </a>
           )}
@@ -144,7 +157,7 @@ const Header = ({ navLinks, regions, phoneNumber, customer, navCounts }: HeaderP
                 </LocalizedClientLink>
               }
             >
-              <CartButton />
+              <CartButton cart={cart} />
             </Suspense>
           </div>
         </div>

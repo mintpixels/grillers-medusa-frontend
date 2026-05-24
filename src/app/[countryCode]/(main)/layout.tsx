@@ -58,7 +58,7 @@ export default async function PageLayout(props: {
 
   return (
     <CartProvider>
-      <Nav customer={customer} />
+      <Nav customer={customer} cart={cart} />
       {staffImpersonation && (
         <div className="border-b border-Gold/30 bg-Gold/10 px-4 py-2 text-xs font-maison-neue text-Charcoal">
           <div className="mx-auto flex max-w-7xl flex-col gap-2 small:flex-row small:items-center small:justify-between">
@@ -81,7 +81,11 @@ export default async function PageLayout(props: {
       )}
       {props.children}
       <Footer />
-      <SideCartWrapper countryCode={countryCode} />
+      <SideCartWrapper
+        countryCode={countryCode}
+        cart={cart}
+        customer={customer}
+      />
       <Toaster position="bottom-center" />
     </CartProvider>
   )

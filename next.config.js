@@ -1,4 +1,5 @@
 const checkEnvVariables = require("./check-env-variables")
+const path = require("path")
 
 checkEnvVariables()
 
@@ -6,6 +7,7 @@ checkEnvVariables()
  * @type {import('next').NextConfig}
  */
 const nextConfig = {
+  outputFileTracingRoot: path.join(__dirname),
   env: {
     STRAPI_ENDPOINT: process.env.STRAPI_ENDPOINT,
     STRAPI_API_TOKEN: process.env.STRAPI_API_TOKEN,
@@ -26,7 +28,9 @@ const nextConfig = {
   },
   images: {
     dangerouslyAllowSVG: true,
-    qualities: [100],
+    formats: ["image/avif", "image/webp"],
+    minimumCacheTTL: 60 * 60 * 24 * 30,
+    qualities: [50, 60, 75, 85, 100],
     remotePatterns: [
       {
         protocol: "http",

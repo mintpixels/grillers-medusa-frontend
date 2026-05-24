@@ -1,4 +1,5 @@
 import type { StrapiCollectionProduct } from "@lib/data/strapi/collections"
+import { compactCollectionProduct } from "@lib/util/collection-product"
 
 /**
  * Returns true if the Algolia hit is a stub — only `objectID` (plus the
@@ -28,21 +29,5 @@ export function isStubHit(hit: any): boolean {
  */
 export function hitToProduct(hit: any): StrapiCollectionProduct | null {
   if (isStubHit(hit)) return null
-  const mp = hit.MedusaProduct
-  const normalizedMp = mp
-    ? {
-        ...mp,
-        ProductId: mp.ProductId || mp.Id || "",
-        Handle: mp.Handle || "",
-      }
-    : undefined
-  return {
-    documentId: hit.documentId || String(hit.objectID || ""),
-    Title: hit.Title || "",
-    FeaturedImage: hit.FeaturedImage,
-    GalleryImages: Array.isArray(hit.GalleryImages) ? hit.GalleryImages : [],
-    Metadata: hit.Metadata,
-    Categorization: hit.Categorization,
-    MedusaProduct: normalizedMp,
-  } as StrapiCollectionProduct
+  return compactCollectionProduct(hit)
 }
