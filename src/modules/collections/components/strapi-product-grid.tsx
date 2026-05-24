@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { memo, useMemo, useState } from "react"
 import Image from "next/image"
 import { Tooltip, TooltipProvider, toast } from "@medusajs/ui"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
@@ -26,28 +26,32 @@ type StrapiProductGridProps = {
   recentProductIds?: string[]
 }
 
-export function ProductCard({
+export const ProductCard = memo(function ProductCard({
   product,
   countryCode,
   viewMode = "grid",
   previouslyOrdered = false,
   imageSizes,
+  priority = false,
+  hydrateCarouselOnView = true,
 }: {
   product: StrapiCollectionProduct
   countryCode: string
   viewMode?: "grid" | "list"
   previouslyOrdered?: boolean
   imageSizes?: string
+  priority?: boolean
+  hydrateCarouselOnView?: boolean
 }) {
   const [isAdding, setIsAdding] = useState(false)
+  const variant = product?.MedusaProduct?.Variants?.[0]
 
   const handleAddToCart = async () => {
-    const variantId = product?.MedusaProduct?.Variants?.[0]?.VariantId
+    const variantId = variant?.VariantId
     if (!variantId) return
 
     setIsAdding(true)
     try {
-      const variant = product.MedusaProduct?.Variants?.[0]
       const metadata = freeDeliveryEligibilityMetadata(
         getProductFreeDeliveryEligibility(product, variant?.Sku)
       )
@@ -69,15 +73,22 @@ export function ProductCard({
     }
   }
 
-  const price =
-    product?.MedusaProduct?.Variants?.[0]?.Price?.CalculatedPriceNumber
+  const price = variant?.Price?.CalculatedPriceNumber
   const productIdentity = {
     handle: product?.MedusaProduct?.Handle,
     title: product?.Title,
   }
-  const shortDescription = sanitizeProductCopy(
-    product?.MedusaProduct?.ShortDescription,
-    productIdentity
+  const shortDescription = useMemo(
+    () =>
+      sanitizeProductCopy(
+        product?.MedusaProduct?.ShortDescription,
+        productIdentity
+      ),
+    [
+      product?.MedusaProduct?.ShortDescription,
+      productIdentity.handle,
+      productIdentity.title,
+    ]
   )
 
   // Per-lb vs fixed-price decision sourced from (in order)
@@ -88,7 +99,7 @@ export function ProductCard({
     ? formatProductPriceDisplay(
         Number(price),
         product?.Metadata,
-        product?.MedusaProduct?.Variants?.[0]?.Sku,
+        variant?.Sku,
         (
           product?.MedusaProduct as
             | { PricingMode?: "per_lb" | "fixed_price" }
@@ -101,10 +112,14 @@ export function ProductCard({
     .replace(/\s+for\s+a\s+/i, " / ")
     .replace(/\s+pack$/i, "")
 
-  const galleryImages = [
-    product?.FeaturedImage?.url,
-    ...(product?.GalleryImages?.map((g) => g?.url) ?? []),
-  ].filter((u): u is string => !!u)
+  const galleryImages = useMemo(
+    () =>
+      [
+        product?.FeaturedImage?.url,
+        ...(product?.GalleryImages?.map((g) => g?.url) ?? []),
+      ].filter((u): u is string => !!u),
+    [product?.FeaturedImage?.url, product?.GalleryImages]
+  )
 
   if (viewMode === "list") {
     return (
@@ -119,6 +134,8 @@ export function ProductCard({
               images={galleryImages}
               alt={product.Title}
               sizes="(max-width: 639px) 100vw, (max-width: 1023px) 160px, 180px"
+              priority={priority}
+              hydrateOnView={hydrateCarouselOnView}
             />
             {previouslyOrdered && (
               <span className="absolute left-2 top-2 rounded-full bg-white/95 px-2.5 py-1 font-maison-neue-mono text-[9px] font-bold uppercase tracking-wide text-Charcoal shadow-sm">
@@ -256,13 +273,13 @@ export function ProductCard({
             <button
               onClick={handleAddToCart}
               disabled={
-                isAdding || !product?.MedusaProduct?.Variants?.[0]?.VariantId
+                isAdding || !variant?.VariantId
               }
               className="w-full min-h-[44px] min-w-0 px-4 py-2.5 rounded-[5px] border border-Charcoal bg-Gold text-Charcoal font-rexton text-xs font-bold uppercase transition-opacity hover:opacity-95 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap text-center"
               data-agent-action="add-to-cart"
               data-product-handle={product?.MedusaProduct?.Handle}
-              data-variant-id={product?.MedusaProduct?.Variants?.[0]?.VariantId}
-              data-sku={product?.MedusaProduct?.Variants?.[0]?.Sku}
+              data-variant-id={variant?.VariantId}
+              data-sku={variant?.Sku}
             >
               {isAdding ? "Adding..." : "Add to Cart"}
             </button>
@@ -294,6 +311,8 @@ export function ProductCard({
                 imageSizes ||
                 "(max-width: 639px) 50vw, (max-width: 1023px) 33vw, 33vw"
               }
+              priority={priority}
+              hydrateOnView={hydrateCarouselOnView}
             />
           </div>
           {previouslyOrdered && (
@@ -407,13 +426,13 @@ export function ProductCard({
         <button
           onClick={handleAddToCart}
           disabled={
-            isAdding || !product?.MedusaProduct?.Variants?.[0]?.VariantId
+            isAdding || !variant?.VariantId
           }
           className="min-h-[44px] min-w-0 px-4 py-2 rounded-[5px] border border-Charcoal bg-Gold text-Charcoal font-rexton text-xs font-bold uppercase transition-opacity hover:opacity-95 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
           data-agent-action="add-to-cart"
           data-product-handle={product?.MedusaProduct?.Handle}
-          data-variant-id={product?.MedusaProduct?.Variants?.[0]?.VariantId}
-          data-sku={product?.MedusaProduct?.Variants?.[0]?.Sku}
+          data-variant-id={variant?.VariantId}
+          data-sku={variant?.Sku}
         >
           {isAdding ? "Adding..." : "Add to Cart"}
         </button>
@@ -435,7 +454,9 @@ export function ProductCard({
       </div>
     </article>
   )
-}
+})
+
+ProductCard.displayName = "ProductCard"
 
 export default function StrapiProductGrid({
   products,
@@ -474,13 +495,15 @@ export default function StrapiProductGrid({
             : "flex flex-col space-y-8"
         }
       >
-        {products.map((product) => (
+        {products.map((product, index) => (
           <ProductCard
             key={product.documentId}
             product={product}
             countryCode={countryCode}
             viewMode={viewMode}
             imageSizes={gridImageSizes}
+            hydrateCarouselOnView={false}
+            priority={viewMode === "grid" ? index < 2 : index === 0}
             previouslyOrdered={
               !!product.MedusaProduct?.ProductId &&
               recentSet.has(product.MedusaProduct.ProductId)

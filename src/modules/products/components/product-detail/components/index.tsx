@@ -1,10 +1,5 @@
-import React, { useRef, useState, useCallback } from "react"
+import React, { useCallback } from "react"
 import Image from "next/image"
-import { Swiper, SwiperSlide } from "swiper/react"
-import { Zoom } from "swiper/modules"
-import type { Swiper as SwiperType } from "swiper"
-import "swiper/css"
-import "swiper/css/zoom"
 import { HttpTypes } from "@medusajs/types"
 import { getProductPrice } from "@lib/util/get-product-price"
 
@@ -20,6 +15,7 @@ import ShippingEligibility from "@modules/products/components/shipping-eligibili
 import ProductConversionPanel from "@modules/products/components/product-conversion-panel"
 import ProductFacts from "@modules/products/components/product-facts"
 import { sanitizeProductCopy } from "@lib/util/product-claims"
+import ProductImages from "./product-images"
 
 import type { StrapiProductData } from "types/strapi"
 import type { CartConversionState } from "@lib/data/conversion"
@@ -44,160 +40,6 @@ type ProductTemplateProps = {
   showMobileActions?: boolean
   cartConversion?: CartConversionState | null
   purchaseHistoryItem?: PurchaseHistoryItem | null
-}
-
-const ProductImages = ({
-  product,
-  images,
-}: {
-  product: HttpTypes.StoreProduct
-  images: any[]
-}) => {
-  const swiperRef = useRef<SwiperType | null>(null)
-  const [currentIndex, setCurrentIndex] = useState(0)
-  const [announcement, setAnnouncement] = useState("")
-  const totalImages = images.length
-
-  if (totalImages === 0) {
-    return (
-      <div className="flex h-96 w-full items-center justify-center border border-gray-300 bg-white md:h-[600px]">
-        <span className="px-6 text-center font-maison-neue text-p-sm text-Charcoal/60">
-          Product image coming soon
-        </span>
-      </div>
-    )
-  }
-
-  const handleSlideChange = useCallback(
-    (swiper: SwiperType) => {
-      const newIndex = swiper.realIndex
-      setCurrentIndex(newIndex)
-      setAnnouncement(
-        `Image ${newIndex + 1} of ${totalImages}: ${product.title}`
-      )
-    },
-    [totalImages, product.title]
-  )
-
-  const handlePrev = useCallback(() => {
-    swiperRef.current?.slidePrev()
-  }, [])
-
-  const handleNext = useCallback(() => {
-    swiperRef.current?.slideNext()
-  }, [])
-
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === "ArrowLeft") {
-        e.preventDefault()
-        handlePrev()
-      } else if (e.key === "ArrowRight") {
-        e.preventDefault()
-        handleNext()
-      }
-    },
-    [handlePrev, handleNext]
-  )
-
-  return (
-    <div
-      className="relative w-full h-96 md:h-[600px]"
-      role="region"
-      aria-label={`Product image gallery for ${product.title}`}
-      aria-roledescription="carousel"
-      onKeyDown={handleKeyDown}
-    >
-      {/* Screen reader announcements for image changes */}
-      <div aria-live="polite" aria-atomic="true" className="sr-only">
-        {announcement}
-      </div>
-
-      <Swiper
-        modules={[Zoom]}
-        spaceBetween={24}
-        slidesPerView={1}
-        className="h-full"
-        onSwiper={(swiper) => {
-          swiperRef.current = swiper
-        }}
-        onSlideChange={handleSlideChange}
-        loop={true}
-        zoom={{
-          maxRatio: 3,
-          minRatio: 1,
-        }}
-        a11y={{
-          enabled: true,
-          prevSlideMessage: "Previous image",
-          nextSlideMessage: "Next image",
-          firstSlideMessage: "This is the first image",
-          lastSlideMessage: "This is the last image",
-        }}
-      >
-        {images.map((image, index) => (
-          <SwiperSlide
-            key={index}
-            role="group"
-            aria-roledescription="slide"
-            aria-label={`${index + 1} of ${totalImages}`}
-          >
-            <div className="swiper-zoom-container relative h-full w-full">
-              <Image
-                src={image.url}
-                alt={`${product.title} - Image ${index + 1} of ${totalImages}`}
-                fill
-                className="object-cover border border-gray-300"
-                data-swiper-zoom="3"
-              />
-            </div>
-          </SwiperSlide>
-        ))}
-      </Swiper>
-
-      {/* Slider nav with enhanced accessibility */}
-      <div
-        className="absolute bottom-4 right-4 flex space-x-2 z-[1]"
-        role="group"
-        aria-label="Gallery navigation"
-      >
-        <button
-          onClick={handlePrev}
-          className="h-11 w-11 bg-white/80 rounded-full flex items-center justify-center hover:bg-white transition focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold focus-visible:ring-offset-2"
-          aria-label="Previous image"
-        >
-          <Image
-            src="/images/icons/arrow-left.svg"
-            width={12}
-            height={20}
-            alt=""
-            aria-hidden="true"
-          />
-        </button>
-        <button
-          onClick={handleNext}
-          className="h-11 w-11 bg-white/80 rounded-full flex items-center justify-center hover:bg-white transition focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold focus-visible:ring-offset-2"
-          aria-label="Next image"
-        >
-          <Image
-            src="/images/icons/arrow-right.svg"
-            width={12}
-            height={20}
-            alt=""
-            aria-hidden="true"
-          />
-        </button>
-      </div>
-
-      {/* Image counter for visual users */}
-      <div
-        className="absolute bottom-4 left-4 bg-black/60 text-white px-3 py-1 rounded-full text-sm font-maison-neue z-[1]"
-        aria-hidden="true"
-      >
-        {currentIndex + 1} / {totalImages}
-      </div>
-    </div>
-  )
 }
 
 export default function ProductDetail({

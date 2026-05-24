@@ -13,6 +13,7 @@ export default function ProductCardSwiperCarousel({
   alt,
   sizes,
   initialAction,
+  priority = false,
 }: ProductCardCarouselProps) {
   const swiperRef = useRef<SwiperType | null>(null)
   const [currentIndex, setCurrentIndex] = useState(0)
@@ -91,7 +92,9 @@ export default function ProductCardSwiperCarousel({
                   fill
                   className="object-cover"
                   sizes={sizes}
-                  loading={index === 0 ? "eager" : "lazy"}
+                  {...(priority && index === 0
+                    ? { priority: true }
+                    : { loading: index === 0 ? "eager" : "lazy" })}
                 />
               )}
             </SwiperSlide>

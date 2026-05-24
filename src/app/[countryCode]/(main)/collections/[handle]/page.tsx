@@ -18,6 +18,7 @@ import { getBaseURL } from "@lib/util/env"
 import { retrieveCustomer } from "@lib/data/customer"
 import { listPurchaseHistory } from "@lib/data/orders"
 import { compactCollectionProducts } from "@lib/util/collection-product"
+import { withTimeout } from "@lib/util/promise-timeout"
 import {
   getCuratedCollectionBySlug,
   type CuratedCollection,
@@ -282,25 +283,52 @@ export default async function CollectionPage(props: Props) {
     )
   }
 
+  const customerPromise = withTimeout(
+    retrieveCustomer().catch(() => null),
+    1000,
+    null,
+    `collection customer lookup for ${handle}`
+  )
+
   // First, try to get as a ProductCollection
-  const res = await strapiClient.request<GetProductCollectionResponse>(
-    GetProductCollectionQuery,
-    { handle }
+  const res = await withTimeout(
+    strapiClient.request<GetProductCollectionResponse>(
+      GetProductCollectionQuery,
+      { handle }
+    ),
+    1500,
+    null,
+    `collection metadata for ${handle}`
   )
   let collection = res?.productCollections?.[0]
   let products: StrapiCollectionProduct[] = []
 
   if (collection) {
     // Fetch products assigned to this collection
-    products = await getProductsByCollectionSlug(handle, strapiClient)
+    products = await withTimeout(
+      getProductsByCollectionSlug(handle, strapiClient),
+      3000,
+      [],
+      `collection products for ${handle}`
+    )
   } else {
     // Check if it's a product tag
-    const tag = await getProductTagBySlug(handle, strapiClient)
+    const tag = await withTimeout(
+      getProductTagBySlug(handle, strapiClient),
+      1500,
+      null,
+      `collection tag lookup for ${handle}`
+    )
 
     if (tag) {
       const tagValue = extractTagValue(tag.Name)
 
-      products = await getProductsByTag(tag.Name, strapiClient)
+      products = await withTimeout(
+        getProductsByTag(tag.Name, strapiClient),
+        3000,
+        [],
+        `tag products for ${handle}`
+      )
 
       collection = {
         Name: `Kosher ${tagValue}`,
@@ -312,21 +340,39 @@ export default async function CollectionPage(props: Props) {
     }
   }
 
+  const recentProductIdsPromise = customerPromise.then(async (customer) => {
+    if (!customer) return []
+    return Array.from(
+      new Set(
+        (
+          await withTimeout(
+            listPurchaseHistory().catch(() => []),
+            1200,
+            [],
+            `collection purchase history for ${handle}`
+          )
+        )
+          .map((item) => item.productId)
+          .filter((id): id is string => Boolean(id))
+      )
+    )
+  })
+
   // Strapi caches a CalculatedPriceNumber via a sync workflow that can lag.
   // Always overlay live Medusa prices so cards (grid + list) display the
   // current price regardless of Strapi sync state.
-  products = await enrichStrapiProductsWithMedusaPrices(products, countryCode)
-
-  const customer = await retrieveCustomer().catch(() => null)
-  const recentProductIds = customer
-    ? Array.from(
-        new Set(
-          (await listPurchaseHistory().catch(() => []))
-            .map((item) => item.productId)
-            .filter((id): id is string => Boolean(id))
-        )
-      )
-    : []
+  const [enrichedProducts, recentProductIds] = await Promise.all([
+    withTimeout(
+      enrichStrapiProductsWithMedusaPrices(products, countryCode).catch(
+        () => products
+      ),
+      1200,
+      products,
+      `collection price enrichment for ${handle}`
+    ),
+    recentProductIdsPromise,
+  ])
+  products = enrichedProducts
 
   const jsonLd = generateCollectionJsonLd(collection, countryCode)
 

@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useMemo, useEffect } from "react"
+import React, { useState, useMemo, useEffect, useCallback } from "react"
 
 import { ProductCollectionData, type StrapiCollectionProduct } from "@lib/data/strapi/collections"
 import ViewToggle, { ViewMode } from "@modules/algolia/components/view-toggle"
@@ -54,7 +54,9 @@ export default function CollectionTemplate({
     }
   }, [viewMode])
 
-  const [activeFilters, setActiveFilters] = useState<ActiveFilters>(getEmptyFilters())
+  const [activeFilters, setActiveFilters] = useState<ActiveFilters>(() =>
+    getEmptyFilters()
+  )
   const [currentPage, setCurrentPage] = useState(1)
   const [sortBy, setSortBy] = useState<string>("price-asc")
   // Mobile filter drawer — collapsed by default so products are the first
@@ -122,19 +124,59 @@ export default function CollectionTemplate({
     return sortedProducts.slice(start, start + PRODUCTS_PER_PAGE)
   }, [sortedProducts, currentPage])
 
+  const activeFilterCount = useMemo(
+    () => getActiveFilterCount(activeFilters),
+    [activeFilters]
+  )
+  const hasFiltersApplied = useMemo(
+    () => hasActiveFilters(activeFilters),
+    [activeFilters]
+  )
+  const activeFilterChips = useMemo(
+    () => [
+      ...Object.entries(activeFilters.metadata).flatMap(([groupId, fields]) =>
+        fields.map((field) => ({ groupId, field, value: field }))
+      ),
+      ...activeFilters.tags.map((value) => ({
+        groupId: "tags" as const,
+        field: value,
+        value,
+      })),
+      ...(activeFilters.priceMax
+        ? [
+            {
+              groupId: "price" as const,
+              field: String(activeFilters.priceMax),
+              value: `Under $${activeFilters.priceMax}`,
+            },
+          ]
+        : []),
+      ...(activeFilters.recentOnly
+        ? [
+            {
+              groupId: "recent" as const,
+              field: "recent",
+              value: "Ordered before",
+            },
+          ]
+        : []),
+    ],
+    [activeFilters]
+  )
+
   // Reset to page 1 when filters change
-  const handleFilterChange = (filters: ActiveFilters) => {
+  const handleFilterChange = useCallback((filters: ActiveFilters) => {
     setActiveFilters(filters)
     setCurrentPage(1)
-  }
+  }, [])
 
-  const handlePageChange = (page: number) => {
+  const handlePageChange = useCallback((page: number) => {
     setCurrentPage(page)
     // Scroll to top of product grid
     window.scrollTo({ top: 0, behavior: "smooth" })
-  }
+  }, [])
 
-  const showFilters = productsHaveFilters(products)
+  const showFilters = useMemo(() => productsHaveFilters(products), [products])
 
   return (
     <>
@@ -179,33 +221,10 @@ export default function CollectionTemplate({
                 <p className="text-sm text-gray-600 whitespace-nowrap mr-2">
                   Showing {filteredProducts.length}{" "}
                   {filteredProducts.length === 1 ? "product" : "products"}
-                  {hasActiveFilters(activeFilters) && ` of ${products.length}`}
+                  {hasFiltersApplied && ` of ${products.length}`}
                 </p>
-                {hasActiveFilters(activeFilters) &&
-                  [
-                    ...Object.entries(activeFilters.metadata).flatMap(([groupId, fields]) =>
-                      fields.map((field) => ({ groupId, field, value: field }))
-                    ),
-                    ...activeFilters.tags.map((value) => ({ groupId: "tags" as const, field: value, value })),
-                    ...(activeFilters.priceMax
-                      ? [
-                          {
-                            groupId: "price" as const,
-                            field: String(activeFilters.priceMax),
-                            value: `Under $${activeFilters.priceMax}`,
-                          },
-                        ]
-                      : []),
-                    ...(activeFilters.recentOnly
-                      ? [
-                          {
-                            groupId: "recent" as const,
-                            field: "recent",
-                            value: "Ordered before",
-                          },
-                        ]
-                      : []),
-                  ].map(({ groupId, field, value }) => {
+                {hasFiltersApplied &&
+                  activeFilterChips.map(({ groupId, field, value }) => {
                       const label =
                         groupId === "price" || groupId === "recent"
                           ? value
@@ -270,7 +289,7 @@ export default function CollectionTemplate({
                     type="button"
                     onClick={() => setMobileFiltersOpen(true)}
                     className="lg:hidden inline-flex shrink-0 items-center gap-2 h-[44px] px-4 border border-gray-300 rounded-lg bg-white text-Charcoal text-sm font-maison-neue hover:border-Charcoal focus:outline-none focus:ring-1 focus:ring-Gold"
-                    aria-label={`Open filters${getActiveFilterCount(activeFilters) > 0 ? `, ${getActiveFilterCount(activeFilters)} active` : ""}`}
+                    aria-label={`Open filters${activeFilterCount > 0 ? `, ${activeFilterCount} active` : ""}`}
                   >
                     <svg
                       width="16"
@@ -284,9 +303,9 @@ export default function CollectionTemplate({
                       <path d="M2 4h12M4 8h8M6 12h4" strokeLinecap="round" />
                     </svg>
                     <span>Filters</span>
-                    {getActiveFilterCount(activeFilters) > 0 && (
+                    {activeFilterCount > 0 && (
                       <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-Charcoal text-white text-xs font-maison-neue-mono">
-                        {getActiveFilterCount(activeFilters)}
+                        {activeFilterCount}
                       </span>
                     )}
                   </button>
@@ -340,26 +359,20 @@ export default function CollectionTemplate({
       {/* Mobile filter bottom sheet. Hidden ≥ lg (desktop uses the sidebar
           above). Backdrop closes the sheet; Esc handler in the parent
           effect also closes it. */}
-      {showFilters && (
+      {showFilters && mobileFiltersOpen && (
         <div
-          className={`lg:hidden fixed inset-0 z-40 ${
-            mobileFiltersOpen ? "" : "pointer-events-none"
-          }`}
-          aria-hidden={!mobileFiltersOpen}
+          className="lg:hidden fixed inset-0 z-40"
+          aria-hidden={false}
         >
           <div
             onClick={() => setMobileFiltersOpen(false)}
-            className={`absolute inset-0 bg-black/40 transition-opacity duration-300 ${
-              mobileFiltersOpen ? "opacity-100" : "opacity-0"
-            }`}
+            className="absolute inset-0 bg-black/40"
           />
           <div
             role="dialog"
             aria-modal="true"
             aria-label="Product filters"
-            className={`absolute inset-x-0 bottom-0 max-h-[88dvh] rounded-t-[24px] bg-white shadow-2xl flex flex-col pb-[env(safe-area-inset-bottom)] transition-transform duration-300 ease-out ${
-              mobileFiltersOpen ? "translate-y-0" : "translate-y-full"
-            }`}
+            className="absolute inset-x-0 bottom-0 max-h-[88dvh] rounded-t-[24px] bg-white shadow-2xl flex flex-col pb-[env(safe-area-inset-bottom)]"
           >
             <div className="flex justify-center pt-3 pb-1 shrink-0">
               <div className="h-1 w-12 rounded-full bg-Charcoal/20" />

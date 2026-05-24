@@ -16,9 +16,27 @@ type ProductTemplateProps = {
   product: HttpTypes.StoreProduct
   region: HttpTypes.StoreRegion
   countryCode: string
-  strapiCommonPdpData: any
+  strapiCommonPdpData: any | Promise<any>
   strapiProductData: any
   purchaseHistoryItem?: PurchaseHistoryItem | null
+}
+
+async function PdpEducationSections({
+  strapiCommonPdpData,
+  strapiProductData,
+}: {
+  strapiCommonPdpData: any | Promise<any>
+  strapiProductData: any
+}) {
+  const commonPdpData = await Promise.resolve(strapiCommonPdpData)
+
+  return (
+    <>
+      <HowItWorksSection data={commonPdpData?.HowItWorks} />
+      <HowItFitsSection recipes={strapiProductData?.Recipes} />
+      <WhyUsSection data={commonPdpData?.WhyUs} />
+    </>
+  )
 }
 
 const ProductTemplate: React.FC<ProductTemplateProps> = ({
@@ -52,9 +70,10 @@ const ProductTemplate: React.FC<ProductTemplateProps> = ({
         />
       </Suspense>
       <Suspense fallback={null}>
-        <HowItWorksSection data={strapiCommonPdpData?.HowItWorks} />
-        <HowItFitsSection recipes={strapiProductData?.Recipes} />
-        <WhyUsSection data={strapiCommonPdpData?.WhyUs} />
+        <PdpEducationSections
+          strapiCommonPdpData={strapiCommonPdpData}
+          strapiProductData={strapiProductData}
+        />
       </Suspense>
       <div className="content-container my-16">
         <Suspense fallback={<SkeletonRelatedProducts />}>

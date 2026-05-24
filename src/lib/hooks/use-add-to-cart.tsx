@@ -34,7 +34,11 @@ export function useAddToCart(
   countryCode: string = "us",
   strapiProductData?: any
 ) {
-  const strapiTitle = useProductTitle(product.id, product.title)
+  const strapiTitle = useProductTitle(
+    product.id,
+    product.title,
+    strapiProductData?.Title
+  )
   const [quantity, setQuantity] = useState(1)
   const [options, setOptions] = useState<Record<string, string>>({})
   const [isAdding, setIsAdding] = useState(false)

@@ -14,6 +14,10 @@ type Props = {
   params: Promise<{ countryCode: string; handle: string }>
 }
 
+type StrapiProductResponse = {
+  products?: any[]
+} | null
+
 function titleFromHandle(handle: string) {
   return handle
     .replace(/-\d+(?:lb|oz).*$/i, "")
@@ -40,7 +44,7 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
     withTimeout(
       listProducts({
         countryCode: params.countryCode,
-        queryParams: { handle },
+        queryParams: { handle, limit: 1 } as any,
       }).then(({ response }) => response.products[0] || null),
       2500,
       null,
@@ -139,29 +143,29 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
 
 export default async function ProductPage(props: Props) {
   const params = await props.params
-  const [region, productResult, strapiCommonPdpData, customer] =
-    await Promise.all([
-      getRegion(params.countryCode),
-      listProducts({
-        countryCode: params.countryCode,
-        queryParams: { handle: params.handle },
-      }),
-      withTimeout(
-        strapiClient.request(GetCommonPdpQuery).catch((error) => {
-          console.error("Failed to fetch common PDP data from Strapi:", error)
-          return null
-        }),
-        1200,
-        null,
-        `Common PDP data for ${params.handle}`
-      ),
-      withTimeout(
-        retrieveCustomer().catch(() => null),
-        1200,
-        null,
-        `PDP customer lookup for ${params.handle}`
-      ),
-    ])
+  const strapiCommonPdpDataPromise = withTimeout(
+    strapiClient.request(GetCommonPdpQuery).catch((error) => {
+      console.error("Failed to fetch common PDP data from Strapi:", error)
+      return null
+    }),
+    1200,
+    null,
+    `Common PDP data for ${params.handle}`
+  ).then((data: any) => data?.pdp || null)
+
+  const [region, productResult, customer] = await Promise.all([
+    getRegion(params.countryCode),
+    listProducts({
+      countryCode: params.countryCode,
+      queryParams: { handle: params.handle, limit: 1 } as any,
+    }),
+    withTimeout(
+      retrieveCustomer().catch(() => null),
+      1200,
+      null,
+      `PDP customer lookup for ${params.handle}`
+    ),
+  ])
 
   if (!region) {
     notFound()
@@ -173,24 +177,41 @@ export default async function ProductPage(props: Props) {
     notFound()
   }
 
-  let strapiProductData: any = null
-
-  try {
-    strapiProductData = await withTimeout(
-      strapiClient.request(GetProductQuery, {
+  const strapiProductDataPromise = withTimeout<StrapiProductResponse>(
+    strapiClient
+      .request<{ products?: any[] }>(GetProductQuery, {
         medusa_product_id: pricedProduct.id,
+      })
+      .catch((error) => {
+        console.error(
+          "Failed to fetch product data from Strapi for ID:",
+          pricedProduct.id,
+          error
+        )
+        return null
       }),
-      2500,
-      null,
-      `PDP Strapi product data for ${pricedProduct.id}`
-    )
-  } catch (error) {
-    console.error(
-      "Failed to fetch product data from Strapi for ID:",
-      pricedProduct.id,
-      error
-    )
-  }
+    2500,
+    null,
+    `PDP Strapi product data for ${pricedProduct.id}`
+  )
+  const purchaseHistoryItemPromise = customer
+    ? withTimeout(
+        listPurchaseHistory()
+          .catch(() => [])
+          .then(
+            (items) =>
+              items.find((item) => item.productId === pricedProduct.id) || null
+          ),
+        1200,
+        null,
+        `PDP purchase history for ${pricedProduct.id}`
+      )
+    : Promise.resolve(null)
+
+  const [strapiProductData, purchaseHistoryItem] = await Promise.all([
+    strapiProductDataPromise,
+    purchaseHistoryItemPromise,
+  ])
 
   const baseUrl = getBaseURL()
   const productJsonLd = generateProductJsonLd(
@@ -199,17 +220,6 @@ export default async function ProductPage(props: Props) {
     baseUrl,
     params.countryCode
   )
-
-  const purchaseHistoryItem = customer
-    ? (
-        await withTimeout(
-          listPurchaseHistory().catch(() => []),
-          1200,
-          [],
-          `PDP purchase history for ${pricedProduct.id}`
-        )
-      ).find((item) => item.productId === pricedProduct.id) || null
-    : null
 
   return (
     <>
@@ -222,7 +232,7 @@ export default async function ProductPage(props: Props) {
         product={pricedProduct}
         region={region}
         countryCode={params.countryCode}
-        strapiCommonPdpData={strapiCommonPdpData?.pdp}
+        strapiCommonPdpData={strapiCommonPdpDataPromise}
         strapiProductData={strapiProductData?.products?.[0]}
         purchaseHistoryItem={purchaseHistoryItem}
       />

@@ -1,5 +1,6 @@
 "use client"
 
+import { useMemo } from "react"
 import { jitsuTrack } from "@lib/jitsu"
 import type { StrapiCollectionProduct } from "@lib/data/strapi/collections"
 import type { ActiveFilters } from "@modules/collections/components/collection-filters"
@@ -65,29 +66,41 @@ export default function QuickFilterBar({
   onFilterChange: (filters: ActiveFilters) => void
   recentProductIds?: string[]
 }) {
-  const recentSet = new Set(recentProductIds)
-  const metadataChips = METADATA_CHIPS.map((chip) => ({
-    ...chip,
-    count: products.filter(
-      (product) =>
-        (product.Metadata as Record<string, unknown> | undefined)?.[
-          chip.field
-        ] === true
-    ).length,
-  })).filter((chip) => chip.count > 0)
+  const recentSet = useMemo(() => new Set(recentProductIds), [recentProductIds])
+  const metadataChips = useMemo(
+    () =>
+      METADATA_CHIPS.map((chip) => ({
+        ...chip,
+        count: products.filter(
+          (product) =>
+            (product.Metadata as Record<string, unknown> | undefined)?.[
+              chip.field
+            ] === true
+        ).length,
+      })).filter((chip) => chip.count > 0),
+    [products]
+  )
 
-  const priceChip = PRICE_THRESHOLDS.map((threshold) => ({
-    threshold,
-    count: products.filter((product) => {
-      const price = priceOf(product)
-      return price !== null && price <= threshold
-    }).length,
-  })).find((chip) => chip.count > 0 && chip.count < products.length)
+  const priceChip = useMemo(
+    () =>
+      PRICE_THRESHOLDS.map((threshold) => ({
+        threshold,
+        count: products.filter((product) => {
+          const price = priceOf(product)
+          return price !== null && price <= threshold
+        }).length,
+      })).find((chip) => chip.count > 0 && chip.count < products.length),
+    [products]
+  )
 
-  const recentCount = products.filter((product) => {
-    const id = productId(product)
-    return id ? recentSet.has(id) : false
-  }).length
+  const recentCount = useMemo(
+    () =>
+      products.filter((product) => {
+        const id = productId(product)
+        return id ? recentSet.has(id) : false
+      }).length,
+    [products, recentSet]
+  )
 
   if (
     metadataChips.length === 0 &&

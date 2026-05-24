@@ -8,6 +8,8 @@ export type ProductCardCarouselProps = {
   alt: string
   sizes?: string
   initialAction?: "prev" | "next" | null
+  hydrateOnView?: boolean
+  priority?: boolean
 }
 
 type HydratedCarousel = React.ComponentType<ProductCardCarouselProps>
@@ -20,6 +22,8 @@ export default function ProductCardCarousel({
   images,
   alt,
   sizes,
+  hydrateOnView = true,
+  priority = false,
 }: ProductCardCarouselProps) {
   const rootRef = useRef<HTMLDivElement | null>(null)
   const [shouldHydrate, setShouldHydrate] = useState(false)
@@ -38,7 +42,7 @@ export default function ProductCardCarousel({
   }, [total])
 
   useEffect(() => {
-    if (total <= 1 || shouldHydrate) return
+    if (!hydrateOnView || total <= 1 || shouldHydrate) return
 
     const root = rootRef.current
     if (!root || !("IntersectionObserver" in window)) {
@@ -58,7 +62,7 @@ export default function ProductCardCarousel({
 
     observer.observe(root)
     return () => observer.disconnect()
-  }, [requestHydration, shouldHydrate, total])
+  }, [hydrateOnView, requestHydration, shouldHydrate, total])
 
   useEffect(() => {
     if (!shouldHydrate || total <= 1 || HydratedCarousel) return
@@ -94,6 +98,7 @@ export default function ProductCardCarousel({
           fill
           className="object-cover"
           sizes={sizes}
+          priority={priority}
         />
       </div>
     )
@@ -122,6 +127,7 @@ export default function ProductCardCarousel({
             fill
             className="object-cover"
             sizes={sizes}
+            priority={priority}
           />
 
           <div
