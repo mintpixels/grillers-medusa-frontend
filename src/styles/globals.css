@@ -171,6 +171,11 @@
   .font-gyst {
     @apply font-['gyst-variable'];
   }
+
+  .footer-overscroll-fill {
+    box-shadow: 0 100vmax 0 100vmax #001b23;
+    clip-path: inset(0 -100vmax -100vmax -100vmax);
+  }
 }
 
 /* Print Styles for Recipes */

@@ -338,7 +338,7 @@ export default async function Footer() {
   // Minimal fallback footer when no Strapi data
   if (!footer) {
     return (
-      <footer className="bg-Charcoal text-white w-full">
+      <footer className="footer-overscroll-fill bg-Charcoal text-white w-full">
         <div className="content-container py-12">
           <div className="flex flex-col items-center gap-y-6">
             <Link href="/" className="inline-flex min-h-[44px] items-center">
@@ -360,7 +360,7 @@ export default async function Footer() {
   }
 
   return (
-    <footer className="bg-Charcoal text-white w-full">
+    <footer className="footer-overscroll-fill bg-Charcoal text-white w-full">
       <div className="border-b border-white/10">
         <div className="content-container py-5">
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
