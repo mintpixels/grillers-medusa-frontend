@@ -1,11 +1,12 @@
 import { Text } from "@medusajs/ui"
 import Image from "next/image"
 import Link from "next/link"
+import { cache } from "react"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import strapiClient from "@lib/strapi"
 import { GetFooterQuery, type FooterData } from "@lib/data/strapi/footer"
 
-async function getFooterData(): Promise<FooterData | null> {
+const getFooterData = cache(async (): Promise<FooterData | null> => {
   try {
     const data = await strapiClient.request<FooterData>({
       document: GetFooterQuery,
@@ -15,7 +16,7 @@ async function getFooterData(): Promise<FooterData | null> {
     console.error("Error fetching footer data:", error)
     return null
   }
-}
+})
 
 // Payment method icons
 const PaymentIcon = ({ method }: { method: string }) => {

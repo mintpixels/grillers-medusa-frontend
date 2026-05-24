@@ -1,5 +1,6 @@
 import { Metadata } from "next"
 import { notFound } from "next/navigation"
+import { cache } from "react"
 import strapiClient from "@lib/strapi"
 
 import {
@@ -32,6 +33,32 @@ type Props = {
   params: Promise<{ handle: string; countryCode: string }>
 }
 
+const getCuratedCollectionForPage = cache(
+  (handle: string, countryCode: string) =>
+    getCuratedCollectionBySlug(handle, countryCode)
+)
+
+const getProductCollectionForPage = cache(async (handle: string) => {
+  const res = await strapiClient.request<GetProductCollectionResponse>(
+    GetProductCollectionQuery,
+    { handle }
+  )
+
+  return res?.productCollections?.[0] || null
+})
+
+const getProductTagForPage = cache((handle: string) =>
+  getProductTagBySlug(handle, strapiClient)
+)
+
+const getCollectionProductsForPage = cache((handle: string) =>
+  getProductsByCollectionSlug(handle, strapiClient)
+)
+
+const getTagProductsForPage = cache((tagName: string) =>
+  getProductsByTag(tagName, strapiClient)
+)
+
 export async function generateMetadata(props: Props): Promise<Metadata> {
   const params = await props.params
   const { handle, countryCode } = params
@@ -40,7 +67,7 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
     notFound()
   }
 
-  const curated = await getCuratedCollectionBySlug(handle, countryCode)
+  const curated = await getCuratedCollectionForPage(handle, countryCode)
   if (curated) {
     const baseUrl = getBaseURL()
     const canonicalUrl = `${baseUrl}/${countryCode}/collections/${handle}`
@@ -94,16 +121,12 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
     }
   }
 
-  const res = await strapiClient.request<GetProductCollectionResponse>(
-    GetProductCollectionQuery,
-    { handle }
-  )
-  let collection = res?.productCollections?.[0]
+  let collection = await getProductCollectionForPage(handle)
   let tag: any = null
 
   // If not found as collection, check if it's a product tag
   if (!collection) {
-    tag = await getProductTagBySlug(handle, strapiClient)
+    tag = await getProductTagForPage(handle)
 
     if (tag) {
       const tagValue = extractTagValue(tag.Name)
@@ -266,7 +289,7 @@ export default async function CollectionPage(props: Props) {
     return notFound()
   }
 
-  const curated = await getCuratedCollectionBySlug(handle, countryCode)
+  const curated = await getCuratedCollectionForPage(handle, countryCode)
   if (curated) {
     const jsonLd = generateCuratedCollectionJsonLd(curated, countryCode)
     return (
@@ -292,21 +315,18 @@ export default async function CollectionPage(props: Props) {
 
   // First, try to get as a ProductCollection
   const res = await withTimeout(
-    strapiClient.request<GetProductCollectionResponse>(
-      GetProductCollectionQuery,
-      { handle }
-    ),
+    getProductCollectionForPage(handle),
     1500,
     null,
     `collection metadata for ${handle}`
   )
-  let collection = res?.productCollections?.[0]
+  let collection = res
   let products: StrapiCollectionProduct[] = []
 
   if (collection) {
     // Fetch products assigned to this collection
     products = await withTimeout(
-      getProductsByCollectionSlug(handle, strapiClient),
+      getCollectionProductsForPage(handle),
       3000,
       [],
       `collection products for ${handle}`
@@ -314,7 +334,7 @@ export default async function CollectionPage(props: Props) {
   } else {
     // Check if it's a product tag
     const tag = await withTimeout(
-      getProductTagBySlug(handle, strapiClient),
+      getProductTagForPage(handle),
       1500,
       null,
       `collection tag lookup for ${handle}`
@@ -324,7 +344,7 @@ export default async function CollectionPage(props: Props) {
       const tagValue = extractTagValue(tag.Name)
 
       products = await withTimeout(
-        getProductsByTag(tag.Name, strapiClient),
+        getTagProductsForPage(tag.Name),
         3000,
         [],
         `tag products for ${handle}`

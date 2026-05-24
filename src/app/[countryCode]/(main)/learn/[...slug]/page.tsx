@@ -1,5 +1,6 @@
 import { Metadata } from "next"
 import { notFound } from "next/navigation"
+import { cache } from "react"
 
 import { getPublishedLearnArticle } from "@lib/data/strapi/learn"
 import { getBaseURL } from "@lib/util/env"
@@ -14,6 +15,10 @@ type PageProps = {
   params: Promise<{ countryCode: string; slug: string[] }>
 }
 
+const getLearnArticleForPage = cache((slug: string) =>
+  getPublishedLearnArticle(slug)
+)
+
 export async function generateStaticParams() {
   return getLearnArticleStaticParams()
 }
@@ -24,7 +29,8 @@ export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
   const { countryCode, slug } = await params
-  const article = await getPublishedLearnArticle(slug)
+  const normalizedSlug = normalizeLearnSlug(slug)
+  const article = await getLearnArticleForPage(normalizedSlug)
 
   if (!article) {
     return {
@@ -32,7 +38,7 @@ export async function generateMetadata({
     }
   }
 
-  const path = `/learn/${normalizeLearnSlug(slug)}`
+  const path = `/learn/${normalizedSlug}`
   const alternates = await generateAlternates(path, countryCode)
   const url = `${getBaseURL()}/${countryCode}${path}`
 
@@ -64,7 +70,7 @@ export async function generateMetadata({
 
 export default async function LearnArticlePage({ params }: PageProps) {
   const { countryCode, slug } = await params
-  const article = await getPublishedLearnArticle(slug)
+  const article = await getLearnArticleForPage(normalizeLearnSlug(slug))
 
   if (!article) notFound()
 

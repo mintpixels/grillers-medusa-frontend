@@ -1,4 +1,5 @@
 import { gql } from "graphql-request"
+import { cache } from "react"
 import strapiClient from "@lib/strapi"
 
 export type StrapiMedia = {
@@ -383,19 +384,21 @@ function sanitizeLegalPage(page: LegalPageData): LegalPageData {
   }
 }
 
-async function fetchLegalPage(slug: string): Promise<LegalPageData | null> {
-  try {
-    const data = await strapiClient.request<LegalPagesQueryResult>(
-      GetLegalPageQuery,
-      { slug }
-    )
-    const page = data?.legalPages?.[0]
-    if (pageHasContent(page)) return sanitizeLegalPage(page!)
-  } catch {
-    // Network or schema error — return null so the route 404s cleanly.
+const fetchLegalPage = cache(
+  async (slug: string): Promise<LegalPageData | null> => {
+    try {
+      const data = await strapiClient.request<LegalPagesQueryResult>(
+        GetLegalPageQuery,
+        { slug }
+      )
+      const page = data?.legalPages?.[0]
+      if (pageHasContent(page)) return sanitizeLegalPage(page!)
+    } catch {
+      // Network or schema error — return null so the route 404s cleanly.
+    }
+    return null
   }
-  return null
-}
+)
 
 export async function getLegalPage(
   slug: string

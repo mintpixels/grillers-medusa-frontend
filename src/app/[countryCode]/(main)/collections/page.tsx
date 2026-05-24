@@ -7,6 +7,8 @@ import {
   isCollectionOccasion,
   isWaysToShopMissionId,
 } from "@lib/content/ways-to-shop"
+import { getCuratedCollectionCards } from "@lib/data/strapi/curated-collections"
+import { withTimeout } from "@lib/util/promise-timeout"
 
 type PageProps = {
   params: Promise<{ countryCode: string }>
@@ -59,6 +61,15 @@ export default async function CollectionsPage({
       ? occasionParam
       : null
   const pageUrl = `${getBaseURL()}/${countryCode}/collections`
+  const collections = await withTimeout(
+    getCuratedCollectionCards({
+      customerState: "any",
+      limit: 60,
+    }).catch(() => []),
+    1200,
+    [],
+    "collections hub cards"
+  )
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "CollectionPage",
@@ -79,6 +90,7 @@ export default async function CollectionsPage({
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       <CollectionsHub
+        collections={collections}
         countryCode={countryCode}
         activeMissionId={activeMissionId}
         activeOccasion={activeOccasion}

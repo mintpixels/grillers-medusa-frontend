@@ -47,26 +47,29 @@ export default async function PageLayout(props: {
   params: Promise<{ countryCode: string }>
 }) {
   const { countryCode } = await props.params
-  const [customer, cart] = await Promise.all([
-    withTimeout(
-      retrieveCustomer().catch(() => null),
-      1000,
-      null,
-      "main layout customer"
-    ),
-    withTimeout(
-      retrieveCart().catch(() => null),
-      1000,
-      null,
-      "main layout cart"
-    ),
-  ])
-  const staffImpersonation = await withTimeout(
+  const customerPromise = withTimeout(
+    retrieveCustomer().catch(() => null),
+    1000,
+    null,
+    "main layout customer"
+  )
+  const cartPromise = withTimeout(
+    retrieveCart().catch(() => null),
+    1000,
+    null,
+    "main layout cart"
+  )
+  const staffImpersonationPromise = withTimeout(
     getStaffImpersonationSession().catch(() => null),
     800,
     null,
     "main layout staff impersonation"
   )
+  const [customer, cart, staffImpersonation] = await Promise.all([
+    customerPromise,
+    cartPromise,
+    staffImpersonationPromise,
+  ])
 
   return (
     <CartProvider>
@@ -88,7 +91,9 @@ export default async function PageLayout(props: {
         <FreeShippingNudgeBlock cart={cart} />
       </Suspense>
       {props.children}
-      <Footer />
+      <Suspense fallback={null}>
+        <Footer />
+      </Suspense>
       <Suspense fallback={null}>
         <SideCartWrapper
           countryCode={countryCode}

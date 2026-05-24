@@ -1,8 +1,13 @@
 import { Metadata } from "next"
 import { notFound } from "next/navigation"
+import { cache } from "react"
 
 import strapiClient from "@lib/strapi"
-import { GetRecipeBySlugQuery, generateRecipeJsonLd, type RecipeData } from "@lib/data/strapi/recipes"
+import {
+  GetRecipeBySlugQuery,
+  generateRecipeJsonLd,
+  type RecipeData,
+} from "@lib/data/strapi/recipes"
 import RecipeTemplate from "@modules/recipes/templates/recipe-detail"
 import { generateAlternates } from "@lib/util/seo"
 import { getBaseURL } from "@lib/util/env"
@@ -20,16 +25,22 @@ type RecipeQueryResponse = {
   recipes: RecipeData[]
 }
 
+const getRecipeBySlugForPage = cache(async (slug: string) => {
+  const response = await strapiClient.request<RecipeQueryResponse>(
+    GetRecipeBySlugQuery,
+    { slug }
+  )
+
+  return response?.recipes?.[0] || null
+})
+
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
   const { handle, countryCode } = await params
 
   try {
-    const response = await strapiClient.request<RecipeQueryResponse>(GetRecipeBySlugQuery, {
-      slug: handle,
-    })
-    const record = response?.recipes?.[0]
+    const record = await getRecipeBySlugForPage(handle)
 
     if (!record) {
       return { title: "Recipe Not Found" }
@@ -38,7 +49,10 @@ export async function generateMetadata({
     const { Title, ShortDescription, Image } = record
     const imageUrl = Image?.url
 
-    const alternates = await generateAlternates(`/recipes/${handle}`, countryCode)
+    const alternates = await generateAlternates(
+      `/recipes/${handle}`,
+      countryCode
+    )
 
     return {
       title: Title,
@@ -57,17 +71,16 @@ export async function generateMetadata({
 
 export default async function RecipePage({ params }: PageProps) {
   const { handle, countryCode } = await params
-  const response = await strapiClient.request<RecipeQueryResponse>(GetRecipeBySlugQuery, {
-    slug: handle,
-  })
-  const record = response?.recipes?.[0]
+  const [record, customer] = await Promise.all([
+    getRecipeBySlugForPage(handle),
+    retrieveCustomer().catch(() => null),
+  ])
 
   if (!record) {
     notFound()
   }
 
   // Check authentication and favorite status
-  const customer = await retrieveCustomer()
   const isLoggedIn = !!customer
   const isFavorited = isLoggedIn ? await isRecipeFavorited(handle) : false
 
@@ -82,7 +95,7 @@ export default async function RecipePage({ params }: PageProps) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(recipeJsonLd) }}
       />
-      <RecipeTemplate 
+      <RecipeTemplate
         recipe={record}
         countryCode={countryCode}
         isLoggedIn={isLoggedIn}

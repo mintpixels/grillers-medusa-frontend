@@ -59,10 +59,8 @@ export async function generateMetadata({
 }
 
 const DEFAULT_PAGE_SIZE = 9
-
-async function getAllRecipeCards() {
-  return recipeHubData.recipeCards || []
-}
+const ALL_RECIPE_CARDS: any[] = recipeHubData.recipeCards || []
+const ALL_RECIPE_FILTER_OPTIONS = extractFilterOptions(ALL_RECIPE_CARDS)
 
 export default async function RecipesPage(props: PageProps) {
   const { countryCode } = await props.params
@@ -85,7 +83,7 @@ export default async function RecipesPage(props: PageProps) {
     mission: mission?.id,
   }
 
-  const hubRecipes = await getAllRecipeCards()
+  const hubRecipes = ALL_RECIPE_CARDS
 
   if (!hubRecipes.length) {
     return notFound()
@@ -104,7 +102,7 @@ export default async function RecipesPage(props: PageProps) {
     pageCount,
     total,
   }
-  const filterOptions = extractFilterOptions(hubRecipes)
+  const filterOptions = ALL_RECIPE_FILTER_OPTIONS
 
   return (
     <RecipesCollection
