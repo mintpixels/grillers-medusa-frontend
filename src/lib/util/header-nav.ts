@@ -163,6 +163,38 @@ function isWaysToShopLink(link: HeaderNavLink) {
   )
 }
 
+function isPrimaryShopLink(link: HeaderNavLink) {
+  if (isWaysToShopLink(link)) return false
+  return /shop|butcher|meat|product|all/i.test(`${link.title} ${link.slug}`)
+}
+
+function moveWaysToShopBeforePrimaryShop(navLinks: HeaderNavLink[]) {
+  const waysIndex = navLinks.findIndex(isWaysToShopLink)
+  if (waysIndex < 0) return navLinks
+
+  const primaryIndex = navLinks.findIndex(
+    (link, index) => index !== waysIndex && isPrimaryShopLink(link)
+  )
+
+  if (primaryIndex < 0 || waysIndex < primaryIndex) {
+    return navLinks
+  }
+
+  const waysToShop = navLinks[waysIndex]
+  const withoutWays = navLinks.filter((_, index) => index !== waysIndex)
+  const adjustedPrimaryIndex = withoutWays.findIndex(isPrimaryShopLink)
+
+  if (adjustedPrimaryIndex < 0) {
+    return navLinks
+  }
+
+  return [
+    ...withoutWays.slice(0, adjustedPrimaryIndex),
+    waysToShop,
+    ...withoutWays.slice(adjustedPrimaryIndex),
+  ]
+}
+
 function mergeItems(existing: NavItem[], required: NavItem[]) {
   const merged = [...existing]
   for (const item of required) {
@@ -247,16 +279,12 @@ export function sectionHref(section: NavSection) {
 
 export function augmentHeaderNav(navLinks: HeaderNavLink[]) {
   const source = navLinks.length > 0 ? navLinks : FALLBACK_NAV
-  const primaryIndex = Math.max(
-    0,
-    source.findIndex((link) =>
-      /shop|butcher|meat|product|all/i.test(`${link.title} ${link.slug}`)
-    )
-  )
+  const detectedPrimaryIndex = source.findIndex(isPrimaryShopLink)
+  const primaryIndex = Math.max(0, detectedPrimaryIndex)
 
   const augmented = source.map((link, index) => {
     const sections =
-      index === primaryIndex
+      index === primaryIndex && !isWaysToShopLink(link)
         ? addPrimaryShopSections(link.sections || [])
         : (link.sections || []).map(normalizeSection)
 
@@ -270,13 +298,16 @@ export function augmentHeaderNav(navLinks: HeaderNavLink[]) {
   })
 
   if (augmented.some(isWaysToShopLink)) {
-    return augmented
+    return moveWaysToShopBeforePrimaryShop(augmented)
   }
 
-  const insertAt = Math.min(primaryIndex + 1, augmented.length)
-  return [
+  const insertAt =
+    detectedPrimaryIndex >= 0
+      ? primaryIndex
+      : Math.min(primaryIndex + 1, augmented.length)
+  return moveWaysToShopBeforePrimaryShop([
     ...augmented.slice(0, insertAt),
     WAYS_TO_SHOP_NAV,
     ...augmented.slice(insertAt),
-  ]
+  ])
 }
