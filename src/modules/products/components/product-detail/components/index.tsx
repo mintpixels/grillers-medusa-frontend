@@ -14,6 +14,7 @@ import NotifyBackInStockForm from "@modules/products/components/notify-back-in-s
 import ShippingEligibility from "@modules/products/components/shipping-eligibility"
 import ProductConversionPanel from "@modules/products/components/product-conversion-panel"
 import ProductFacts from "@modules/products/components/product-facts"
+import ProductIngredientDisclosures from "@modules/products/components/product-ingredient-disclosures"
 import { sanitizeProductCopy } from "@lib/util/product-claims"
 import ProductImages from "./product-images"
 
@@ -113,6 +114,13 @@ export default function ProductDetail({
   const optionSummary =
     Object.values(options).filter(Boolean).join(" / ") || "Select Options"
   const isSingleVariant = (product.variants?.length ?? 0) <= 1
+  const selectedSku =
+    selectedVariant?.sku ||
+    (isSingleVariant
+      ? strapiProductData?.MedusaProduct?.Variants?.[0]?.Sku ||
+        product.variants?.[0]?.sku
+      : null) ||
+    null
   const setActionsNode = useCallback(
     (node: HTMLDivElement | null) => {
       if (!actionsRef) return
@@ -239,6 +247,11 @@ export default function ProductDetail({
             strapiProductData={strapiProductData}
             description={productDescription}
             countryCode={countryCode}
+          />
+
+          <ProductIngredientDisclosures
+            disclosures={strapiProductData?.IngredientDisclosures}
+            selectedSku={selectedSku}
           />
 
           {/* Shipping eligibility callout. Lives in the buybox column

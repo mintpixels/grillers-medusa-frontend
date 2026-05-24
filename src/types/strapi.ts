@@ -187,6 +187,22 @@ export interface MedusaProduct {
   Variants?: MedusaProductVariant[]
 }
 
+export type IngredientDisclosureReviewStatus =
+  | "needs_review"
+  | "approved"
+  | "rejected"
+
+export interface IngredientDisclosure {
+  id?: string | number
+  Sku?: string | null
+  Ingredients?: string | null
+  Contains?: string | null
+  Directions?: string | null
+  SourceLabelFile?: string | null
+  ReviewStatus?: IngredientDisclosureReviewStatus | null
+  VerifiedAt?: string | null
+}
+
 export interface StrapiProductData {
   objectID: string
   Title: string
@@ -197,6 +213,7 @@ export interface StrapiProductData {
   GalleryImages: StrapiImage[]
   Certifications?: { icon: string; label: string }[]
   MedusaProduct: MedusaProduct
+  IngredientDisclosures?: IngredientDisclosure[]
 }
 
 // Testimonial Types

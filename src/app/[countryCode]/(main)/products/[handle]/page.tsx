@@ -4,7 +4,12 @@ import { listProducts } from "@lib/data/products"
 import { getRegion } from "@lib/data/regions"
 import ProductTemplate from "@modules/products/templates"
 import strapiClient from "@lib/strapi"
-import { GetCommonPdpQuery, GetProductQuery, generateProductJsonLd } from "@lib/data/strapi/pdp"
+import {
+  GetCommonPdpQuery,
+  GetProductQuery,
+  generateProductJsonLd,
+  getProductIngredientDisclosures,
+} from "@lib/data/strapi/pdp"
 import { getBaseURL } from "@lib/util/env"
 import { withTimeout } from "@lib/util/promise-timeout"
 import { retrieveCustomer } from "@lib/data/customer"
@@ -194,6 +199,12 @@ export default async function ProductPage(props: Props) {
     null,
     `PDP Strapi product data for ${pricedProduct.id}`
   )
+  const ingredientDisclosuresPromise = withTimeout(
+    getProductIngredientDisclosures(pricedProduct.id),
+    1200,
+    [],
+    `PDP Strapi ingredient disclosures for ${pricedProduct.id}`
+  )
   const purchaseHistoryItemPromise = customer
     ? withTimeout(
         listPurchaseHistory()
@@ -208,15 +219,23 @@ export default async function ProductPage(props: Props) {
       )
     : Promise.resolve(null)
 
-  const [strapiProductData, purchaseHistoryItem] = await Promise.all([
-    strapiProductDataPromise,
-    purchaseHistoryItemPromise,
-  ])
+  const [strapiProductData, ingredientDisclosures, purchaseHistoryItem] =
+    await Promise.all([
+      strapiProductDataPromise,
+      ingredientDisclosuresPromise,
+      purchaseHistoryItemPromise,
+    ])
+  const strapiProduct = strapiProductData?.products?.[0]
+    ? {
+        ...strapiProductData.products[0],
+        IngredientDisclosures: ingredientDisclosures,
+      }
+    : null
 
   const baseUrl = getBaseURL()
   const productJsonLd = generateProductJsonLd(
     pricedProduct,
-    strapiProductData?.products?.[0] || null,
+    strapiProduct,
     baseUrl,
     params.countryCode
   )
@@ -233,7 +252,7 @@ export default async function ProductPage(props: Props) {
         region={region}
         countryCode={params.countryCode}
         strapiCommonPdpData={strapiCommonPdpDataPromise}
-        strapiProductData={strapiProductData?.products?.[0]}
+        strapiProductData={strapiProduct}
         purchaseHistoryItem={purchaseHistoryItem}
       />
     </>
