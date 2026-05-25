@@ -800,7 +800,7 @@ function previewWarnings(
 
   if (actionRequiresQuickBooksPosting(input.action)) {
     warnings.push(
-      "QuickBooks/QBD posting is required for this money action. Until an accounting sync confirms it, the order stays marked as pending/manual for QBD."
+      "QuickBooks/QBD posting is required for this action. Until an accounting sync confirms it, the order stays marked as pending/manual for QBD."
     )
   }
 
@@ -1407,6 +1407,7 @@ export async function applyStaffOrderException(
           `/admin/orders/${order.id}/cancel`,
           {
             method: "POST",
+            headers: { "Idempotency-Key": requestKey },
           }
         )
         await appendOrderAudit(
