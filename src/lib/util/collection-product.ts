@@ -119,6 +119,18 @@ function compactVariant(variant: any) {
   return compact
 }
 
+function compactIngredientDisclosure(disclosure: any) {
+  if (!disclosure || typeof disclosure !== "object") return null
+
+  return {
+    id: disclosure.id,
+    Sku: disclosure.Sku || null,
+    Ingredients: disclosure.Ingredients || null,
+    Contains: disclosure.Contains || null,
+    ReviewStatus: disclosure.ReviewStatus || null,
+  }
+}
+
 export function compactCollectionProduct(
   product: any
 ): StrapiCollectionProduct {
@@ -131,6 +143,11 @@ export function compactCollectionProduct(
         tag?.Name ? { Name: tag.Name } : null
       ).filter(Boolean)
     : []
+  const ingredientDisclosures = Array.isArray(product?.IngredientDisclosures)
+    ? product.IngredientDisclosures.map(compactIngredientDisclosure).filter(
+        Boolean
+      )
+    : []
 
   return {
     documentId: product?.documentId || String(product?.objectID || ""),
@@ -139,6 +156,9 @@ export function compactCollectionProduct(
     GalleryImages: Array.isArray(product?.GalleryImages)
       ? product.GalleryImages.map(compactImage).filter(Boolean)
       : [],
+    IngredientDisclosures: ingredientDisclosures.length
+      ? ingredientDisclosures
+      : undefined,
     Metadata: compactMetadata(product?.Metadata),
     Categorization: tags.length ? { ProductTags: tags } : undefined,
     MedusaProduct: medusaProduct
@@ -164,6 +184,10 @@ export const ALGOLIA_COLLECTION_PRODUCT_ATTRIBUTES = [
   "Title",
   "FeaturedImage.url",
   "GalleryImages.url",
+  "IngredientDisclosures.Sku",
+  "IngredientDisclosures.Ingredients",
+  "IngredientDisclosures.Contains",
+  "IngredientDisclosures.ReviewStatus",
   ...COLLECTION_PRODUCT_METADATA_KEYS.map((key) => `Metadata.${key}`),
   "Categorization.ProductTags.Name",
   "MedusaProduct.ProductId",

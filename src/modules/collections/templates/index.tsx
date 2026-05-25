@@ -16,6 +16,10 @@ import CollectionFilters, {
 } from "@modules/collections/components/collection-filters"
 import CollectionPagination from "@modules/collections/components/collection-pagination"
 import QuickFilterBar from "@modules/collections/components/quick-filter-bar"
+import {
+  allergenLabelForKey,
+  type AllergenKey,
+} from "@lib/util/product-allergens"
 
 const PRODUCTS_PER_PAGE = 48
 
@@ -142,6 +146,11 @@ export default function CollectionTemplate({
         field: value,
         value,
       })),
+      ...(activeFilters.avoidAllergens || []).map((value) => ({
+        groupId: "avoidAllergens" as const,
+        field: value,
+        value,
+      })),
       ...(activeFilters.priceMax
         ? [
             {
@@ -228,6 +237,8 @@ export default function CollectionTemplate({
                       const label =
                         groupId === "price" || groupId === "recent"
                           ? value
+                          : groupId === "avoidAllergens"
+                          ? `Avoid ${allergenLabelForKey(value as AllergenKey)}`
                           : value
                               .replace(/^L[23]:\s*/, "")
                               .replace(/([A-Z])/g, " $1")
@@ -252,6 +263,13 @@ export default function CollectionTemplate({
                               handleFilterChange({
                                 ...activeFilters,
                                 recentOnly: false,
+                              })
+                            } else if (groupId === "avoidAllergens") {
+                              handleFilterChange({
+                                ...activeFilters,
+                                avoidAllergens: (
+                                  activeFilters.avoidAllergens || []
+                                ).filter((v) => v !== value),
                               })
                             } else {
                               const nextMetadata = { ...activeFilters.metadata }

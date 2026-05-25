@@ -4,6 +4,7 @@ import { generateAlternates } from "@lib/util/seo"
 import { hitToProduct } from "@lib/algolia/hit-to-product"
 import { PRODUCT_INDEX } from "@lib/algolia/indexes"
 import { enrichStrapiProductsWithMedusaPrices } from "@lib/data/products"
+import { enrichProductsWithIngredientDisclosures } from "@lib/data/strapi/ingredient-disclosures"
 import type { StrapiCollectionProduct } from "@lib/data/strapi/collections"
 import { withTimeout } from "@lib/util/promise-timeout"
 import {
@@ -103,13 +104,19 @@ export default async function StorePage(props: Params) {
     visibleProducts,
     "store Medusa price enrichment"
   )
+  const productsWithDisclosures = await withTimeout(
+    enrichProductsWithIngredientDisclosures(products).catch(() => products),
+    1200,
+    products,
+    "store Strapi ingredient disclosures"
+  )
 
   return (
     <CollectionTemplate
       title="All Products"
       slug="store"
       countryCode={countryCode}
-      products={compactCollectionProducts(products)}
+      products={compactCollectionProducts(productsWithDisclosures)}
     />
   )
 }

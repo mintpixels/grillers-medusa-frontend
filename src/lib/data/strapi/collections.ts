@@ -1,6 +1,7 @@
 import { gql } from "graphql-request"
 import { compactCollectionProducts } from "@lib/util/collection-product"
 import type { StrapiSEO, StrapiSocialMeta } from "./seo"
+import type { IngredientDisclosure } from "types/strapi"
 
 export type ProductCollectionData = {
   Name: string
@@ -133,6 +134,7 @@ export type StrapiCollectionProduct = {
   GalleryImages?: Array<{
     url: string
   }>
+  IngredientDisclosures?: IngredientDisclosure[]
   Metadata?: {
     // Pack info
     AvgPackSize?: string
@@ -254,6 +256,12 @@ export const GetProductsByTagQuery = gql`
       GalleryImages {
         url
       }
+      IngredientDisclosures {
+        Sku
+        Ingredients
+        Contains
+        ReviewStatus
+      }
       Metadata {
         AvgPackSize
         AvgPackWeight
@@ -367,6 +375,12 @@ export const GetProductsByCollectionSlugQuery = gql`
       }
       GalleryImages {
         url
+      }
+      IngredientDisclosures {
+        Sku
+        Ingredients
+        Contains
+        ReviewStatus
       }
       Metadata {
         AvgPackSize
@@ -566,6 +580,12 @@ export const GetProductsByMedusaIdsQuery = gql`
       FeaturedImage {
         url
       }
+      IngredientDisclosures {
+        Sku
+        Ingredients
+        Contains
+        ReviewStatus
+      }
       Metadata {
         AvgPackSize
         AvgPackWeight
@@ -718,6 +738,12 @@ export const GetProductsByHandlesQuery = gql`
       GalleryImages {
         url
       }
+      IngredientDisclosures {
+        Sku
+        Ingredients
+        Contains
+        ReviewStatus
+      }
       Metadata {
         AvgPackSize
         AvgPackWeight
@@ -825,6 +851,12 @@ export const GetProductsWithImagesQuery = gql`
       }
       GalleryImages {
         url
+      }
+      IngredientDisclosures {
+        Sku
+        Ingredients
+        Contains
+        ReviewStatus
       }
       Metadata {
         AvgPackSize
