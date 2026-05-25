@@ -22,6 +22,12 @@ import {
   type StaffExceptionReasonCode,
   type StaffOrderOperationalState,
 } from "./exception-types"
+import {
+  staffCapturedCurrencyAmount,
+  staffCurrencyAmount,
+  staffMinorUnitsFromCurrency,
+  staffPositiveCurrencyAmount,
+} from "./money"
 
 type AnyRecord = Record<string, any>
 type StaffActionStatus =
@@ -175,18 +181,6 @@ function amount(value: unknown): number {
   return Number.isFinite(number) ? number : 0
 }
 
-function dollarsToMinorUnits(value: unknown): number {
-  return Math.round(amount(value) * 100)
-}
-
-function minorUnitsFromDollars(value: unknown): number {
-  const number = Number(value)
-  if (!Number.isFinite(number) || number <= 0) {
-    throw new Error("Enter a positive amount.")
-  }
-  return Math.round(number * 100)
-}
-
 function displayId(order: AnyRecord): string {
   return order.display_id ? `#${order.display_id}` : order.id
 }
@@ -227,7 +221,7 @@ function summarizeOrder(order: AnyRecord): StaffExceptionOrderSummary {
     status: order.status || "unknown",
     fulfillmentStatus: order.fulfillment_status || "unknown",
     paymentStatus: order.payment_status || "unknown",
-    total: amount(order.total),
+    total: staffCurrencyAmount(order.total),
     currencyCode: order.currency_code || "usd",
     itemCount: items.reduce((sum: number, item: AnyRecord) => {
       return sum + amount(item.quantity)
@@ -256,7 +250,7 @@ function summarizeLegacyOrder(order: AnyRecord): StaffExceptionOrderSummary {
     status: order.status || "imported",
     fulfillmentStatus: "historical",
     paymentStatus: "historical",
-    total: dollarsToMinorUnits(order.total),
+    total: staffCurrencyAmount(order.total),
     currencyCode: order.currency_code || "usd",
     itemCount:
       Number(order.line_count || 0) ||
@@ -391,10 +385,10 @@ function detailLegacyOrder(order: AnyRecord): StaffExceptionOrderDetail {
 
   return {
     ...summary,
-    subtotal: dollarsToMinorUnits(order.subtotal),
-    shippingTotal: dollarsToMinorUnits(order.shipping_total),
-    taxTotal: dollarsToMinorUnits(order.tax_total),
-    discountTotal: dollarsToMinorUnits(order.discount_total),
+    subtotal: staffCurrencyAmount(order.subtotal),
+    shippingTotal: staffCurrencyAmount(order.shipping_total),
+    taxTotal: staffCurrencyAmount(order.tax_total),
+    discountTotal: staffCurrencyAmount(order.discount_total),
     items: lines.map((line: AnyRecord) => ({
       id: line.id,
       title:
@@ -410,7 +404,7 @@ function detailLegacyOrder(order: AnyRecord): StaffExceptionOrderDetail {
           : line.medusa_variant_title,
       sku: line.sku || undefined,
       quantity: amount(line.quantity),
-      total: dollarsToMinorUnits(line.line_total),
+      total: staffCurrencyAmount(line.line_total),
     })),
     payments: [],
     shippingMethods: [],
@@ -458,27 +452,38 @@ function collectPayments(order: AnyRecord): StaffExceptionPayment[] {
       : []
     return payments.map((payment: AnyRecord) => {
       const refunds = Array.isArray(payment.refunds) ? payment.refunds : []
-      const refundedAmount =
-        amount(payment.refunded_amount) ||
-        refunds.reduce(
-          (sum: number, refund: AnyRecord) => sum + amount(refund.amount),
-          0
-        )
+      const explicitRefundedAmount = numericValue(payment.refunded_amount)
+      const refundedAmount = staffCurrencyAmount(
+        explicitRefundedAmount !== null
+          ? explicitRefundedAmount
+          : refunds.reduce(
+              (sum: number, refund: AnyRecord) => sum + amount(refund.amount),
+              0
+            )
+      )
+      const paymentAmount = staffCurrencyAmount(payment.amount)
+      const paymentStatus = String(
+        payment.status || collection.status || ""
+      ).toLowerCase()
+      const capturedAmount = staffCapturedCurrencyAmount({
+        capturedAmount: payment.captured_amount,
+        paymentAmount,
+        status: paymentStatus,
+      })
 
       return {
         id: payment.id,
-        amount: amount(payment.amount),
-        capturedAmount: amount(payment.captured_amount || payment.amount),
+        amount: paymentAmount,
+        capturedAmount,
         refundedAmount,
-        refundableAmount: Math.max(
-          0,
-          amount(payment.captured_amount || payment.amount) - refundedAmount
+        refundableAmount: staffCurrencyAmount(
+          Math.max(0, capturedAmount - refundedAmount)
         ),
         currencyCode:
           payment.currency_code || collection.currency_code || "usd",
         providerId:
           payment.provider_id || payment.provider || collection.provider_id,
-        status: payment.status,
+        status: payment.status || collection.status,
       }
     })
   })
@@ -547,10 +552,10 @@ function detailOrder(order: AnyRecord): StaffExceptionOrderDetail {
 
   return {
     ...summary,
-    subtotal: amount(order.subtotal),
-    shippingTotal: amount(order.shipping_total),
-    taxTotal: amount(order.tax_total),
-    discountTotal: amount(order.discount_total),
+    subtotal: staffCurrencyAmount(order.subtotal),
+    shippingTotal: staffCurrencyAmount(order.shipping_total),
+    taxTotal: staffCurrencyAmount(order.tax_total),
+    discountTotal: staffCurrencyAmount(order.discount_total),
     items: items.map((item: AnyRecord) => ({
       id: item.id,
       title:
@@ -561,7 +566,7 @@ function detailOrder(order: AnyRecord): StaffExceptionOrderDetail {
       subtitle: item.subtitle || item.variant_title || item.variant?.title,
       sku: item.variant?.sku || item.sku,
       quantity: amount(item.quantity),
-      total: amount(item.total),
+      total: staffCurrencyAmount(item.total),
     })),
     payments: collectPayments(order),
     shippingMethods,
@@ -703,7 +708,7 @@ function quickBooksAction(
 
 function qbdPendingFields(
   input: StaffExceptionActionInput,
-  amountValue?: number,
+  amountMinor?: number,
   extra: AnyRecord = {}
 ): AnyRecord {
   const action = quickBooksAction(input.action)
@@ -713,7 +718,7 @@ function qbdPendingFields(
     qbd_posting_required: true,
     qbd_posting_status: "pending_manual",
     qbd_posting_action: action,
-    qbd_posting_amount: amountValue,
+    qbd_posting_amount: amountMinor,
     qbd_posting_requested_at: new Date().toISOString(),
     ...extra,
   }
@@ -834,7 +839,7 @@ function previewAmount(input: StaffExceptionActionInput): number | undefined {
   }
 
   try {
-    return minorUnitsFromDollars(input.amount)
+    return staffPositiveCurrencyAmount(input.amount)
   } catch {
     return undefined
   }
@@ -864,11 +869,11 @@ function validateAction(input: StaffExceptionActionInput, order: AnyRecord) {
     actionMovesMoney(input.action) &&
     input.action !== "record_offline_payment"
   ) {
-    minorUnitsFromDollars(input.amount)
+    staffPositiveCurrencyAmount(input.amount)
   }
 
   if (input.action === "record_offline_payment") {
-    minorUnitsFromDollars(input.amount)
+    staffPositiveCurrencyAmount(input.amount)
     if (!input.offlinePaymentMethod?.trim()) {
       throw new Error("Choose or enter an offline payment method.")
     }
@@ -876,12 +881,12 @@ function validateAction(input: StaffExceptionActionInput, order: AnyRecord) {
 
   if (input.action === "refund_payment") {
     const selected = refundableStripePayment(order, input.paymentId)
-    const refundAmount = minorUnitsFromDollars(input.amount)
+    const refundAmount = staffPositiveCurrencyAmount(input.amount)
     if (refundAmount > selected.refundableAmount) {
       throw new Error(
-        `Refund amount exceeds the refundable card balance of ${(
-          selected.refundableAmount / 100
-        ).toFixed(2)}.`
+        `Refund amount exceeds the refundable card balance of ${selected.refundableAmount.toFixed(
+          2
+        )}.`
       )
     }
   }
@@ -1268,15 +1273,16 @@ export async function applyStaffOrderException(
         break
       }
       case "record_offline_payment": {
-        const offlinePaymentAmount = minorUnitsFromDollars(input.amount)
+        const offlinePaymentAmount = staffPositiveCurrencyAmount(input.amount)
+        const qbdAmountMinor = staffMinorUnitsFromCurrency(offlinePaymentAmount)
         const requestKey = downstreamRequestKey(
           input,
           order,
-          offlinePaymentAmount,
+          qbdAmountMinor,
           input.offlinePaymentReference?.trim() ||
             input.offlinePaymentMethod?.trim()
         )
-        const qbdFields = qbdPendingFields(input, offlinePaymentAmount, {
+        const qbdFields = qbdPendingFields(input, qbdAmountMinor, {
           qbd_posting_request_key: requestKey,
         })
         await appendOrderAudit(
@@ -1313,9 +1319,10 @@ export async function applyStaffOrderException(
         break
       }
       case "credit_memo": {
-        const creditAmount = minorUnitsFromDollars(input.amount)
-        const requestKey = downstreamRequestKey(input, order, creditAmount)
-        const qbdFields = qbdPendingFields(input, creditAmount, {
+        const creditAmount = staffPositiveCurrencyAmount(input.amount)
+        const qbdAmountMinor = staffMinorUnitsFromCurrency(creditAmount)
+        const requestKey = downstreamRequestKey(input, order, qbdAmountMinor)
+        const qbdFields = qbdPendingFields(input, qbdAmountMinor, {
           qbd_posting_request_key: requestKey,
         })
         await appendOrderAudit(
@@ -1333,9 +1340,10 @@ export async function applyStaffOrderException(
         break
       }
       case "record_check_refund": {
-        const checkRefundAmount = minorUnitsFromDollars(input.amount)
-        const requestKey = downstreamRequestKey(input, order, checkRefundAmount)
-        const qbdFields = qbdPendingFields(input, checkRefundAmount, {
+        const checkRefundAmount = staffPositiveCurrencyAmount(input.amount)
+        const qbdAmountMinor = staffMinorUnitsFromCurrency(checkRefundAmount)
+        const requestKey = downstreamRequestKey(input, order, qbdAmountMinor)
+        const qbdFields = qbdPendingFields(input, qbdAmountMinor, {
           qbd_posting_request_key: requestKey,
         })
         await appendOrderAudit(
@@ -1398,14 +1406,15 @@ export async function applyStaffOrderException(
       }
       case "refund_payment": {
         const payment = refundableStripePayment(order, input.paymentId)
-        const refundAmount = minorUnitsFromDollars(input.amount)
+        const refundAmount = staffPositiveCurrencyAmount(input.amount)
+        const qbdAmountMinor = staffMinorUnitsFromCurrency(refundAmount)
         const requestKey = downstreamRequestKey(
           input,
           order,
-          refundAmount,
+          qbdAmountMinor,
           payment.id
         )
-        const qbdFields = qbdPendingFields(input, refundAmount, {
+        const qbdFields = qbdPendingFields(input, qbdAmountMinor, {
           qbd_posting_request_key: requestKey,
         })
         await appendOrderAudit(
@@ -1510,14 +1519,15 @@ export async function applyStaffOrderException(
       }
       case "capture_payment": {
         const payment = capturablePayment(order, input.paymentId)
-        const captureAmount = minorUnitsFromDollars(input.amount)
+        const captureAmount = staffPositiveCurrencyAmount(input.amount)
+        const qbdAmountMinor = staffMinorUnitsFromCurrency(captureAmount)
         const requestKey = downstreamRequestKey(
           input,
           order,
-          captureAmount,
+          qbdAmountMinor,
           payment.id
         )
-        const qbdFields = qbdPendingFields(input, captureAmount, {
+        const qbdFields = qbdPendingFields(input, qbdAmountMinor, {
           qbd_posting_request_key: requestKey,
         })
         await appendOrderAudit(

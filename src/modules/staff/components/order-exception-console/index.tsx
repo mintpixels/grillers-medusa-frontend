@@ -27,6 +27,7 @@ import {
   type StaffExceptionActionType,
   type StaffExceptionReasonCode,
 } from "@lib/data/staff/exception-types"
+import { formatStaffMoney as formatMoney } from "@lib/data/staff/money"
 
 function fieldClass() {
   return "min-h-[44px] rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-maison-neue text-Charcoal outline-none transition focus:border-Gold focus:ring-1 focus:ring-Gold"
@@ -34,14 +35,6 @@ function fieldClass() {
 
 function labelClass() {
   return "text-xs font-maison-neue-mono uppercase text-Charcoal/55"
-}
-
-function formatMoney(value?: number, currencyCode = "usd") {
-  const amount = Number(value || 0) / 100
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: currencyCode.toUpperCase(),
-  }).format(amount)
 }
 
 function formatOrderDate(value?: string) {
