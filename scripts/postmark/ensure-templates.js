@@ -91,9 +91,9 @@ function template({
               <td class="email-padding" style="padding:22px 40px 28px;">
                 <table cellpadding="0" cellspacing="0" border="0">
                   <tr>
-                    <td align="center" style="border-radius:4px;background:#0B5A43;">
-                      <a href="${ctaUrl}" style="display:inline-block;padding:14px 32px;font-size:15px;font-weight:700;color:#FAF8F3;text-decoration:none;border-radius:4px;letter-spacing:0;">
-                  ${ctaText}
+                    <td align="center" bgcolor="#0B5A43" style="border-radius:4px;background:#0B5A43;">
+                      <a class="button-link" href="${ctaUrl}" target="_blank" style="display:inline-block;background:#0B5A43;border:1px solid #0B5A43;padding:14px 32px;font-size:15px;line-height:1.2;font-weight:700;color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF;text-decoration:none;border-radius:4px;letter-spacing:0;">
+                        <span style="color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF;text-decoration:none;">${ctaText}</span>
                       </a>
                     </td>
                   </tr>
