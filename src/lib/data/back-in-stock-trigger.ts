@@ -1,6 +1,7 @@
 "use server"
 
 import { sendTemplatedEmail } from "@lib/postmark"
+import { isWaitlistEligible } from "@lib/util/waitlist-eligibility"
 
 /**
  * Restock trigger for #102. Polls inventory state, finds products that
@@ -58,6 +59,7 @@ type StrapiBackInStockRequest = {
 type MedusaProductInventory = {
   productId: string
   inStock: boolean
+  waitlistEnabled: boolean
   status: string
 }
 
@@ -151,7 +153,7 @@ async function fetchMedusaProductInventory(
 
   const root = MEDUSA_ADMIN_TOKEN ? "/admin/products" : "/store/products"
   const fields =
-    "id,status,variants.inventory_quantity,variants.allow_backorder,variants.manage_inventory"
+    "id,status,+metadata,variants.inventory_quantity,variants.allow_backorder,variants.manage_inventory,+variants.metadata"
   // Batch into chunks of 50 to keep URLs short.
   for (let i = 0; i < productIds.length; i += 50) {
     const batch = productIds.slice(i, i + 50)
@@ -178,24 +180,38 @@ async function fetchMedusaProductInventory(
     const products = (data.products || []) as Array<{
       id: string
       status?: string
+      metadata?: Record<string, unknown> | null
       variants?: Array<{
         inventory_quantity?: number | null
         allow_backorder?: boolean
         manage_inventory?: boolean
+        metadata?: Record<string, unknown> | null
       }>
     }>
     for (const p of products) {
+      const variants = p.variants || []
       // Product is "in stock" if any of its variants has either
       // unmanaged inventory, backorder enabled, or inventory_quantity > 0.
-      const inStock = (p.variants || []).some((v) => {
+      const inStock = variants.some((v) => {
         if (v.allow_backorder) return true
         if (v.manage_inventory === false) return true
         const q = v.inventory_quantity
         return typeof q === "number" && q > 0
       })
+      const waitlistEnabled =
+        variants.length > 0
+          ? variants.some((v) =>
+              isWaitlistEligible({
+                productMetadata: p.metadata,
+                variantMetadata: v.metadata,
+              })
+            )
+          : isWaitlistEligible({ productMetadata: p.metadata })
+
       out.set(p.id, {
         productId: p.id,
         inStock,
+        waitlistEnabled,
         status: p.status || "published",
       })
     }
@@ -323,6 +339,7 @@ export async function runBackInStockTrigger(): Promise<TriggerSummary> {
         // Couldn't read Medusa state — skip (don't accidentally send)
         continue
       }
+      if (!inv.waitlistEnabled) continue
       if (inv.status !== "published") continue
       if (!inv.inStock) continue
 

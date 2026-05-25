@@ -2,6 +2,12 @@ export interface StrapiImage {
   url: string
 }
 
+export type AvailabilityLifecycle =
+  | "active"
+  | "seasonal_inactive"
+  | "discontinued"
+  | "internal_only"
+
 // SEO Types
 export interface StrapiSEO {
   metaTitle: string
@@ -173,6 +179,8 @@ export interface MedusaProductVariant {
   Sku?: string | null
   QualifiesForFreeDeliveryOffers?: boolean | null
   FreeDeliveryExclusionReason?: string | null
+  WaitlistEnabled?: boolean | null
+  AvailabilityLifecycle?: AvailabilityLifecycle | null
   Price?: {
     CalculatedPriceNumber: number
     OriginalPriceNumber: number
@@ -184,6 +192,8 @@ export interface MedusaProduct {
   Title: string
   Handle: string
   Description: string
+  WaitlistEnabled?: boolean | null
+  AvailabilityLifecycle?: AvailabilityLifecycle | null
   Variants?: MedusaProductVariant[]
 }
 

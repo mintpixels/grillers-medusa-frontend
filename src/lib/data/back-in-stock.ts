@@ -27,10 +27,9 @@ const STRAPI_API_TOKEN = process.env.STRAPI_API_TOKEN
  *      `back-in-stock-confirm`. The unsubscribe link uses the
  *      single-use token from the Strapi record.
  *
- * Errors are swallowed at the boundary — the customer sees the same
- * "we'll let you know" success state regardless of whether the email
- * vendor or Strapi briefly failed. The full error chain is logged
- * server-side via `console.error` for Vercel function logs.
+ * Persistence errors are reported to the customer. We do not show a
+ * success state unless Strapi accepted the row the restock trigger
+ * will later process.
  *
  * Idempotency: repeated submissions from the same email + product
  * create multiple Strapi records on purpose. The restock trigger
@@ -165,6 +164,12 @@ export async function requestBackInStockNotification(input: {
     UnsubscribeToken: token,
     Source: input.source ?? "pdp",
   })
+  if (!persisted.ok) {
+    return {
+      ok: false,
+      error: "We couldn't save your request. Please try again.",
+    }
+  }
 
   const baseUrl = (
     process.env.NEXT_PUBLIC_BASE_URL || "https://www.grillerspride.com"
@@ -172,9 +177,9 @@ export async function requestBackInStockNotification(input: {
   const productUrl = `${baseUrl}/us/products/${input.productHandle}`
   const unsubscribeUrl = `${baseUrl}/api/back-in-stock/unsubscribe?t=${encodeURIComponent(token)}`
 
-  // Fire the confirmation email regardless of whether Strapi persist
-  // succeeded — the customer's intent should still feel acknowledged
-  // even if we have to manually rebuild the record from logs later.
+  // The customer is on the list once Strapi has the row. Confirmation
+  // email failures are logged because the restock trigger can still
+  // notify the persisted subscriber later.
   const send = await sendTemplatedEmail({
     to: email,
     templateAlias: "back-in-stock-confirm",

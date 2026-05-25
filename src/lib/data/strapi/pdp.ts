@@ -134,10 +134,14 @@ export const GetProductQuery = gql`
         Title
         Description
         Handle
+        WaitlistEnabled
+        AvailabilityLifecycle
         Variants {
           VariantId
           Title
           Sku
+          WaitlistEnabled
+          AvailabilityLifecycle
           QualifiesForFreeDeliveryOffers
           FreeDeliveryExclusionReason
           Price {

@@ -143,12 +143,12 @@ const templates = [
     subject: "We'll let you know - {{product_title}}",
     preview: "You're on the list.",
     body:
-      "<p>We have your request for <strong>{{product_title}}</strong>.</p><p>When this cut is back in stock, we will email you here. You can revisit the product any time from the link below.</p><p style=\"font-size:13px;color:#6b7280;\">Product handle: {{product_handle}}</p>",
+      "<p>We have your request for <strong>{{product_title}}</strong>.</p><p>When this cut is back in stock, we will email you here. You can revisit the product any time from the link below.</p>",
     ctaText: "View product",
     ctaUrl: "{{product_url}}",
     footer: "You are receiving this because you asked to be notified when this product returns.",
     textBody:
-      "You're on the list for {{product_title}}.\n\nProduct handle: {{product_handle}}\nProduct: {{product_url}}\n\nUnsubscribe: {{unsubscribe_url}}",
+      "You're on the list for {{product_title}}.\n\nProduct: {{product_url}}\n\nUnsubscribe: {{unsubscribe_url}}",
   }),
   template({
     name: "Back in stock restocked",

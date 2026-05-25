@@ -17,6 +17,10 @@ import ProductFacts from "@modules/products/components/product-facts"
 import ProductIngredientDisclosures from "@modules/products/components/product-ingredient-disclosures"
 import { sanitizeProductCopy } from "@lib/util/product-claims"
 import ProductImages from "./product-images"
+import {
+  isCatalogLifecyclePurchasable,
+  shouldShowBackInStockForm,
+} from "@lib/util/waitlist-eligibility"
 
 import type { StrapiProductData } from "types/strapi"
 import type { CartConversionState } from "@lib/data/conversion"
@@ -121,6 +125,30 @@ export default function ProductDetail({
         product.variants?.[0]?.sku
       : null) ||
     null
+  const strapiVariants = strapiProductData?.MedusaProduct?.Variants || []
+  const selectedStrapiVariant =
+    strapiVariants.find(
+      (variant) =>
+        selectedVariant?.id && variant.VariantId === selectedVariant.id
+    ) ||
+    strapiVariants.find(
+      (variant) => selectedSku && variant.Sku === selectedSku
+    ) ||
+    null
+  const showBackInStockForm = shouldShowBackInStockForm({
+    inStock,
+    product,
+    selectedVariant,
+    strapiProduct: strapiProductData?.MedusaProduct,
+    strapiVariant: selectedStrapiVariant,
+  })
+  const catalogAllowsPurchase = isCatalogLifecyclePurchasable({
+    productMetadata: product.metadata,
+    variantMetadata: selectedVariant?.metadata,
+    strapiProduct: strapiProductData?.MedusaProduct,
+    strapiVariant: selectedStrapiVariant,
+  })
+  const effectiveInStock = Boolean(inStock && catalogAllowsPurchase)
   const setActionsNode = useCallback(
     (node: HTMLDivElement | null) => {
       if (!actionsRef) return
@@ -216,7 +244,7 @@ export default function ProductDetail({
             <ProductActions
               product={product}
               variant={selectedVariant}
-              inStock={inStock}
+              inStock={effectiveInStock}
               isAdding={isAdding}
               isValidVariant={isValidVariant}
               quantity={quantity}
@@ -226,12 +254,13 @@ export default function ProductDetail({
             />
           </div>
 
-          {/* Notify-me-when-back-in-stock — only shown when the
-              selected variant is OOS. Drops the customer's email
+          {/* Notify-me-when-back-in-stock — only shown when the selected
+              variant is OOS and catalog lifecycle allows waitlisting.
+              Drops the customer's email
               into a Strapi `back-in-stock-request` collection and
               fires a Postmark confirmation. Restock trigger lives
               outside this surface (Medusa inventory webhook). #102. */}
-          {!inStock && (
+          {showBackInStockForm && (
             <div className="mb-6">
               <NotifyBackInStockForm
                 medusaProductId={product.id || ""}
@@ -323,14 +352,17 @@ export default function ProductDetail({
               type="button"
               onClick={handleAddToCart}
               disabled={
-                !inStock || !selectedVariant || isAdding || !isValidVariant
+                !effectiveInStock ||
+                !selectedVariant ||
+                isAdding ||
+                !isValidVariant
               }
               className="min-h-[44px] min-w-0 rounded-[5px] border border-Charcoal bg-Gold px-3 py-2 text-center font-rexton text-xs font-bold uppercase text-Charcoal transition-opacity disabled:cursor-not-allowed disabled:opacity-50"
               data-testid="mobile-cart-button"
             >
               {!selectedVariant
                 ? "Select variant"
-                : !inStock || !isValidVariant
+                : !effectiveInStock || !isValidVariant
                 ? "Out of stock"
                 : isAdding
                 ? "Adding..."
