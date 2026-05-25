@@ -3,6 +3,13 @@
 import { useMemo, useState, useRef, useEffect, useCallback } from "react"
 import { jitsuTrack } from "@lib/jitsu"
 import type { StrapiCollectionProduct } from "@lib/data/strapi/collections"
+import {
+  FDA_MAJOR_ALLERGENS,
+  getProductAllergenKeys,
+  hasApprovedIngredientDisclosure,
+  productContainsAnyAllergen,
+  type AllergenKey,
+} from "@lib/util/product-allergens"
 
 type MetadataField = NonNullable<StrapiCollectionProduct["Metadata"]>
 type BoolMetadataKey = {
@@ -131,6 +138,7 @@ const FACET_GROUPS: FacetGroupDef[] = [
 export type ActiveFilters = {
   metadata: Record<string, string[]> // group.id → array of field names
   tags: string[]
+  avoidAllergens: AllergenKey[]
   priceMax?: number | null
   recentOnly?: boolean
 }
@@ -155,12 +163,19 @@ interface CollectionFiltersProps {
 }
 
 export function getEmptyFilters(): ActiveFilters {
-  return { metadata: {}, tags: [], priceMax: null, recentOnly: false }
+  return {
+    metadata: {},
+    tags: [],
+    avoidAllergens: [],
+    priceMax: null,
+    recentOnly: false,
+  }
 }
 
 export function hasActiveFilters(filters: ActiveFilters): boolean {
   return (
     filters.tags.length > 0 ||
+    (filters.avoidAllergens?.length || 0) > 0 ||
     Object.values(filters.metadata).some((arr) => arr.length > 0) ||
     !!filters.priceMax ||
     !!filters.recentOnly
@@ -170,6 +185,7 @@ export function hasActiveFilters(filters: ActiveFilters): boolean {
 export function getActiveFilterCount(filters: ActiveFilters): number {
   return (
     filters.tags.length +
+    (filters.avoidAllergens?.length || 0) +
     Object.values(filters.metadata).reduce((sum, arr) => sum + arr.length, 0) +
     (filters.priceMax ? 1 : 0) +
     (filters.recentOnly ? 1 : 0)
@@ -195,6 +211,26 @@ function buildFacetGroups(products: StrapiCollectionProduct[]) {
         .filter((o) => o.count > 0),
     }))
     .filter((g) => g.options.length >= 2 && g.options.some((o) => o.count < total))
+}
+
+function buildAllergenOptions(products: StrapiCollectionProduct[]) {
+  const productsWithApprovedDisclosures = products.filter(
+    hasApprovedIngredientDisclosure
+  )
+
+  const hasKnownAllergenSignals = productsWithApprovedDisclosures.some(
+    (product) => getProductAllergenKeys(product).length > 0
+  )
+
+  if (!hasKnownAllergenSignals) return []
+
+  return FDA_MAJOR_ALLERGENS.map((allergen) => ({
+    label: allergen.label,
+    value: allergen.key,
+    count: productsWithApprovedDisclosures.filter(
+      (product) => !productContainsAnyAllergen(product, [allergen.key])
+    ).length,
+  }))
 }
 
 // At least one filterable thing exists for these products?
@@ -237,6 +273,7 @@ function buildTagGroups(products: StrapiCollectionProduct[]) {
 }
 
 export function productsHaveFilters(products: StrapiCollectionProduct[]): boolean {
+  if (buildAllergenOptions(products).length > 0) return true
   if (buildFacetGroups(products).length > 0) return true
   return buildTagGroups(products).length > 0
 }
@@ -265,6 +302,13 @@ export function filterProducts(
         productTagNames.includes(tag)
       )
       if (!matchesTags) return false
+    }
+
+    if (filters.avoidAllergens?.length) {
+      if (!hasApprovedIngredientDisclosure(product)) return false
+      if (productContainsAnyAllergen(product, filters.avoidAllergens)) {
+        return false
+      }
     }
 
     if (filters.priceMax) {
@@ -409,6 +453,10 @@ export default function CollectionFilters({
 }: CollectionFiltersProps) {
   // Data-driven facet groups built from new Metadata fields.
   const facetGroups = useMemo(() => buildFacetGroups(products), [products])
+  const allergenOptions = useMemo(
+    () => buildAllergenOptions(products),
+    [products]
+  )
 
   // Build hierarchical tag filter options: L2 parents with L3 children
   type TagGroup = {
@@ -528,6 +576,21 @@ export default function CollectionFilters({
     onFilterChange({ ...activeFilters, metadata: nextMetadata })
   }
 
+  const toggleAllergenFilter = (value: string) => {
+    const allergen = value as AllergenKey
+    const current = activeFilters.avoidAllergens || []
+    const isActive = current.includes(allergen)
+    const updated = isActive
+      ? current.filter((item) => item !== allergen)
+      : [...current, allergen]
+    jitsuTrack("filter_applied", {
+      filter_type: "avoid_allergens",
+      filter_value: allergen,
+      action: isActive ? "removed" : "applied",
+    })
+    onFilterChange({ ...activeFilters, avoidAllergens: updated })
+  }
+
   const clearAll = () => {
     onFilterChange(getEmptyFilters())
   }
@@ -579,7 +642,8 @@ export default function CollectionFilters({
     )
   }
 
-  const hasFilters = facetGroups.length > 0 || tagGroups.length > 0
+  const hasFilters =
+    allergenOptions.length > 0 || facetGroups.length > 0 || tagGroups.length > 0
   if (!hasFilters) return null
 
   return (
@@ -704,6 +768,16 @@ export default function CollectionFilters({
             })}
           </div>
         </CategoryFilterSection>
+      )}
+
+      {allergenOptions.length > 0 && (
+        <FilterSection
+          storageKey="collection-filter-collapse-avoid-allergens"
+          title="Avoid Allergens"
+          options={allergenOptions}
+          activeValues={activeFilters.avoidAllergens || []}
+          onToggle={toggleAllergenFilter}
+        />
       )}
 
       {facetGroups.map((group) => (

@@ -17,6 +17,7 @@ import {
   searchQueryForAlgolia,
 } from "@lib/algolia/search-relevance"
 import type { StrapiCollectionProduct } from "@lib/data/strapi/collections"
+import type { ProductIngredientDisclosureMap } from "@lib/data/strapi/ingredient-disclosures"
 import { enrichStrapiProductsWithMedusaPrices } from "@lib/data/products"
 import { ALGOLIA_COLLECTION_PRODUCT_ATTRIBUTES } from "@lib/util/collection-product"
 import StrapiProductGrid from "@modules/collections/components/strapi-product-grid"
@@ -140,11 +141,73 @@ function SearchBody({
     () => rankSearchHits(allProducts, displayQuery),
     [allProducts, displayQuery]
   )
+  const rankedProductIds = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          rankedProducts
+            .map((product) => product.MedusaProduct?.ProductId)
+            .filter((id): id is string => Boolean(id))
+        )
+      ),
+    [rankedProducts]
+  )
+  const rankedProductIdKey = rankedProductIds.join("|")
+  const [ingredientDisclosureMap, setIngredientDisclosureMap] =
+    useState<ProductIngredientDisclosureMap>({})
+
+  useEffect(() => {
+    const productIds = rankedProductIdKey ? rankedProductIdKey.split("|") : []
+
+    if (productIds.length === 0) {
+      setIngredientDisclosureMap({})
+      return
+    }
+
+    let cancelled = false
+
+    fetch("/api/product-ingredient-disclosures", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ productIds }),
+    })
+      .then((res) => (res.ok ? res.json() : { products: {} }))
+      .then((data) => {
+        if (!cancelled) setIngredientDisclosureMap(data?.products || {})
+      })
+      .catch(() => {
+        if (!cancelled) setIngredientDisclosureMap({})
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [rankedProductIdKey])
+
+  const rankedProductsWithDisclosures = useMemo(
+    () =>
+      rankedProducts.map((product) => {
+        if (product.IngredientDisclosures?.length) return product
+
+        const productId = product.MedusaProduct?.ProductId
+        const disclosures = productId
+          ? ingredientDisclosureMap[productId]
+          : undefined
+
+        if (!disclosures?.length) return product
+
+        return {
+          ...product,
+          IngredientDisclosures: disclosures,
+        }
+      }),
+    [rankedProducts, ingredientDisclosureMap]
+  )
 
   // Reset page on new query or filter change.
   const filtered = useMemo(
-    () => filterProducts(rankedProducts, activeFilters),
-    [rankedProducts, activeFilters]
+    () => filterProducts(rankedProductsWithDisclosures, activeFilters),
+    [rankedProductsWithDisclosures, activeFilters]
   )
 
   const totalPages = Math.ceil(filtered.length / RESULTS_PER_PAGE)
@@ -189,7 +252,7 @@ function SearchBody({
     setCurrentPage(1)
   }, [rankedProducts.length, displayQuery])
 
-  const showFilters = productsHaveFilters(rankedProducts)
+  const showFilters = productsHaveFilters(rankedProductsWithDisclosures)
   const isEmpty = displayQuery.length > 0 && rankedProducts.length === 0
 
   if (isEmpty) {
@@ -223,7 +286,7 @@ function SearchBody({
         {showFilters && (
           <div className="hidden lg:block">
             <CollectionFilters
-              products={rankedProducts}
+              products={rankedProductsWithDisclosures}
               activeFilters={activeFilters}
               onFilterChange={handleFilterChange}
             />
@@ -339,7 +402,7 @@ function SearchBody({
             </div>
             <div className="flex-1 overflow-y-auto px-5 py-4">
               <CollectionFilters
-                products={rankedProducts}
+                products={rankedProductsWithDisclosures}
                 activeFilters={activeFilters}
                 onFilterChange={handleFilterChange}
                 hideHeader
