@@ -1439,7 +1439,7 @@ export async function applyStaffOrderException(
         let refundResponse: { payment: AnyRecord }
         try {
           refundResponse = await adminFetch<{ payment: AnyRecord }>(
-            `/admin/payments/${payment.id}/refund`,
+            `/admin/grillers/payments/${payment.id}/refund`,
             {
               method: "POST",
               headers: { "Idempotency-Key": requestKey },
