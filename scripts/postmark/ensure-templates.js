@@ -24,6 +24,17 @@ function loadDotEnv() {
   }
 }
 
+loadDotEnv()
+
+const STOREFRONT_URL = (
+  process.env.STOREFRONT_URL ||
+  process.env.NEXT_PUBLIC_BASE_URL ||
+  "https://grillers-medusa-frontend.vercel.app"
+).replace(/\/+$/, "")
+const BRAND_LOGO_URL =
+  process.env.EMAIL_LOGO_URL ||
+  `${STOREFRONT_URL}/images/logos/logo-horizontal.png`
+
 function template({
   name,
   alias,
@@ -36,39 +47,76 @@ function template({
   textBody,
 }) {
   const htmlBody = `<!doctype html>
-<html>
-  <body style="margin:0;padding:0;background:#f8f5ef;color:#262626;font-family:Arial,sans-serif;">
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f8f5ef;padding:32px 16px;">
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <meta name="x-apple-disable-message-reformatting"/>
+    <title>${preview}</title>
+    <style>
+      @media only screen and (max-width:620px){
+        .email-container{width:100% !important;}
+        .email-padding{padding-left:20px !important;padding-right:20px !important;}
+        .brand-logo{width:220px !important;height:auto !important;}
+      }
+      a { color:#0B5A43; }
+    </style>
+  </head>
+  <body style="margin:0;padding:0;background:#F7F3EA;color:#2A2828;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;">
+    <div style="display:none;font-size:1px;color:#F7F3EA;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;">${preview}</div>
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#F7F3EA;padding:32px 16px;">
       <tr>
         <td align="center">
-          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:620px;background:#ffffff;border:1px solid #e6ddcd;">
+          <table role="presentation" class="email-container" width="600" cellspacing="0" cellpadding="0" style="width:100%;max-width:600px;background:#FAF8F3;border:1px solid #E4DED2;border-radius:8px;overflow:hidden;">
             <tr>
-              <td style="padding:28px 28px 12px;font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:#9b741f;font-weight:700;">
-                Griller's Pride
+              <td align="center" style="background:#FAF8F3;padding:26px 40px;border-bottom:1px solid #E4DED2;text-align:center;">
+                <a href="${STOREFRONT_URL}" style="display:inline-block;text-decoration:none;">
+                  <img class="brand-logo" src="${BRAND_LOGO_URL}" width="256" height="24" alt="Griller's Pride" style="display:block;width:256px;max-width:100%;height:auto;border:0;outline:none;text-decoration:none;margin:0 auto;"/>
+                </a>
+                <div style="font-size:11px;letter-spacing:0;text-transform:uppercase;color:#A97838;font-weight:700;margin-top:10px;">Premium Kosher Meats</div>
               </td>
             </tr>
             <tr>
-              <td style="padding:0 28px 6px;font-size:28px;line-height:1.12;font-weight:700;color:#262626;">
-                ${preview}
+              <td class="email-padding" style="padding:36px 40px 8px 40px;">
+                <div style="font-size:11px;letter-spacing:0;text-transform:uppercase;color:#A97838;font-weight:700;margin-bottom:12px;">Griller's Pride</div>
+                <h1 style="margin:0;font-size:28px;line-height:1.25;color:#17201A;font-weight:700;letter-spacing:0;">${preview}</h1>
               </td>
             </tr>
             <tr>
-              <td style="padding:12px 28px 4px;font-size:16px;line-height:1.55;color:#3d3d3d;">
+              <td class="email-padding" style="padding:16px 40px 4px;font-size:16px;line-height:1.6;color:#2A2828;">
                 ${body}
               </td>
             </tr>
             <tr>
-              <td style="padding:22px 28px 24px;">
-                <a href="${ctaUrl}" style="display:inline-block;background:#e0b963;color:#262626;text-decoration:none;font-size:13px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;padding:15px 22px;border:1px solid #262626;border-radius:5px;">
+              <td class="email-padding" style="padding:22px 40px 28px;">
+                <table cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td align="center" style="border-radius:4px;background:#0B5A43;">
+                      <a href="${ctaUrl}" style="display:inline-block;padding:14px 32px;font-size:15px;font-weight:700;color:#FAF8F3;text-decoration:none;border-radius:4px;letter-spacing:0;">
                   ${ctaText}
-                </a>
+                      </a>
+                    </td>
+                  </tr>
+                </table>
               </td>
             </tr>
             <tr>
-              <td style="padding:0 28px 28px;font-size:13px;line-height:1.55;color:#6b7280;">
-                ${footer}
-                <br /><br />
-                <a href="{{unsubscribe_url}}" style="color:#6b7280;">Unsubscribe from this email</a>
+              <td class="email-padding" style="padding:0 40px 32px;">
+                <div style="background:#FBFAF6;border:1px solid #E4DED2;border-radius:6px;padding:18px 20px;font-size:13px;line-height:1.6;color:#2A2828;">
+                  ${footer}
+                  <br /><br />
+                  <a href="{{unsubscribe_url}}" style="color:#6F665B;text-decoration:underline;">Unsubscribe from this email</a>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td style="background:#F7F3EA;padding:28px 40px;text-align:center;">
+                <div style="font-size:13px;color:#6F665B;line-height:1.6;">
+                  Questions? <a href="mailto:peter@grillerspride.com" style="color:#0B5A43;text-decoration:none;font-weight:600;">peter@grillerspride.com</a> &nbsp;|&nbsp; <a href="tel:7704548108" style="color:#0B5A43;text-decoration:none;font-weight:600;">(770) 454-8108</a>
+                </div>
+                <div style="font-size:11px;color:#6F665B;margin-top:14px;letter-spacing:0;">
+                  &copy; Griller's Pride &middot; <a href="${STOREFRONT_URL}" style="color:#6F665B;text-decoration:none;">grillerspride.com</a>
+                </div>
               </td>
             </tr>
           </table>
@@ -178,7 +226,6 @@ async function postmark(path, options = {}) {
 }
 
 async function main() {
-  loadDotEnv()
   const list = await postmark("/templates?count=500&offset=0", { method: "GET" })
   const byAlias = new Map((list.Templates || []).map((item) => [item.Alias, item]))
 
