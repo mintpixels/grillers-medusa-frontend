@@ -70,6 +70,7 @@ describe("staff exception helpers", () => {
     expect(actionRequiresQuickBooksPosting("record_offline_payment")).toBe(true)
     expect(actionRequiresQuickBooksPosting("credit_memo")).toBe(true)
     expect(actionRequiresQuickBooksPosting("record_check_refund")).toBe(true)
+    expect(actionRequiresQuickBooksPosting("cancel_order")).toBe(true)
     expect(actionRequiresQuickBooksPosting("record_note")).toBe(false)
   })
 

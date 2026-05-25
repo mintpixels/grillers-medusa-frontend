@@ -701,6 +701,8 @@ function quickBooksAction(
       return "card_refund_accounting_record"
     case "capture_payment":
       return "payment_capture_accounting_record"
+    case "cancel_order":
+      return "close_sales_order"
     default:
       return undefined
   }
@@ -782,7 +784,7 @@ function previewSummary(input: StaffExceptionActionInput): string {
     case "retry_qbd_posting":
       return "This reopens the existing failed QuickBooks posting for the writer to retry. It does not create a new Stripe refund or a new accounting request."
     case "cancel_order":
-      return "This will call Medusa's order cancellation endpoint after writing a staff audit entry."
+      return "This writes a staff audit entry, cancels the Medusa order, and leaves a QuickBooks close-order task when the order already reached QBD."
     case "refund_payment":
       return "This writes a staff audit entry, submits the Stripe card refund through Medusa, and leaves a required QuickBooks refund record task."
     case "capture_payment":
@@ -798,7 +800,7 @@ function previewWarnings(
 
   if (actionRequiresQuickBooksPosting(input.action)) {
     warnings.push(
-      "QuickBooks/QBD posting is required for this money action. Until an accounting sync confirms it, the order stays marked as pending/manual for QBD."
+      "QuickBooks/QBD posting is required for this action. Until an accounting sync confirms it, the order stays marked as pending/manual for QBD."
     )
   }
 
@@ -1384,22 +1386,36 @@ export async function applyStaffOrderException(
         break
       }
       case "cancel_order": {
-        await appendOrderAudit(order.id, baseEntry, {
-          staff_exception_status: "cancel_requested",
+        const requestKey = downstreamRequestKey(input, order, 0)
+        const qbdFields = qbdPendingFields(input, 0, {
+          qbd_posting_request_key: requestKey,
         })
+        await appendOrderAudit(
+          order.id,
+          { ...baseEntry, ...qbdFields },
+          {
+            staff_exception_status: "cancel_requested",
+            ...qbdFields,
+          }
+        )
         await adminFetch<{ order: AnyRecord }>(
           `/admin/orders/${order.id}/cancel`,
           {
             method: "POST",
+            headers: { "Idempotency-Key": requestKey },
           }
         )
         await appendOrderAudit(
           order.id,
           {
             ...baseAuditEntry({ staff, input, order, status: "completed" }),
+            ...qbdFields,
+            downstream_request_key: requestKey,
           },
           {
-            staff_exception_status: "cancel_completed",
+            staff_exception_status: "cancel_completed_qbd_pending",
+            ...qbdFields,
+            downstream_request_key: requestKey,
           }
         )
         break

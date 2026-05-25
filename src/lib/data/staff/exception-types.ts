@@ -216,7 +216,8 @@ export function actionRequiresQuickBooksPosting(
     action === "credit_memo" ||
     action === "record_check_refund" ||
     action === "refund_payment" ||
-    action === "capture_payment"
+    action === "capture_payment" ||
+    action === "cancel_order"
   )
 }
 
