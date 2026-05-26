@@ -246,26 +246,6 @@ function buildAllergenOptions(products: StrapiCollectionProduct[]) {
   }))
 }
 
-function buildAllergenOptions(products: StrapiCollectionProduct[]) {
-  const productsWithApprovedDisclosures = products.filter(
-    hasApprovedIngredientDisclosure
-  )
-
-  const hasKnownAllergenSignals = productsWithApprovedDisclosures.some(
-    (product) => getProductAllergenKeys(product).length > 0
-  )
-
-  if (!hasKnownAllergenSignals) return []
-
-  return FDA_MAJOR_ALLERGENS.map((allergen) => ({
-    label: allergen.label,
-    value: allergen.key,
-    count: productsWithApprovedDisclosures.filter(
-      (product) => !productContainsAnyAllergen(product, [allergen.key])
-    ).length,
-  }))
-}
-
 // At least one filterable thing exists for these products?
 // Build the same L2 / L3 tag groups the sidebar would render, applying the
 // same "useful" filter so this matches the sidebar's own visibility rules.
