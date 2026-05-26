@@ -2,7 +2,6 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react"
 import Image from "next/image"
-import type { HttpTypes } from "@medusajs/types"
 
 export type ProductImage = {
   url: string
@@ -11,7 +10,7 @@ export type ProductImage = {
 export type ProductImagesAction = "prev" | "next"
 
 export type ProductImagesSwiperProps = {
-  product: HttpTypes.StoreProduct
+  productTitle: string
   images: ProductImage[]
   initialAction?: ProductImagesAction | null
 }
@@ -22,10 +21,10 @@ const imageSizes =
   "(max-width: 767px) calc(100vw - 48px), (max-width: 1279px) 50vw, 600px"
 
 export default function ProductImages({
-  product,
+  productTitle,
   images,
 }: {
-  product: HttpTypes.StoreProduct
+  productTitle: string
   images: ProductImage[]
 }) {
   const rootRef = useRef<HTMLDivElement | null>(null)
@@ -117,7 +116,7 @@ export default function ProductImages({
       ref={rootRef}
       className="relative h-96 w-full md:h-[600px]"
       role="region"
-      aria-label={`Product image gallery for ${product.title}`}
+      aria-label={`Product image gallery for ${productTitle}`}
       aria-roledescription="carousel"
       onKeyDown={handleKeyDown}
       onPointerEnter={requestHydration}
@@ -126,7 +125,7 @@ export default function ProductImages({
     >
       {HydratedGallery ? (
         <HydratedGallery
-          product={product}
+          productTitle={productTitle}
           images={images}
           initialAction={initialAction}
         />
@@ -134,7 +133,7 @@ export default function ProductImages({
         <>
           <Image
             src={primaryImage.url}
-            alt={`${product.title} - Image 1 of ${totalImages}`}
+            alt={`${productTitle} - Image 1 of ${totalImages}`}
             fill
             priority
             className="object-cover border border-gray-300"

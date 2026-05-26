@@ -14,7 +14,7 @@ const imageSizes =
   "(max-width: 767px) calc(100vw - 48px), (max-width: 1279px) 50vw, 600px"
 
 export default function ProductImagesSwiperGallery({
-  product,
+  productTitle,
   images,
   initialAction,
 }: ProductImagesSwiperProps) {
@@ -28,11 +28,9 @@ export default function ProductImagesSwiperGallery({
     (swiper: SwiperType) => {
       const newIndex = swiper.realIndex
       setCurrentIndex(newIndex)
-      setAnnouncement(
-        `Image ${newIndex + 1} of ${totalImages}: ${product.title}`
-      )
+      setAnnouncement(`Image ${newIndex + 1} of ${totalImages}: ${productTitle}`)
     },
-    [totalImages, product.title]
+    [totalImages, productTitle]
   )
 
   useEffect(() => {
@@ -96,7 +94,7 @@ export default function ProductImagesSwiperGallery({
             <div className="swiper-zoom-container relative h-full w-full">
               <Image
                 src={image.url}
-                alt={`${product.title} - Image ${index + 1} of ${totalImages}`}
+                alt={`${productTitle} - Image ${index + 1} of ${totalImages}`}
                 fill
                 className="object-cover border border-gray-300"
                 data-swiper-zoom="3"

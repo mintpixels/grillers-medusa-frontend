@@ -172,7 +172,7 @@ export default function ProductDetail({
       <div className="mx-auto max-w-7xl px-6 grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12">
         {/* Left: product image + nav buttons - sticky on desktop */}
         <div className="md:sticky md:top-[150px] md:self-start mt-6">
-          <ProductImages product={product} images={images} />
+          <ProductImages productTitle={productIdentity.title} images={images} />
         </div>
 
         {/* Right: product info */}
@@ -300,7 +300,7 @@ export default function ProductDetail({
                   ? window.location.href
                   : `/${countryCode}/products/${product.handle}`
               }
-              title={product.title || ""}
+              title={productIdentity.title || ""}
               description={productDescription || product.description || ""}
               imageUrl={
                 strapiProductData?.FeaturedImage?.url || product.thumbnail || ""
