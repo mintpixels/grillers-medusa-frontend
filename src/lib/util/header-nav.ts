@@ -22,32 +22,74 @@ const BEEF_TOP_CUTS: NavItem[] = [
   { Text: "Brisket", Url: "/search?q=brisket" },
 ]
 
-const WAYS_TO_SHOP_MENU_MISSIONS = WAYS_TO_SHOP_MISSIONS.slice(0, 8)
+const WAYS_TO_SHOP_MENU_MISSION_BY_ID = new Map(
+  WAYS_TO_SHOP_MISSIONS.map((mission) => [mission.id, mission])
+)
+
+function waysToShopMissionHref(
+  id: (typeof WAYS_TO_SHOP_MISSIONS)[number]["id"],
+  hrefType: "shopHref" | "cookHref" | "learnHref"
+) {
+  return WAYS_TO_SHOP_MENU_MISSION_BY_ID.get(id)?.[hrefType] || "/collections"
+}
 
 const WAYS_TO_SHOP_NAV_SECTIONS: NavSection[] = [
   {
-    title: "Shop Collections",
+    title: "Start an Order",
     Url: "/collections",
-    items: WAYS_TO_SHOP_MENU_MISSIONS.map((mission) => ({
-      Text: mission.navLabel,
-      Url: mission.shopHref,
-    })),
+    items: [
+      {
+        Text: "First-order favorites",
+        Url: waysToShopMissionHref("first-order", "shopHref"),
+      },
+      { Text: "Bestsellers", Url: "/store" },
+      {
+        Text: "Build a freezer box",
+        Url: waysToShopMissionHref("freezer-stock-up", "shopHref"),
+      },
+      { Text: "Shop by counter", Url: "/store" },
+      { Text: "Need help choosing?", Url: "/contact" },
+    ],
   },
   {
-    title: "Cook Recipes",
+    title: "Plan a Meal",
     Url: "/recipes",
-    items: WAYS_TO_SHOP_MENU_MISSIONS.map((mission) => ({
-      Text: mission.navLabel,
-      Url: mission.cookHref,
-    })),
+    items: [
+      {
+        Text: "Shabbos dinner",
+        Url: waysToShopMissionHref("shabbos", "cookHref"),
+      },
+      {
+        Text: "Weeknight dinner",
+        Url: waysToShopMissionHref("weeknight", "cookHref"),
+      },
+      {
+        Text: "Grill night",
+        Url: waysToShopMissionHref("grilling", "cookHref"),
+      },
+      {
+        Text: "Holiday table",
+        Url: waysToShopMissionHref("holiday-table", "cookHref"),
+      },
+      { Text: "Recipes by cut", Url: "/recipes#recipes-results" },
+    ],
   },
   {
-    title: "Learn Before Ordering",
+    title: "Order With Confidence",
     Url: "/learn",
-    items: WAYS_TO_SHOP_MENU_MISSIONS.map((mission) => ({
-      Text: mission.navLabel,
-      Url: mission.learnHref,
-    })),
+    items: [
+      { Text: "Kashrut supervision", Url: "/kashruth/supervision" },
+      {
+        Text: "How much to buy",
+        Url: "/learn/guides/how-much-meat-per-person",
+      },
+      { Text: "Shipping, pickup, and dry ice", Url: "/shipping" },
+      {
+        Text: "Storage and thawing",
+        Url: "/learn/guides/thawing-frozen-kosher-meat",
+      },
+      { Text: "Talk to a real person", Url: "/contact" },
+    ],
   },
 ]
 
@@ -57,18 +99,18 @@ const WAYS_TO_SHOP_NAV: HeaderNavLink = {
   title: "Ways to Shop",
   sections: WAYS_TO_SHOP_NAV_SECTIONS,
   featured: {
-    title: "Start with the meal, not just the cut",
+    title: "First order? Start here",
     description:
-      "Choose a shopping path, then move between collections, recipes, and buying guidance for the same meal.",
+      "Begin with dependable favorites, then use recipes and buying guides when the meal needs more planning.",
     badge: "Guided shopping",
     image: { url: generatedSiteImages.navButcherFeature },
-    url: "/collections?mission=shabbos#collections-results",
+    url: waysToShopMissionHref("first-order", "shopHref"),
   },
   bottomBar: {
     certifications: [
-      { icon: "star", text: "Filtered collection paths" },
-      { icon: "award", text: "Recipe shelves by mission" },
-      { icon: "clock", text: "Buying guides before checkout" },
+      { icon: "star", text: "Shop by the meal you are solving" },
+      { icon: "award", text: "Recipes stay connected to the cart" },
+      { icon: "clock", text: "Kashrut and shipping details before checkout" },
     ],
     viewAllText: "Open guided shopping",
     viewAllUrl: "/collections#collections-results",

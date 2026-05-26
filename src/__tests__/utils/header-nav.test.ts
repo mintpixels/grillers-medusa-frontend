@@ -1,6 +1,5 @@
 import { augmentHeaderNav, sectionHref } from "@lib/util/header-nav"
 import type { HeaderNavLink } from "@lib/data/strapi/header"
-import { WAYS_TO_SHOP_MISSIONS } from "@lib/content/ways-to-shop"
 
 const baseNav: HeaderNavLink[] = [
   {
@@ -35,17 +34,12 @@ describe("header nav augmentation", () => {
     const navLinks = augmentHeaderNav(baseNav)
     const [waysToShop, nav] = navLinks
     const beef = nav.sections.find((section) => section.title === "Beef")
-    const expectedUrls = [
-      ...WAYS_TO_SHOP_MISSIONS.map((mission) => mission.shopHref),
-      ...WAYS_TO_SHOP_MISSIONS.map((mission) => mission.cookHref),
-      ...WAYS_TO_SHOP_MISSIONS.map((mission) => mission.learnHref),
-    ]
 
     expect(waysToShop.title).toBe("Ways to Shop")
     expect(waysToShop.sections.map((section) => section.title)).toEqual([
-      "Shop Collections",
-      "Cook Recipes",
-      "Learn Before Ordering",
+      "Start an Order",
+      "Plan a Meal",
+      "Order With Confidence",
     ])
     expect(nav.sections.map((section) => section.title)).not.toContain(
       "Ways to Shop"
@@ -54,7 +48,44 @@ describe("header nav augmentation", () => {
       waysToShop.sections.flatMap((section) =>
         section.items.map((item) => item.Url)
       )
-    ).toEqual(expectedUrls)
+    ).toEqual([
+      "/collections?mission=first-order#collections-results",
+      "/store",
+      "/collections?mission=freezer-stock-up#collections-results",
+      "/store",
+      "/contact",
+      "/recipes?mission=shabbos#recipes-results",
+      "/recipes?mission=weeknight#recipes-results",
+      "/recipes?mission=grilling#recipes-results",
+      "/recipes?mission=holiday-table#recipes-results",
+      "/recipes#recipes-results",
+      "/kashruth/supervision",
+      "/learn/guides/how-much-meat-per-person",
+      "/shipping",
+      "/learn/guides/thawing-frozen-kosher-meat",
+      "/contact",
+    ])
+    expect(
+      waysToShop.sections.flatMap((section) =>
+        section.items.map((item) => item.Text)
+      )
+    ).toEqual([
+      "First-order favorites",
+      "Bestsellers",
+      "Build a freezer box",
+      "Shop by counter",
+      "Need help choosing?",
+      "Shabbos dinner",
+      "Weeknight dinner",
+      "Grill night",
+      "Holiday table",
+      "Recipes by cut",
+      "Kashrut supervision",
+      "How much to buy",
+      "Shipping, pickup, and dry ice",
+      "Storage and thawing",
+      "Talk to a real person",
+    ])
     expect(beef?.items.map((item) => item.Text)).toEqual(
       expect.arrayContaining([
         "Ground Beef",
