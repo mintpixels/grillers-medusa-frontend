@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from "react"
 import type { HttpTypes } from "@medusajs/types"
 import { useRouter } from "next/navigation"
 import Button from "@modules/common/components/button"
+import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import {
   CardElement,
   Elements,
@@ -772,13 +773,21 @@ export default function PhoneOrderCopilot({
               storefront exactly as they would. Staff actions remain auditable.
             </p>
           </div>
-          <div className="rounded-md border border-Gold/35 bg-Gold/10 px-4 py-3">
-            <p className="text-xs font-maison-neue-mono uppercase text-Charcoal/55">
-              Signed in
-            </p>
-            <p className="mt-1 text-sm font-maison-neue font-semibold text-Charcoal">
-              {staffName}
-            </p>
+          <div className="flex flex-col gap-3 small:flex-row small:items-center">
+            <LocalizedClientLink
+              href="/account/staff/operations-guide"
+              className="inline-flex min-h-[44px] items-center justify-center rounded-md border border-Charcoal px-4 text-sm font-rexton font-bold uppercase text-Charcoal transition hover:bg-Charcoal hover:text-white"
+            >
+              Operations Guide
+            </LocalizedClientLink>
+            <div className="rounded-md border border-Gold/35 bg-Gold/10 px-4 py-3">
+              <p className="text-xs font-maison-neue-mono uppercase text-Charcoal/55">
+                Signed in
+              </p>
+              <p className="mt-1 text-sm font-maison-neue font-semibold text-Charcoal">
+                {staffName}
+              </p>
+            </div>
           </div>
         </div>
       </div>
