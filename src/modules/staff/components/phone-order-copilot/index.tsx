@@ -146,6 +146,37 @@ function labelClass() {
   return "text-xs font-maison-neue-mono uppercase text-Charcoal/55"
 }
 
+function availabilityBadge(product?: StaffProductSearchResult["availability"]) {
+  if (!product) return { label: "Checking", className: "border-gray-200 bg-gray-50 text-Charcoal/55" }
+  if (product.decision === "available") {
+    return {
+      label: `${product.available_to_promise_quantity} ATP`,
+      className: "border-emerald-200 bg-emerald-50 text-emerald-800",
+    }
+  }
+  if (product.decision === "future_allowed") {
+    return {
+      label: "Future",
+      className: "border-blue-200 bg-blue-50 text-blue-800",
+    }
+  }
+  if (product.decision === "partial") {
+    return {
+      label: `${product.available_to_promise_quantity} ATP`,
+      className: "border-amber-200 bg-amber-50 text-amber-800",
+    }
+  }
+  return {
+    label: product.decision === "inactive" ? "Inactive" : "Blocked",
+    className: "border-red-200 bg-red-50 text-red-800",
+  }
+}
+
+function staffLineNeedsOverride(line: StaffOrderLineInput) {
+  const decision = line.availability?.decision
+  return decision === "partial" || decision === "blocked"
+}
+
 function StaffChargeCard({
   result,
   billingAddress,
@@ -302,10 +333,16 @@ export default function PhoneOrderCopilot({
   const hasOrderLines = lines.length > 0
   const canEditShippingAddress = hasSelectedCustomer
   const canEditOrderControls = hasSelectedCustomer && hasOrderLines
+  const hasUnresolvedStaffBlocks = lines.some(
+    (line) =>
+      staffLineNeedsOverride(line) &&
+      (!line.overrideReason?.trim() || !line.overrideNote?.trim())
+  )
   const prepareDisabled =
     !hasSelectedCustomer ||
     !hasOrderLines ||
     !customerVerified ||
+    hasUnresolvedStaffBlocks ||
     (paymentMode === "collect_card_now" && !paymentConsent)
 
   const staffName = useMemo(
@@ -577,7 +614,10 @@ export default function PhoneOrderCopilot({
     setError(null)
     startTransition(async () => {
       try {
-        const results = await searchStaffProducts(productQuery, countryCode)
+        const results = await searchStaffProducts(productQuery, countryCode, {
+          fulfillmentType,
+          scheduledDate,
+        })
         setProductResults(results)
         if (!results.length) setStatus("No matching products found.")
       } catch (err) {
@@ -608,6 +648,7 @@ export default function PhoneOrderCopilot({
               ? `${product.title} - ${product.variantTitle}`
               : product.title,
           sku: product.sku,
+          availability: product.availability,
         },
       ]
     })
@@ -655,6 +696,17 @@ export default function PhoneOrderCopilot({
     setLines((current) =>
       current.map((line) =>
         line.variantId === variantId ? { ...line, quantity } : line
+      )
+    )
+  }
+
+  function updateLinePatch(
+    variantId: string,
+    patch: Partial<StaffOrderLineInput>
+  ) {
+    setLines((current) =>
+      current.map((line) =>
+        line.variantId === variantId ? { ...line, ...patch } : line
       )
     )
   }
@@ -1137,7 +1189,7 @@ export default function PhoneOrderCopilot({
             </div>
           </section>
 
-          <div className="hidden" aria-hidden="true">
+          <div className={draftCustomer.id ? "block" : "hidden"} aria-hidden={!draftCustomer.id}>
             <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
               <div className="space-y-6">
                 <section className="rounded-lg border border-gray-200 bg-white p-5">
@@ -1484,7 +1536,7 @@ export default function PhoneOrderCopilot({
                           onClick={() => addProduct(product)}
                           type="button"
                         >
-                          <span>
+                          <span className="min-w-0">
                             <span className="block text-sm font-maison-neue font-semibold text-Charcoal">
                               {product.title}
                             </span>
@@ -1493,12 +1545,38 @@ export default function PhoneOrderCopilot({
                                 .filter(Boolean)
                                 .join(" | ")}
                             </span>
+                            {product.availability &&
+                              product.availability.decision !==
+                                "available" && (
+                                <span className="mt-1 block text-xs font-maison-neue text-Charcoal/60">
+                                  {product.availability.decision ===
+                                  "future_allowed"
+                                    ? "Accepted for the selected future date."
+                                    : product.availability.earliest_available_date
+                                    ? `Expected around ${product.availability.earliest_available_date}.`
+                                    : "Needs staff resolution for this date."}
+                                </span>
+                              )}
                           </span>
-                          <span className="text-sm font-maison-neue text-Charcoal">
-                            {formatPrice(
-                              product.calculatedAmount,
-                              product.currencyCode
-                            )}
+                          <span className="flex shrink-0 flex-col items-end gap-2">
+                            <span className="text-sm font-maison-neue text-Charcoal">
+                              {formatPrice(
+                                product.calculatedAmount,
+                                product.currencyCode
+                              )}
+                            </span>
+                            {(() => {
+                              const badge = availabilityBadge(
+                                product.availability
+                              )
+                              return (
+                                <span
+                                  className={`rounded-full border px-2 py-0.5 text-[11px] font-maison-neue-mono uppercase ${badge.className}`}
+                                >
+                                  {badge.label}
+                                </span>
+                              )
+                            })()}
                           </span>
                         </button>
                       ))}
@@ -1563,6 +1641,30 @@ export default function PhoneOrderCopilot({
                                   {line.sku}
                                 </p>
                               )}
+                              {line.availability && (
+                                <p
+                                  className={`mt-1 text-xs font-maison-neue ${
+                                    staffLineNeedsOverride(line)
+                                      ? "text-amber-700"
+                                      : line.availability.decision ===
+                                        "inactive"
+                                      ? "text-red-700"
+                                      : "text-Charcoal/55"
+                                  }`}
+                                >
+                                  {line.availability.decision ===
+                                  "future_allowed"
+                                    ? "Future commitment accepted for the selected date."
+                                    : line.availability.decision ===
+                                      "available"
+                                    ? `${line.availability.available_to_promise_quantity} available to promise.`
+                                    : line.availability.decision === "partial"
+                                    ? `${line.availability.available_to_promise_quantity} available; staff override or quantity change required.`
+                                    : line.availability.decision === "inactive"
+                                    ? "Inactive item. Choose a different item."
+                                    : "Blocked for this date. Choose replacement/date or record override."}
+                                </p>
+                              )}
                             </div>
                             <input
                               aria-label={`Quantity for ${line.title}`}
@@ -1578,6 +1680,57 @@ export default function PhoneOrderCopilot({
                               }
                             />
                           </div>
+                          {staffLineNeedsOverride(line) && (
+                            <div className="mt-3 grid gap-2 rounded-md border border-amber-200 bg-amber-50 p-3">
+                              <label className="flex flex-col gap-1">
+                                <span className={labelClass()}>
+                                  Override reason
+                                </span>
+                                <select
+                                  className={fieldClass()}
+                                  value={line.overrideReason || ""}
+                                  onChange={(event) =>
+                                    updateLinePatch(line.variantId, {
+                                      overrideReason: event.target.value,
+                                    })
+                                  }
+                                >
+                                  <option value="">Select reason</option>
+                                  <option value="holiday_preorder">
+                                    Holiday preorder
+                                  </option>
+                                  <option value="peter_approved">
+                                    Peter approved
+                                  </option>
+                                  <option value="known_replenishment">
+                                    Known replenishment
+                                  </option>
+                                  <option value="customer_accepts_delay">
+                                    Customer accepts delay
+                                  </option>
+                                  <option value="substitution_confirmed">
+                                    Substitution confirmed
+                                  </option>
+                                  <option value="other">Other</option>
+                                </select>
+                              </label>
+                              <label className="flex flex-col gap-1">
+                                <span className={labelClass()}>
+                                  Override note
+                                </span>
+                                <textarea
+                                  className={`${fieldClass()} min-h-[72px]`}
+                                  value={line.overrideNote || ""}
+                                  onChange={(event) =>
+                                    updateLinePatch(line.variantId, {
+                                      overrideNote: event.target.value,
+                                    })
+                                  }
+                                  placeholder="Record what the customer accepted or who approved it."
+                                />
+                              </label>
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -1729,6 +1882,13 @@ export default function PhoneOrderCopilot({
                           Email checkout link to customer
                         </label>
                       </fieldset>
+
+                      {hasUnresolvedStaffBlocks && (
+                        <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-3 text-sm font-maison-neue text-amber-800">
+                          Resolve blocked inventory lines with a reason and
+                          note before preparing payment.
+                        </div>
+                      )}
 
                       <Button
                         className="mt-5 min-h-[48px] w-full rounded-md bg-Gold px-4 text-sm font-rexton font-bold uppercase text-Charcoal disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-Charcoal/40"

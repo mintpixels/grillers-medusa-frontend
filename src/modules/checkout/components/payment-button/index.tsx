@@ -1,7 +1,7 @@
 "use client"
 
 import { isStripe } from "@lib/constants"
-import { placeOrder } from "@lib/data/cart"
+import { placeOrder, verifyCartInventoryForCheckout } from "@lib/data/cart"
 import { jitsuTrack } from "@lib/jitsu"
 import { HttpTypes } from "@medusajs/types"
 import { useElements, useStripe } from "@stripe/react-stripe-js"
@@ -127,6 +127,15 @@ const StripePaymentButton = ({
     setSubmitting(true)
 
     if (!stripe || !cart || (!savedPaymentMethodId && (!elements || !card))) {
+      submittingRef.current = false
+      setSubmitting(false)
+      return
+    }
+
+    try {
+      await verifyCartInventoryForCheckout(cart.id)
+    } catch (err: any) {
+      setErrorMessage(err.message || "Some items need inventory review.")
       submittingRef.current = false
       setSubmitting(false)
       return

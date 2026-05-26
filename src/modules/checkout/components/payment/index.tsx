@@ -10,6 +10,7 @@ import { useCartTitleMap } from "@lib/hooks/use-cart-title-map"
 import { CreditCard } from "@medusajs/icons"
 import { Button, clx } from "@medusajs/ui"
 import ErrorMessage from "@modules/checkout/components/error-message"
+import InventoryResolutionNotice from "@modules/checkout/components/inventory-resolution-notice"
 import PaymentButton from "@modules/checkout/components/payment-button"
 import { StripeCardContainer } from "@modules/checkout/components/payment-container"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
@@ -484,6 +485,7 @@ const Payment = ({
           {/* Place Order section - shown when payment is set up */}
           {(paymentReady || paidByGiftcard) && (
             <div className="mt-6 pt-6 border-t border-gray-200">
+              <InventoryResolutionNotice cart={cart} />
               <NetWeightDisclaimer />
 
               <PaymentButton

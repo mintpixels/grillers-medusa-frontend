@@ -12,6 +12,10 @@ import { HttpTypes } from "@medusajs/types"
 import { revalidateTag } from "next/cache"
 import { redirect } from "next/navigation"
 import {
+  checkCartInventoryAvailability,
+  inventoryCheckoutError,
+} from "./inventory-allocation"
+import {
   getAuthHeaders,
   getCacheOptions,
   getCacheTag,
@@ -360,6 +364,71 @@ export async function updateLineItem({
     .catch(medusaError)
 }
 
+export type InventoryResolutionAction =
+  | "substitute"
+  | "remove"
+  | "waitlist"
+  | "move_order_date"
+  | "complete_available_only"
+
+export async function submitInventoryResolution({
+  cartId,
+  requestedFulfillmentDate,
+  resolutions,
+}: {
+  cartId: string
+  requestedFulfillmentDate?: string
+  resolutions: Array<{
+    originalVariantId: string
+    action: InventoryResolutionAction
+    replacementVariantId?: string
+    quantity?: number
+    email?: string
+  }>
+}) {
+  if (!cartId) {
+    throw new Error("Missing cart ID when submitting inventory resolution")
+  }
+
+  if (!resolutions.length) {
+    throw new Error("No inventory resolutions were provided")
+  }
+
+  const active = await getCartStaffContext()
+  const headers = await cartHeadersForStaffContext(active)
+  const result = await sdk.client
+    .fetch<{
+      ok: boolean
+      message?: string
+      cart_id?: string
+      resolutions?: unknown[]
+    }>("/store/gp-inventory/resolution", {
+      method: "POST",
+      body: {
+        cart_id: cartId,
+        requested_fulfillment_date: requestedFulfillmentDate,
+        resolutions: resolutions.map((resolution) => ({
+          original_variant_id: resolution.originalVariantId,
+          action: resolution.action,
+          replacement_variant_id: resolution.replacementVariantId,
+          quantity: resolution.quantity,
+          email: resolution.email,
+        })),
+      },
+      headers,
+      cache: "no-store",
+    })
+    .catch(medusaError)
+
+  const cartCacheTag = await getCacheTag("carts")
+  revalidateTag(cartCacheTag)
+
+  const fulfillmentCacheTag = await getCacheTag("fulfillment")
+  revalidateTag(fulfillmentCacheTag)
+
+  return result
+}
+
 export async function deleteLineItem(lineId: string) {
   if (!lineId) {
     throw new Error("Missing lineItem ID when deleting line item")
@@ -614,6 +683,43 @@ export async function clearFulfillmentDetails(cartId: string) {
       revalidateTag(cartCacheTag)
     })
     .catch(medusaError)
+}
+
+export async function verifyCartInventoryForCheckout(cartId?: string) {
+  const cart = await retrieveCart(cartId)
+
+  if (!cart) {
+    throw new Error("No existing cart found when checking inventory")
+  }
+
+  const availability = await checkCartInventoryAvailability(cart)
+  const error = inventoryCheckoutError(availability.lines)
+  if (error) {
+    throw new Error(error)
+  }
+
+  return availability
+}
+
+export async function getCartInventoryReview(cartId?: string) {
+  const cart = await retrieveCart(cartId)
+  if (!cart) return { ok: true, lines: [], error: null }
+
+  try {
+    const availability = await checkCartInventoryAvailability(cart)
+    return {
+      ...availability,
+      error: inventoryCheckoutError(availability.lines),
+    }
+  } catch (err: any) {
+    return {
+      ok: false,
+      lines: [],
+      error:
+        err?.message ||
+        "Inventory availability could not be checked. Please try again.",
+    }
+  }
 }
 
 export async function setShippingMethod({
@@ -988,6 +1094,8 @@ export async function placeOrder(cartId?: string) {
   }
 
   const headers = await cartHeadersForStaffContext(active)
+
+  await verifyCartInventoryForCheckout(id)
 
   if (active) {
     await sdk.store.cart.update(

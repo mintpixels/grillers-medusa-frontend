@@ -1,6 +1,7 @@
 "use server"
 
 import { sendTemplatedEmail } from "@lib/postmark"
+import { isWaitlistEligible } from "@lib/util/waitlist-eligibility"
 
 /**
  * Restock trigger for #102. Polls inventory state, finds products that
@@ -48,8 +49,13 @@ type StrapiBackInStockRequest = {
   documentId: string
   Email: string
   MedusaProductId: string
+  MedusaVariantId?: string | null
   ProductHandle: string
   ProductTitle: string
+  Sku?: string | null
+  QuickBooksListId?: string | null
+  RequestedFulfillmentDate?: string | null
+  WaitlistReason?: string | null
   UnsubscribeToken: string
   NotifiedAt: string | null
   UnsubscribedAt: string | null
@@ -58,7 +64,16 @@ type StrapiBackInStockRequest = {
 type MedusaProductInventory = {
   productId: string
   inStock: boolean
+  waitlistEnabled: boolean
   status: string
+  variants: Map<
+    string,
+    {
+      inStock: boolean
+      waitlistEnabled: boolean
+      sku?: string
+    }
+  >
 }
 
 export type TriggerSummary = {
@@ -111,16 +126,19 @@ async function fetchPendingRequests(): Promise<StrapiBackInStockRequest[]> {
       "pagination[pageSize]": "100",
       sort: "createdAt:asc",
     })
-    const body = await strapiGet(
-      `/api/back-in-stock-requests?${qs.toString()}`
-    )
-    const data = (body.data || []) as Array<{
-      attributes?: StrapiBackInStockRequest
-    } & StrapiBackInStockRequest>
+    const body = await strapiGet(`/api/back-in-stock-requests?${qs.toString()}`)
+    const data = (body.data || []) as Array<
+      {
+        attributes?: StrapiBackInStockRequest
+      } & StrapiBackInStockRequest
+    >
     // Strapi 5 returns flattened, Strapi 4 nested under .attributes
     for (const row of data) {
       const attrs = (row.attributes ?? row) as StrapiBackInStockRequest
-      all.push({ ...attrs, documentId: (row as any).documentId ?? attrs.documentId })
+      all.push({
+        ...attrs,
+        documentId: (row as any).documentId ?? attrs.documentId,
+      })
     }
     const pc = body.meta?.pagination?.pageCount ?? 1
     if (page >= pc) break
@@ -151,7 +169,7 @@ async function fetchMedusaProductInventory(
 
   const root = MEDUSA_ADMIN_TOKEN ? "/admin/products" : "/store/products"
   const fields =
-    "id,status,variants.inventory_quantity,variants.allow_backorder,variants.manage_inventory"
+    "id,status,+metadata,variants.inventory_quantity,variants.allow_backorder,variants.manage_inventory,+variants.metadata"
   // Batch into chunks of 50 to keep URLs short.
   for (let i = 0; i < productIds.length; i += 50) {
     const batch = productIds.slice(i, i + 50)
@@ -178,25 +196,62 @@ async function fetchMedusaProductInventory(
     const products = (data.products || []) as Array<{
       id: string
       status?: string
+      metadata?: Record<string, unknown> | null
       variants?: Array<{
+        id?: string
+        sku?: string | null
         inventory_quantity?: number | null
         allow_backorder?: boolean
         manage_inventory?: boolean
+        metadata?: Record<string, unknown> | null
       }>
     }>
     for (const p of products) {
+      const variants = p.variants || []
+      const variantInventory = new Map<
+        string,
+        { inStock: boolean; waitlistEnabled: boolean; sku?: string }
+      >()
       // Product is "in stock" if any of its variants has either
       // unmanaged inventory, backorder enabled, or inventory_quantity > 0.
-      const inStock = (p.variants || []).some((v) => {
+      const inStock = variants.some((v) => {
         if (v.allow_backorder) return true
         if (v.manage_inventory === false) return true
         const q = v.inventory_quantity
         return typeof q === "number" && q > 0
       })
+      variants.forEach((v) => {
+        if (!v.id) return
+        const variantInStock =
+          Boolean(v.allow_backorder) ||
+          v.manage_inventory === false ||
+          (typeof v.inventory_quantity === "number" &&
+            v.inventory_quantity > 0)
+        variantInventory.set(v.id, {
+          inStock: variantInStock,
+          waitlistEnabled: isWaitlistEligible({
+            productMetadata: p.metadata,
+            variantMetadata: v.metadata,
+          }),
+          sku: v.sku || undefined,
+        })
+      })
+      const waitlistEnabled =
+        variants.length > 0
+          ? variants.some((v) =>
+              isWaitlistEligible({
+                productMetadata: p.metadata,
+                variantMetadata: v.metadata,
+              })
+            )
+          : isWaitlistEligible({ productMetadata: p.metadata })
+
       out.set(p.id, {
         productId: p.id,
         inStock,
+        waitlistEnabled,
         status: p.status || "published",
+        variants: variantInventory,
       })
     }
   }
@@ -232,7 +287,9 @@ async function fetchRecentNotifications(
       }
     } catch (err) {
       console.warn(
-        `[back-in-stock-trigger] fetchRecentNotifications ${pid}: ${(err as Error).message}`
+        `[back-in-stock-trigger] fetchRecentNotifications ${pid}: ${
+          (err as Error).message
+        }`
       )
     }
   }
@@ -242,8 +299,12 @@ async function fetchRecentNotifications(
 async function sendRestockEmail(
   req: StrapiBackInStockRequest
 ): Promise<boolean> {
-  const productUrl = `${SITE_URL}/us/products/${encodeURIComponent(req.ProductHandle)}`
-  const unsubscribeUrl = `${SITE_URL}/api/back-in-stock/unsubscribe?t=${encodeURIComponent(req.UnsubscribeToken)}`
+  const productUrl = `${SITE_URL}/us/products/${encodeURIComponent(
+    req.ProductHandle
+  )}`
+  const unsubscribeUrl = `${SITE_URL}/api/back-in-stock/unsubscribe?t=${encodeURIComponent(
+    req.UnsubscribeToken
+  )}`
 
   const result = await sendTemplatedEmail({
     to: req.Email,
@@ -256,6 +317,8 @@ async function sendRestockEmail(
     tag: "back-in-stock",
     metadata: {
       productId: req.MedusaProductId,
+      variantId: req.MedusaVariantId || "",
+      sku: req.Sku || "",
       productHandle: req.ProductHandle,
     },
   })
@@ -323,8 +386,14 @@ export async function runBackInStockTrigger(): Promise<TriggerSummary> {
         // Couldn't read Medusa state — skip (don't accidentally send)
         continue
       }
+      if (!inv.waitlistEnabled) continue
       if (inv.status !== "published") continue
-      if (!inv.inStock) continue
+      const shouldNotify = requests.some((request) => {
+        if (!request.MedusaVariantId) return inv.inStock
+        const variant = inv.variants.get(request.MedusaVariantId)
+        return Boolean(variant?.waitlistEnabled && variant.inStock)
+      })
+      if (!shouldNotify) continue
 
       const last = lastNotified.get(productId)
       if (last && now - last.getTime() < COOLDOWN_MS) {
@@ -338,6 +407,10 @@ export async function runBackInStockTrigger(): Promise<TriggerSummary> {
       for (const req of requests) {
         if (req.NotifiedAt) continue // defensive — should already be filtered
         if (req.UnsubscribedAt) continue
+        if (req.MedusaVariantId) {
+          const variant = inv.variants.get(req.MedusaVariantId)
+          if (!variant?.waitlistEnabled || !variant.inStock) continue
+        }
 
         const sent = await sendRestockEmail(req)
         if (sent) {

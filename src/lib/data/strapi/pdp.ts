@@ -1,4 +1,5 @@
 import { gql } from "graphql-request"
+import type { IngredientDisclosure } from "types/strapi"
 
 export const GetCommonPdpQuery = gql`
   query CommonPdpQuery {
@@ -130,13 +131,19 @@ export const GetProductQuery = gql`
       }
       MedusaProduct {
         ProductId
+        QuickBooksListId
         Title
         Description
         Handle
+        WaitlistEnabled
+        AvailabilityLifecycle
         Variants {
           VariantId
+          QuickBooksListId
           Title
           Sku
+          WaitlistEnabled
+          AvailabilityLifecycle
           QualifiesForFreeDeliveryOffers
           FreeDeliveryExclusionReason
           Price {
@@ -157,6 +164,48 @@ export const GetProductQuery = gql`
     }
   }
 `
+
+export async function getProductIngredientDisclosures(
+  medusaProductId?: string | null
+): Promise<IngredientDisclosure[]> {
+  const endpoint = process.env.STRAPI_ENDPOINT?.replace(/\/+$/, "")
+  if (!endpoint || !medusaProductId) return []
+
+  const url = new URL(`${endpoint}/api/products`)
+  url.searchParams.set(
+    "filters[MedusaProduct][ProductId][$eq]",
+    medusaProductId
+  )
+  url.searchParams.set("pagination[limit]", "1")
+  url.searchParams.set("populate[IngredientDisclosures]", "true")
+
+  try {
+    const res = await fetch(url.toString(), {
+      headers: process.env.STRAPI_API_TOKEN
+        ? { Authorization: `Bearer ${process.env.STRAPI_API_TOKEN}` }
+        : undefined,
+      next: { tags: ["strapi"] },
+    })
+
+    if (!res.ok) {
+      if (res.status !== 400) {
+        console.error(
+          "Failed to fetch Strapi ingredient disclosures:",
+          res.status,
+          await res.text()
+        )
+      }
+      return []
+    }
+
+    const json = await res.json()
+    const disclosures = json?.data?.[0]?.IngredientDisclosures
+    return Array.isArray(disclosures) ? disclosures : []
+  } catch (error) {
+    console.error("Failed to fetch Strapi ingredient disclosures:", error)
+    return []
+  }
+}
 
 export const GetProductFeaturedImageQuery = gql`
   query GetProductFeaturedImageQuery($medusa_product_id: String) {

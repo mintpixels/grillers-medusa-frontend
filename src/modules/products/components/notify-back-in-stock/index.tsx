@@ -16,12 +16,22 @@ import { requestBackInStockNotification } from "@lib/data/back-in-stock"
  */
 export default function NotifyBackInStockForm({
   medusaProductId,
+  medusaVariantId,
   productHandle,
   productTitle,
+  sku,
+  quickBooksListId,
+  requestedFulfillmentDate,
+  waitlistReason = "out_of_stock",
 }: {
   medusaProductId: string
+  medusaVariantId?: string
   productHandle: string
   productTitle: string
+  sku?: string
+  quickBooksListId?: string
+  requestedFulfillmentDate?: string
+  waitlistReason?: "out_of_stock" | "allocated_out" | "future_unavailable"
 }) {
   const [email, setEmail] = useState("")
   // Honeypot field — invisible, never tabbable; bots fill it, humans
@@ -40,8 +50,13 @@ export default function NotifyBackInStockForm({
     const result = await requestBackInStockNotification({
       email,
       medusaProductId,
+      medusaVariantId,
       productHandle,
       productTitle,
+      sku,
+      quickBooksListId,
+      requestedFulfillmentDate,
+      waitlistReason,
       source: "pdp",
       honeypot,
     })
@@ -65,6 +80,7 @@ export default function NotifyBackInStockForm({
         <p>
           We&apos;ll email you when{" "}
           <span className="font-semibold">{productTitle}</span> is back.
+          {sku ? <span> SKU {sku}.</span> : null}
           You can unsubscribe anytime from that email.
         </p>
       </div>
@@ -84,8 +100,9 @@ export default function NotifyBackInStockForm({
         Out of stock. Get notified.
       </h3>
       <p className="text-p-sm font-maison-neue text-Charcoal/70 mb-3">
-        Drop your email and we&apos;ll let you know the moment this is
-        back. No marketing list. One email per restock, then we stop.
+        Drop your email and we&apos;ll let you know when this exact item is
+        available again. No marketing list. One email per restock, then we stop.
+        {sku ? <span className="block mt-1 text-Charcoal/55">SKU {sku}</span> : null}
       </p>
       <div className="flex flex-col sm:flex-row gap-2">
         <label htmlFor="back-in-stock-email" className="sr-only">

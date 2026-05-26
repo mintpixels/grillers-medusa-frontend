@@ -9,6 +9,7 @@ import FulfillmentProgress from "@modules/common/components/fulfillment-progress
 import Divider from "@modules/common/components/divider"
 import DiscountCode from "@modules/checkout/components/discount-code"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
+import InventoryResolutionNotice from "@modules/checkout/components/inventory-resolution-notice"
 import { HttpTypes } from "@medusajs/types"
 import { clearFulfillmentDetails, type FulfillmentType } from "@lib/data/cart"
 import type { AtlantaZipDayConfig } from "@lib/util/eligible-arrival-dates"
@@ -101,6 +102,7 @@ const Summary = ({ cart, deliveryZip, atlantaZipConfig }: SummaryProps) => {
         context="cart"
       />
       <Divider />
+      <InventoryResolutionNotice cart={cart} />
       <CartTotals
         totals={cart}
       />

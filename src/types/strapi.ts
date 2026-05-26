@@ -2,6 +2,12 @@ export interface StrapiImage {
   url: string
 }
 
+export type AvailabilityLifecycle =
+  | "active"
+  | "seasonal_inactive"
+  | "discontinued"
+  | "internal_only"
+
 // SEO Types
 export interface StrapiSEO {
   metaTitle: string
@@ -167,12 +173,15 @@ export interface Metadata {
 
 export interface MedusaProductVariant {
   VariantId: string
+  QuickBooksListId?: string | null
   Title: string
   // GP internal SKU code (e.g. "1-03-15-1"). Used by the PDP for the
   // phone-order workflow (#110) and by Algolia indexing.
   Sku?: string | null
   QualifiesForFreeDeliveryOffers?: boolean | null
   FreeDeliveryExclusionReason?: string | null
+  WaitlistEnabled?: boolean | null
+  AvailabilityLifecycle?: AvailabilityLifecycle | null
   Price?: {
     CalculatedPriceNumber: number
     OriginalPriceNumber: number
@@ -181,9 +190,12 @@ export interface MedusaProductVariant {
 
 export interface MedusaProduct {
   ProductId: string
+  QuickBooksListId?: string | null
   Title: string
   Handle: string
   Description: string
+  WaitlistEnabled?: boolean | null
+  AvailabilityLifecycle?: AvailabilityLifecycle | null
   Variants?: MedusaProductVariant[]
 }
 

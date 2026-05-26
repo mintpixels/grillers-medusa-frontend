@@ -9,6 +9,11 @@ import { sendEmail } from "@lib/postmark"
 import { staffDisplayName, isStaffCustomer } from "@lib/util/staff-access"
 import { stripPhone } from "@lib/util/format-phone"
 import medusaError from "@lib/util/medusa-error"
+import {
+  checkStaffInventoryAvailability,
+  inventoryLineMessage,
+  type InventoryAvailabilityLine,
+} from "@lib/data/inventory-allocation"
 import type { HttpTypes } from "@medusajs/types"
 import { randomBytes } from "crypto"
 import { revalidateTag } from "next/cache"
@@ -96,6 +101,7 @@ export type StaffProductSearchResult = {
   allowBackorder?: boolean
   calculatedAmount?: number
   currencyCode?: string
+  availability?: InventoryAvailabilityLine
 }
 
 export type StaffAddressInput = {
@@ -117,6 +123,10 @@ export type StaffOrderLineInput = {
   quantity: number
   title: string
   sku?: string
+  availability?: InventoryAvailabilityLine
+  overrideReason?: string
+  overrideNote?: string
+  substitutionPreference?: string
   source?: "product_search" | "legacy_order_history"
   legacyPurchaseHistoryKey?: string
   legacyOrderId?: string
@@ -1347,7 +1357,11 @@ export async function saveStaffCustomerAddress(input: {
 
 export async function searchStaffProducts(
   query: string,
-  countryCode: string
+  countryCode: string,
+  availabilityContext: {
+    fulfillmentType?: StaffPrepareOrderInput["fulfillmentType"]
+    scheduledDate?: string
+  } = {}
 ): Promise<StaffProductSearchResult[]> {
   await requireStaff()
   const q = query.trim()
@@ -1369,7 +1383,7 @@ export async function searchStaffProducts(
     }
   )
 
-  return (products || []).flatMap((product) =>
+  const results = (products || []).flatMap((product) =>
     (product.variants || []).map((variant: AnyRecord) => ({
       productId: product.id,
       title: product.title || "",
@@ -1394,6 +1408,33 @@ export async function searchStaffProducts(
         "usd",
     }))
   )
+
+  const availability = await checkStaffInventoryAvailability({
+    fulfillment_type: availabilityContext.fulfillmentType || "plant_pickup",
+    requested_fulfillment_date: availabilityContext.scheduledDate,
+    source: "staff_phone_order",
+    lines: results.map((result) => ({
+      product_id: result.productId,
+      variant_id: result.variantId,
+      quantity: 1,
+      sku: result.sku,
+      title:
+        result.variantTitle && result.variantTitle !== "Default"
+          ? `${result.title} - ${result.variantTitle}`
+          : result.title,
+    })),
+  }).catch((err) => {
+    console.error("[staff-phone-order] inventory search availability failed", err)
+    return null
+  })
+  const byVariant = new Map(
+    (availability?.lines || []).map((line) => [line.variant_id, line])
+  )
+
+  return results.map((result) => ({
+    ...result,
+    availability: byVariant.get(result.variantId),
+  }))
 }
 
 export async function prepareStaffPhoneOrder(
@@ -1422,6 +1463,44 @@ export async function prepareStaffPhoneOrder(
         throw new Error("Every order line needs a variant and quantity.")
       }
     })
+
+    const availability = await checkStaffInventoryAvailability({
+      fulfillment_type: input.fulfillmentType,
+      requested_fulfillment_date: input.scheduledDate,
+      customer_id: input.customer.id,
+      source: "staff_phone_order",
+      lines: input.lines.map((line) => ({
+        variant_id: line.variantId,
+        quantity: line.quantity,
+        sku: line.sku,
+        title: line.title,
+      })),
+    })
+    const availabilityByVariant = new Map(
+      availability.lines.map((line) => [line.variant_id, line])
+    )
+    const blockedLines = availability.lines.filter((line) =>
+      ["partial", "blocked", "inactive"].includes(line.decision)
+    )
+    const inactiveLine = blockedLines.find((line) => line.decision === "inactive")
+    if (inactiveLine) {
+      throw new Error(
+        `${inactiveLine.title || inactiveLine.sku || inactiveLine.variant_id} is not currently sellable. Choose a different item.`
+      )
+    }
+    const missingOverride = blockedLines.find((line) => {
+      const inputLine = input.lines.find(
+        (candidate) => candidate.variantId === line.variant_id
+      )
+      return !inputLine?.overrideReason?.trim() || !inputLine?.overrideNote?.trim()
+    })
+    if (missingOverride) {
+      throw new Error(
+        `${inventoryLineMessage(
+          missingOverride
+        )} Staff override requires a reason and note before payment can be prepared.`
+      )
+    }
 
     validateAddress(input.shippingAddress, "Shipping address")
     const billingAddress =
@@ -1461,8 +1540,15 @@ export async function prepareStaffPhoneOrder(
           targetCustomerId: input.customer.id || null,
           targetCustomerEmail: email,
           paymentMode: input.paymentMode,
+          inventoryBlockedLineCount: blockedLines.length,
         },
       ]),
+      inventoryAllocationCheckedAt: createdAt,
+      inventoryAllocationBlockedLineCount: String(blockedLines.length),
+      inventoryAllocationFutureLineCount: String(
+        availability.lines.filter((line) => line.decision === "future_allowed")
+          .length
+      ),
       fulfillmentType: input.fulfillmentType,
       fulfillmentZip: input.shippingAddress.postalCode,
       scheduledDate: metadataText(input.scheduledDate) || "",
@@ -1488,6 +1574,7 @@ export async function prepareStaffPhoneOrder(
     )
 
     for (const line of input.lines) {
+      const lineAvailability = availabilityByVariant.get(line.variantId)
       await sdk.store.cart.createLineItem(
         cart.id,
         {
@@ -1500,6 +1587,15 @@ export async function prepareStaffPhoneOrder(
             staff_line_title: line.title,
             staff_line_sku: line.sku || "",
             staff_line_source: line.source || "product_search",
+            inventory_decision: lineAvailability?.decision || "",
+            inventory_reason: lineAvailability?.reason || "",
+            inventory_available_to_promise_quantity:
+              lineAvailability?.available_to_promise_quantity ?? "",
+            inventory_requested_fulfillment_date:
+              metadataText(input.scheduledDate) || "",
+            inventory_override_reason: line.overrideReason || "",
+            inventory_override_note: line.overrideNote || "",
+            line_substitution_preference: line.substitutionPreference || "",
             legacy_purchase_history_key: line.legacyPurchaseHistoryKey || "",
             legacy_order_id: line.legacyOrderId || "",
             legacy_order_line_id: line.legacyOrderLineId || "",
@@ -1645,6 +1741,56 @@ export async function completeStaffPhoneOrder(
       throw new Error(
         "Only the staff member who prepared this cart can complete it."
       )
+    }
+
+    const finalAvailability = await checkStaffInventoryAvailability({
+      cart_id: cart.id,
+      fulfillment_type: metadataText(metadata.fulfillmentType),
+      requested_fulfillment_date: metadataText(metadata.scheduledDate),
+      customer_id: metadataText(metadata.staff_selected_customer_id),
+      source: "staff_phone_order",
+      lines: (cart.items || [])
+        .map((item: AnyRecord) => {
+          const variantId = item.variant_id || item.variant?.id
+          if (!variantId) return null
+          return {
+            variant_id: variantId,
+            quantity: Number(item.quantity || 1),
+            sku: item.variant?.sku || item.metadata?.staff_line_sku,
+            title:
+              item.metadata?.staff_line_title ||
+              item.product_title ||
+              item.title,
+          }
+        })
+        .filter(Boolean) as any,
+    })
+    const finalByVariant = new Map(
+      finalAvailability.lines.map((line) => [line.variant_id, line])
+    )
+    for (const item of cart.items || []) {
+      const itemRecord = item as AnyRecord
+      const variantId = itemRecord.variant_id || itemRecord.variant?.id
+      const availability = finalByVariant.get(variantId)
+      if (!availability) continue
+      if (availability.decision === "inactive") {
+        throw new Error(
+          `${availability.title || availability.sku || availability.variant_id} is not currently sellable. Choose a different item.`
+        )
+      }
+      if (availability.decision === "partial" || availability.decision === "blocked") {
+        const lineMetadata = (itemRecord.metadata || {}) as AnyRecord
+        if (
+          !metadataText(lineMetadata.inventory_override_reason) ||
+          !metadataText(lineMetadata.inventory_override_note)
+        ) {
+          throw new Error(
+            `${inventoryLineMessage(
+              availability
+            )} Staff override requires a reason and note before payment can be completed.`
+          )
+        }
+      }
     }
 
     await sdk.store.cart.update(

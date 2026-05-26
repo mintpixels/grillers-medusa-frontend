@@ -53,8 +53,13 @@ function generateUnsubscribeToken(): string {
 async function persistToStrapi(payload: {
   Email: string
   MedusaProductId: string
+  MedusaVariantId?: string
   ProductHandle: string
   ProductTitle: string
+  Sku?: string
+  QuickBooksListId?: string
+  RequestedFulfillmentDate?: string
+  WaitlistReason?: "out_of_stock" | "allocated_out" | "future_unavailable"
   UnsubscribeToken: string
   Source: "pdp" | "side_cart" | "search"
 }): Promise<{ ok: boolean; id?: number; documentId?: string }> {
@@ -97,7 +102,8 @@ async function persistToStrapi(payload: {
 
 async function hasActiveSubscription(
   email: string,
-  medusaProductId: string
+  medusaProductId: string,
+  medusaVariantId?: string
 ): Promise<boolean> {
   if (!STRAPI_BASE) return false
   try {
@@ -105,6 +111,11 @@ async function hasActiveSubscription(
       `${STRAPI_BASE}/api/back-in-stock-requests` +
       `?filters[Email][$eqi]=${encodeURIComponent(email)}` +
       `&filters[MedusaProductId][$eq]=${encodeURIComponent(medusaProductId)}` +
+      (medusaVariantId
+        ? `&filters[MedusaVariantId][$eq]=${encodeURIComponent(
+            medusaVariantId
+          )}`
+        : "") +
       `&filters[NotifiedAt][$null]=true` +
       `&filters[UnsubscribedAt][$null]=true` +
       `&pagination[limit]=1`
@@ -125,8 +136,13 @@ async function hasActiveSubscription(
 export async function requestBackInStockNotification(input: {
   email: string
   medusaProductId: string
+  medusaVariantId?: string
   productHandle: string
   productTitle: string
+  sku?: string
+  quickBooksListId?: string
+  requestedFulfillmentDate?: string
+  waitlistReason?: "out_of_stock" | "allocated_out" | "future_unavailable"
   source?: "pdp" | "side_cart" | "search"
   /** Honeypot — must be empty for legit submissions. */
   honeypot?: string
@@ -152,7 +168,13 @@ export async function requestBackInStockNotification(input: {
   // De-dupe before sending. If this email has an active (un-unsubscribed)
   // subscription on this product, return ok without queuing another
   // confirmation email — the customer's already on the list.
-  if (await hasActiveSubscription(email, input.medusaProductId)) {
+  if (
+    await hasActiveSubscription(
+      email,
+      input.medusaProductId,
+      input.medusaVariantId
+    )
+  ) {
     return { ok: true }
   }
 
@@ -160,8 +182,17 @@ export async function requestBackInStockNotification(input: {
   const persisted = await persistToStrapi({
     Email: email,
     MedusaProductId: input.medusaProductId,
+    ...(input.medusaVariantId ? { MedusaVariantId: input.medusaVariantId } : {}),
     ProductHandle: input.productHandle,
     ProductTitle: input.productTitle || "your product",
+    ...(input.sku ? { Sku: input.sku } : {}),
+    ...(input.quickBooksListId
+      ? { QuickBooksListId: input.quickBooksListId }
+      : {}),
+    ...(input.requestedFulfillmentDate
+      ? { RequestedFulfillmentDate: input.requestedFulfillmentDate }
+      : {}),
+    WaitlistReason: input.waitlistReason || "out_of_stock",
     UnsubscribeToken: token,
     Source: input.source ?? "pdp",
   })
@@ -187,6 +218,8 @@ export async function requestBackInStockNotification(input: {
     tag: "back-in-stock-confirm",
     metadata: {
       medusa_product_id: input.medusaProductId,
+      medusa_variant_id: input.medusaVariantId || "",
+      sku: input.sku || "",
       strapi_id: persisted.documentId ?? "",
       source: input.source ?? "pdp",
     },
