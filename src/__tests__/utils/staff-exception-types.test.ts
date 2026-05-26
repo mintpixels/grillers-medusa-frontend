@@ -64,9 +64,10 @@ describe("staff exception helpers", () => {
     expect(actionIsAuditOnly("record_check_refund")).toBe(true)
   })
 
-  it("marks all accounting money actions for QuickBooks posting", () => {
+  it("marks all accounting-sensitive actions for QuickBooks posting", () => {
     expect(actionRequiresQuickBooksPosting("refund_payment")).toBe(true)
     expect(actionRequiresQuickBooksPosting("capture_payment")).toBe(true)
+    expect(actionRequiresQuickBooksPosting("cancel_order")).toBe(true)
     expect(actionRequiresQuickBooksPosting("record_offline_payment")).toBe(true)
     expect(actionRequiresQuickBooksPosting("credit_memo")).toBe(true)
     expect(actionRequiresQuickBooksPosting("record_check_refund")).toBe(true)

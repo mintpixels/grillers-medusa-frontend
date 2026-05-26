@@ -212,6 +212,7 @@ export function actionRequiresQuickBooksPosting(
   action: StaffExceptionActionType
 ): boolean {
   return (
+    action === "cancel_order" ||
     action === "record_offline_payment" ||
     action === "credit_memo" ||
     action === "record_check_refund" ||

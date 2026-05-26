@@ -20,7 +20,21 @@ type FacetGroupDef = {
   id: string
   label: string
   options: Array<{ field: BoolMetadataKey; label: string }>
+  includeAnyOption?: boolean
+  minVisibleOptions?: number
+  hideWhenNonDistinct?: boolean
 }
+
+const HECHSHER_FILTER_OPTIONS: FacetGroupDef["options"] = [
+  { field: "ChassidishShchita", label: "Chassidish Shchita" },
+  { field: "CHK", label: "CHK" },
+  { field: "RabbiWeissmandl", label: "Rabbi Weissmandl" },
+  { field: "OU", label: "OU" },
+  { field: "StarK", label: "Star-K" },
+  { field: "RabbiTeitelbaum", label: "Rabbi Teitelbaum" },
+  { field: "CRC", label: "CRC (Brooklyn)" },
+  { field: "Lubavitch", label: "Lubavitch" },
+]
 
 const FACET_GROUPS: FacetGroupDef[] = [
   {
@@ -94,20 +108,14 @@ const FACET_GROUPS: FacetGroupDef[] = [
     ],
   },
   {
-    // Hechsher / Shchita filter group (#43). Auto-hides until at least 2 of these
-    // fields are populated in Strapi product metadata.
+    // Keep hechsher options in one table so new certification organizations
+    // can be added without changing the filter-building logic.
     id: "hechsher",
-    label: "Hechsher / Shchita",
-    options: [
-      { field: "ChassidishShchita", label: "Chassidish Shchita" },
-      { field: "CHK", label: "CHK" },
-      { field: "RabbiWeissmandl", label: "Rabbi Weissmandl" },
-      { field: "OU", label: "OU" },
-      { field: "StarK", label: "Star-K" },
-      { field: "RabbiTeitelbaum", label: "Rabbi Teitelbaum" },
-      { field: "CRC", label: "CRC (Brooklyn)" },
-      { field: "Lubavitch", label: "Lubavitch" },
-    ],
+    label: "Hechsher",
+    options: HECHSHER_FILTER_OPTIONS,
+    includeAnyOption: true,
+    minVisibleOptions: 1,
+    hideWhenNonDistinct: false,
   },
   {
     id: "preparation",
@@ -192,11 +200,11 @@ export function getActiveFilterCount(filters: ActiveFilters): number {
   )
 }
 
-// Build visible facet groups. Skip options with count==0; skip a group unless
-// at least one of its options actually distinguishes some products
-// (i.e. count < total). A group where every option matches every product
-// is a useless filter and we hide it.
-function buildFacetGroups(products: StrapiCollectionProduct[]) {
+// Build visible facet groups. Skip options with count==0. Most groups hide
+// unless at least one option distinguishes products; hechsher intentionally
+// stays visible with one populated option because customers may need to verify
+// the exact certification even when it is not a narrowing filter.
+export function buildFacetGroups(products: StrapiCollectionProduct[]) {
   const total = products.length
   return FACET_GROUPS
     .map((g) => ({
@@ -210,7 +218,32 @@ function buildFacetGroups(products: StrapiCollectionProduct[]) {
         }))
         .filter((o) => o.count > 0),
     }))
-    .filter((g) => g.options.length >= 2 && g.options.some((o) => o.count < total))
+    .filter((g) => {
+      const minVisibleOptions = g.minVisibleOptions ?? 2
+      if (g.options.length < minVisibleOptions) return false
+      if (g.hideWhenNonDistinct === false) return true
+      return g.options.some((o) => o.count < total)
+    })
+}
+
+function buildAllergenOptions(products: StrapiCollectionProduct[]) {
+  const productsWithApprovedDisclosures = products.filter(
+    hasApprovedIngredientDisclosure
+  )
+
+  const hasKnownAllergenSignals = productsWithApprovedDisclosures.some(
+    (product) => getProductAllergenKeys(product).length > 0
+  )
+
+  if (!hasKnownAllergenSignals) return []
+
+  return FDA_MAJOR_ALLERGENS.map((allergen) => ({
+    label: allergen.label,
+    value: allergen.key,
+    count: productsWithApprovedDisclosures.filter(
+      (product) => !productContainsAnyAllergen(product, [allergen.key])
+    ).length,
+  }))
 }
 
 function buildAllergenOptions(products: StrapiCollectionProduct[]) {
@@ -383,12 +416,18 @@ function FilterSection({
   options,
   activeValues,
   onToggle,
+  includeAnyOption = false,
+  totalCount = 0,
+  onClear,
 }: {
   storageKey: string
   title: string
   options: FilterOption[]
   activeValues: string[]
   onToggle: (value: string) => void
+  includeAnyOption?: boolean
+  totalCount?: number
+  onClear?: () => void
 }) {
   const [collapsed, setCollapsed] = useCollapse(storageKey)
   if (options.length === 0) return null
@@ -408,6 +447,22 @@ function FilterSection({
       </button>
       {!collapsed && (
         <div className="flex flex-col gap-2">
+          {includeAnyOption && (
+            <label className="flex items-center gap-2 cursor-pointer group pr-3">
+              <input
+                type="checkbox"
+                checked={activeValues.length === 0}
+                onChange={() => onClear?.()}
+                className="w-4 h-4 rounded border-gray-300 text-Charcoal focus:ring-Gold accent-Charcoal"
+              />
+              <span className="text-xs font-maison-neue text-Charcoal/70 group-hover:text-VibrantRed transition-colors">
+                Any
+              </span>
+              <span className="text-xs text-Charcoal/60 ml-auto">
+                ({totalCount})
+              </span>
+            </label>
+          )}
           {options.map((option) => {
             const isActive = activeValues.includes(option.value)
             return (
@@ -792,6 +847,13 @@ export default function CollectionFilters({
           }))}
           activeValues={activeFilters.metadata[group.id] || []}
           onToggle={(value) => toggleMetadataFilter(group.id, value)}
+          includeAnyOption={group.includeAnyOption}
+          totalCount={products.length}
+          onClear={() => {
+            const nextMetadata = { ...activeFilters.metadata }
+            delete nextMetadata[group.id]
+            onFilterChange({ ...activeFilters, metadata: nextMetadata })
+          }}
         />
       ))}
 

@@ -784,7 +784,7 @@ function previewSummary(input: StaffExceptionActionInput): string {
     case "retry_qbd_posting":
       return "This reopens the existing failed QuickBooks posting for the writer to retry. It does not create a new Stripe refund or a new accounting request."
     case "cancel_order":
-      return "This writes a staff audit entry, cancels the Medusa order, and leaves a QuickBooks close-order task when the order already reached QBD."
+      return "This will call Medusa's order cancellation endpoint after writing a staff audit entry, then leave a required QuickBooks SalesOrder close task."
     case "refund_payment":
       return "This writes a staff audit entry, submits the Stripe card refund through Medusa, and leaves a required QuickBooks refund record task."
     case "capture_payment":
@@ -1386,16 +1386,21 @@ export async function applyStaffOrderException(
         break
       }
       case "cancel_order": {
-        const requestKey = downstreamRequestKey(input, order, 0)
+        const requestKey = downstreamRequestKey(input, order, 0, "cancel")
         const qbdFields = qbdPendingFields(input, 0, {
           qbd_posting_request_key: requestKey,
         })
         await appendOrderAudit(
           order.id,
-          { ...baseEntry, ...qbdFields },
+          {
+            ...baseEntry,
+            ...qbdFields,
+            downstream_request_key: requestKey,
+          },
           {
             staff_exception_status: "cancel_requested",
             ...qbdFields,
+            downstream_request_key: requestKey,
           }
         )
         await adminFetch<{ order: AnyRecord }>(
