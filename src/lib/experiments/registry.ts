@@ -159,6 +159,101 @@ export const EXPERIMENT_DEFINITIONS: ExperimentDefinition[] = [
       },
     ],
   },
+  {
+    key: "cart_upsell_strategy_v1",
+    surface: "cart",
+    impact: "revenue",
+    status: "paused",
+    defaultVariant: "control",
+    statsigExperiment: "cart_upsell_strategy_v1",
+    description:
+      "Cart upsell density and prioritization. Control is the current cart and side-cart recommendation rail.",
+    variants: [
+      { key: "control", label: "Current upsells" },
+      {
+        key: "focused_pair",
+        label: "Focused pair",
+        description:
+          "Shows fewer, higher-intent additions so the cart stays focused on checkout.",
+      },
+    ],
+  },
+  {
+    key: "pdp_recommendation_strategy_v1",
+    surface: "pdp_recommendations",
+    impact: "revenue",
+    status: "paused",
+    defaultVariant: "control",
+    statsigExperiment: "pdp_recommendation_strategy_v1",
+    description:
+      "PDP bundle and cross-sell presentation. Control is the current curated collection block.",
+    variants: [
+      { key: "control", label: "Current bundles" },
+      {
+        key: "single_best_match",
+        label: "Single best match",
+        description:
+          "Surfaces only the strongest matched collection to reduce post-buybox decision load.",
+      },
+    ],
+  },
+  {
+    key: "newsletter_capture_v1",
+    surface: "newsletter",
+    impact: "non_revenue",
+    status: "paused",
+    defaultVariant: "control",
+    statsigExperiment: "newsletter_capture_v1",
+    description:
+      "Newsletter capture timing and copy. Control is the current production capture surface.",
+    variants: [
+      { key: "control", label: "Current capture" },
+      {
+        key: "shopping_job_prompt",
+        label: "Shopping job prompt",
+        description:
+          "Frames signup around restock, holiday, and cooking planning needs.",
+      },
+    ],
+  },
+  {
+    key: "seo_geo_landing_copy_v1",
+    surface: "seo_geo",
+    impact: "non_revenue",
+    status: "paused",
+    defaultVariant: "control",
+    statsigExperiment: "seo_geo_landing_copy_v1",
+    description:
+      "SEO/GEO page copy structure for answer-engine and search landing pages.",
+    variants: [
+      { key: "control", label: "Current landing copy" },
+      {
+        key: "answer_first",
+        label: "Answer-first copy",
+        description:
+          "Starts pages with concise customer answers before deeper merchandising content.",
+      },
+    ],
+  },
+  {
+    key: "reviews_proof_v1",
+    surface: "reviews",
+    impact: "non_revenue",
+    status: "paused",
+    defaultVariant: "control",
+    statsigExperiment: "reviews_proof_v1",
+    description:
+      "Review and proof placement once verified customer review data is available.",
+    variants: [
+      { key: "control", label: "Current proof" },
+      {
+        key: "verified_near_cta",
+        label: "Verified near CTA",
+        description:
+          "Moves verified, product-relevant proof closer to buying decisions.",
+      },
+    ],
+  },
 ]
 
 const EXPERIMENTS_BY_KEY = new Map(

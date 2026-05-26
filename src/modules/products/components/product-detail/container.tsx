@@ -30,12 +30,14 @@ export default function ProductDetailContainer({
   countryCode,
   strapiProductData,
   purchaseHistoryItem,
+  pdpExperimentVariant,
 }: {
   product: HttpTypes.StoreProduct
   region: HttpTypes.StoreRegion
   countryCode: string
   strapiProductData: any
   purchaseHistoryItem?: PurchaseHistoryItem | null
+  pdpExperimentVariant?: string | null
 }) {
   const {
     quantity,
@@ -161,6 +163,7 @@ export default function ProductDetailContainer({
       showMobileActions={!inView}
       cartConversion={cartConversion}
       purchaseHistoryItem={purchaseHistoryItem}
+      pdpExperimentVariant={pdpExperimentVariant}
     />
   )
 }

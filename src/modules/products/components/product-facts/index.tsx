@@ -5,6 +5,7 @@ type ProductFactsProps = {
   strapiProductData: StrapiProductData
   description?: string
   countryCode?: string
+  presentation?: "standard" | "compact_disclosures"
 }
 
 export type ProductFactHighlight = {
@@ -394,14 +395,56 @@ function hasKashruthSignal(highlights: ProductFactHighlight[]) {
   return highlights.some((highlight) => hechsherKeys.has(highlight.key))
 }
 
+function FactList({ highlights }: { highlights: ProductFactHighlight[] }) {
+  if (!highlights.length) return null
+
+  return (
+    <ul
+      className="grid grid-cols-2 gap-x-5 gap-y-4 sm:grid-cols-3"
+      role="list"
+    >
+      {highlights.map((highlight) => (
+        <li key={highlight.key} className="flex min-w-0 items-center gap-3">
+          <span className="block h-10 w-10 shrink-0">
+            <Image
+              src={highlight.iconSrc}
+              alt=""
+              width={40}
+              height={40}
+              sizes="40px"
+              className="h-full w-full object-contain"
+            />
+          </span>
+          <span className="block min-w-0">
+            <span className="block break-words font-maison-neue-mono text-[9px] font-bold uppercase leading-tight text-Charcoal/55">
+              {highlight.label}
+            </span>
+            {highlight.value && (
+              <span className="mt-1 block break-words font-maison-neue text-xs font-semibold leading-snug text-Charcoal">
+                {highlight.value}
+              </span>
+            )}
+          </span>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 export default function ProductFacts({
   strapiProductData,
   description,
   countryCode = "us",
+  presentation = "standard",
 }: ProductFactsProps) {
   const highlights = buildProductFactHighlights({ strapiProductData })
   const normalizedDescription = description?.trim()
   const showKashruthPolicyLink = hasKashruthSignal(highlights)
+  const isCompact = presentation === "compact_disclosures"
+  const visibleHighlights = isCompact ? highlights.slice(0, 6) : highlights
+  const secondaryHighlights = isCompact ? highlights.slice(6) : []
+  const hasSecondaryDetails =
+    secondaryHighlights.length > 0 || Boolean(normalizedDescription)
 
   if (!normalizedDescription && highlights.length === 0) return null
 
@@ -419,38 +462,7 @@ export default function ProductFacts({
 
       {highlights.length > 0 && (
         <div className="mt-5">
-          <ul
-            className="grid grid-cols-2 gap-x-5 gap-y-4 sm:grid-cols-3"
-            role="list"
-          >
-            {highlights.map((highlight) => (
-              <li
-                key={highlight.key}
-                className="flex min-w-0 items-center gap-3"
-              >
-                <span className="block h-10 w-10 shrink-0">
-                  <Image
-                    src={highlight.iconSrc}
-                    alt=""
-                    width={40}
-                    height={40}
-                    sizes="40px"
-                    className="h-full w-full object-contain"
-                  />
-                </span>
-                <span className="block min-w-0">
-                  <span className="block break-words font-maison-neue-mono text-[9px] font-bold uppercase leading-tight text-Charcoal/55">
-                    {highlight.label}
-                  </span>
-                  {highlight.value && (
-                    <span className="mt-1 block break-words font-maison-neue text-xs font-semibold leading-snug text-Charcoal">
-                      {highlight.value}
-                    </span>
-                  )}
-                </span>
-              </li>
-            ))}
-          </ul>
+          <FactList highlights={visibleHighlights} />
         </div>
       )}
 
@@ -467,7 +479,33 @@ export default function ProductFacts({
         </p>
       )}
 
-      {normalizedDescription && (
+      {isCompact && hasSecondaryDetails && (
+        <details className="mt-5 border-t border-Charcoal/10 pt-4">
+          <summary className="cursor-pointer list-none font-maison-neue text-sm font-bold text-Charcoal marker:hidden">
+            <span className="inline-flex items-center gap-2">
+              More item details
+              <span aria-hidden="true" className="text-Charcoal/45">
+                +
+              </span>
+            </span>
+          </summary>
+          {secondaryHighlights.length > 0 && (
+            <div className="mt-4">
+              <FactList highlights={secondaryHighlights} />
+            </div>
+          )}
+          {normalizedDescription && (
+            <p
+              className="mt-4 font-maison-neue text-base leading-relaxed text-Charcoal/80"
+              data-testid="product-description"
+            >
+              {normalizedDescription}
+            </p>
+          )}
+        </details>
+      )}
+
+      {!isCompact && normalizedDescription && (
         <div className="mt-5 border-t border-Charcoal/10 pt-4">
           <h3 className="font-maison-neue text-sm font-bold text-Charcoal">
             Description

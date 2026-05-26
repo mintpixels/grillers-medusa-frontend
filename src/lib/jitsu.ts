@@ -84,7 +84,11 @@ function getSessionId(): string {
   return id
 }
 
-export function getJitsuIdentityContext() {
+export function getJitsuIdentityContext(): {
+  anonymous_id: string
+  session_id: string
+  user_id?: string
+} {
   return {
     anonymous_id: getAnonymousId(),
     session_id: getSessionId(),
@@ -92,7 +96,11 @@ export function getJitsuIdentityContext() {
   }
 }
 
-export function getJitsuContextSnapshot() {
+export function getJitsuContextSnapshot(): Record<string, string | undefined> & {
+  anonymous_id: string
+  session_id: string
+  user_id?: string
+} {
   return {
     ...globalContext,
     ...getJitsuIdentityContext(),

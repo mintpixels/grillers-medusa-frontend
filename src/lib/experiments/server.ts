@@ -15,6 +15,7 @@ import type {
   ExperimentAssignmentSource,
   ExperimentDefinition,
   ExperimentRequestContext,
+  ExperimentStatus,
 } from "./types"
 
 function fallbackStableId(experimentKey: string) {
@@ -29,6 +30,29 @@ function forceEnvKey(experimentKey: string) {
   return `EXPERIMENT_FORCE_${experimentKey
     .toUpperCase()
     .replace(/[^A-Z0-9]/g, "_")}`
+}
+
+function statusEnvKey(experimentKey: string) {
+  return `EXPERIMENT_STATUS_${experimentKey
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "_")}`
+}
+
+function runtimeDefinition(definition: ExperimentDefinition) {
+  const status = process.env[statusEnvKey(definition.key)] as
+    | ExperimentStatus
+    | undefined
+
+  if (
+    status === "draft" ||
+    status === "active" ||
+    status === "paused" ||
+    status === "archived"
+  ) {
+    return { ...definition, status }
+  }
+
+  return definition
 }
 
 function assignment(
@@ -61,6 +85,7 @@ export async function getExperimentAssignment(
 ): Promise<ExperimentAssignment | null> {
   const definition = getExperimentDefinition(experimentKey)
   if (!definition) return null
+  const effectiveDefinition = runtimeDefinition(definition)
 
   const requestContext: ExperimentRequestContext = {
     routeMarket: context.routeMarket || "unknown",
@@ -69,11 +94,11 @@ export async function getExperimentAssignment(
     path: context.path,
   }
 
-  const guardrail = evaluateExperimentGuardrails(definition)
+  const guardrail = evaluateExperimentGuardrails(effectiveDefinition)
   if (!guardrail.allowed) {
     return assignment(
-      definition,
-      definition.defaultVariant,
+      effectiveDefinition,
+      effectiveDefinition.defaultVariant,
       fallbackStableId(experimentKey),
       requestContext,
       guardrail.reason?.includes("kill switch") ? "kill-switch" : "guardrail",
@@ -87,7 +112,7 @@ export async function getExperimentAssignment(
 
   const forcedVariant = process.env[forceEnvKey(experimentKey)]
 
-  if (isKnownVariant(definition, forcedVariant)) {
+  if (isKnownVariant(effectiveDefinition, forcedVariant)) {
     const cookieStore = await cookies()
     const stableId =
       cookieStore.get(EXPERIMENT_ID_COOKIE)?.value ||
@@ -95,7 +120,7 @@ export async function getExperimentAssignment(
       fallbackStableId(experimentKey)
 
     return assignment(
-      definition,
+      effectiveDefinition,
       forcedVariant!,
       stableId,
       requestContext,
@@ -104,10 +129,10 @@ export async function getExperimentAssignment(
     )
   }
 
-  if (definition.status !== "active") {
+  if (effectiveDefinition.status !== "active") {
     return assignment(
-      definition,
-      definition.defaultVariant,
+      effectiveDefinition,
+      effectiveDefinition.defaultVariant,
       fallbackStableId(experimentKey),
       requestContext,
       "registry-default",
@@ -128,10 +153,10 @@ export async function getExperimentAssignment(
     cookieStore.get(EXPERIMENT_ASSIGNMENTS_COOKIE)?.value
   )[experimentKey]
 
-  if (stored && isKnownVariant(definition, stored.variantKey)) {
+  if (stored && isKnownVariant(effectiveDefinition, stored.variantKey)) {
     return {
       ...assignment(
-        definition,
+        effectiveDefinition,
         stored.variantKey,
         stableId,
         requestContext,
@@ -141,10 +166,14 @@ export async function getExperimentAssignment(
     }
   }
 
-  const statsigVariant = await getStatsigVariant(definition, stableId, requestContext)
-  if (isKnownVariant(definition, statsigVariant)) {
+  const statsigVariant = await getStatsigVariant(
+    effectiveDefinition,
+    stableId,
+    requestContext
+  )
+  if (isKnownVariant(effectiveDefinition, statsigVariant)) {
     return assignment(
-      definition,
+      effectiveDefinition,
       statsigVariant!,
       stableId,
       requestContext,
@@ -153,8 +182,8 @@ export async function getExperimentAssignment(
   }
 
   return assignment(
-    definition,
-    definition.defaultVariant,
+    effectiveDefinition,
+    effectiveDefinition.defaultVariant,
     stableId,
     requestContext,
     "registry-default"

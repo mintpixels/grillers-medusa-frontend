@@ -19,6 +19,8 @@ type ProductTemplateProps = {
   strapiCommonPdpData: any | Promise<any>
   strapiProductData: any
   purchaseHistoryItem?: PurchaseHistoryItem | null
+  pdpExperimentVariant?: string | null
+  pdpRecommendationVariant?: string | null
 }
 
 async function PdpEducationSections({
@@ -46,6 +48,8 @@ const ProductTemplate: React.FC<ProductTemplateProps> = ({
   strapiCommonPdpData,
   strapiProductData,
   purchaseHistoryItem,
+  pdpExperimentVariant,
+  pdpRecommendationVariant,
 }) => {
   if (!product || !product.id) {
     return notFound()
@@ -60,6 +64,7 @@ const ProductTemplate: React.FC<ProductTemplateProps> = ({
           countryCode={countryCode}
           strapiProductData={strapiProductData}
           purchaseHistoryItem={purchaseHistoryItem}
+          pdpExperimentVariant={pdpExperimentVariant}
         />
       </Suspense>
       <Suspense fallback={null}>
@@ -67,6 +72,7 @@ const ProductTemplate: React.FC<ProductTemplateProps> = ({
           product={product}
           countryCode={countryCode}
           strapiProductData={strapiProductData}
+          recommendationVariant={pdpRecommendationVariant}
         />
       </Suspense>
       <Suspense fallback={null}>

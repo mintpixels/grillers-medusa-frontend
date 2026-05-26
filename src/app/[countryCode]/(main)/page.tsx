@@ -342,6 +342,9 @@ export default async function Home(props: {
       (section: any) => section.__typename === "ComponentHomeShopCollections"
     )
   )
+  const shopCollectionsSection = strapiData?.home?.Sections?.find(
+    (section: any) => section.__typename === "ComponentHomeShopCollections"
+  )
   const fallbackCollectionsSection = {
     CollectionsTitle: "Build a full table",
     Collections: [],
@@ -362,6 +365,19 @@ export default async function Home(props: {
       customerType: customer ? "registered" : "guest",
       userId: customer?.id,
     }
+  )
+  const homepageVariant = homepageExperiment?.isEnabled
+    ? homepageExperiment.variantKey
+    : "control"
+  const shouldMoveCollectionsEarly =
+    homepageVariant === "products_earlier" && Boolean(shopCollectionsSection)
+  const shouldDeferStory =
+    shouldMoveCollectionsEarly || homepageVariant === "compressed_story"
+  const storySupportSections = (
+    <>
+      <StandardsComparison />
+      <LearnEntrySection />
+    </>
   )
 
   const renderSections = () => {
@@ -402,6 +418,24 @@ export default async function Home(props: {
                     countryCode={countryCode}
                   />
                 </React.Suspense>
+                {shouldMoveCollectionsEarly && shopCollectionsSection && (
+                  <>
+                    <React.Suspense fallback={null}>
+                      <ShopCollectionsBlock
+                        data={shopCollectionsSection}
+                        countryCode={countryCode}
+                        collectionsPromise={homeCuratedCollectionsPromise}
+                      />
+                    </React.Suspense>
+                    <React.Suspense fallback={null}>
+                      <DeliveryPromiseBlock
+                        countryCode={countryCode}
+                        customerZipPromise={customerZipPromise}
+                        isLoggedIn={isLoggedIn}
+                      />
+                    </React.Suspense>
+                  </>
+                )}
                 {!hasShopCollectionsSection && (
                   <>
                     <React.Suspense fallback={null}>
@@ -418,8 +452,7 @@ export default async function Home(props: {
                         isLoggedIn={isLoggedIn}
                       />
                     </React.Suspense>
-                    <StandardsComparison />
-                    <LearnEntrySection />
+                    {!shouldDeferStory && storySupportSections}
                   </>
                 )}
               </React.Fragment>
@@ -432,9 +465,14 @@ export default async function Home(props: {
                 </React.Suspense>
                 <KosherPromiseSection data={section} />
                 <WholesaleBand />
+                {shouldDeferStory && storySupportSections}
               </React.Fragment>
             )
           case "ComponentHomeShopCollections":
+            if (shouldMoveCollectionsEarly) {
+              return null
+            }
+
             return (
               <React.Fragment key={section.__typename}>
                 <React.Suspense fallback={null}>
@@ -451,8 +489,7 @@ export default async function Home(props: {
                     isLoggedIn={isLoggedIn}
                   />
                 </React.Suspense>
-                <StandardsComparison />
-                <LearnEntrySection />
+                {!shouldDeferStory && storySupportSections}
               </React.Fragment>
             )
           case "ComponentHomeTestimonial":

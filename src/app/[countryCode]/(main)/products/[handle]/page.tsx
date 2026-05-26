@@ -225,18 +225,28 @@ export default async function ProductPage(props: Props) {
     customerType: customer ? "registered" : "guest",
     userId: customer?.id,
   })
+  const pdpRecommendationExperimentPromise = getExperimentAssignment(
+    "pdp_recommendation_strategy_v1",
+    {
+      routeMarket: params.countryCode,
+      customerType: customer ? "registered" : "guest",
+      userId: customer?.id,
+    }
+  )
 
   const [
     strapiProductData,
     ingredientDisclosures,
     purchaseHistoryItem,
     pdpExperiment,
+    pdpRecommendationExperiment,
   ] =
     await Promise.all([
       strapiProductDataPromise,
       ingredientDisclosuresPromise,
       purchaseHistoryItemPromise,
       pdpExperimentPromise,
+      pdpRecommendationExperimentPromise,
     ])
   const productFromStrapi = strapiProductData?.products?.[0]
   const resolvedIngredientDisclosures = Array.isArray(
@@ -262,6 +272,7 @@ export default async function ProductPage(props: Props) {
   return (
     <>
       <ExperimentExposure assignment={pdpExperiment} />
+      <ExperimentExposure assignment={pdpRecommendationExperiment} />
       {/* Product JSON-LD for SEO */}
       <script
         type="application/ld+json"
@@ -274,6 +285,14 @@ export default async function ProductPage(props: Props) {
         strapiCommonPdpData={strapiCommonPdpDataPromise}
         strapiProductData={strapiProduct}
         purchaseHistoryItem={purchaseHistoryItem}
+        pdpExperimentVariant={
+          pdpExperiment?.isEnabled ? pdpExperiment.variantKey : "control"
+        }
+        pdpRecommendationVariant={
+          pdpRecommendationExperiment?.isEnabled
+            ? pdpRecommendationExperiment.variantKey
+            : "control"
+        }
       />
     </>
   )

@@ -104,10 +104,12 @@ export default async function PairsWellWith({
   product,
   countryCode,
   strapiProductData,
+  recommendationVariant = "control",
 }: {
   product: HttpTypes.StoreProduct
   countryCode: string
   strapiProductData?: any
+  recommendationVariant?: string | null
 }) {
   let collections: ReturnType<typeof prepareCollections> = []
   try {
@@ -127,6 +129,9 @@ export default async function PairsWellWith({
       product,
       strapiProductData
     )
+    if (recommendationVariant === "single_best_match") {
+      collections = collections.slice(0, 1)
+    }
   } catch (error) {
     console.error("Failed to render PDP curated collections:", {
       productId: product.id,
@@ -147,7 +152,9 @@ export default async function PairsWellWith({
               Complete the cart
             </p>
             <h2 className="mt-2 font-gyst text-h3 font-bold leading-tight text-Charcoal">
-              Pairs well with this order
+              {recommendationVariant === "single_best_match"
+                ? "Best match for this item"
+                : "Pairs well with this order"}
             </h2>
           </div>
           <p className="max-w-xl font-maison-neue text-p-md leading-relaxed text-Charcoal/70">

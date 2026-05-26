@@ -9,6 +9,8 @@ import CartTemplate from "@modules/cart/templates"
 import { Metadata } from "next"
 import { notFound } from "next/navigation"
 import { generateAlternates } from "@lib/util/seo"
+import ExperimentExposure from "@lib/experiments/exposure"
+import { getExperimentAssignment } from "@lib/experiments/server"
 
 type PageProps = {
   params: Promise<{ countryCode: string }>
@@ -62,15 +64,31 @@ export default async function Cart({ params }: PageProps) {
 
   const defaultDeliveryZip =
     deliveryZip || getAddressBookDeliveryZip(customer?.addresses)
+  const cartUpsellExperiment = await getExperimentAssignment(
+    "cart_upsell_strategy_v1",
+    {
+      routeMarket: countryCode,
+      customerType: customer ? "registered" : "guest",
+      userId: customer?.id,
+    }
+  )
 
   return (
-    <CartTemplate
-      cart={cart}
-      customer={customer}
-      countryCode={countryCode}
-      deliveryZip={defaultDeliveryZip}
-      atlantaZipConfig={atlantaZipConfig}
-      productDetailsMap={productDetailsMap}
-    />
+    <>
+      <ExperimentExposure assignment={cartUpsellExperiment} />
+      <CartTemplate
+        cart={cart}
+        customer={customer}
+        countryCode={countryCode}
+        deliveryZip={defaultDeliveryZip}
+        atlantaZipConfig={atlantaZipConfig}
+        productDetailsMap={productDetailsMap}
+        cartUpsellVariant={
+          cartUpsellExperiment?.isEnabled
+            ? cartUpsellExperiment.variantKey
+            : "control"
+        }
+      />
+    </>
   )
 }

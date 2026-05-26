@@ -46,6 +46,7 @@ type ProductTemplateProps = {
   showMobileActions?: boolean
   cartConversion?: CartConversionState | null
   purchaseHistoryItem?: PurchaseHistoryItem | null
+  pdpExperimentVariant?: string | null
 }
 
 export default function ProductDetail({
@@ -67,6 +68,7 @@ export default function ProductDetail({
   showMobileActions = false,
   cartConversion,
   purchaseHistoryItem,
+  pdpExperimentVariant,
 }: ProductTemplateProps) {
   const heroTag = strapiProductData?.Metadata?.KosherForPassover
     ? "Kosher for Passover"
@@ -304,6 +306,11 @@ export default function ProductDetail({
             strapiProductData={strapiProductData}
             description={productDescription}
             countryCode={countryCode}
+            presentation={
+              pdpExperimentVariant === "collapsed_details"
+                ? "compact_disclosures"
+                : "standard"
+            }
           />
 
           <ProductIngredientDisclosures

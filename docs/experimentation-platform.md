@@ -35,8 +35,11 @@ Production revenue experiments are blocked unless `EXPERIMENTS_REVENUE_GATE_STAT
 Local QA override:
 
 ```bash
+EXPERIMENT_STATUS_HOMEPAGE_SHOPPING_FLOW_V1=active
 EXPERIMENT_FORCE_HOMEPAGE_SHOPPING_FLOW_V1=products_earlier
 ```
+
+`EXPERIMENT_STATUS_*` lets operations activate or pause a registered experiment without a code change. `EXPERIMENT_FORCE_*` is for QA and preview links; it still respects the global kill switch and revenue guardrails.
 
 ## Event Shape
 
@@ -65,8 +68,13 @@ Downstream Jitsu events include `experiment_context` after exposure. Add-to-cart
 - `recipes_entrypoints_v1`
 - `learn_entrypoints_v1`
 - `collections_entrypoints_v1`
+- `cart_upsell_strategy_v1`
+- `pdp_recommendation_strategy_v1`
+- `newsletter_capture_v1`
+- `seo_geo_landing_copy_v1`
+- `reviews_proof_v1`
 
-All controls are the current production experience. Variants are registered as slots, but the registry starts paused so this deploy does not change shopper-facing UI until an experiment is explicitly activated.
+All controls are the current production experience. The homepage, PDP at-a-glance, cart upsell, and PDP recommendation experiments include real code branches. The remaining surfaces are registered and ready for content/code branches as they become launch-ready. The registry starts paused so this deploy does not change shopper-facing UI until an experiment is explicitly activated.
 
 ## Creating An Experiment
 
@@ -95,7 +103,14 @@ CLICKHOUSE_EVENTS_TABLE=events \
 yarn experiments:report --experiment homepage_shopping_flow_v1 --since 2026-05-01 --until 2026-05-15
 ```
 
-The report returns exposures, sessions, add-to-cart, checkout started, orders, revenue, conversion rate, AOV, and a conservative status label.
+The report attributes commerce by `experiment_context.assignment_id` first, so server-side `order_completed` events from Medusa can join to exposure through cart line metadata. It returns exposures, sessions, add-to-cart, checkout started, orders, revenue, conversion rate, AOV, Bayesian probability to beat control, uplift versus control, and a conservative status label.
+
+Winner labels are intentionally conservative:
+
+- `needs_data`: either control or variant has fewer than 100 sessions.
+- `directional`: enough data to inspect, but not enough probability to ship.
+- `likely_winner`: posterior probability to beat control is at least 95%.
+- `likely_loser`: posterior probability to beat control is at most 5%.
 
 ## Promoting A Winner
 
@@ -115,3 +130,12 @@ The promotion script is intentionally non-destructive. Promotion should happen t
 ## V2 AI Readiness
 
 The platform is ready for agent-generated proposals, but prompt-to-live publishing is intentionally not enabled. The next layer should generate the proposal, required Strapi content changes, screenshot checklist, and any fal.ai/nanobanana imagery work, then require human approval before activation.
+
+The Amboras-style extension points are:
+
+- Generate proposal markdown from `docs/experimentation-proposal-template.md`.
+- Generate Strapi `Experiment Variant` and `Experiment Placement` draft content.
+- Generate new imagery through the approved fal.ai/nanobanana workflow and store assets in Strapi before referencing them.
+- Open a code branch only for structural UX variants.
+- Activate through Statsig after guardrails pass.
+- Promote winners by removing losing branches through normal review.

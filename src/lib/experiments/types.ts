@@ -7,6 +7,11 @@ export type ExperimentSurface =
   | "recipes"
   | "learn"
   | "collections"
+  | "cart"
+  | "pdp_recommendations"
+  | "newsletter"
+  | "seo_geo"
+  | "reviews"
 
 export type ExperimentImpact = "revenue" | "non_revenue"
 

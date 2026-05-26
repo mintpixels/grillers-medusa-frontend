@@ -14,9 +14,11 @@ import type { CartProductDetailsMap } from "@lib/util/cart-product-details"
 async function CartUpsellsBlock({
   countryCode,
   cart,
+  cartUpsellVariant,
 }: {
   countryCode: string
   cart: HttpTypes.StoreCart
+  cartUpsellVariant?: string | null
 }) {
   const upsellProducts = await withTimeout(
     getCartUpsellProducts(countryCode).catch(() => []),
@@ -32,6 +34,7 @@ async function CartUpsellsBlock({
       countryCode={countryCode}
       excludeProductIds={cart.items?.map((item) => item.product_id)}
       className="mt-8"
+      experimentVariant={cartUpsellVariant}
     />
   )
 }
@@ -43,6 +46,7 @@ const CartTemplate = ({
   deliveryZip,
   atlantaZipConfig,
   productDetailsMap = {},
+  cartUpsellVariant,
 }: {
   cart: HttpTypes.StoreCart | null
   customer: HttpTypes.StoreCustomer | null
@@ -50,6 +54,7 @@ const CartTemplate = ({
   deliveryZip?: string | null
   atlantaZipConfig?: Record<string, AtlantaZipDayConfig>
   productDetailsMap?: CartProductDetailsMap
+  cartUpsellVariant?: string | null
 }) => {
   return (
     <div className="py-12">
@@ -68,7 +73,11 @@ const CartTemplate = ({
                 productDetailsMap={productDetailsMap}
               />
               <Suspense fallback={null}>
-                <CartUpsellsBlock countryCode={countryCode} cart={cart} />
+                <CartUpsellsBlock
+                  countryCode={countryCode}
+                  cart={cart}
+                  cartUpsellVariant={cartUpsellVariant}
+                />
               </Suspense>
             </div>
             <div className="relative">

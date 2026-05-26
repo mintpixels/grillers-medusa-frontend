@@ -18,6 +18,7 @@ type CartUpsellsProps = {
   compact?: boolean
   excludeProductIds?: Array<string | null | undefined>
   className?: string
+  experimentVariant?: string | null
 }
 
 export default function CartUpsells({
@@ -27,12 +28,16 @@ export default function CartUpsells({
   compact = false,
   excludeProductIds = [],
   className = "",
+  experimentVariant = "control",
 }: CartUpsellsProps) {
   const [addingId, setAddingId] = useState<string | null>(null)
   const excluded = new Set(excludeProductIds.filter(Boolean))
   const products = rawProducts
     .filter((product) => !excluded.has(product.id))
-    .slice(0, compact ? 2 : 3)
+    .slice(
+      0,
+      experimentVariant === "focused_pair" ? (compact ? 1 : 2) : compact ? 2 : 3
+    )
 
   if (!products.length) return null
 
@@ -53,6 +58,7 @@ export default function CartUpsells({
     })
     jitsuTrack("cart_upsell_clicked", {
       surface,
+      experiment_variant: experimentVariant,
       product_id: product.id,
       product_name: product.title,
       product_handle: product.handle,
@@ -85,6 +91,7 @@ export default function CartUpsells({
       toast.success("Added to cart", { description: product.title })
       jitsuTrack("cart_upsell_added", {
         surface,
+        experiment_variant: experimentVariant,
         product_id: product.id,
         product_name: product.title,
         product_handle: product.handle,
