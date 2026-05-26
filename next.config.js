@@ -8,6 +8,7 @@ checkEnvVariables()
  */
 const nextConfig = {
   outputFileTracingRoot: path.join(__dirname),
+  serverExternalPackages: ["@statsig/statsig-node-core"],
   env: {
     STRAPI_ENDPOINT: process.env.STRAPI_ENDPOINT,
     STRAPI_API_TOKEN: process.env.STRAPI_API_TOKEN,

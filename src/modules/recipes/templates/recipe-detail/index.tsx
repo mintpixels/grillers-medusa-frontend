@@ -9,6 +9,7 @@ import FavoriteButton from "@modules/recipes/components/favorite-button"
 import VideoEmbed from "@modules/common/components/video-embed"
 import { RecipeDetailAnalytics } from "@modules/recipes/components/recipe-analytics"
 import { addToCart } from "@lib/data/cart"
+import { experimentCartMetadata } from "@lib/experiments/client-context"
 import { trackRecipePrintOrSave } from "@lib/gtm"
 import { dispatchCartUpdated } from "@lib/util/cart-events"
 import {
@@ -130,11 +131,15 @@ const RecipeHeroProduct = ({
       const metadata = freeDeliveryEligibilityMetadata(
         getProductFreeDeliveryEligibility(product, variant.Sku)
       )
+      const cartMetadata = {
+        ...experimentCartMetadata(),
+        ...metadata,
+      }
       await addToCart({
         variantId: variant.VariantId,
         quantity: 1,
         countryCode,
-        metadata: Object.keys(metadata).length ? metadata : undefined,
+        metadata: Object.keys(cartMetadata).length ? cartMetadata : undefined,
       })
       dispatchCartUpdated({
         action: "add",

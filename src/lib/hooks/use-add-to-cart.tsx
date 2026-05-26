@@ -9,6 +9,7 @@ import { trackAddToCart } from "@lib/gtm"
 import { jitsuTrack } from "@lib/jitsu"
 import { useProductTitle } from "@lib/hooks/use-product-title"
 import { dispatchCartUpdated } from "@lib/util/cart-events"
+import { experimentCartMetadata } from "@lib/experiments/client-context"
 import {
   freeDeliveryEligibilityMetadata,
   getProductFreeDeliveryEligibility,
@@ -128,6 +129,7 @@ export function useAddToCart(
         ...(strapiTitle && strapiTitle !== product.title
           ? { strapi_title: strapiTitle }
           : {}),
+        ...experimentCartMetadata(),
         ...freeDeliveryEligibilityMetadata(eligibility),
       }
 

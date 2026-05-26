@@ -42,9 +42,9 @@ const systemMap = [
   },
   {
     name: "Postmark",
-    owner: "Transactional email",
+    owner: "Email delivery",
     details:
-      "Postmark sends order, cancellation, refund, shipped, welcome, password reset, back-in-stock, review, and staff phone-order emails.",
+      "Postmark sends order, cancellation, refund, shipped, welcome, password reset, back-in-stock, review, lifecycle, campaign, and staff phone-order emails.",
   },
   {
     name: "QuickBooks Desktop",
@@ -58,6 +58,7 @@ const dailyChecklist = [
   "Open the staff console and confirm you can see Order Support without being redirected.",
   "Check QuickBooks Web Connector. A green bar means the session ran; still open Last Result or the log if the status says it sent an error back to the application.",
   "Review open orders in Staff Console, especially unfulfilled, awaiting payment, QBD failed, or QBD pending/manual orders.",
+  "Open Customer Communications when checking campaign drafts, lifecycle flow health, customer timelines, suppressions, or Postmark delivery status.",
   "Place a small test order only when needed, using Stripe test cards while the site is still in test mode.",
   "Check that order, cancellation, refund, and back-in-stock emails are being received and that product names are customer-safe Strapi or Medusa names.",
   "Before changing product availability, decide whether the item is out of stock, seasonal inactive, discontinued, or internal only. Those mean different things to customers.",
@@ -154,6 +155,12 @@ const publicSurfaces = [
     name: "Staff console",
     staffUse:
       "Use for customer context, new customer creation, phone orders, order support, refunds, cancellations, QBD retry, and team access.",
+  },
+  {
+    route: "/us/account/staff/communications",
+    name: "Customer communications",
+    staffUse:
+      "Use for customer timelines, direct staff notes, lifecycle flows, campaign drafts, audience segments, suppressions, and Postmark delivery status.",
   },
   {
     route: "/us/account/staff/operations-guide",
@@ -365,9 +372,8 @@ const sections: GuideSection[] = [
       "Recording internal notes.",
       "Refunding a Stripe card payment.",
       "Capturing an authorized payment.",
-      "Recording an offline payment.",
       "Recording a shipping override.",
-      "Recording an account credit or pending check refund.",
+      "Recording an account credit follow-up.",
       "Canceling an order.",
       "Retrying a failed QuickBooks posting.",
     ],
@@ -382,9 +388,46 @@ const sections: GuideSection[] = [
     ],
     watch: [
       "Customer messaging from this console is not fully sent for every action. A customer-visible note may be recorded for follow-up rather than emailed.",
+      "Offline payments and check refunds are disabled for launch. Use Stripe card capture/refund or record an internal note for accounting follow-up.",
       "Refunding a card uses Medusa and Stripe, then leaves a QuickBooks accounting posting task.",
       "Cancellation can be blocked once fulfillment has started. Record a note or credit follow-up if the order is locked.",
       "Retry QBD only appears when a previous QBD posting failed and has a retry key.",
+    ],
+  },
+  {
+    id: "communications-center",
+    eyebrow: "Communications",
+    title: "Customer communications center",
+    summary:
+      "Customer Communications is the staff view for the first-party lifecycle platform. Medusa stores profile, identity, event, cart lifecycle, segment, flow, campaign, suppression, attribution, template, import, and message-log records. Postmark delivers the actual emails.",
+    useFor: [
+      "Reviewing a customer's order, email, segment, lifecycle, and delivery timeline in one place.",
+      "Sending an approved staff note to a customer when order support needs a separate email.",
+      "Creating campaign drafts for consented audiences before sending through Postmark broadcast streams.",
+      "Checking lifecycle flows such as welcome, abandoned cart, post-purchase, reorder, second-order loyalty, at-risk, dormant, holiday reminder, and back-in-stock follow-up.",
+      "Checking whether an email was queued, sent, delivered, bounced, complained, unsubscribed, or suppressed.",
+      "Reading 30-day reporting for attributed revenue, recovered carts, delivery targets, imports, and event mix.",
+    ],
+    howTo: [
+      "Open Staff Console, then Customer Communications.",
+      "Use Profiles to search by customer email, name, or customer ID and inspect their activity timeline.",
+      "Use Send a staff note for customer-safe one-off messages. Keep product names customer-safe and do not include QuickBooks ListIDs or item hex values.",
+      "Use Campaigns to draft a subject, intro, body, audience segment, schedule, and call to action. Send a test before sending to the audience.",
+      "Use Flows or Run flows to process cart expiry, due lifecycle steps, refreshed segments, profile lifecycle stage changes, and scheduled campaigns.",
+      "Use Reports to review attributed orders, attributed revenue, recovered carts, abandoned carts, and recent event mix.",
+      "Use Templates to confirm which customer-safe templates exist before asking Postmark or engineering to change copy.",
+      "Use Health to check Redis queue configuration, queue backlogs, ClickHouse delivery, GA4 delivery, and failed sends.",
+      "Use Imports when migrating Constant Contact rows. Preserve unsubscribes and bounces before sending any marketing.",
+    ],
+    watch: [
+      "Marketing and lifecycle unsubscribes must not block order-critical transactional emails.",
+      "Postmark stream and message purpose are different. One-to-one abandoned-cart recovery may use the transactional Postmark stream, but it still requires marketing consent and respects cart-recovery preferences.",
+      "Campaigns and broad announcements use the broadcast stream. Order, refund, cancellation, password, and account messages remain transactional or service messages.",
+      "A Postmark send status does not prove the customer opened or clicked the email.",
+      "Do not use this console as the order source of truth. Use Medusa and Stripe for order/payment state.",
+      "Attributed revenue means a customer ordered after a lifecycle or campaign touch. It is useful for marketing decisions, not accounting.",
+      "If Redis queues are not configured, scheduled Medusa jobs run the fallback path. That is acceptable, but slower and less visible.",
+      "If a customer says an email has the wrong product name, compare against Strapi and Medusa customer-facing product titles first.",
     ],
   },
   {
@@ -455,18 +498,24 @@ const sections: GuideSection[] = [
       "Back-in-stock confirmation and restocked emails.",
       "Review acquisition emails.",
       "Staff phone-order review and paid confirmation emails.",
+      "Lifecycle and campaign emails sent from Customer Communications.",
     ],
     howTo: [
       "Order emails are built from Medusa order data enriched for customer-safe display.",
       "Refund emails are triggered by the payment.refunded event after the refund is created.",
       "Cancellation emails are triggered by order cancellation events.",
       "Back-in-stock emails use the Strapi back-in-stock request row and product snapshot.",
+      "Customer Communications records every tracked send in the message log before Postmark delivery is attempted.",
+      "Postmark webhooks update delivery, open, click, bounce, spam complaint, and unsubscribe status back into Medusa.",
+      "Each tracked email has both a Postmark stream and a message purpose. The purpose decides consent and suppression rules.",
+      "Email preferences can suppress individual marketing topics such as promotions, recipes, holiday reminders, and back-in-stock alerts.",
       "If a customer reports a wrong product name, compare the email to the storefront PDP title and Strapi product title first.",
     ],
     watch: [
       "Do not send QuickBooks item names, ListIDs, item hex values, or seasonal sorting prefixes in customer email rows.",
       "A customer note in Order Support is not always automatically emailed. Confirm before promising the customer will receive that note.",
       "If a refund succeeds but no email arrives, check the Medusa payment.refunded event and Postmark delivery before blaming Stripe.",
+      "Marketing and lifecycle email preferences do not stop transactional order, refund, cancellation, password, or account emails.",
     ],
   },
   {
@@ -490,7 +539,9 @@ const sections: GuideSection[] = [
     ],
     watch: [
       "A public read token may not be able to write. If a backfill fails, verify token capability before assuming code is broken.",
-      "A Medusa-to-Strapi sync can overwrite fields if the mapper omits preserved fields. Check QuickBooksListId and allocation fields after sync changes.",
+      "Medusa-to-Strapi updates must fail closed if the existing Strapi record cannot be read. Do not let a sync fall back to QuickBooks or raw Medusa copy for product titles, descriptions, media, categorization, SEO, recipes, or merchandising fields.",
+      "Medusa product deletion does not delete the Strapi product by default. Destructive Strapi sync requires a verified backup, a written cutover plan, and the explicit STRAPI_ALLOW_DESTRUCTIVE_SYNC=true backend switch.",
+      "After sync changes, check QuickBooksListId, allocation fields, customer-safe titles, descriptions, featured images, gallery images, categorization, SEO, social metadata, and recipe associations.",
       "Generated or edited content should be published before staff expect it on the live site.",
     ],
   },
@@ -529,7 +580,7 @@ const sections: GuideSection[] = [
     useFor: [
       "Pushing Medusa orders into QuickBooks as sales orders.",
       "Reading QuickBooks catalog items, quantities, active status, ListIDs, and tax items.",
-      "Posting accounting follow-up for refunds, captures, credits, offline payments, check refunds, and sales-order closes.",
+      "Posting accounting follow-up for refunds, captures, credits, and sales-order closes.",
       "Reconciling inventory allocation against QBD on-hand quantities.",
     ],
     howTo: [
@@ -556,6 +607,9 @@ const sections: GuideSection[] = [
     useFor: [
       "Server-side purchase tracking from Medusa order.placed.",
       "Jitsu/first-party events such as page viewed, product viewed, cart viewed, checkout started, shipping submitted, payment submitted, and order completed.",
+      "First-party lifecycle ingestion for profile, segment, flow, and campaign decisions.",
+      "ClickHouse event storage and GA4 dual-write for reporting parity.",
+      "Email attribution for last-click or last-touch lifecycle and campaign revenue.",
       "Statsig experiments for PLP, search, collections, recipes, learn, and other entry points.",
       "Review acquisition emails after orders.",
       "Newsletter subscribe, unsubscribe, and email preference links.",
@@ -564,6 +618,8 @@ const sections: GuideSection[] = [
     howTo: [
       "Use analytics to understand customer behavior, not to decide whether a customer paid.",
       "Use Medusa and Stripe for order/payment truth.",
+      "Storefront events dual-write to first-party communications ingestion when the communications endpoint is configured.",
+      "Use Customer Communications reports for lifecycle and email performance. Use Medusa and Stripe for order and payment truth.",
       "When changing checkout or purchase logic, make sure order_completed still originates server-side from order.placed.",
       "Use the email preferences page when a customer asks to manage newsletter email.",
       "Use review links and review-click tracking for post-purchase follow-up.",
@@ -623,7 +679,7 @@ const playbooks: Playbook[] = [
       "If the email shows a QuickBooks title or seasonal prefix, treat it as a customer-facing bug.",
       "Check whether the email template is reading line item title, product_title, Strapi title map, or QuickBooks history fields.",
       "Use SKU as subtext only. Do not expose ListID or item hex.",
-      "Send a corrected customer message if the wrong email caused confusion.",
+      "Use Customer Communications to inspect the message log and send a corrected customer-safe note if the wrong email caused confusion.",
     ],
   },
   {

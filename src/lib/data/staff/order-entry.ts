@@ -22,6 +22,8 @@ import { signStaffCartHandoff } from "./order-token"
 
 type AnyRecord = Record<string, any>
 
+const STRIPE_CARD_PROVIDER_ID = "pp_stripe_stripe"
+
 export type StaffCustomerSummary = {
   id: string
   email: string
@@ -796,6 +798,10 @@ async function listPaymentProviders(regionId: string): Promise<AnyRecord[]> {
     payment_providers: AnyRecord[]
   }>("/store/payment-providers", { query: { region_id: regionId } })
   return payment_providers || []
+}
+
+function isStripeCardProvider(provider: AnyRecord | null | undefined) {
+  return String(provider?.id || "") === STRIPE_CARD_PROVIDER_ID
 }
 
 function buildCheckoutUrl(countryCode: string, token: string): string {
@@ -1623,13 +1629,11 @@ export async function prepareStaffPhoneOrder(
 
     if (input.paymentMode === "collect_card_now") {
       const providers = await listPaymentProviders(region.id)
-      const provider =
-        providers.find((p) => String(p.id).startsWith("pp_stripe_")) ||
-        providers.find((p) => !String(p.id).startsWith("pp_system_default"))
+      const provider = providers.find(isStripeCardProvider)
 
       if (!provider?.id) {
         throw new Error(
-          "No card payment provider is configured for this region."
+          "No Stripe credit-card payment provider is configured for this region."
         )
       }
 

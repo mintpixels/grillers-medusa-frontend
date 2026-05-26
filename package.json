@@ -22,6 +22,8 @@
     "test:e2e:headed": "playwright test --headed",
     "mobile:audit": "node scripts/mobile-audit.js --screenshots --fail-on-small-targets",
     "smoke:storefront-backend": "node scripts/smoke-storefront-backend.mjs",
+    "experiments:report": "node scripts/experiments/report.mjs",
+    "experiments:promote": "node scripts/experiments/promote-winner.mjs",
     "postmark:ensure-templates": "node scripts/postmark/ensure-templates.js --apply"
   },
   "dependencies": {
@@ -32,6 +34,7 @@
     "@medusajs/js-sdk": "latest",
     "@medusajs/ui": "latest",
     "@radix-ui/react-accordion": "^1.2.11",
+    "@statsig/statsig-node-core": "^0.19.3",
     "@strapi/blocks-react-renderer": "^1.0.2",
     "@stripe/react-stripe-js": "^1.7.2",
     "@stripe/stripe-js": "^1.29.0",

@@ -24,6 +24,8 @@ import {
   getCuratedCollectionBySlug,
   type CuratedCollection,
 } from "@lib/data/strapi/curated-collections"
+import ExperimentExposure from "@lib/experiments/exposure"
+import { getExperimentAssignment } from "@lib/experiments/server"
 
 interface GetProductCollectionResponse {
   productCollections: ProductCollectionData[]
@@ -290,10 +292,16 @@ export default async function CollectionPage(props: Props) {
   }
 
   const curated = await getCuratedCollectionForPage(handle, countryCode)
+  const plpExperiment = await getExperimentAssignment("plp_merchandising_v1", {
+    routeMarket: countryCode,
+    customerType: "unknown",
+  })
+
   if (curated) {
     const jsonLd = generateCuratedCollectionJsonLd(curated, countryCode)
     return (
       <>
+        <ExperimentExposure assignment={plpExperiment} />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
@@ -398,6 +406,7 @@ export default async function CollectionPage(props: Props) {
 
   return (
     <>
+      <ExperimentExposure assignment={plpExperiment} />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}

@@ -764,6 +764,10 @@ function isStripeProvider(providerId?: string) {
     .includes("stripe")
 }
 
+function offlineMoneyActionsEnabled() {
+  return process.env.STAFF_ALLOW_OFFLINE_MONEY_ACTIONS === "true"
+}
+
 function latestRefundFromPayment(payment: AnyRecord | null | undefined) {
   const refunds = Array.isArray(payment?.refunds) ? payment.refunds : []
   return refunds[refunds.length - 1] || null
@@ -851,6 +855,16 @@ function validateAction(input: StaffExceptionActionInput, order: AnyRecord) {
   if (!input.orderId) throw new Error("Choose an order first.")
   if (!input.reasonCode) throw new Error("Choose a reason code.")
   if (!input.staffNote?.trim()) throw new Error("Add an internal staff note.")
+
+  if (
+    !offlineMoneyActionsEnabled() &&
+    (input.action === "record_offline_payment" ||
+      input.action === "record_check_refund")
+  ) {
+    throw new Error(
+      "Offline payments and check refunds are disabled for launch. Use Stripe card capture/refund or record an internal note for accounting follow-up."
+    )
+  }
 
   const state = staffOrderOperationalState(order)
   if (actionIsBlockedByOperationalState(input.action, state)) {

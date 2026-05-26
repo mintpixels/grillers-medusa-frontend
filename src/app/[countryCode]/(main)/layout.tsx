@@ -14,10 +14,14 @@ import { CartProvider } from "@modules/layout/components/side-cart/cart-context"
 import SideCartWrapper from "@modules/layout/components/side-cart/side-cart-wrapper"
 import { withTimeout } from "@lib/util/promise-timeout"
 import StaffContextActions from "@modules/staff/components/staff-context-actions"
+import ExperimentExposure from "@lib/experiments/exposure"
+import { getExperimentAssignment } from "@lib/experiments/server"
 
 export const metadata: Metadata = {
   metadataBase: new URL(getBaseURL()),
 }
+
+export const dynamic = "force-dynamic"
 
 async function FreeShippingNudgeBlock({
   cart,
@@ -70,9 +74,22 @@ export default async function PageLayout(props: {
     cartPromise,
     staffImpersonationPromise,
   ])
+  const navigationExperiment = await getExperimentAssignment(
+    "navigation_ways_to_shop_v1",
+    {
+      routeMarket: countryCode,
+      customerType: staffImpersonation
+        ? "staff"
+        : customer
+        ? "registered"
+        : "guest",
+      userId: customer?.id,
+    }
+  )
 
   return (
     <CartProvider>
+      <ExperimentExposure assignment={navigationExperiment} />
       <Nav customer={customer} cart={cart} />
       {staffImpersonation && (
         <div className="border-b border-Gold/30 bg-Gold/10 px-4 py-2 text-xs font-maison-neue text-Charcoal">

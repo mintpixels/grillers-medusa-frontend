@@ -43,6 +43,8 @@ import {
   getAddressBookDeliveryZip,
   normalizeDeliveryZip,
 } from "@lib/util/delivery-zip"
+import ExperimentExposure from "@lib/experiments/exposure"
+import { getExperimentAssignment } from "@lib/experiments/server"
 
 type PageProps = {
   params: Promise<{ countryCode: string }>
@@ -353,6 +355,14 @@ export default async function Home(props: {
     baseUrl
   )
   const websiteJsonLd = generateWebSiteJsonLd(baseUrl, countryCode)
+  const homepageExperiment = await getExperimentAssignment(
+    "homepage_shopping_flow_v1",
+    {
+      routeMarket: countryCode,
+      customerType: customer ? "registered" : "guest",
+      userId: customer?.id,
+    }
+  )
 
   const renderSections = () => {
     if (strapiData?.home?.Sections) {
@@ -473,6 +483,7 @@ export default async function Home(props: {
 
   return (
     <>
+      <ExperimentExposure assignment={homepageExperiment} />
       {/* Organization + WebSite JSON-LD for SEO (Google Knowledge Panel + sitelinks searchbox) */}
       {organizationJsonLd && (
         <script

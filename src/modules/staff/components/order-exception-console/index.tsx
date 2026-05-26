@@ -595,10 +595,8 @@ export default function StaffOrderExceptionConsole() {
                   ["record_note", "Add note"],
                   ["refund_payment", "Refund card"],
                   ["credit_memo", "Account credit"],
-                  ["record_check_refund", "Check refund"],
                   ["retry_qbd_posting", "Retry QBD"],
                   ["shipping_override", "Shipping"],
-                  ["record_offline_payment", "Offline payment"],
                   ["cancel_order", "Cancel"],
                 ].map(([action, label]) => (
                   <button

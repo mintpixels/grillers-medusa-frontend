@@ -2,6 +2,7 @@ import React, { useCallback } from "react"
 import Image from "next/image"
 import { HttpTypes } from "@medusajs/types"
 import { getProductPrice } from "@lib/util/get-product-price"
+import { formatProductPriceDisplay } from "@lib/util/price-display"
 
 import ProductActions from "./product-actions"
 import ProductPrice from "./product-price"
@@ -115,6 +116,23 @@ export default function ProductDetail({
   })
   const stickyPrice =
     selectedPrice?.variantPrice || selectedPrice?.cheapestPrice || null
+  const stickyDisplay = stickyPrice
+    ? formatProductPriceDisplay(
+        stickyPrice.calculated_price_number ?? 0,
+        strapiProductData?.Metadata,
+        selectedVariant?.sku || product.variants?.[0]?.sku,
+        (
+          strapiProductData?.MedusaProduct as
+            | { PricingMode?: "per_lb" | "fixed_price" }
+            | undefined
+        )?.PricingMode
+      )
+    : null
+  const stickyAddToCartPrice = stickyDisplay
+    ? stickyDisplay.mode === "per_lb"
+      ? `Est. $${(stickyDisplay.estimatedPackPrice * quantity).toFixed(2)}`
+      : `$${((stickyPrice?.calculated_price_number ?? 0) * quantity).toFixed(2)}`
+    : null
   const optionSummary =
     Object.values(options).filter(Boolean).join(" / ") || "Select Options"
   const isSingleVariant = (product.variants?.length ?? 0) <= 1
@@ -248,6 +266,14 @@ export default function ProductDetail({
               isAdding={isAdding}
               isValidVariant={isValidVariant}
               quantity={quantity}
+              metadata={strapiProductData?.Metadata}
+              explicitMode={
+                (
+                  strapiProductData?.MedusaProduct as
+                    | { PricingMode?: "per_lb" | "fixed_price" }
+                    | undefined
+                )?.PricingMode
+              }
               increment={increment}
               decrement={decrement}
               handleAddToCart={handleAddToCart}
@@ -368,6 +394,8 @@ export default function ProductDetail({
                 ? "Out of stock"
                 : isAdding
                 ? "Adding..."
+                : stickyAddToCartPrice
+                ? `Add to cart · ${stickyAddToCartPrice}`
                 : "Add to cart"}
             </button>
           </div>

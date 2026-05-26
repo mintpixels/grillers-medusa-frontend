@@ -33,6 +33,16 @@ const PREFERENCE_TOGGLES: { key: string; label: string; description: string }[] 
     label: "Recipes & grilling tips",
     description: "Occasional cooking inspiration from our team.",
   },
+  {
+    key: "holiday_reminders",
+    label: "Holiday & Shabbos reminders",
+    description: "Ordering windows, pickup timing, and seasonal planning notes.",
+  },
+  {
+    key: "back_in_stock",
+    label: "Back-in-stock alerts",
+    description: "Item-specific alerts for products you asked us to notify you about.",
+  },
 ]
 
 function getBoolPref(prefs: Record<string, unknown>, key: string): boolean {

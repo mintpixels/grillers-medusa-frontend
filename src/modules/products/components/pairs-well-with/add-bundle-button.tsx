@@ -4,6 +4,7 @@ import { useState } from "react"
 import { toast } from "@medusajs/ui"
 import { addToCart } from "@lib/data/cart"
 import { jitsuTrack } from "@lib/jitsu"
+import { experimentCartMetadata } from "@lib/experiments/client-context"
 import { dispatchCartUpdated } from "@lib/util/cart-events"
 
 type BundleItem = {
@@ -48,11 +49,13 @@ export default function AddBundleButton({
     let addedQuantity = 0
     try {
       for (const item of items) {
+        const experimentMetadata = experimentCartMetadata()
         await addToCart({
           variantId: item.variantId,
           quantity: item.quantity,
           countryCode,
           metadata: {
+            ...experimentMetadata,
             ...(item.metadata || {}),
             bundle_id: bundleId,
             bundle_title: bundleTitle,

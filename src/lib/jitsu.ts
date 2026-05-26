@@ -17,6 +17,7 @@ let globalContext: Record<string, string> = {
   customer_type: "unknown",
 }
 
+let experimentContext: Record<string, any> = {}
 let userTraits: Record<string, any> = {}
 
 function getUserId(): string | undefined {
@@ -83,6 +84,21 @@ function getSessionId(): string {
   return id
 }
 
+export function getJitsuIdentityContext() {
+  return {
+    anonymous_id: getAnonymousId(),
+    session_id: getSessionId(),
+    user_id: getUserId(),
+  }
+}
+
+export function getJitsuContextSnapshot() {
+  return {
+    ...globalContext,
+    ...getJitsuIdentityContext(),
+  }
+}
+
 // ── Send event to Jitsu Classic /api/v1/event ───────────────────
 
 function sendEvent(payload: Record<string, any>) {
@@ -90,24 +106,47 @@ function sendEvent(payload: Record<string, any>) {
 
   const host = process.env.NEXT_PUBLIC_JITSU_HOST
   const token = process.env.NEXT_PUBLIC_JITSU_WRITE_KEY
-  if (!host || !token) return
-
-  const url = `${host}/api/v1/event?token=${token}`
-
-  // Use sendBeacon if the page is being unloaded, fetch otherwise
   const body = JSON.stringify(payload)
 
-  try {
-    fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body,
-      keepalive: true,
-    }).catch(() => {
-      // Silent fail — don't break the app for analytics
-    })
-  } catch {
-    // Silent fail
+  if (host && token) {
+    const url = `${host}/api/v1/event?token=${token}`
+    try {
+      fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body,
+        keepalive: true,
+      }).catch(() => {
+        // Silent fail — don't break the app for analytics
+      })
+    } catch {
+      // Silent fail
+    }
+  }
+
+  const communicationsUrl = (
+    process.env.NEXT_PUBLIC_COMMUNICATIONS_INGESTION_URL ||
+    process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL ||
+    ""
+  ).replace(/\/+$/, "")
+  const communicationsKey = process.env.NEXT_PUBLIC_COMMUNICATIONS_API_KEY
+
+  if (communicationsUrl) {
+    try {
+      fetch(`${communicationsUrl}/api/track`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(communicationsKey ? { "x-api-key": communicationsKey } : {}),
+        },
+        body,
+        keepalive: true,
+      }).catch(() => {
+        // Silent fail — first-party lifecycle capture must not affect UX.
+      })
+    } catch {
+      // Silent fail
+    }
   }
 }
 
@@ -120,6 +159,9 @@ function buildEvent(
   const anonymousId = getAnonymousId()
   const sessionId = getSessionId()
   const resolvedUserId = getUserId()
+  const activeExperimentContext = Object.keys(experimentContext).length
+    ? experimentContext
+    : undefined
 
   return {
     event_type: eventType,
@@ -130,6 +172,9 @@ function buildEvent(
       session_id: sessionId,
       user_id: resolvedUserId,
       ...globalContext,
+      ...(activeExperimentContext
+        ? { experiment_context: activeExperimentContext }
+        : {}),
       user: resolvedUserId
         ? { anonymous_id: anonymousId, id: resolvedUserId, ...userTraits }
         : { anonymous_id: anonymousId },
@@ -226,4 +271,8 @@ export function setJitsuContext(ctx: Partial<typeof globalContext>) {
     }
   }
   globalContext = next
+}
+
+export function setJitsuExperimentContext(ctx: Record<string, any>) {
+  experimentContext = { ...ctx }
 }

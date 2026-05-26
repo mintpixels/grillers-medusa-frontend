@@ -780,6 +780,12 @@ export default function PhoneOrderCopilot({
             >
               Operations Guide
             </LocalizedClientLink>
+            <LocalizedClientLink
+              href="/account/staff/communications"
+              className="inline-flex min-h-[44px] items-center justify-center rounded-md border border-Charcoal px-4 text-sm font-rexton font-bold uppercase text-Charcoal transition hover:bg-Charcoal hover:text-white"
+            >
+              Communications
+            </LocalizedClientLink>
             <div className="rounded-md border border-Gold/35 bg-Gold/10 px-4 py-3">
               <p className="text-xs font-maison-neue-mono uppercase text-Charcoal/55">
                 Signed in
@@ -831,8 +837,8 @@ export default function PhoneOrderCopilot({
       <div
         className={`grid gap-3 ${
           canManageTeamAccess
-            ? "md:grid-cols-2 xl:grid-cols-4"
-            : "md:grid-cols-3"
+            ? "md:grid-cols-2 xl:grid-cols-5"
+            : "md:grid-cols-2 xl:grid-cols-4"
         }`}
       >
         <button
@@ -895,6 +901,21 @@ export default function PhoneOrderCopilot({
             refund, credit, shipping exception, or note.
           </span>
         </button>
+        <LocalizedClientLink
+          href="/account/staff/communications"
+          className="rounded-lg border border-gray-200 bg-white p-5 text-left text-Charcoal transition hover:border-Gold/50"
+        >
+          <span className="block text-xs font-maison-neue-mono uppercase opacity-70">
+            Customer messaging
+          </span>
+          <span className="mt-2 block text-xl font-gyst font-bold">
+            Communications
+          </span>
+          <span className="mt-2 block text-sm font-maison-neue opacity-75">
+            Review customer timelines, send approved staff notes, monitor
+            Postmark delivery, and manage lifecycle campaigns.
+          </span>
+        </LocalizedClientLink>
         {canManageTeamAccess && (
           <button
             className={`rounded-lg border p-5 text-left transition ${

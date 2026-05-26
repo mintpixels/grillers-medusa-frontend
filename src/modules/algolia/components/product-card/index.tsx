@@ -5,6 +5,7 @@ import Image from "next/image"
 import { toast } from "@medusajs/ui"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import { addToCart } from "@lib/data/cart"
+import { experimentCartMetadata } from "@lib/experiments/client-context"
 import { trackAddToCart } from "@lib/gtm"
 import { jitsuTrack } from "@lib/jitsu"
 import { formatProductPriceDisplay } from "@lib/util/price-display"
@@ -25,6 +26,7 @@ const ProductCard = ({ hit }: { hit: StrapiProductData }) => {
         variantId,
         quantity: 1,
         countryCode: "us",
+        metadata: experimentCartMetadata(),
       })
       dispatchCartUpdated({ action: "add", variantId, quantity: 1 })
 

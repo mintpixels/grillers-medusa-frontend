@@ -1,6 +1,8 @@
 import { getProductPrice } from "@lib/util/get-product-price"
+import { formatProductPriceDisplay } from "@lib/util/price-display"
 import { HttpTypes } from "@medusajs/types"
 import Button from "@modules/common/components/button"
+import type { Metadata } from "types/strapi"
 
 type ProductActionsProps = {
   product: HttpTypes.StoreProduct
@@ -9,6 +11,8 @@ type ProductActionsProps = {
   isAdding?: boolean
   isValidVariant?: boolean
   quantity: number
+  metadata?: Metadata | null
+  explicitMode?: "per_lb" | "fixed_price" | null
   increment: () => void
   decrement: () => void
   handleAddToCart: () => void
@@ -21,6 +25,8 @@ export default function ProductActions({
   decrement,
   increment,
   quantity,
+  metadata,
+  explicitMode,
   inStock,
   isAdding,
   isValidVariant,
@@ -41,6 +47,16 @@ export default function ProductActions({
   const totalPrice = (
     selectedPrice.calculated_price_number * quantity
   ).toFixed(2)
+  const display = formatProductPriceDisplay(
+    selectedPrice.calculated_price_number ?? 0,
+    metadata,
+    variant?.sku,
+    explicitMode
+  )
+  const addToCartPrice =
+    display.mode === "per_lb"
+      ? `Est. $${(display.estimatedPackPrice * quantity).toFixed(2)}`
+      : `$${totalPrice}`
 
   return (
     <div className="flex w-full min-w-0 flex-col md:flex-row items-center mb-6 gap-y-4 md:gap-y-0 md:gap-x-8">
@@ -78,7 +94,7 @@ export default function ProductActions({
         data-sku={variant?.sku || undefined}
       >
         <span>Add to Cart</span>
-        <span className="block sm:inline">${totalPrice}</span>
+        <span className="block sm:inline">{addToCartPrice}</span>
       </Button>
     </div>
   )

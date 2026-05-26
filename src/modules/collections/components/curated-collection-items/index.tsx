@@ -6,6 +6,7 @@ import { ChevronDown, ChevronUp } from "lucide-react"
 import { toast } from "@medusajs/ui"
 
 import { addToCart } from "@lib/data/cart"
+import { experimentCartMetadata } from "@lib/experiments/client-context"
 import { dispatchCartUpdated } from "@lib/util/cart-events"
 import {
   lineCartMetadata,
@@ -254,6 +255,7 @@ function CollectionItemAddButton({
         quantity,
         countryCode,
         metadata: {
+          ...experimentCartMetadata(),
           ...lineCartMetadata(item),
           source_collection_id: collection.documentId,
           source_collection_title: collection.Name,

@@ -2,6 +2,7 @@
 
 import { sendTemplatedEmail } from "@lib/postmark"
 import { isWaitlistEligible } from "@lib/util/waitlist-eligibility"
+import { trackCommunicationEvent } from "./communications-events"
 
 /**
  * Restock trigger for #102. Polls inventory state, finds products that
@@ -416,6 +417,22 @@ export async function runBackInStockTrigger(): Promise<TriggerSummary> {
         if (sent) {
           try {
             await markNotified(req)
+            await trackCommunicationEvent({
+              event_name: "back_in_stock_notification_sent",
+              event_id: `back_in_stock_notification_sent:${req.documentId}`,
+              source: "storefront-cron",
+              email: req.Email,
+              template_key: "back-in-stock-restocked",
+              properties: {
+                medusa_product_id: req.MedusaProductId,
+                medusa_variant_id: req.MedusaVariantId || null,
+                product_handle: req.ProductHandle,
+                product_title: req.ProductTitle,
+                sku: req.Sku || null,
+                waitlist_reason: req.WaitlistReason || null,
+                strapi_id: req.documentId,
+              },
+            })
             summary.subscribersNotified += 1
           } catch (err) {
             summary.subscribersFailed += 1

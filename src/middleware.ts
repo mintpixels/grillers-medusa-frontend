@@ -5,6 +5,8 @@ const BACKEND_URL = process.env.MEDUSA_BACKEND_URL
 const PUBLISHABLE_API_KEY = process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY
 const DEFAULT_REGION = process.env.NEXT_PUBLIC_DEFAULT_REGION || "us"
 const REGION_LOOKUP_TIMEOUT_MS = 600
+const EXPERIMENT_ID_COOKIE = "_gp_exp_id"
+const EXPERIMENT_COOKIE_MAX_AGE = 60 * 60 * 24 * 365
 
 const regionMapCache = {
   regionMap: new Map<string, HttpTypes.StoreRegion>(),
@@ -110,6 +112,22 @@ async function getCountryCode(
   }
 }
 
+function ensureExperimentIdCookie(
+  request: NextRequest,
+  response: NextResponse
+) {
+  if (!request.cookies.get(EXPERIMENT_ID_COOKIE)?.value) {
+    response.cookies.set(EXPERIMENT_ID_COOKIE, crypto.randomUUID(), {
+      maxAge: EXPERIMENT_COOKIE_MAX_AGE,
+      path: "/",
+      sameSite: "lax",
+      secure: request.nextUrl.protocol === "https:",
+    })
+  }
+
+  return response
+}
+
 /**
  * Middleware to handle region selection and onboarding status.
  */
@@ -129,14 +147,14 @@ export async function middleware(request: NextRequest) {
   // is cold or unavailable, the demo site should still render immediately.
   if (urlFirstSegment === DEFAULT_REGION) {
     if (cacheIdCookie) {
-      return NextResponse.next()
+      return ensureExperimentIdCookie(request, NextResponse.next())
     }
 
     const nextResponse = NextResponse.next()
     nextResponse.cookies.set("_medusa_cache_id", cacheId, {
       maxAge: 60 * 60 * 24,
     })
-    return nextResponse
+    return ensureExperimentIdCookie(request, nextResponse)
   }
 
   let redirectUrl = request.nextUrl.href
@@ -166,7 +184,7 @@ export async function middleware(request: NextRequest) {
 
   // if one of the country codes is in the url and the cache id is set, return next
   if (urlHasCountryCode && cacheIdCookie) {
-    return NextResponse.next()
+    return ensureExperimentIdCookie(request, NextResponse.next())
   }
 
   // If the URL is already localized, set the cache cookie on the page response.
@@ -179,7 +197,7 @@ export async function middleware(request: NextRequest) {
       maxAge: 60 * 60 * 24,
     })
 
-    return nextResponse
+    return ensureExperimentIdCookie(request, nextResponse)
   }
 
   const redirectPath =
@@ -193,7 +211,7 @@ export async function middleware(request: NextRequest) {
     response = NextResponse.redirect(`${redirectUrl}`, 307)
   }
 
-  return response
+  return ensureExperimentIdCookie(request, response)
 }
 
 export const config = {

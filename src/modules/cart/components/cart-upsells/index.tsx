@@ -7,6 +7,7 @@ import { toast } from "@medusajs/ui"
 import { addToCart } from "@lib/data/cart"
 import { trackSelectItem } from "@lib/gtm"
 import { jitsuTrack } from "@lib/jitsu"
+import { experimentCartMetadata } from "@lib/experiments/client-context"
 import { dispatchCartUpdated } from "@lib/util/cart-events"
 import type { CartUpsellProduct } from "./types"
 
@@ -74,6 +75,7 @@ export default function CartUpsells({
         variantId: product.variantId,
         quantity: 1,
         countryCode,
+        metadata: experimentCartMetadata(),
       })
       dispatchCartUpdated({
         action: "add",

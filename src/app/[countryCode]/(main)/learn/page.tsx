@@ -4,6 +4,8 @@ import { getBaseURL } from "@lib/util/env"
 import { generateAlternates } from "@lib/util/seo"
 import ButcherEducationHub from "@modules/learn/templates/butcher-education-hub"
 import { isWaysToShopMissionId } from "@lib/content/ways-to-shop"
+import ExperimentExposure from "@lib/experiments/exposure"
+import { getExperimentAssignment } from "@lib/experiments/server"
 
 type PageProps = {
   params: Promise<{ countryCode: string }>
@@ -57,6 +59,10 @@ export default async function LearnPage({ params, searchParams }: PageProps) {
     ? missionParam
     : null
   const pageUrl = `${getBaseURL()}/${countryCode}/learn`
+  const learnExperiment = await getExperimentAssignment("learn_entrypoints_v1", {
+    routeMarket: countryCode,
+    customerType: "unknown",
+  })
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "CollectionPage",
@@ -78,6 +84,7 @@ export default async function LearnPage({ params, searchParams }: PageProps) {
 
   return (
     <>
+      <ExperimentExposure assignment={learnExperiment} />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
@@ -89,3 +96,5 @@ export default async function LearnPage({ params, searchParams }: PageProps) {
     </>
   )
 }
+
+export const revalidate = 300

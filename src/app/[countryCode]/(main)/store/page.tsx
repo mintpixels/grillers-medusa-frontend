@@ -12,6 +12,8 @@ import {
   compactCollectionProducts,
 } from "@lib/util/collection-product"
 import CollectionTemplate from "@modules/collections/templates"
+import ExperimentExposure from "@lib/experiments/exposure"
+import { getExperimentAssignment } from "@lib/experiments/server"
 
 type Params = {
   params: Promise<{ countryCode: string }>
@@ -110,13 +112,20 @@ export default async function StorePage(props: Params) {
     products,
     "store Strapi ingredient disclosures"
   )
+  const plpExperiment = await getExperimentAssignment("plp_merchandising_v1", {
+    routeMarket: countryCode,
+    customerType: "unknown",
+  })
 
   return (
-    <CollectionTemplate
-      title="All Products"
-      slug="store"
-      countryCode={countryCode}
-      products={compactCollectionProducts(productsWithDisclosures)}
-    />
+    <>
+      <ExperimentExposure assignment={plpExperiment} />
+      <CollectionTemplate
+        title="All Products"
+        slug="store"
+        countryCode={countryCode}
+        products={compactCollectionProducts(productsWithDisclosures)}
+      />
+    </>
   )
 }

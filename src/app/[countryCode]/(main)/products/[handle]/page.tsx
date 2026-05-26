@@ -14,6 +14,8 @@ import { getBaseURL } from "@lib/util/env"
 import { withTimeout } from "@lib/util/promise-timeout"
 import { retrieveCustomer } from "@lib/data/customer"
 import { listPurchaseHistory } from "@lib/data/orders"
+import ExperimentExposure from "@lib/experiments/exposure"
+import { getExperimentAssignment } from "@lib/experiments/server"
 
 type Props = {
   params: Promise<{ countryCode: string; handle: string }>
@@ -218,12 +220,23 @@ export default async function ProductPage(props: Props) {
         `PDP purchase history for ${pricedProduct.id}`
       )
     : Promise.resolve(null)
+  const pdpExperimentPromise = getExperimentAssignment("pdp_at_a_glance_v1", {
+    routeMarket: params.countryCode,
+    customerType: customer ? "registered" : "guest",
+    userId: customer?.id,
+  })
 
-  const [strapiProductData, ingredientDisclosures, purchaseHistoryItem] =
+  const [
+    strapiProductData,
+    ingredientDisclosures,
+    purchaseHistoryItem,
+    pdpExperiment,
+  ] =
     await Promise.all([
       strapiProductDataPromise,
       ingredientDisclosuresPromise,
       purchaseHistoryItemPromise,
+      pdpExperimentPromise,
     ])
   const productFromStrapi = strapiProductData?.products?.[0]
   const resolvedIngredientDisclosures = Array.isArray(
@@ -248,6 +261,7 @@ export default async function ProductPage(props: Props) {
 
   return (
     <>
+      <ExperimentExposure assignment={pdpExperiment} />
       {/* Product JSON-LD for SEO */}
       <script
         type="application/ld+json"

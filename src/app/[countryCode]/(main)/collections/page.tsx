@@ -8,6 +8,8 @@ import {
   isWaysToShopMissionId,
 } from "@lib/content/ways-to-shop"
 import { getCuratedCollectionCards } from "@lib/data/strapi/curated-collections"
+import ExperimentExposure from "@lib/experiments/exposure"
+import { getExperimentAssignment } from "@lib/experiments/server"
 import { withTimeout } from "@lib/util/promise-timeout"
 
 type PageProps = {
@@ -61,6 +63,13 @@ export default async function CollectionsPage({
       ? occasionParam
       : null
   const pageUrl = `${getBaseURL()}/${countryCode}/collections`
+  const collectionsExperiment = await getExperimentAssignment(
+    "collections_entrypoints_v1",
+    {
+      routeMarket: countryCode,
+      customerType: "unknown",
+    }
+  )
   const collections = await withTimeout(
     getCuratedCollectionCards({
       customerState: "any",
@@ -85,6 +94,7 @@ export default async function CollectionsPage({
 
   return (
     <>
+      <ExperimentExposure assignment={collectionsExperiment} />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}

@@ -2,6 +2,7 @@
 
 import { randomBytes } from "crypto"
 import { sendTemplatedEmail } from "@lib/postmark"
+import { trackCommunicationEvent } from "./communications-events"
 
 const STRAPI_BASE = (
   process.env.STRAPI_ENDPOINT || ""
@@ -232,6 +233,24 @@ export async function requestBackInStockNotification(input: {
   if (!send.ok) {
     console.error("[back-in-stock] Postmark send failed", send.message)
   }
+
+  await trackCommunicationEvent({
+    event_name: "waitlist_joined",
+    event_id: `waitlist_joined:${persisted.documentId || persisted.id || token}`,
+    source: "storefront-server",
+    email,
+    template_key: "back-in-stock-confirm",
+    properties: {
+      medusa_product_id: input.medusaProductId,
+      medusa_variant_id: input.medusaVariantId || null,
+      product_handle: input.productHandle,
+      product_title: input.productTitle,
+      sku: input.sku || null,
+      waitlist_reason: input.waitlistReason || "out_of_stock",
+      strapi_id: persisted.documentId || persisted.id || null,
+      confirmation_email_sent: send.ok,
+    },
+  })
 
   return { ok: true }
 }

@@ -26,6 +26,7 @@ import {
   type PurchaseHistoryItem,
 } from "@lib/data/orders"
 import { addToCart } from "@lib/data/cart"
+import { experimentCartMetadata } from "@lib/experiments/client-context"
 import { dispatchCartUpdated } from "@lib/util/cart-events"
 import {
   freeDeliveryEligibilityMetadata,
@@ -369,6 +370,7 @@ function itemMetadata(item: HydratedHistoryItem) {
     : {}
 
   return {
+    ...experimentCartMetadata(),
     ...eligibility,
     source: "account_restock_hub",
     legacy_purchase_history_key: historyKey(item),
@@ -1450,6 +1452,7 @@ export default function ReorderBrowser({
         quantity,
         countryCode,
         metadata: {
+          ...experimentCartMetadata(),
           source: "legacy_order_line",
           legacy_purchase_history_key: legacyLineActionKey(line),
           legacy_order_id: order.id,

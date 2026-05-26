@@ -7,6 +7,7 @@ import LocalizedClientLink from "@modules/common/components/localized-client-lin
 import FormattedPrice from "@modules/common/components/formatted-price"
 import ProductCardCarousel from "@modules/common/components/product-card-carousel"
 import { addToCart } from "@lib/data/cart"
+import { experimentCartMetadata } from "@lib/experiments/client-context"
 import { formatProductPriceDisplay } from "@lib/util/price-display"
 import { sanitizeProductCopy } from "@lib/util/product-claims"
 import { dispatchCartUpdated } from "@lib/util/cart-events"
@@ -55,11 +56,15 @@ export const ProductCard = memo(function ProductCard({
       const metadata = freeDeliveryEligibilityMetadata(
         getProductFreeDeliveryEligibility(product, variant?.Sku)
       )
+      const cartMetadata = {
+        ...experimentCartMetadata(),
+        ...metadata,
+      }
       await addToCart({
         variantId,
         quantity: 1,
         countryCode,
-        metadata: Object.keys(metadata).length ? metadata : undefined,
+        metadata: Object.keys(cartMetadata).length ? cartMetadata : undefined,
       })
       dispatchCartUpdated({ action: "add", variantId, quantity: 1 })
       toast.success("Added to cart", { description: product.Title })
@@ -111,6 +116,11 @@ export const ProductCard = memo(function ProductCard({
     ?.replace(/^Estimated\s+/i, "Est. ")
     .replace(/\s+for\s+a\s+/i, " / ")
     .replace(/\s+pack$/i, "")
+  const addToCartPrice = priceDisplay
+    ? priceDisplay.mode === "per_lb"
+      ? `Est. $${priceDisplay.estimatedPackPrice.toFixed(2)}`
+      : priceDisplay.primary
+    : null
 
   const galleryImages = useMemo(
     () =>
@@ -275,13 +285,24 @@ export const ProductCard = memo(function ProductCard({
               disabled={
                 isAdding || !variant?.VariantId
               }
-              className="w-full min-h-[44px] min-w-0 px-4 py-2.5 rounded-[5px] border border-Charcoal bg-Gold text-Charcoal font-rexton text-xs font-bold uppercase transition-opacity hover:opacity-95 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap text-center"
+              className="w-full min-h-[44px] min-w-0 px-4 py-2.5 rounded-[5px] border border-Charcoal bg-Gold text-Charcoal font-rexton text-xs font-bold uppercase transition-opacity hover:opacity-95 disabled:opacity-50 disabled:cursor-not-allowed whitespace-normal text-center"
               data-agent-action="add-to-cart"
               data-product-handle={product?.MedusaProduct?.Handle}
               data-variant-id={variant?.VariantId}
               data-sku={variant?.Sku}
             >
-              {isAdding ? "Adding..." : "Add to Cart"}
+              {isAdding ? (
+                "Adding..."
+              ) : (
+                <span className="inline-flex flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5">
+                  <span>Add to Cart</span>
+                  {addToCartPrice && (
+                    <span className="font-maison-neue-mono text-[10px]">
+                      {addToCartPrice}
+                    </span>
+                  )}
+                </span>
+              )}
             </button>
           </div>
         </div>
@@ -428,13 +449,24 @@ export const ProductCard = memo(function ProductCard({
           disabled={
             isAdding || !variant?.VariantId
           }
-          className="min-h-[44px] min-w-0 px-4 py-2 rounded-[5px] border border-Charcoal bg-Gold text-Charcoal font-rexton text-xs font-bold uppercase transition-opacity hover:opacity-95 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+          className="min-h-[44px] min-w-0 px-4 py-2 rounded-[5px] border border-Charcoal bg-Gold text-Charcoal font-rexton text-xs font-bold uppercase transition-opacity hover:opacity-95 disabled:opacity-50 disabled:cursor-not-allowed whitespace-normal"
           data-agent-action="add-to-cart"
           data-product-handle={product?.MedusaProduct?.Handle}
           data-variant-id={variant?.VariantId}
           data-sku={variant?.Sku}
         >
-          {isAdding ? "Adding..." : "Add to Cart"}
+          {isAdding ? (
+            "Adding..."
+          ) : (
+            <span className="inline-flex flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5">
+              <span>Add to Cart</span>
+              {addToCartPrice && (
+                <span className="font-maison-neue-mono text-[10px]">
+                  {addToCartPrice}
+                </span>
+              )}
+            </span>
+          )}
         </button>
 
         <LocalizedClientLink

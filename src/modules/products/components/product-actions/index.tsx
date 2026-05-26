@@ -1,6 +1,7 @@
 "use client"
 
 import { addToCart } from "@lib/data/cart"
+import { experimentCartMetadata } from "@lib/experiments/client-context"
 import { useIntersection } from "@lib/hooks/use-in-view"
 import { dispatchCartUpdated } from "@lib/util/cart-events"
 import { HttpTypes } from "@medusajs/types"
@@ -110,6 +111,7 @@ export default function ProductActions({
         variantId: selectedVariant.id,
         quantity: 1,
         countryCode,
+        metadata: experimentCartMetadata(),
       })
       dispatchCartUpdated({
         action: "add",

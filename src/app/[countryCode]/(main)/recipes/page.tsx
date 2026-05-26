@@ -14,6 +14,8 @@ import {
   getWaysToShopMission,
   isWaysToShopMissionId,
 } from "@lib/content/ways-to-shop"
+import ExperimentExposure from "@lib/experiments/exposure"
+import { getExperimentAssignment } from "@lib/experiments/server"
 
 type PageProps = {
   params: Promise<{ countryCode: string }>
@@ -103,18 +105,28 @@ export default async function RecipesPage(props: PageProps) {
     total,
   }
   const filterOptions = ALL_RECIPE_FILTER_OPTIONS
+  const recipesExperiment = await getExperimentAssignment(
+    "recipes_entrypoints_v1",
+    {
+      routeMarket: countryCode,
+      customerType: "unknown",
+    }
+  )
 
   return (
-    <RecipesCollection
-      recipes={recipes}
-      page={page}
-      pageInfo={pageInfo}
-      countryCode={countryCode}
-      filterOptions={filterOptions}
-      currentFilters={filterParams}
-      hubRecipes={hubRecipes}
-    />
+    <>
+      <ExperimentExposure assignment={recipesExperiment} />
+      <RecipesCollection
+        recipes={recipes}
+        page={page}
+        pageInfo={pageInfo}
+        countryCode={countryCode}
+        filterOptions={filterOptions}
+        currentFilters={filterParams}
+        hubRecipes={hubRecipes}
+      />
+    </>
   )
 }
 
-export const dynamic = "force-dynamic"
+export const revalidate = 300
