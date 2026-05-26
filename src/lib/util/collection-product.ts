@@ -1,4 +1,5 @@
 import type { StrapiCollectionProduct } from "@lib/data/strapi/collections"
+import { strapiProductHasInternalRawMaterialSku } from "@lib/util/internal-products"
 
 export const COLLECTION_PRODUCT_METADATA_KEYS = [
   "AvgPackSize",
@@ -176,7 +177,9 @@ export function compactCollectionProduct(
 export function compactCollectionProducts<T extends StrapiCollectionProduct>(
   products: T[]
 ): StrapiCollectionProduct[] {
-  return products.map(compactCollectionProduct)
+  return products
+    .map(compactCollectionProduct)
+    .filter((product) => !strapiProductHasInternalRawMaterialSku(product))
 }
 
 export const ALGOLIA_COLLECTION_PRODUCT_ATTRIBUTES = [

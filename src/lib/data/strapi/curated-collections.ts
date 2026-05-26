@@ -2,6 +2,7 @@ import { gql } from "graphql-request"
 import strapiClient from "@lib/strapi"
 import { enrichStrapiProductsWithMedusaPrices } from "@lib/data/products"
 import { compactCollectionProduct } from "@lib/util/collection-product"
+import { strapiProductHasInternalRawMaterialSku } from "@lib/util/internal-products"
 import type { StrapiSEO, StrapiSocialMeta } from "./seo"
 import type { StrapiCollectionProduct } from "./collections"
 
@@ -614,14 +615,20 @@ function replaceProducts(
 }
 
 function compactCuratedCollectionItem(item: CuratedCollectionItem) {
+  const product =
+    item.Product && !strapiProductHasInternalRawMaterialSku(item.Product)
+      ? compactCollectionProduct(item.Product)
+      : null
+  const originalProduct =
+    item.OriginalProduct &&
+    !strapiProductHasInternalRawMaterialSku(item.OriginalProduct)
+      ? compactCollectionProduct(item.OriginalProduct)
+      : null
+
   return {
     ...item,
-    Product: item.Product
-      ? compactCollectionProduct(item.Product)
-      : item.Product,
-    OriginalProduct: item.OriginalProduct
-      ? compactCollectionProduct(item.OriginalProduct)
-      : item.OriginalProduct,
+    Product: product || undefined,
+    OriginalProduct: originalProduct || undefined,
   }
 }
 

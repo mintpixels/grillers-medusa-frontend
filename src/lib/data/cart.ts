@@ -28,6 +28,7 @@ import {
 } from "./cookies"
 import { findShippingOptionByType } from "./fulfillment"
 import { getRegion } from "./regions"
+import { medusaProductHasInternalRawMaterialSku } from "@lib/util/internal-products"
 
 type ActiveStaffContext = Awaited<
   ReturnType<typeof getActiveStaffImpersonation>
@@ -39,6 +40,28 @@ async function getCartStaffContext(): Promise<ActiveStaffContext> {
 
 async function cartHeadersForStaffContext(active: ActiveStaffContext) {
   return active ? {} : { ...(await getAuthHeaders()) }
+}
+
+async function assertPublicVariantCanBeAddedToCart(
+  variantId: string,
+  headers: Record<string, string>
+) {
+  const { products } = await sdk.client.fetch<{
+    products: HttpTypes.StoreProduct[]
+  }>(`/store/products`, {
+    method: "GET",
+    query: {
+      limit: 1,
+      fields: "*variants",
+      "variants[id]": variantId,
+    } as HttpTypes.FindParams & HttpTypes.StoreProductParams,
+    headers,
+    cache: "no-store",
+  })
+
+  if (medusaProductHasInternalRawMaterialSku(products?.[0])) {
+    throw new Error("This item is not available for online ordering.")
+  }
 }
 
 async function getCurrentCartId(active: ActiveStaffContext) {
@@ -265,14 +288,16 @@ export async function addToCart({
     throw new Error("Missing variant ID when adding to cart")
   }
 
+  const active = await getCartStaffContext()
+  const headers = await cartHeadersForStaffContext(active)
+
+  await assertPublicVariantCanBeAddedToCart(variantId, headers)
+
   const cart = await getOrSetCart(countryCode)
 
   if (!cart) {
     throw new Error("Error retrieving or creating cart")
   }
-
-  const active = await getCartStaffContext()
-  const headers = await cartHeadersForStaffContext(active)
 
   await sdk.store.cart
     .createLineItem(

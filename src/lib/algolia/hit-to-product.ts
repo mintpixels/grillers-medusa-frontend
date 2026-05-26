@@ -1,5 +1,6 @@
 import type { StrapiCollectionProduct } from "@lib/data/strapi/collections"
 import { compactCollectionProduct } from "@lib/util/collection-product"
+import { strapiProductHasInternalRawMaterialSku } from "@lib/util/internal-products"
 
 /**
  * Returns true if the Algolia hit is a stub — only `objectID` (plus the
@@ -29,5 +30,6 @@ export function isStubHit(hit: any): boolean {
  */
 export function hitToProduct(hit: any): StrapiCollectionProduct | null {
   if (isStubHit(hit)) return null
-  return compactCollectionProduct(hit)
+  const product = compactCollectionProduct(hit)
+  return strapiProductHasInternalRawMaterialSku(product) ? null : product
 }

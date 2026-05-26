@@ -1,6 +1,7 @@
 "use server"
 
 import { sdk } from "@lib/config"
+import { medusaProductHasInternalRawMaterialSku } from "@lib/util/internal-products"
 import { sortProducts } from "@lib/util/sort-products"
 import { HttpTypes } from "@medusajs/types"
 import { SortOptions } from "@modules/store/components/refinement-list/sort-products"
@@ -81,7 +82,9 @@ export const listProducts = async ({
     )
     .then(({ products, count }) => {
       const visibleProducts = products.filter(
-        (product) => !isLegacyReorderOnlyProduct(product)
+        (product) =>
+          !isLegacyReorderOnlyProduct(product) &&
+          !medusaProductHasInternalRawMaterialSku(product)
       )
       const nextPage = count > offset + limit ? pageParam + 1 : null
 

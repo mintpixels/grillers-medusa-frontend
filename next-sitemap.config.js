@@ -90,6 +90,13 @@ const learnSlugs = [
   "guides/shabbos-meat-order",
 ]
 
+const isInternalRawMaterialSku = (sku) =>
+  typeof sku === "string" && /^RM-/i.test(sku.trim())
+
+const isInternalRawMaterialProduct = (product) =>
+  Array.isArray(product?.variants) &&
+  product.variants.some((variant) => isInternalRawMaterialSku(variant?.sku))
+
 async function fetchJson(url, headers) {
   const response = await fetch(url, { headers })
 
@@ -157,7 +164,7 @@ async function getProductSitemapEntries() {
     const url = new URL(`${backendUrl}/store/products`)
     url.searchParams.set("limit", String(limit))
     url.searchParams.set("offset", String(offset))
-    url.searchParams.set("fields", "handle,updated_at")
+    url.searchParams.set("fields", "handle,updated_at,*variants")
     if (regionId) url.searchParams.set("region_id", regionId)
 
     const data = await fetchJson(url.toString(), headers)
@@ -167,6 +174,7 @@ async function getProductSitemapEntries() {
     entries.push(
       ...products
         .filter((product) => product.handle)
+        .filter((product) => !isInternalRawMaterialProduct(product))
         .map((product) => ({
           loc: `/us/products/${product.handle}`,
           changefreq: "weekly",
