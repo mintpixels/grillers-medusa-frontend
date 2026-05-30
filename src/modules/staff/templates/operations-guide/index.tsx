@@ -394,9 +394,9 @@ const sections: GuideSection[] = [
       "For legacy QuickBooks history, use the view for context only. Live money and cancellation actions are read-only there.",
     ],
     watch: [
-      "Customer messaging from this console is not fully sent for every action. A customer-visible note may be recorded for follow-up rather than emailed.",
+      "Stripe card refunds send a refund email from the payment.refunded event and queue a QuickBooks accounting posting task.",
       "Offline payments and check refunds are disabled for launch. Use Stripe card capture/refund or record an internal note for accounting follow-up.",
-      "Refunding a card uses Medusa and Stripe, then leaves a QuickBooks accounting posting task.",
+      "Canceling before QuickBooks posting is skipped in QBD; canceling after QuickBooks posting queues a sales-order close task for Web Connector.",
       "Cancellation can be blocked once fulfillment has started. Record a note or credit follow-up if the order is locked.",
       "Retry QBD only appears when a previous QBD posting failed and has a retry key.",
     ],
@@ -604,7 +604,8 @@ const sections: GuideSection[] = [
     watch: [
       "Green progress bars mean the session completed, not necessarily that every order posted correctly.",
       "Tax uses its own QuickBooks item. Product ListIDs do not fix a missing or wrong tax item.",
-      "Canceled before QuickBooks sync can be skipped; canceled after posting needs accounting follow-up.",
+      "Canceled before QuickBooks sync can be skipped; canceled after posting should create a Web Connector sales-order close task.",
+      "Stripe refunds should create a Web Connector refund or credit-memo accounting task and then mark the Medusa order metadata when posted.",
       "Do not make speculative changes to QWC files, secrets, or QuickBooks item mappings.",
     ],
   },
@@ -665,7 +666,7 @@ const playbooks: Playbook[] = [
       "Confirm the payment is a refundable Stripe card payment.",
       "Record the customer consent method, reason, and internal note.",
       "Preview the refund, type REFUND, and apply it.",
-      "Verify Medusa payment state, Stripe refund state, refund email, and QBD posting status separately.",
+      "Verify Medusa payment state, Stripe refund state, refund email, QBD writer task, and final QuickBooks posting status separately.",
     ],
   },
   {
@@ -674,7 +675,7 @@ const playbooks: Playbook[] = [
       "Open Order Support and check fulfillment state first.",
       "If fulfillment has not started, choose Cancel, record consent, preview, type CANCEL, and apply.",
       "If fulfillment is locked or shipped, record a note and route to operations for credit, refund, or shipment handling.",
-      "Verify cancellation email and QuickBooks follow-up if the order already posted.",
+      "Verify cancellation email. If the order already posted to QuickBooks, verify the QBD writer close task and the next Web Connector result.",
     ],
   },
   {
