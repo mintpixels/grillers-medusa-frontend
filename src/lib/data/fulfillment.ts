@@ -127,7 +127,7 @@ function extractServiceCodeFromName(name: string | undefined): string | null {
 export const findShippingOptionByType = async (
   cartId: string, 
   fulfillmentType: FulfillmentType
-): Promise<HttpTypes.StoreShippingOption | null> => {
+): Promise<HttpTypes.StoreCartShippingOption | null> => {
   const options = await listAllFulfillmentOptions(cartId)
   
   if (!options || options.length === 0) {
@@ -169,7 +169,7 @@ export const findPickupOption = async (cartId: string, pickupType: "plant_pickup
 
   // First try to find by fulfillment set type = pickup
   let pickupOption = options.find(opt => 
-    opt.service_zone?.fulfillment_set?.type === "pickup" &&
+    (opt as any).service_zone?.fulfillment_set?.type === "pickup" &&
     searchTerms.some(term => opt.name?.toLowerCase().includes(term))
   )
 
@@ -183,7 +183,7 @@ export const findPickupOption = async (cartId: string, pickupType: "plant_pickup
   // Last resort: any pickup type option
   if (!pickupOption) {
     pickupOption = options.find(opt => 
-      opt.service_zone?.fulfillment_set?.type === "pickup"
+      (opt as any).service_zone?.fulfillment_set?.type === "pickup"
     )
   }
 

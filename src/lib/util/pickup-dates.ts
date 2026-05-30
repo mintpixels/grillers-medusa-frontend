@@ -96,9 +96,9 @@ export function getAvailablePickupDates(config: PickupDateConfig): Date[] {
   }
 
   // Remove blackout dates
-  for (const key of blackoutSet) {
+  blackoutSet.forEach((key) => {
     dateMap.delete(key)
-  }
+  })
 
   // Filter by cutoff and sort
   return Array.from(dateMap.values())

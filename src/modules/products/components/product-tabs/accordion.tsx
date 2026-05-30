@@ -23,12 +23,16 @@ type AccordionProps =
   | (AccordionPrimitive.AccordionMultipleProps &
       React.RefAttributes<HTMLDivElement>)
 
+const AccordionRoot = AccordionPrimitive.Root as React.ComponentType<any>
+const AccordionItem = AccordionPrimitive.Item as React.ComponentType<any>
+const AccordionHeader = AccordionPrimitive.Header as React.ComponentType<any>
+const AccordionTrigger = AccordionPrimitive.Trigger as React.ComponentType<any>
+const AccordionContent = AccordionPrimitive.Content as React.ComponentType<any>
+
 const Accordion: React.FC<AccordionProps> & {
   Item: React.FC<AccordionItemProps>
 } = ({ children, ...props }) => {
-  return (
-    <AccordionPrimitive.Root {...props}>{children}</AccordionPrimitive.Root>
-  )
+  return <AccordionRoot {...props}>{children}</AccordionRoot>
 }
 
 const Item: React.FC<AccordionItemProps> = ({
@@ -44,7 +48,7 @@ const Item: React.FC<AccordionItemProps> = ({
   ...props
 }) => {
   return (
-    <AccordionPrimitive.Item
+    <AccordionItem
       {...props}
       className={clx(
         "border-grey-20 group border-t last:mb-0 last:border-b",
@@ -52,15 +56,15 @@ const Item: React.FC<AccordionItemProps> = ({
         className
       )}
     >
-      <AccordionPrimitive.Header className="px-1">
+      <AccordionHeader className="px-1">
         <div className="flex flex-col">
           <div className="flex w-full items-center justify-between">
             <div className="flex items-center gap-4">
               <Text className="text-ui-fg-subtle text-sm">{title}</Text>
             </div>
-            <AccordionPrimitive.Trigger>
+            <AccordionTrigger>
               {customTrigger || <MorphingTrigger />}
-            </AccordionPrimitive.Trigger>
+            </AccordionTrigger>
           </div>
           {subtitle && (
             <Text as="span" size="small" className="mt-1">
@@ -68,8 +72,8 @@ const Item: React.FC<AccordionItemProps> = ({
             </Text>
           )}
         </div>
-      </AccordionPrimitive.Header>
-      <AccordionPrimitive.Content
+      </AccordionHeader>
+      <AccordionContent
         forceMount={forceMountContent}
         className={clx(
           "radix-state-closed:animate-accordion-close radix-state-open:animate-accordion-open radix-state-closed:pointer-events-none px-1"
@@ -79,8 +83,8 @@ const Item: React.FC<AccordionItemProps> = ({
           {description && <Text>{description}</Text>}
           <div className="w-full">{children}</div>
         </div>
-      </AccordionPrimitive.Content>
-    </AccordionPrimitive.Item>
+      </AccordionContent>
+    </AccordionItem>
   )
 }
 
