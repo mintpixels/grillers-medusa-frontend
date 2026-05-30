@@ -21,7 +21,7 @@ export default function OrderStatusTimeline({
   createdAt,
 }: {
   status?: string
-  createdAt?: string
+  createdAt?: string | Date
 }) {
   const currentStep = statusToStep[status || "pending"] ?? 0
   const isCanceled = status === "canceled"
