@@ -45,6 +45,7 @@ import {
 } from "@lib/util/delivery-zip"
 import ExperimentExposure from "@lib/experiments/exposure"
 import { getExperimentAssignment } from "@lib/experiments/server"
+import { resolveHomeSections } from "@lib/util/home-sections"
 
 type PageProps = {
   params: Promise<{ countryCode: string }>
@@ -281,7 +282,13 @@ export default async function Home(props: {
   ])
 
   if (!region) {
-    return null
+    // Fail open (same rationale as resolveHomeSections below): a transient
+    // Medusa region timeout must never blank the whole homepage. `region` is
+    // not consumed in the body — child sections re-resolve it per countryCode —
+    // so continuing without it degrades gracefully instead of rendering blank.
+    console.warn(
+      "home: region unavailable for countryCode; rendering without it"
+    )
   }
 
   // Customer state for the conditional Hero CTA (#57). Legacy QuickBooks
@@ -337,12 +344,25 @@ export default async function Home(props: {
     [],
     "home curated collection cards"
   )
+  // Fail open: the route is force-dynamic and the body is driven entirely by
+  // the Strapi `home` query (3s timeout + .catch(()=>null)). Every Strapi
+  // publish busts the cached query; a slow/errored live re-fetch returned null
+  // Sections and the page rendered an empty <section> ("blank on normal load,
+  // appears on hard reload"). resolveHomeSections substitutes a usable set so
+  // the homepage is never blank.
+  const { sections: homeSections, usedFallback: homeUsedFallback } =
+    resolveHomeSections(strapiData)
+  if (homeUsedFallback) {
+    console.warn(
+      "home: Strapi home sections unavailable — rendering fallback homepage"
+    )
+  }
   const hasShopCollectionsSection = Boolean(
-    strapiData?.home?.Sections?.some(
+    homeSections.some(
       (section: any) => section.__typename === "ComponentHomeShopCollections"
     )
   )
-  const shopCollectionsSection = strapiData?.home?.Sections?.find(
+  const shopCollectionsSection = homeSections.find(
     (section: any) => section.__typename === "ComponentHomeShopCollections"
   )
   const fallbackCollectionsSection = {
@@ -381,8 +401,8 @@ export default async function Home(props: {
   )
 
   const renderSections = () => {
-    if (strapiData?.home?.Sections) {
-      return strapiData?.home?.Sections.map((section: any, index: number) => {
+    if (homeSections.length) {
+      return homeSections.map((section: any, index: number) => {
         const isAboveFold = index < 3
 
         switch (section.__typename) {
