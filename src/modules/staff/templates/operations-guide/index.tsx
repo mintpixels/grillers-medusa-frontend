@@ -32,7 +32,13 @@ const systemMap = [
     name: "Strapi",
     owner: "Content and customer-facing catalog detail",
     details:
-      "Strapi owns product copy, PDP images, page content, recipes, collections, checkout copy, shipping settings, waitlist settings, and customer-safe product names.",
+      "Strapi owns product copy, PDP images, page content, recipes, collections, checkout copy, shipping settings, waitlist settings, experiment content drafts, and customer-safe product names.",
+  },
+  {
+    name: "Statsig and Jitsu",
+    owner: "Experiment assignment and first-party measurement",
+    details:
+      "Statsig assigns storefront experiment variants. Jitsu receives exposure, shopping, checkout, and revenue events so winners are judged from first-party behavior, not GA4 alone.",
   },
   {
     name: "Stripe",
@@ -63,6 +69,7 @@ const dailyChecklist = [
   "Check that order, cancellation, refund, and back-in-stock emails are being received and that product names are customer-safe Strapi or Medusa names.",
   "Before changing product availability, decide whether the item is out of stock, seasonal inactive, discontinued, or internal only. Those mean different things to customers.",
   "For any money action, verify three places separately: Medusa order/payment state, Stripe payment/refund state, and QuickBooks posting state.",
+  "Before activating an experiment, confirm the experiment is approved, revenue gates are healthy if it affects shopping revenue, and the control still matches the current production experience.",
 ]
 
 const publicSurfaces = [
@@ -528,6 +535,7 @@ const sections: GuideSection[] = [
       "Homepage sections, header, footer, customer service, legal, shipping, kashruth, holiday, recipes, learn articles, curated collections, testimonials, and checkout copy.",
       "Product titles, featured image, gallery images, product metadata, ingredient disclosures, SEO, social metadata, and related recipes.",
       "Availability lifecycle, waitlist settings, future-order eligibility, replenishment lead days, safety stock, unavailable copy, and suggested alternatives.",
+      "Experiment records, variant content drafts, and placement content for content-driven tests.",
       "Back-in-stock request review when needed.",
     ],
     howTo: [
@@ -535,6 +543,7 @@ const sections: GuideSection[] = [
       "For product edits, use the customer-safe Title and PDP fields. Do not edit QuickBooks ListID unless you are deliberately correcting accounting identity.",
       "For lifecycle, choose active, seasonal inactive, discontinued, or internal only. Use Waitlist Enabled only when customers should expect notification when it returns.",
       "For checkout settings, edit available days, blackout dates, pickup notes, delivery lead time, and shipping settings with care.",
+      "For experiment content, keep variants in draft until the experiment is approved. Publish only the records that should be available to the storefront.",
       "For media, use actual product or relevant page imagery. Avoid stock-like or unrelated photos.",
     ],
     watch: [
@@ -542,6 +551,7 @@ const sections: GuideSection[] = [
       "Medusa-to-Strapi updates must fail closed if the existing Strapi record cannot be read. Do not let a sync fall back to QuickBooks or raw Medusa copy for product titles, descriptions, media, categorization, SEO, recipes, or merchandising fields.",
       "Medusa product deletion does not delete the Strapi product by default. Destructive Strapi sync requires a verified backup, a written cutover plan, and the explicit STRAPI_ALLOW_DESTRUCTIVE_SYNC=true backend switch.",
       "After sync changes, check QuickBooksListId, allocation fields, customer-safe titles, descriptions, featured images, gallery images, categorization, SEO, social metadata, and recipe associations.",
+      "Do not move structural UX into Strapi. Strapi experiment records should manage content and placements; code controls major layout or checkout behavior.",
       "Generated or edited content should be published before staff expect it on the live site.",
     ],
   },
@@ -610,7 +620,7 @@ const sections: GuideSection[] = [
       "First-party lifecycle ingestion for profile, segment, flow, and campaign decisions.",
       "ClickHouse event storage and GA4 dual-write for reporting parity.",
       "Email attribution for last-click or last-touch lifecycle and campaign revenue.",
-      "Statsig experiments for PLP, search, collections, recipes, learn, and other entry points.",
+      "Statsig experiments for homepage ordering, PDP facts, PDP recommendations, cart upsells, navigation, PLP, search, collections, recipes, learn, newsletter, SEO/GEO copy, and reviews/proof.",
       "Review acquisition emails after orders.",
       "Newsletter subscribe, unsubscribe, and email preference links.",
       "Public agentic-commerce product feed and manifest.",
@@ -621,6 +631,9 @@ const sections: GuideSection[] = [
       "Storefront events dual-write to first-party communications ingestion when the communications endpoint is configured.",
       "Use Customer Communications reports for lifecycle and email performance. Use Medusa and Stripe for order and payment truth.",
       "When changing checkout or purchase logic, make sure order_completed still originates server-side from order.placed.",
+      "Use first-party Jitsu experiment reports for winner calls. GA4 can be a secondary check, but should not be the only decision source.",
+      "Revenue experiments should stay paused unless purchase tracking and parity gates are healthy.",
+      "For content-driven experiments, create draft Strapi experiment, variant, and placement records before activation.",
       "Use the email preferences page when a customer asks to manage newsletter email.",
       "Use review links and review-click tracking for post-purchase follow-up.",
     ],
@@ -628,6 +641,8 @@ const sections: GuideSection[] = [
       "Do not fire purchase events from the confirmation page client as the source of truth.",
       "Do not replace first-party eventing with GA4-only logic.",
       "Experiment variants must not hide broken purchase tracking.",
+      "Do not put internal strategy language, QuickBooks ListIDs, or operational notes in customer-facing experiment content.",
+      "If a variant changes the shopping path, verify cart, checkout, PDP, and mobile before turning on traffic.",
     ],
   },
 ]
@@ -690,6 +705,17 @@ const playbooks: Playbook[] = [
       "Choose staff or super admin, enter a clear reason, and type the confirmation word.",
       "Do not demote bootstrap super admins or remove your own super admin access.",
       "Ask the new staff member to sign in and confirm the Staff nav item appears.",
+    ],
+  },
+  {
+    title: "An experiment is ready to activate",
+    steps: [
+      "Confirm the control is the current production experience and the variant is approved for customers.",
+      "If the experiment affects revenue, confirm purchase tracking and first-party Jitsu reporting are healthy before sending traffic.",
+      "For content-driven variants, confirm the Strapi experiment, variant, and placement records are published only when ready.",
+      "Activate assignment in Statsig or the approved environment flag. Do not use QA force flags for live customer allocation.",
+      "Check the storefront on desktop and mobile, then confirm experiment_exposed events and downstream cart/order events carry the experiment context.",
+      "To stop the test, pause assignment first. To ship a winner, freeze allocation, verify guardrails, set the winner as default, and remove losing variant references through normal review.",
     ],
   },
 ]
