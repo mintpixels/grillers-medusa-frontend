@@ -71,7 +71,7 @@ export default async function SpecialtyRow({
   return (
     <section
       aria-labelledby="specialty-row-heading"
-      className="py-10 md:py-20 bg-Scroll overflow-hidden scroll-mt-[120px]"
+      className="overflow-hidden border-y border-Charcoal/10 bg-white py-12 scroll-mt-[120px] md:py-16"
     >
       <SpecialtySwiper
         products={compactProducts}

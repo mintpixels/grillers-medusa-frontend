@@ -1,65 +1,61 @@
 import React from "react"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
+import { ArrowRight } from "lucide-react"
 
 const WholesaleBand: React.FC = () => {
   return (
     <section
       aria-label="Wholesale and catering"
-      className="bg-Charcoal text-Scroll"
+      className="relative overflow-hidden border-y border-Charcoal/10 bg-Scroll text-Charcoal"
     >
-      <div className="content-container py-12 md:py-20">
-        {/* Mobile (<lg): single line link */}
-        <div className="lg:hidden text-center">
-          <p className="text-p-md font-maison-neue text-Scroll/85">
-            Catering, restaurant, or congregation?{" "}
-            <LocalizedClientLink
-              href="/page/wholesale"
-              className="text-Gold font-semibold underline-offset-4 hover:underline"
-            >
-              Wholesale pricing →
-            </LocalizedClientLink>
+      <div className="absolute inset-x-0 top-0 h-[5px] bg-Gold" />
+      <div className="content-container py-12 md:py-16 lg:py-24">
+        <div className="lg:hidden">
+          <p className="mb-4 font-rexton text-[11px] font-bold uppercase tracking-[2px] text-Gold">
+            For caterers · restaurants · congregations
           </p>
+          <h2 className="mb-4 max-w-[390px] font-rexton text-[34px] font-bold uppercase leading-[0.98] tracking-[0.06em] text-Charcoal">
+            Volume orders, standing accounts, custom packaging.
+          </h2>
+          <p className="mb-6 max-w-[460px] font-maison-neue text-p-md leading-relaxed text-Charcoal/75">
+            Weekly catering, school lunch programs, simchas, or restaurant
+            supply. We&apos;d love to talk.
+          </p>
+          <LocalizedClientLink
+            href="/page/wholesale"
+            className="inline-flex min-h-[44px] items-center gap-2 rounded-[5px] bg-Charcoal px-5 py-3 font-rexton text-h6 font-bold uppercase tracking-wide text-Scroll transition-colors hover:bg-Gold hover:text-Charcoal"
+          >
+            Wholesale pricing
+            <ArrowRight className="size-4" aria-hidden="true" />
+          </LocalizedClientLink>
         </div>
 
-        {/* Desktop (>=lg): full two-column band */}
-        <div className="hidden lg:grid lg:grid-cols-12 lg:gap-12 lg:items-center">
+        <div className="hidden lg:grid lg:grid-cols-12 lg:items-end lg:gap-12">
           <div className="lg:col-span-7">
-            <div className="text-[11px] tracking-[2px] uppercase text-Gold font-rexton font-bold mb-4">
+            <div className="mb-5 font-rexton text-[11px] font-bold uppercase tracking-[2px] text-Gold">
               For caterers · restaurants · congregations
             </div>
-            <h2 className="text-h2 font-rexton text-Scroll leading-tight mb-5">
+            <h2 className="mb-6 max-w-[700px] font-rexton text-[clamp(3.5rem,5.6vw,6.8rem)] font-bold uppercase leading-[0.98] tracking-[0.06em] text-Charcoal">
               Volume orders, standing accounts, custom packaging.
             </h2>
-            <p className="text-p-md font-maison-neue text-Scroll/85 leading-relaxed mb-3 max-w-[600px]">
+            <p className="mb-4 max-w-[620px] font-maison-neue text-p-md leading-relaxed text-Charcoal/75">
               If you order in volume, like Friday-night dinners for a synagogue,
               weekly catering, restaurant supply, school lunch programs, or
-              simchas, we'd love to talk.
+              simchas, we&apos;d love to talk.
             </p>
-            <p className="text-p-md font-maison-neue text-Scroll/70 max-w-[600px]">
+            <p className="font-maison-neue text-p-md text-Charcoal/60">
               Volume pricing &middot; Standing orders &middot; Net-30 terms
               &middot; Custom packaging
             </p>
           </div>
 
-          <div className="lg:col-span-5 flex justify-start lg:justify-end">
+          <div className="lg:col-span-5 lg:flex lg:justify-end">
             <LocalizedClientLink
               href="/page/wholesale"
-              className="inline-flex items-center gap-3 px-8 py-4 bg-Gold text-Charcoal font-rexton text-h6 font-bold uppercase tracking-wide hover:bg-Gold/90 transition-colors rounded-[5px]"
+              className="inline-flex min-h-[54px] items-center gap-3 rounded-[5px] bg-Charcoal px-8 py-4 font-rexton text-h6 font-bold uppercase tracking-wide text-Scroll transition-colors hover:bg-Gold hover:text-Charcoal"
             >
               Get wholesale pricing
-              <svg
-                className="w-5 h-5"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"
-                />
-              </svg>
+              <ArrowRight className="size-5" aria-hidden="true" />
             </LocalizedClientLink>
           </div>
         </div>
