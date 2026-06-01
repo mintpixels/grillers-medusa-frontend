@@ -318,6 +318,7 @@ export default function StaffCatchWeightFinalizationConsole() {
         setDetail({
           ...result,
           order: result.order || detail?.order || { id: selectedOrderId },
+          lines: result.lines || detail?.lines || [],
         })
         setStatus(label)
         loadQueue(selectedOrderId)
