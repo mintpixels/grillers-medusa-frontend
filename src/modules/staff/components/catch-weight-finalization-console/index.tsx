@@ -100,6 +100,15 @@ function lineMessage(value: StaffCatchWeightLine["errors"]) {
     .join(" ")
 }
 
+function lineRequiresActualWeight(line: StaffCatchWeightLine, title: string) {
+  const estimatedWeight = Number(line.estimated_weight_total)
+  return (
+    line.pricing_mode === "per_lb" ||
+    (Number.isFinite(estimatedWeight) && estimatedWeight > 0) ||
+    /\b\d+(?:\.\d+)?\s*(lb|lbs|pound|pounds)\b/i.test(title)
+  )
+}
+
 function LineEditor({
   orderId,
   line,
@@ -130,10 +139,10 @@ function LineEditor({
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const [isSearchPending, startSearchTransition] = useTransition()
-  const isPerLb = line.pricing_mode === "per_lb"
   const isRemoved = draft.status === "removed"
   const isSubstituted = draft.status === "substituted"
   const title = line.customer_title || line.title_snapshot || "Order line"
+  const requiresActualWeight = lineRequiresActualWeight(line, title)
   const skuSummary = [
     line.sku,
     line.qbd_list_id ? `QBD ${line.qbd_list_id}` : "Missing QBD",
@@ -218,7 +227,7 @@ function LineEditor({
 
     if (
       draft.status === "ready" &&
-      isPerLb &&
+      requiresActualWeight &&
       (!Number.isFinite(actualWeight) || actualWeight <= 0)
     ) {
       setError("Enter the actual weight before marking this line ready.")
@@ -300,7 +309,7 @@ function LineEditor({
               className={fieldClass}
               inputMode="decimal"
               value={draft.actual_weight_total}
-              disabled={!isPerLb || isRemoved}
+              disabled={isRemoved}
               onChange={(event) =>
                 update("actual_weight_total", event.target.value)
               }
@@ -475,6 +484,7 @@ export default function StaffCatchWeightFinalizationConsole() {
   const [error, setError] = useState<string | null>(null)
   const [status, setStatus] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+  const [pendingAction, setPendingAction] = useState<string | null>(null)
 
   const selectedSummary = useMemo(
     () => queue.find((item) => item.order_id === selectedOrderId),
@@ -520,10 +530,12 @@ export default function StaffCatchWeightFinalizationConsole() {
   }
 
   function runAction(
+    actionKey: string,
     label: string,
     action: (orderId: string) => Promise<StaffCatchWeightFinalizationDetail>
   ) {
-    if (!selectedOrderId) return
+    if (!selectedOrderId || pendingAction) return
+    setPendingAction(actionKey)
     setError(null)
     setStatus(null)
     startTransition(async () => {
@@ -538,6 +550,8 @@ export default function StaffCatchWeightFinalizationConsole() {
         loadQueue(selectedOrderId)
       } catch (err: any) {
         setError(err.message || "Action failed.")
+      } finally {
+        setPendingAction(null)
       }
     })
   }
@@ -716,9 +730,11 @@ export default function StaffCatchWeightFinalizationConsole() {
                 <div className="mt-5 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
                   <Button
                     className={`${secondaryButtonClass} w-full sm:w-auto`}
-                    isLoading={isPending}
+                    disabled={Boolean(pendingAction)}
+                    isLoading={pendingAction === "start"}
                     onClick={() =>
                       runAction(
+                        "start",
                         "Packing started.",
                         startCatchWeightFinalization
                       )
@@ -729,9 +745,11 @@ export default function StaffCatchWeightFinalizationConsole() {
                   </Button>
                   <Button
                     className={`${secondaryButtonClass} w-full sm:w-auto`}
-                    isLoading={isPending}
+                    disabled={Boolean(pendingAction)}
+                    isLoading={pendingAction === "preview"}
                     onClick={() =>
                       runAction(
+                        "preview",
                         "Preview refreshed.",
                         previewCatchWeightFinalization
                       )
@@ -742,9 +760,11 @@ export default function StaffCatchWeightFinalizationConsole() {
                   </Button>
                   <Button
                     className={`${primaryButtonClass} w-full sm:w-auto`}
-                    isLoading={isPending}
+                    disabled={Boolean(pendingAction)}
+                    isLoading={pendingAction === "approve"}
                     onClick={() =>
                       runAction(
+                        "approve",
                         "Finalization approved.",
                         approveCatchWeightFinalization
                       )
@@ -755,9 +775,11 @@ export default function StaffCatchWeightFinalizationConsole() {
                   </Button>
                   <Button
                     className="min-h-[42px] w-full rounded-md bg-Gold px-4 text-xs font-rexton font-bold uppercase text-Charcoal sm:w-auto"
-                    isLoading={isPending}
+                    disabled={Boolean(pendingAction)}
+                    isLoading={pendingAction === "charge"}
                     onClick={() =>
                       runAction(
+                        "charge",
                         "Card charged and order released.",
                         chargeAndReleaseCatchWeightOrder
                       )
@@ -773,10 +795,11 @@ export default function StaffCatchWeightFinalizationConsole() {
                           ? "border border-gray-200 bg-gray-50 text-Charcoal/50"
                           : "bg-Charcoal px-4 text-white"
                       }`}
-                      disabled={fulfilled}
-                      isLoading={isPending}
+                      disabled={fulfilled || Boolean(pendingAction)}
+                      isLoading={pendingAction === "fulfill"}
                       onClick={() =>
                         runAction(
+                          "fulfill",
                           "Fulfillment created.",
                           fulfillReleasedCatchWeightOrder
                         )
