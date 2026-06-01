@@ -31,15 +31,15 @@ const PaymentWrapper: React.FC<PaymentWrapperProps> = ({ cart, children }) => {
   const paymentSession = cart.payment_collection?.payment_sessions?.find(
     (s) => s.status === "pending"
   )
+  const stripePaymentSession =
+    isStripe(paymentSession?.provider_id) && paymentSession
+      ? paymentSession
+      : undefined
 
-  if (
-    isStripe(paymentSession?.provider_id) &&
-    paymentSession &&
-    stripePromise
-  ) {
+  if (stripePromise) {
     return (
       <StripeWrapper
-        paymentSession={paymentSession}
+        paymentSession={stripePaymentSession}
         stripeKey={stripeKey}
         stripePromise={stripePromise}
       >

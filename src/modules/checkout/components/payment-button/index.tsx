@@ -69,75 +69,138 @@ const PaymentButton: React.FC<PaymentButtonProps> = ({
     !cart.email ||
     (cart.shipping_methods?.length ?? 0) < 1
 
-  switch (true) {
-    case Boolean(savedPaymentMethodId || setupIntentClientSecret):
-      return (
-        <StripePaymentButton
-          notReady={notReady}
-          cart={cart}
-          cardComplete={cardComplete}
-          savedPaymentMethodId={savedPaymentMethodId}
-          setupIntentClientSecret={setupIntentClientSecret}
-          data-testid={dataTestId}
-        />
-      )
-    default:
-      return <GoldButton disabled>Select a payment method</GoldButton>
+  if (savedPaymentMethodId) {
+    return (
+      <SavedPaymentMethodButton
+        notReady={notReady}
+        cart={cart}
+        savedPaymentMethodId={savedPaymentMethodId}
+        data-testid={dataTestId}
+      />
+    )
   }
+
+  if (setupIntentClientSecret) {
+    return (
+      <NewCardSetupPaymentButton
+        notReady={notReady}
+        cart={cart}
+        cardComplete={cardComplete}
+        setupIntentClientSecret={setupIntentClientSecret}
+        data-testid={dataTestId}
+      />
+    )
+  }
+
+  return <GoldButton disabled>Select a payment method</GoldButton>
 }
 
-const StripePaymentButton = ({
+async function verifyAndPlaceOrder({
+  cart,
+  paymentMethodId,
+  setupIntentId = null,
+  setErrorMessage,
+}: {
+  cart: HttpTypes.StoreCart
+  paymentMethodId: string
+  setupIntentId?: string | null
+  setErrorMessage: (message: string | null) => void
+}) {
+  await verifyCartInventoryForCheckout(cart.id)
+
+  await placeOrderWithSavedPaymentMethod({
+    paymentMethodId,
+    setupIntentId,
+    consentVersion: FINAL_CHARGE_CONSENT_VERSION,
+    consentText: FINAL_CHARGE_CONSENT_TEXT,
+  }).catch((err) => {
+    setErrorMessage(err.message)
+  })
+}
+
+const SavedPaymentMethodButton = ({
   cart,
   notReady,
-  cardComplete = false,
   savedPaymentMethodId,
-  setupIntentClientSecret,
   "data-testid": dataTestId,
 }: {
   cart: HttpTypes.StoreCart
   notReady: boolean
-  cardComplete?: boolean
-  savedPaymentMethodId?: string | null
-  setupIntentClientSecret?: string | null
+  savedPaymentMethodId: string
   "data-testid"?: string
 }) => {
   const [submitting, setSubmitting] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const submittingRef = useRef(false)
 
-  const onPaymentCompleted = async (
-    paymentMethodId: string,
-    setupIntentId?: string | null
-  ) => {
-    await placeOrderWithSavedPaymentMethod({
-      paymentMethodId,
-      setupIntentId,
-      consentVersion: FINAL_CHARGE_CONSENT_VERSION,
-      consentText: FINAL_CHARGE_CONSENT_TEXT,
-    })
-      .catch((err) => {
-        setErrorMessage(err.message)
+  const handlePayment = async () => {
+    if (submittingRef.current) return
+    submittingRef.current = true
+    setSubmitting(true)
+
+    try {
+      await verifyAndPlaceOrder({
+        cart,
+        paymentMethodId: savedPaymentMethodId,
+        setErrorMessage,
       })
-      .finally(() => {
-        submittingRef.current = false
-        setSubmitting(false)
-      })
+    } catch (err: any) {
+      setErrorMessage(err.message || "Some items need inventory review.")
+    } finally {
+      submittingRef.current = false
+      setSubmitting(false)
+    }
   }
+
+  return (
+    <>
+      {errorMessage && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200/80 rounded-lg text-sm text-red-700">
+          {errorMessage}. Please verify your payment details and try again.
+        </div>
+      )}
+      <GoldButton
+        disabled={notReady}
+        onClick={handlePayment}
+        isLoading={submitting}
+        data-testid={dataTestId}
+      >
+        Place Order
+      </GoldButton>
+    </>
+  )
+}
+
+const NewCardSetupPaymentButton = ({
+  cart,
+  notReady,
+  cardComplete = false,
+  setupIntentClientSecret,
+  "data-testid": dataTestId,
+}: {
+  cart: HttpTypes.StoreCart
+  notReady: boolean
+  cardComplete?: boolean
+  setupIntentClientSecret: string
+  "data-testid"?: string
+}) => {
+  const [submitting, setSubmitting] = useState(false)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const submittingRef = useRef(false)
 
   const stripe = useStripe()
   const elements = useElements()
   const card = elements?.getElement("card")
 
-  const disabled = savedPaymentMethodId
-    ? false
-    : !stripe || !elements || !card || !cardComplete || !setupIntentClientSecret
+  const disabled =
+    !stripe || !elements || !card || !cardComplete || !setupIntentClientSecret
 
   const handlePayment = async () => {
     if (submittingRef.current) return
     submittingRef.current = true
     setSubmitting(true)
 
-    if (!cart || (!savedPaymentMethodId && (!stripe || !elements || !card))) {
+    if (!cart || !stripe || !elements || !card) {
       submittingRef.current = false
       setSubmitting(false)
       return
@@ -152,12 +215,7 @@ const StripePaymentButton = ({
       return
     }
 
-    if (savedPaymentMethodId) {
-      await onPaymentCompleted(savedPaymentMethodId, null)
-      return
-    }
-
-    const result = await stripe!.confirmCardSetup(setupIntentClientSecret!, {
+    const result = await stripe!.confirmCardSetup(setupIntentClientSecret, {
       payment_method: {
         card: card!,
         billing_details: {
@@ -198,14 +256,30 @@ const StripePaymentButton = ({
         ? setupIntent.payment_method
         : setupIntent?.payment_method?.id
 
-    if (!setupIntent?.id || !paymentMethodId || setupIntent.status !== "succeeded") {
+    if (
+      !setupIntent?.id ||
+      !paymentMethodId ||
+      setupIntent.status !== "succeeded"
+    ) {
       setErrorMessage("Card setup did not complete. Please try again.")
       submittingRef.current = false
       setSubmitting(false)
       return
     }
 
-    await onPaymentCompleted(paymentMethodId, setupIntent.id)
+    await placeOrderWithSavedPaymentMethod({
+      paymentMethodId,
+      setupIntentId: setupIntent.id,
+      consentVersion: FINAL_CHARGE_CONSENT_VERSION,
+      consentText: FINAL_CHARGE_CONSENT_TEXT,
+    })
+      .catch((err) => {
+        setErrorMessage(err.message)
+      })
+      .finally(() => {
+        submittingRef.current = false
+        setSubmitting(false)
+      })
   }
 
   return (
@@ -221,7 +295,7 @@ const StripePaymentButton = ({
         isLoading={submitting}
         data-testid={dataTestId}
       >
-        {savedPaymentMethodId ? "Place Order" : "Save Card & Place Order"}
+        Save Card & Place Order
       </GoldButton>
     </>
   )

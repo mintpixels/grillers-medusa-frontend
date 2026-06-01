@@ -3,6 +3,7 @@
 import { setAddresses, setOrderNotes } from "@lib/data/cart"
 import type { FulfillmentType } from "@lib/data/cart"
 import compareAddresses from "@lib/util/compare-addresses"
+import { unscrambleAddress } from "@lib/util/format-address"
 import { formatPhone, stripPhone } from "@lib/util/format-phone"
 import { trackBeginCheckout } from "@lib/gtm"
 import { jitsuTrack } from "@lib/jitsu"
@@ -24,11 +25,11 @@ const FALLBACK_ATLANTA_ZIP_CODES = Object.keys(ATLANTA_DELIVERY_ZIP_DAYS)
 function getPreferredAddress(customer: HttpTypes.StoreCustomer | null) {
   const addresses = customer?.addresses || []
   if (!addresses.length) return null
-  return (
+  const preferred =
     addresses.find((address) => address.is_default_shipping) ||
     addresses.find((address) => address.is_default_billing) ||
     addresses[0]
-  )
+  return preferred ? unscrambleAddress(preferred) : null
 }
 
 const Addresses = ({
@@ -109,8 +110,11 @@ const Addresses = ({
 
   // Track postal code for real-time validation against fulfillment type
   const preferredAddress = getPreferredAddress(customer)
+  const cartShippingAddress = cart?.shipping_address
+    ? unscrambleAddress(cart.shipping_address)
+    : null
   const [postalCode, setPostalCode] = useState(
-    cart?.shipping_address?.postal_code || preferredAddress?.postal_code || ""
+    cartShippingAddress?.postal_code || preferredAddress?.postal_code || ""
   )
 
   const handlePostalCodeChange = useCallback((value: string) => {

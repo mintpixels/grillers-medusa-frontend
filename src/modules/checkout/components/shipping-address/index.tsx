@@ -10,16 +10,17 @@ import { useFormPersistence } from "@lib/hooks/use-form-persistence"
 import AddressAutocomplete from "../address-autocomplete"
 import StateSelect from "../state-select"
 import { getStoredDeliveryZip, storeDeliveryZip } from "@lib/util/delivery-zip"
+import { unscrambleAddress } from "@lib/util/format-address"
 
 function getPreferredAddress(
   addresses?: HttpTypes.StoreCustomerAddress[] | null
 ) {
   if (!addresses?.length) return null
-  return (
+  const preferred =
     addresses.find((address) => address.is_default_shipping) ||
     addresses.find((address) => address.is_default_billing) ||
     addresses[0]
-  )
+  return preferred ? unscrambleAddress(preferred) : null
 }
 
 const ShippingAddress = ({
@@ -40,16 +41,43 @@ const ShippingAddress = ({
   onEmailBlur?: (email: string) => void
 }) => {
   const preferredCustomerAddress = getPreferredAddress(customer?.addresses)
+  const cartShippingAddress = cart?.shipping_address
+    ? unscrambleAddress(cart.shipping_address)
+    : null
   const [formData, setFormData] = useState<Record<string, any>>({
-    "shipping_address.first_name": cart?.shipping_address?.first_name || preferredCustomerAddress?.first_name || customer?.first_name || "",
-    "shipping_address.last_name": cart?.shipping_address?.last_name || preferredCustomerAddress?.last_name || customer?.last_name || "",
-    "shipping_address.address_1": cart?.shipping_address?.address_1 || preferredCustomerAddress?.address_1 || "",
-    "shipping_address.company": cart?.shipping_address?.company || preferredCustomerAddress?.company || "",
-    "shipping_address.postal_code": cart?.shipping_address?.postal_code || preferredCustomerAddress?.postal_code || "",
-    "shipping_address.city": cart?.shipping_address?.city || preferredCustomerAddress?.city || "",
-    "shipping_address.country_code": cart?.shipping_address?.country_code || preferredCustomerAddress?.country_code || "",
-    "shipping_address.province": cart?.shipping_address?.province || preferredCustomerAddress?.province || "",
-    "shipping_address.phone": cart?.shipping_address?.phone || preferredCustomerAddress?.phone || customer?.phone || "",
+    "shipping_address.first_name":
+      cartShippingAddress?.first_name ||
+      preferredCustomerAddress?.first_name ||
+      customer?.first_name ||
+      "",
+    "shipping_address.last_name":
+      cartShippingAddress?.last_name ||
+      preferredCustomerAddress?.last_name ||
+      customer?.last_name ||
+      "",
+    "shipping_address.address_1":
+      cartShippingAddress?.address_1 ||
+      preferredCustomerAddress?.address_1 ||
+      "",
+    "shipping_address.company":
+      cartShippingAddress?.company || preferredCustomerAddress?.company || "",
+    "shipping_address.postal_code":
+      cartShippingAddress?.postal_code ||
+      preferredCustomerAddress?.postal_code ||
+      "",
+    "shipping_address.city":
+      cartShippingAddress?.city || preferredCustomerAddress?.city || "",
+    "shipping_address.country_code":
+      cartShippingAddress?.country_code ||
+      preferredCustomerAddress?.country_code ||
+      "",
+    "shipping_address.province":
+      cartShippingAddress?.province || preferredCustomerAddress?.province || "",
+    "shipping_address.phone":
+      cartShippingAddress?.phone ||
+      preferredCustomerAddress?.phone ||
+      customer?.phone ||
+      "",
     email: cart?.email || customer?.email || "",
   })
 
@@ -84,7 +112,9 @@ const ShippingAddress = ({
   )
 
   const addressesForSelect = useMemo(() => {
-    const inRegion = addressesInRegion || []
+    const inRegion = (addressesInRegion || []).map((address) =>
+      unscrambleAddress(address)
+    )
     return [...inRegion].sort((a, b) => {
       if (a.is_default_shipping && !b.is_default_shipping) return -1
       if (!a.is_default_shipping && b.is_default_shipping) return 1
@@ -97,21 +127,22 @@ const ShippingAddress = ({
     email?: string
   ) => {
     if (address) {
+      const normalizedAddress = unscrambleAddress(address)
       setFormData((prevState: Record<string, any>) => ({
         ...prevState,
-        "shipping_address.first_name": address?.first_name || "",
-        "shipping_address.last_name": address?.last_name || "",
-        "shipping_address.address_1": address?.address_1 || "",
-        "shipping_address.company": address?.company || "",
-        "shipping_address.postal_code": address?.postal_code || "",
-        "shipping_address.city": address?.city || "",
-        "shipping_address.country_code": address?.country_code || "",
-        "shipping_address.province": address?.province || "",
-        "shipping_address.phone": address?.phone || "",
+        "shipping_address.first_name": normalizedAddress?.first_name || "",
+        "shipping_address.last_name": normalizedAddress?.last_name || "",
+        "shipping_address.address_1": normalizedAddress?.address_1 || "",
+        "shipping_address.company": normalizedAddress?.company || "",
+        "shipping_address.postal_code": normalizedAddress?.postal_code || "",
+        "shipping_address.city": normalizedAddress?.city || "",
+        "shipping_address.country_code": normalizedAddress?.country_code || "",
+        "shipping_address.province": normalizedAddress?.province || "",
+        "shipping_address.phone": normalizedAddress?.phone || "",
       }))
 
       if (onPostalCodeChange) {
-        onPostalCodeChange(address?.postal_code || "")
+        onPostalCodeChange(normalizedAddress?.postal_code || "")
       }
     }
 
@@ -142,7 +173,8 @@ const ShippingAddress = ({
           preferredCustomerAddress.last_name || customer.last_name || "",
         "shipping_address.address_1": preferredCustomerAddress.address_1 || "",
         "shipping_address.company": preferredCustomerAddress.company || "",
-        "shipping_address.postal_code": preferredCustomerAddress.postal_code || "",
+        "shipping_address.postal_code":
+          preferredCustomerAddress.postal_code || "",
         "shipping_address.city": preferredCustomerAddress.city || "",
         "shipping_address.country_code":
           preferredCustomerAddress.country_code || "",
@@ -166,7 +198,7 @@ const ShippingAddress = ({
 
   useEffect(() => {
     if (cart && cart.shipping_address) {
-      const addr = cart.shipping_address
+      const addr = unscrambleAddress(cart.shipping_address)
       setFormData((prev: Record<string, any>) => {
         const merged = { ...prev }
         if (addr.first_name)
