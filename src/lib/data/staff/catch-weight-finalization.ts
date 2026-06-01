@@ -2,8 +2,15 @@
 
 import "server-only"
 
+import { retrieveAuthenticatedCustomerForStaffAccess } from "@lib/data/customer"
+import {
+  activeFulfillments,
+  buildCatchWeightFulfillmentItems,
+  catchWeightReadyForFulfillment,
+} from "@lib/util/catch-weight-fulfillment"
+import { isStaffCustomer, staffDisplayName } from "@lib/util/staff-access"
 import { revalidatePath } from "next/cache"
-import { adminFetch } from "./admin"
+import { adminFetch, appendStaffAuditLog } from "./admin"
 
 type AnyRecord = Record<string, any>
 
@@ -58,9 +65,38 @@ export type StaffCatchWeightFinalizationDetail = {
 }
 
 const STAFF_ORDERS_PATH = "/us/account/staff/orders"
+const ORDER_FULFILLMENT_FIELDS =
+  "id,display_id,email,fulfillment_status,+metadata,*items,*items.detail,*fulfillments"
 
 function revalidateStaffOrders() {
   revalidatePath(STAFF_ORDERS_PATH)
+}
+
+async function requireStaffOperator() {
+  const staff = await retrieveAuthenticatedCustomerForStaffAccess()
+  if (!staff || !isStaffCustomer(staff)) {
+    throw new Error("Staff access required.")
+  }
+  return staff
+}
+
+async function updateOrderMetadata(orderId: string, metadata: AnyRecord) {
+  try {
+    await adminFetch<{ order: AnyRecord }>(`/admin/orders/${orderId}`, {
+      method: "POST",
+      body: JSON.stringify({ metadata }),
+      query: { fields: ORDER_FULFILLMENT_FIELDS },
+    })
+  } catch {
+    await adminFetch<{ order: AnyRecord }>(
+      `/admin/orders/${orderId}/metadata`,
+      {
+        method: "POST",
+        body: JSON.stringify({ metadata }),
+        query: { fields: ORDER_FULFILLMENT_FIELDS },
+      }
+    )
+  }
 }
 
 export async function listCatchWeightFinalizationQueue(input?: {
@@ -155,4 +191,75 @@ export async function chargeAndReleaseCatchWeightOrder(orderId: string) {
   )
   revalidateStaffOrders()
   return result
+}
+
+export async function fulfillReleasedCatchWeightOrder(orderId: string) {
+  const staff = await requireStaffOperator()
+  const detail = await getCatchWeightFinalizationDetail(orderId)
+
+  if (!catchWeightReadyForFulfillment(detail)) {
+    throw new Error(
+      "Charge and release this catch-weight order before fulfillment."
+    )
+  }
+
+  const { order } = await adminFetch<{ order: AnyRecord }>(
+    `/admin/orders/${orderId}`,
+    {
+      query: { fields: ORDER_FULFILLMENT_FIELDS },
+    }
+  )
+
+  const existingFulfillments = activeFulfillments(order)
+  if (existingFulfillments.length) {
+    return getCatchWeightFinalizationDetail(orderId)
+  }
+
+  const items = buildCatchWeightFulfillmentItems(order, detail.lines)
+  if (!items.length) {
+    throw new Error("No fulfillable order lines are available.")
+  }
+
+  const now = new Date().toISOString()
+  const idempotencyKey = `staff-fulfill:${orderId}:${Date.now()}`
+  const { fulfillment } = await adminFetch<{ fulfillment: AnyRecord }>(
+    `/admin/orders/${orderId}/fulfillments`,
+    {
+      method: "POST",
+      headers: { "Idempotency-Key": idempotencyKey },
+      body: JSON.stringify({
+        items,
+        created_by: staff.id,
+        no_notification: false,
+        metadata: {
+          source: "staff_catch_weight_console",
+          finalization_id: detail.finalization.id,
+          staff_actor_customer_id: staff.id,
+          staff_actor_email: staff.email || null,
+          staff_actor_name: staffDisplayName(staff),
+        },
+      }),
+    }
+  )
+
+  await updateOrderMetadata(orderId, {
+    ...appendStaffAuditLog(order.metadata, {
+      action: "catch_weight_fulfillment_created",
+      status: "completed",
+      fulfillment_id: fulfillment?.id || null,
+      finalization_id: detail.finalization.id,
+      staff_actor_customer_id: staff.id,
+      staff_actor_email: staff.email || null,
+      staff_actor_name: staffDisplayName(staff),
+      items,
+    }),
+    catch_weight_status: "released_to_fulfillment",
+    finalization_status: "released_to_fulfillment",
+    fulfillment_gate_status: "released",
+    staff_last_fulfillment_id: fulfillment?.id || null,
+    staff_last_fulfilled_at: now,
+  })
+
+  revalidateStaffOrders()
+  return getCatchWeightFinalizationDetail(orderId)
 }

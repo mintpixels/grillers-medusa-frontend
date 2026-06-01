@@ -5,6 +5,7 @@ import Button from "@modules/common/components/button"
 import {
   approveCatchWeightFinalization,
   chargeAndReleaseCatchWeightOrder,
+  fulfillReleasedCatchWeightOrder,
   getCatchWeightFinalizationDetail,
   listCatchWeightFinalizationQueue,
   previewCatchWeightFinalization,
@@ -14,6 +15,10 @@ import {
   type StaffCatchWeightFinalizationSummary,
   type StaffCatchWeightLine,
 } from "@lib/data/staff/catch-weight-finalization"
+import {
+  catchWeightReadyForFulfillment,
+  hasActiveFulfillment,
+} from "@lib/util/catch-weight-fulfillment"
 
 const statusLabels: Record<string, string> = {
   pending_pack: "Needs pack",
@@ -99,7 +104,9 @@ function LineEditor({
     setDraft({
       actual_weight_total: numberText(line.actual_weight_total),
       actual_piece_count: numberText(line.actual_piece_count),
-      actual_quantity: numberText(line.actual_quantity || line.ordered_quantity),
+      actual_quantity: numberText(
+        line.actual_quantity || line.ordered_quantity
+      ),
       actual_unit_price: numberText(line.actual_unit_price),
       status: line.status || "ready",
       short_reason: "",
@@ -162,7 +169,9 @@ function LineEditor({
             inputMode="decimal"
             value={draft.actual_weight_total}
             disabled={!isPerLb || draft.status === "removed"}
-            onChange={(event) => update("actual_weight_total", event.target.value)}
+            onChange={(event) =>
+              update("actual_weight_total", event.target.value)
+            }
           />
         </label>
 
@@ -174,7 +183,9 @@ function LineEditor({
             className="min-h-[42px] rounded-md border border-gray-200 px-3 text-sm"
             inputMode="decimal"
             value={draft.actual_piece_count}
-            onChange={(event) => update("actual_piece_count", event.target.value)}
+            onChange={(event) =>
+              update("actual_piece_count", event.target.value)
+            }
           />
         </label>
 
@@ -254,7 +265,9 @@ export default function StaffCatchWeightFinalizationConsole() {
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null)
   const [detail, setDetail] =
     useState<StaffCatchWeightFinalizationDetail | null>(null)
-  const [filter, setFilter] = useState("pending_pack,packing,packed_pending_review,packed_pending_charge,charge_failed_hold")
+  const [filter, setFilter] = useState(
+    "pending_pack,packing,packed_pending_review,packed_pending_charge,charge_failed_hold"
+  )
   const [error, setError] = useState<string | null>(null)
   const [status, setStatus] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -277,10 +290,7 @@ export default function StaffCatchWeightFinalizationConsole() {
         })
         setQueue(rows)
         const nextId =
-          nextSelectedOrderId ||
-          selectedOrderId ||
-          rows[0]?.order_id ||
-          null
+          nextSelectedOrderId || selectedOrderId || rows[0]?.order_id || null
         setSelectedOrderId(nextId)
         if (nextId) {
           setDetail(await getCatchWeightFinalizationDetail(nextId))
@@ -334,6 +344,8 @@ export default function StaffCatchWeightFinalizationConsole() {
   }, [filter])
 
   const totals = detail?.totals || detail?.finalization || {}
+  const readyForFulfillment = catchWeightReadyForFulfillment(detail)
+  const fulfilled = hasActiveFulfillment(detail?.order)
 
   return (
     <section className="rounded-lg border border-gray-200 bg-white">
@@ -349,7 +361,10 @@ export default function StaffCatchWeightFinalizationConsole() {
           </div>
           <div className="flex flex-wrap gap-2">
             {[
-              ["Needs packing", "pending_pack,packing,packed_pending_review,packed_pending_charge,charge_failed_hold"],
+              [
+                "Needs packing",
+                "pending_pack,packing,packed_pending_review,packed_pending_charge,charge_failed_hold",
+              ],
               ["Ready charge", "packed_pending_charge"],
               ["Charge holds", "charge_failed_hold"],
               ["Ready ship", "charged_ready_to_ship,released_to_fulfillment"],
@@ -404,9 +419,13 @@ export default function StaffCatchWeightFinalizationConsole() {
                 >
                   <span>
                     <span className="block font-maison-neue-mono text-sm text-Charcoal">
-                      {item.display_id ? `#${item.display_id}` : item.order_id.slice(-6)}
+                      {item.display_id
+                        ? `#${item.display_id}`
+                        : item.order_id.slice(-6)}
                     </span>
-                    <span className="mt-1 block">{statusBadge(item.status)}</span>
+                    <span className="mt-1 block">
+                      {statusBadge(item.status)}
+                    </span>
                   </span>
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-maison-neue text-Charcoal">
@@ -455,7 +474,8 @@ export default function StaffCatchWeightFinalizationConsole() {
                       {statusBadge(detail.finalization.status)}
                     </div>
                     <p className="mt-1 text-sm font-maison-neue text-Charcoal/60">
-                      {detail.order?.email || detail.finalization.customer_email}
+                      {detail.order?.email ||
+                        detail.finalization.customer_email}
                     </p>
                   </div>
                   <div className="grid grid-cols-3 gap-2 text-right">
@@ -494,7 +514,10 @@ export default function StaffCatchWeightFinalizationConsole() {
                     className="min-h-[40px] rounded-md border border-Charcoal bg-white px-4 text-xs font-rexton font-bold uppercase text-Charcoal"
                     isLoading={isPending}
                     onClick={() =>
-                      runAction("Packing started.", startCatchWeightFinalization)
+                      runAction(
+                        "Packing started.",
+                        startCatchWeightFinalization
+                      )
                     }
                     type="button"
                   >
@@ -504,7 +527,10 @@ export default function StaffCatchWeightFinalizationConsole() {
                     className="min-h-[40px] rounded-md border border-Charcoal bg-white px-4 text-xs font-rexton font-bold uppercase text-Charcoal"
                     isLoading={isPending}
                     onClick={() =>
-                      runAction("Preview refreshed.", previewCatchWeightFinalization)
+                      runAction(
+                        "Preview refreshed.",
+                        previewCatchWeightFinalization
+                      )
                     }
                     type="button"
                   >
@@ -514,7 +540,10 @@ export default function StaffCatchWeightFinalizationConsole() {
                     className="min-h-[40px] rounded-md bg-Charcoal px-4 text-xs font-rexton font-bold uppercase text-white"
                     isLoading={isPending}
                     onClick={() =>
-                      runAction("Finalization approved.", approveCatchWeightFinalization)
+                      runAction(
+                        "Finalization approved.",
+                        approveCatchWeightFinalization
+                      )
                     }
                     type="button"
                   >
@@ -533,6 +562,26 @@ export default function StaffCatchWeightFinalizationConsole() {
                   >
                     Charge & Release
                   </Button>
+                  {readyForFulfillment && (
+                    <Button
+                      className={`min-h-[40px] rounded-md px-4 text-xs font-rexton font-bold uppercase ${
+                        fulfilled
+                          ? "border border-gray-200 bg-gray-50 text-Charcoal/50"
+                          : "bg-Charcoal px-4 text-white"
+                      }`}
+                      disabled={fulfilled}
+                      isLoading={isPending}
+                      onClick={() =>
+                        runAction(
+                          "Fulfillment created.",
+                          fulfillReleasedCatchWeightOrder
+                        )
+                      }
+                      type="button"
+                    >
+                      {fulfilled ? "Fulfilled" : "Mark Fulfilled"}
+                    </Button>
+                  )}
                 </div>
               </div>
 
