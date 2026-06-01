@@ -24,10 +24,10 @@ const AccountLayout: React.FC<AccountLayoutProps> = ({
       className="bg-gray-50 min-h-[calc(100vh-4rem)]"
       data-testid="account-page"
     >
-      <div className="content-container max-w-7xl mx-auto py-8 small:py-12">
+      <div className="content-container mx-auto max-w-[1600px] py-6 small:py-10">
         {layoutCustomer && (
-          <div className="flex flex-col small:flex-row gap-8">
-            <aside className="small:w-[260px] shrink-0 small:sticky small:top-24 small:self-start">
+          <div className="flex flex-col gap-6 small:flex-row large:gap-8">
+            <aside className="small:w-[240px] large:w-[260px] shrink-0 small:sticky small:top-24 small:self-start">
               <AccountNav
                 customer={layoutCustomer}
                 staffCustomer={staffCustomer}

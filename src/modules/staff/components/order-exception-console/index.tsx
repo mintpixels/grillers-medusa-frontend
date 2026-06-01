@@ -1,6 +1,12 @@
 "use client"
 
 import { useEffect, useMemo, useState, useTransition } from "react"
+import {
+  ClipboardList,
+  RefreshCw,
+  Search,
+  SlidersHorizontal,
+} from "lucide-react"
 import Button from "@modules/common/components/button"
 import {
   applyStaffOrderException,
@@ -345,41 +351,48 @@ export default function StaffOrderExceptionConsole() {
   }
 
   return (
-    <div className="grid gap-6">
+    <div
+      className={`grid gap-6 ${
+        selectedOrder ? "xl:grid-cols-[minmax(0,1fr)_360px] xl:items-start" : ""
+      }`}
+    >
       <div className="space-y-6">
-        <section className="rounded-lg border border-gray-200 bg-white p-5">
-          <div className="mb-4">
-            <p className="text-xs font-maison-neue-mono uppercase text-Gold">
-              Existing order support
-            </p>
-            <h2 className="text-xl font-gyst font-bold text-Charcoal">
-              Open orders
-            </h2>
-            <p className="mt-1 text-sm font-maison-neue text-Charcoal/55">
-              Start from unfulfilled orders, or search across current and
-              historical orders by order number, invoice, email, customer name,
-              or phone.
-            </p>
+        <section className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+          <div className="border-b border-gray-100 px-5 py-4">
+            <div className="flex flex-col gap-3 large:flex-row large:items-start large:justify-between">
+              <div>
+                <p className="text-xs font-maison-neue-mono uppercase text-Gold">
+                  Existing order support
+                </p>
+                <h2 className="mt-1 text-xl font-maison-neue font-semibold text-Charcoal">
+                  Open orders
+                </h2>
+                <p className="mt-1 max-w-3xl text-sm font-maison-neue text-Charcoal/55">
+                  Start from unfulfilled orders, or search historical orders by
+                  order number, invoice, email, customer name, or phone.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2 text-xs font-maison-neue-mono uppercase text-Charcoal/60">
+                <span className="inline-flex min-h-[32px] items-center rounded-full border border-Gold/35 bg-Gold/10 px-3">
+                  {orders.length}{" "}
+                  {query.trim()
+                    ? "matching"
+                    : queueFilter === "open"
+                    ? "open"
+                    : "current"}
+                </span>
+                <span className="inline-flex min-h-[32px] items-center gap-1 rounded-full border border-gray-200 bg-SilverPlate/40 px-3">
+                  <ClipboardList className="h-3.5 w-3.5" aria-hidden />
+                  Review state
+                </span>
+                <span className="inline-flex min-h-[32px] items-center rounded-full border border-gray-200 bg-SilverPlate/40 px-3">
+                  Audited
+                </span>
+              </div>
+            </div>
           </div>
 
-          <div className="mb-5 grid gap-2 text-sm font-maison-neue text-Charcoal/65 small:grid-cols-3">
-            <div className="rounded-md border border-Gold/30 bg-Gold/10 px-3 py-2">
-              {orders.length}{" "}
-              {query.trim()
-                ? "matching orders"
-                : queueFilter === "open"
-                ? "open orders"
-                : "current orders"}
-            </div>
-            <div className="rounded-md border border-gray-100 bg-SilverPlate/30 px-3 py-2">
-              Select an order to review state
-            </div>
-            <div className="rounded-md border border-gray-100 bg-SilverPlate/30 px-3 py-2">
-              Actions remain audited
-            </div>
-          </div>
-
-          <div className="grid gap-3">
+          <div className="grid gap-4 px-5 py-4">
             <label className="flex flex-col gap-1">
               <span className={labelClass()}>Order, email, or customer</span>
               <input
@@ -393,7 +406,7 @@ export default function StaffOrderExceptionConsole() {
                 type="search"
               />
             </label>
-            <div className="flex flex-wrap gap-3">
+            <div className="grid gap-3 md:grid-cols-3">
               <label className="flex min-w-[145px] flex-1 flex-col gap-1">
                 <span className={labelClass()}>Queue</span>
                 <select
@@ -469,39 +482,41 @@ export default function StaffOrderExceptionConsole() {
                 </select>
               </label>
             </div>
-          </div>
 
-          <div className="mt-3 flex flex-col gap-3 small:flex-row small:items-center small:justify-between">
-            <p className="text-xs font-maison-neue text-Charcoal/50">
-              Typing a search runs across all current and historical orders;
-              blank search returns the filtered open queue.
-            </p>
-            <div className="flex flex-col gap-2 small:flex-row">
-              <Button
-                className="min-h-[44px] rounded-md border border-Charcoal bg-white px-4 text-sm font-rexton font-bold uppercase text-Charcoal"
-                disabled={isPending}
-                onClick={() => {
-                  setQuery("")
-                  runOrderSearch({ query: "" })
-                }}
-                type="button"
-              >
-                Refresh Queue
-              </Button>
-              <Button
-                className="min-h-[44px] rounded-md bg-Charcoal px-4 text-sm font-rexton font-bold uppercase text-white"
-                isLoading={isPending}
-                onClick={() => runOrderSearch()}
-                type="button"
-              >
-                Find Orders
-              </Button>
+            <div className="flex flex-col gap-3 small:flex-row small:items-center small:justify-between">
+              <p className="flex items-center gap-2 text-xs font-maison-neue text-Charcoal/50">
+                <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden />
+                Blank search returns the filtered open queue.
+              </p>
+              <div className="flex flex-col gap-2 small:flex-row">
+                <Button
+                  className="inline-flex min-h-[40px] min-w-[112px] items-center justify-center gap-2 rounded-md border border-Charcoal bg-white px-3.5 text-sm font-maison-neue font-semibold text-Charcoal"
+                  disabled={isPending}
+                  onClick={() => {
+                    setQuery("")
+                    runOrderSearch({ query: "" })
+                  }}
+                  type="button"
+                >
+                  <RefreshCw className="h-4 w-4" aria-hidden />
+                  Refresh
+                </Button>
+                <Button
+                  className="inline-flex min-h-[40px] min-w-[132px] items-center justify-center gap-2 rounded-md bg-Charcoal px-3.5 text-sm font-maison-neue font-semibold text-white"
+                  isLoading={isPending}
+                  onClick={() => runOrderSearch()}
+                  type="button"
+                >
+                  <Search className="h-4 w-4" aria-hidden />
+                  Find orders
+                </Button>
+              </div>
             </div>
           </div>
 
           {(error || status) && (
             <div
-              className={`mt-4 rounded-md border px-4 py-3 text-sm font-maison-neue ${
+              className={`mx-5 mb-4 rounded-md border px-4 py-3 text-sm font-maison-neue ${
                 error
                   ? "border-red-200 bg-red-50 text-red-700"
                   : "border-green-200 bg-green-50 text-green-700"
@@ -512,38 +527,50 @@ export default function StaffOrderExceptionConsole() {
           )}
 
           {orders.length > 0 && (
-            <div className="mt-5 overflow-hidden rounded-md border border-gray-100">
+            <div className="mx-5 mb-5 overflow-hidden rounded-md border border-gray-200 bg-white">
+              <div className="hidden grid-cols-[104px_minmax(0,1.4fr)_72px_104px_minmax(190px,0.9fr)] gap-3 bg-SilverPlate/40 px-4 py-2 text-[11px] font-maison-neue-mono uppercase text-Charcoal/45 md:grid">
+                <span>Order</span>
+                <span>Customer</span>
+                <span>Items</span>
+                <span className="text-right">Total</span>
+                <span className="text-right">State</span>
+              </div>
               {orders.map((order) => (
                 <button
-                  className={`grid w-full gap-3 border-b border-gray-100 px-4 py-3 text-left transition last:border-b-0 hover:bg-SilverPlate/40 md:grid-cols-[minmax(0,1fr)_auto] md:items-start ${
-                    selectedOrder?.id === order.id ? "bg-Gold/10" : ""
+                  className={`grid w-full gap-3 border-t border-gray-100 px-4 py-3 text-left transition first:border-t-0 hover:bg-SilverPlate/35 md:grid-cols-[104px_minmax(0,1.4fr)_72px_104px_minmax(190px,0.9fr)] md:items-center ${
+                    selectedOrder?.id === order.id
+                      ? "bg-Gold/10 shadow-[inset_0_0_0_1px_rgba(228,174,83,0.35)]"
+                      : ""
                   }`}
                   key={order.id}
                   onClick={() => selectOrder(order.id)}
                   type="button"
                 >
-                  <span className="min-w-0 space-y-1">
-                    <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                      <span className="text-sm font-maison-neue font-semibold text-Charcoal">
-                        {order.displayId}
-                      </span>
-                      <span className="text-xs font-maison-neue text-Charcoal/45">
-                        {formatOrderDate(order.createdAt) || "No date"}
-                      </span>
+                  <span className="min-w-0">
+                    <span className="block text-sm font-maison-neue font-semibold text-Charcoal">
+                      {order.displayId}
                     </span>
+                    <span className="block text-xs font-maison-neue text-Charcoal/45">
+                      {formatOrderDate(order.createdAt) || "No date"}
+                    </span>
+                  </span>
+                  <span className="min-w-0">
                     <span className="block truncate text-sm font-maison-neue font-semibold text-Charcoal">
                       {order.customerName}
                     </span>
                     <span className="block truncate text-xs font-maison-neue text-Charcoal/55">
                       {order.email || "No email"}
                     </span>
-                    <span className="block text-xs font-maison-neue text-Charcoal/55">
-                      {order.itemCount} items
-                    </span>
                   </span>
-                  <span className="space-y-2 md:min-w-[190px] md:text-right">
-                    <span className="block text-sm font-maison-neue font-semibold text-Charcoal">
-                      {formatMoney(order.total, order.currencyCode)}
+                  <span className="text-xs font-maison-neue text-Charcoal/55 md:text-sm md:text-Charcoal/70">
+                    {order.itemCount}
+                  </span>
+                  <span className="text-sm font-maison-neue font-semibold text-Charcoal md:text-right">
+                    {formatMoney(order.total, order.currencyCode)}
+                  </span>
+                  <span className="space-y-2 md:text-right">
+                    <span className="block text-xs font-maison-neue text-Charcoal/55 md:hidden">
+                      {order.itemCount} items
                     </span>
                     <span className="flex flex-wrap gap-2 md:justify-end">
                       {order.source === "legacy" &&

@@ -3,6 +3,16 @@
 import { useMemo, useState, useTransition } from "react"
 import type { HttpTypes } from "@medusajs/types"
 import { useRouter } from "next/navigation"
+import {
+  BookOpenText,
+  ClipboardList,
+  MessageSquare,
+  PackageCheck,
+  ShieldCheck,
+  UserPlus,
+  UserRoundCheck,
+  type LucideIcon,
+} from "lucide-react"
 import Button from "@modules/common/components/button"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import {
@@ -55,6 +65,16 @@ type StaffWorkspace =
   | "finalization"
   | "exceptions"
   | "team_access"
+
+type StaffWorkspaceAction = {
+  id: StaffWorkspace | "communications"
+  eyebrow: string
+  title: string
+  body: string
+  icon: LucideIcon
+  href?: string
+  onClick?: () => void
+}
 
 const stripeKey = getStripePublishableKey()
 const stripePromise = stripeKey ? loadStripe(stripeKey) : null
@@ -150,7 +170,11 @@ function labelClass() {
 }
 
 function availabilityBadge(product?: StaffProductSearchResult["availability"]) {
-  if (!product) return { label: "Checking", className: "border-gray-200 bg-gray-50 text-Charcoal/55" }
+  if (!product)
+    return {
+      label: "Checking",
+      className: "border-gray-200 bg-gray-50 text-Charcoal/55",
+    }
   if (product.decision === "available") {
     return {
       label: `${product.available_to_promise_quantity} ATP`,
@@ -759,46 +783,181 @@ export default function PhoneOrderCopilot({
     })
   }
 
+  const workspaceActions: StaffWorkspaceAction[] = [
+    {
+      id: "exceptions",
+      eyebrow: "Existing orders",
+      title: "Order support",
+      body: "Find open orders, review payment and fulfillment state, then record an audited exception.",
+      icon: ClipboardList,
+      onClick: () => setActiveWorkspace("exceptions"),
+    },
+    {
+      id: "finalization",
+      eyebrow: "Back office",
+      title: "Pack & finalize",
+      body: "Enter actual catch weights, review final totals, charge the saved card, and release shipment.",
+      icon: PackageCheck,
+      onClick: () => setActiveWorkspace("finalization"),
+    },
+    {
+      id: "phone_order",
+      eyebrow: "Customer context",
+      title: "Enter account",
+      body: "Impersonate a customer, shop, reorder, edit addresses, and check out through the storefront flow.",
+      icon: UserRoundCheck,
+      onClick: openCustomerContextWorkspace,
+    },
+    {
+      id: "new_customer",
+      eyebrow: "New customer",
+      title: "Create account",
+      body: "Start a caller profile with contact and delivery details before continuing into order entry.",
+      icon: UserPlus,
+      onClick: openNewCustomerWorkspace,
+    },
+    {
+      id: "communications",
+      eyebrow: "Customer messaging",
+      title: "Communications",
+      body: "Open timelines, approved staff notes, Postmark delivery, lifecycle flows, and campaigns.",
+      icon: MessageSquare,
+      href: "/account/staff/communications",
+    },
+    ...(canManageTeamAccess
+      ? [
+          {
+            id: "team_access" as const,
+            eyebrow: "Super admin",
+            title: "Team access",
+            body: "Manage staff members, super admins, and every permission change audit record.",
+            icon: ShieldCheck,
+            onClick: () => setActiveWorkspace("team_access"),
+          },
+        ]
+      : []),
+  ]
+
+  const activeWorkspaceAction = workspaceActions.find(
+    (action) => action.id === activeWorkspace
+  )
+
+  const workspaceItemClass =
+    "group flex h-full min-h-[132px] w-full flex-col justify-between rounded-md border p-4 text-left transition focus:outline-none focus:ring-2 focus:ring-Gold focus:ring-offset-2"
+
+  function renderWorkspaceAction(action: StaffWorkspaceAction) {
+    const Icon = action.icon
+    const isActive = action.id === activeWorkspace
+    const content = (
+      <>
+        <span className="flex items-start justify-between gap-3">
+          <span className="min-w-0">
+            <span className="block text-[11px] font-maison-neue-mono uppercase tracking-[0.08em] opacity-65">
+              {action.eyebrow}
+            </span>
+            <span className="mt-1 block text-base font-maison-neue font-semibold">
+              {action.title}
+            </span>
+          </span>
+          <span
+            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md border ${
+              isActive
+                ? "border-white/15 bg-white/10 text-white"
+                : "border-gray-200 bg-SilverPlate/30 text-Charcoal/55 group-hover:border-Gold/50 group-hover:text-Charcoal"
+            }`}
+          >
+            <Icon className="h-4 w-4" aria-hidden />
+          </span>
+        </span>
+        <span className="mt-3 block text-sm leading-5 opacity-72">
+          {action.body}
+        </span>
+      </>
+    )
+
+    const className = `${workspaceItemClass} ${
+      isActive
+        ? "border-Charcoal bg-Charcoal text-white shadow-sm"
+        : "border-gray-200 bg-white text-Charcoal hover:border-Gold/50 hover:bg-SilverPlate/25"
+    }`
+
+    if (action.href) {
+      return (
+        <LocalizedClientLink
+          className={className}
+          href={action.href}
+          key={action.id}
+        >
+          {content}
+        </LocalizedClientLink>
+      )
+    }
+
+    return (
+      <button
+        aria-pressed={isActive}
+        className={className}
+        key={action.id}
+        onClick={action.onClick}
+        type="button"
+      >
+        {content}
+      </button>
+    )
+  }
+
   return (
-    <div className="space-y-6">
-      <div className="rounded-lg border border-gray-200 bg-white p-5">
-        <div className="flex flex-col gap-4 large:flex-row large:items-start large:justify-between">
-          <div>
-            <p className="text-xs font-maison-neue-mono uppercase text-Gold">
-              Staff console
-            </p>
-            <h1 className="mt-2 text-h3 font-gyst font-bold text-Charcoal">
+    <div className="space-y-5">
+      <section className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+        <div className="flex flex-col gap-4 border-b border-gray-100 p-5 large:flex-row large:items-start large:justify-between">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-xs font-maison-neue-mono uppercase text-Gold">
+                Staff console
+              </p>
+              {activeWorkspaceAction && (
+                <span className="rounded-full border border-gray-200 bg-SilverPlate/40 px-2.5 py-1 text-[11px] font-maison-neue-mono uppercase text-Charcoal/55">
+                  {activeWorkspaceAction.title}
+                </span>
+              )}
+            </div>
+            <h1 className="mt-2 text-2xl font-maison-neue font-semibold text-Charcoal">
               Help a customer
             </h1>
-            <p className="mt-1 max-w-2xl text-sm font-maison-neue text-Charcoal/60">
-              Search for a customer, enter their account context, then use the
-              storefront exactly as they would. Staff actions remain auditable.
+            <p className="mt-1 max-w-3xl text-sm font-maison-neue text-Charcoal/60">
+              Search orders, finalize catch weights, enter customer context, and
+              keep every staff action auditable from one workspace.
             </p>
           </div>
-          <div className="flex flex-col gap-3 small:flex-row small:items-center">
+          <div className="flex flex-col gap-3 small:flex-row small:items-center large:justify-end">
             <LocalizedClientLink
               href="/account/staff/operations-guide"
-              className="inline-flex min-h-[44px] items-center justify-center rounded-md border border-Charcoal px-4 text-sm font-rexton font-bold uppercase text-Charcoal transition hover:bg-Charcoal hover:text-white"
+              className="inline-flex min-h-[40px] items-center justify-center gap-2 rounded-md border border-Charcoal px-3.5 text-sm font-maison-neue font-semibold text-Charcoal transition hover:bg-Charcoal hover:text-white"
             >
-              Operations Guide
+              <BookOpenText className="h-4 w-4" aria-hidden />
+              Guide
             </LocalizedClientLink>
             <LocalizedClientLink
               href="/account/staff/communications"
-              className="inline-flex min-h-[44px] items-center justify-center rounded-md border border-Charcoal px-4 text-sm font-rexton font-bold uppercase text-Charcoal transition hover:bg-Charcoal hover:text-white"
+              className="inline-flex min-h-[40px] items-center justify-center gap-2 rounded-md border border-Charcoal px-3.5 text-sm font-maison-neue font-semibold text-Charcoal transition hover:bg-Charcoal hover:text-white"
             >
+              <MessageSquare className="h-4 w-4" aria-hidden />
               Communications
             </LocalizedClientLink>
-            <div className="rounded-md border border-Gold/35 bg-Gold/10 px-4 py-3">
-              <p className="text-xs font-maison-neue-mono uppercase text-Charcoal/55">
+            <div className="rounded-md border border-Gold/35 bg-Gold/10 px-3.5 py-2.5">
+              <p className="text-[11px] font-maison-neue-mono uppercase text-Charcoal/55">
                 Signed in
               </p>
-              <p className="mt-1 text-sm font-maison-neue font-semibold text-Charcoal">
+              <p className="mt-0.5 text-sm font-maison-neue font-semibold text-Charcoal">
                 {staffName}
               </p>
             </div>
           </div>
         </div>
-      </div>
+        <div className="grid gap-3 bg-SilverPlate/35 p-3 md:grid-cols-2 xl:grid-cols-3">
+          {workspaceActions.map(renderWorkspaceAction)}
+        </div>
+      </section>
 
       {impersonation && (
         <div className="rounded-md border border-Gold/40 bg-Gold/10 px-4 py-3">
@@ -835,132 +994,6 @@ export default function PhoneOrderCopilot({
           {error || status}
         </div>
       )}
-
-      <div
-        className={`grid gap-3 ${
-          canManageTeamAccess
-            ? "md:grid-cols-2 xl:grid-cols-6"
-            : "md:grid-cols-2 xl:grid-cols-5"
-        }`}
-      >
-        <button
-          className={`rounded-lg border p-5 text-left transition ${
-            activeWorkspace === "phone_order"
-              ? "border-Charcoal bg-Charcoal text-white"
-              : "border-gray-200 bg-white text-Charcoal hover:border-Gold/50"
-          }`}
-          onClick={openCustomerContextWorkspace}
-          type="button"
-        >
-          <span className="block text-xs font-maison-neue-mono uppercase opacity-70">
-            Customer context
-          </span>
-          <span className="mt-2 block text-xl font-gyst font-bold">
-            Enter account
-          </span>
-          <span className="mt-2 block text-sm font-maison-neue opacity-75">
-            Find the customer, enter their account, then shop, reorder, edit
-            addresses, and check out from the customer-facing flow.
-          </span>
-        </button>
-        <button
-          className={`rounded-lg border p-5 text-left transition ${
-            activeWorkspace === "finalization"
-              ? "border-Charcoal bg-Charcoal text-white"
-              : "border-gray-200 bg-white text-Charcoal hover:border-Gold/50"
-          }`}
-          onClick={() => setActiveWorkspace("finalization")}
-          type="button"
-        >
-          <span className="block text-xs font-maison-neue-mono uppercase opacity-70">
-            Back office
-          </span>
-          <span className="mt-2 block text-xl font-gyst font-bold">
-            Pack & Finalize
-          </span>
-          <span className="mt-2 block text-sm font-maison-neue opacity-75">
-            Enter actual weights, review final totals, charge saved cards, and
-            release orders for shipment.
-          </span>
-        </button>
-        <button
-          className={`rounded-lg border p-5 text-left transition ${
-            activeWorkspace === "new_customer"
-              ? "border-Charcoal bg-Charcoal text-white"
-              : "border-gray-200 bg-white text-Charcoal hover:border-Gold/50"
-          }`}
-          onClick={openNewCustomerWorkspace}
-          type="button"
-        >
-          <span className="block text-xs font-maison-neue-mono uppercase opacity-70">
-            New customer
-          </span>
-          <span className="mt-2 block text-xl font-gyst font-bold">
-            Create account
-          </span>
-          <span className="mt-2 block text-sm font-maison-neue opacity-75">
-            Start a caller profile with contact details, phone, and delivery
-            address, then continue into account context or phone-order entry.
-          </span>
-        </button>
-        <button
-          className={`rounded-lg border p-5 text-left transition ${
-            activeWorkspace === "exceptions"
-              ? "border-Charcoal bg-Charcoal text-white"
-              : "border-gray-200 bg-white text-Charcoal hover:border-Gold/50"
-          }`}
-          onClick={() => setActiveWorkspace("exceptions")}
-          type="button"
-        >
-          <span className="block text-xs font-maison-neue-mono uppercase opacity-70">
-            Existing order
-          </span>
-          <span className="mt-2 block text-xl font-gyst font-bold">
-            Order support
-          </span>
-          <span className="mt-2 block text-sm font-maison-neue opacity-75">
-            Search an order, review payment and fulfillment state, then record a
-            refund, credit, shipping exception, or note.
-          </span>
-        </button>
-        <LocalizedClientLink
-          href="/account/staff/communications"
-          className="rounded-lg border border-gray-200 bg-white p-5 text-left text-Charcoal transition hover:border-Gold/50"
-        >
-          <span className="block text-xs font-maison-neue-mono uppercase opacity-70">
-            Customer messaging
-          </span>
-          <span className="mt-2 block text-xl font-gyst font-bold">
-            Communications
-          </span>
-          <span className="mt-2 block text-sm font-maison-neue opacity-75">
-            Review customer timelines, send approved staff notes, monitor
-            Postmark delivery, and manage lifecycle campaigns.
-          </span>
-        </LocalizedClientLink>
-        {canManageTeamAccess && (
-          <button
-            className={`rounded-lg border p-5 text-left transition ${
-              activeWorkspace === "team_access"
-                ? "border-Charcoal bg-Charcoal text-white"
-                : "border-gray-200 bg-white text-Charcoal hover:border-Gold/50"
-            }`}
-            onClick={() => setActiveWorkspace("team_access")}
-            type="button"
-          >
-            <span className="block text-xs font-maison-neue-mono uppercase opacity-70">
-              Super admin
-            </span>
-            <span className="mt-2 block text-xl font-gyst font-bold">
-              Team access
-            </span>
-            <span className="mt-2 block text-sm font-maison-neue opacity-75">
-              Search customer accounts, make staff members, promote super
-              admins, and audit every permission change.
-            </span>
-          </button>
-        )}
-      </div>
 
       {activeWorkspace === "team_access" && canManageTeamAccess ? (
         <StaffTeamAccessConsole />
@@ -1243,7 +1276,10 @@ export default function PhoneOrderCopilot({
             </div>
           </section>
 
-          <div className={draftCustomer.id ? "block" : "hidden"} aria-hidden={!draftCustomer.id}>
+          <div
+            className={draftCustomer.id ? "block" : "hidden"}
+            aria-hidden={!draftCustomer.id}
+          >
             <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
               <div className="space-y-6">
                 <section className="rounded-lg border border-gray-200 bg-white p-5">
@@ -1600,13 +1636,13 @@ export default function PhoneOrderCopilot({
                                 .join(" | ")}
                             </span>
                             {product.availability &&
-                              product.availability.decision !==
-                                "available" && (
+                              product.availability.decision !== "available" && (
                                 <span className="mt-1 block text-xs font-maison-neue text-Charcoal/60">
                                   {product.availability.decision ===
                                   "future_allowed"
                                     ? "Accepted for the selected future date."
-                                    : product.availability.earliest_available_date
+                                    : product.availability
+                                        .earliest_available_date
                                     ? `Expected around ${product.availability.earliest_available_date}.`
                                     : "Needs staff resolution for this date."}
                                 </span>
@@ -1709,8 +1745,7 @@ export default function PhoneOrderCopilot({
                                   {line.availability.decision ===
                                   "future_allowed"
                                     ? "Future commitment accepted for the selected date."
-                                    : line.availability.decision ===
-                                      "available"
+                                    : line.availability.decision === "available"
                                     ? `${line.availability.available_to_promise_quantity} available to promise.`
                                     : line.availability.decision === "partial"
                                     ? `${line.availability.available_to_promise_quantity} available; staff override or quantity change required.`
@@ -1939,8 +1974,8 @@ export default function PhoneOrderCopilot({
 
                       {hasUnresolvedStaffBlocks && (
                         <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-3 text-sm font-maison-neue text-amber-800">
-                          Resolve blocked inventory lines with a reason and
-                          note before preparing payment.
+                          Resolve blocked inventory lines with a reason and note
+                          before preparing payment.
                         </div>
                       )}
 

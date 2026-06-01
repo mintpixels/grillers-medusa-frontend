@@ -277,7 +277,7 @@ const AccountNav = ({
                 className={clx(
                   "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-maison-neue transition-all duration-150",
                   isActive(item.href)
-                    ? "bg-Gold/10 text-Charcoal font-semibold border-l-2 border-Gold"
+                    ? "bg-Gold/10 text-Charcoal font-semibold shadow-[inset_0_0_0_1px_rgba(228,174,83,0.35)]"
                     : "text-Charcoal/60 hover:bg-gray-50 hover:text-Charcoal"
                 )}
                 data-testid={item.testId}
