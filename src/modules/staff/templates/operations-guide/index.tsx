@@ -42,9 +42,9 @@ const systemMap = [
   },
   {
     name: "Stripe",
-    owner: "Card authorization and refunds",
+    owner: "Saved cards, final charges, and refunds",
     details:
-      "Stripe handles credit-card payment, saved cards, card capture, and card refunds. A Stripe success does not automatically prove QuickBooks accounting is finished.",
+      "Stripe stores saved cards, runs the final pre-shipment catch-weight charge, and handles card refunds. Stripe should not see a catch-weight order amount until staff finalize the weighed order.",
   },
   {
     name: "Postmark",
@@ -63,6 +63,7 @@ const systemMap = [
 const dailyChecklist = [
   "Open the staff console and confirm you can see Order Support without being redirected.",
   "Check QuickBooks Web Connector. A green bar means the session ran; still open Last Result or the log if the status says it sent an error back to the application.",
+  "Open Pack & Finalize for catch-weight orders that need packing, review, final charge, or charge-failed hold handling.",
   "Review open orders in Staff Console, especially unfulfilled, awaiting payment, QBD failed, or QBD pending/manual orders.",
   "Open Customer Communications when checking campaign drafts, lifecycle flow health, customer timelines, suppressions, or Postmark delivery status.",
   "Place a small test order only when needed, using Stripe test cards while the site is still in test mode.",
@@ -119,7 +120,7 @@ const publicSurfaces = [
     route: "/us/checkout",
     name: "Checkout",
     staffUse:
-      "Use to choose fulfillment, schedule pickup or delivery, enter address, resolve inventory blocks, and pay by Stripe card.",
+      "Use to choose fulfillment, schedule pickup or delivery, enter address, resolve inventory blocks, and save a Stripe card for final catch-weight charging.",
   },
   {
     route: "/us/order/[id]/confirmed",
@@ -161,7 +162,7 @@ const publicSurfaces = [
     route: "/us/account/staff/orders",
     name: "Staff console",
     staffUse:
-      "Use for customer context, new customer creation, phone orders, order support, refunds, cancellations, QBD retry, and team access.",
+      "Use for customer context, new customer creation, phone orders, Pack & Finalize, order support, refunds, cancellations, QBD retry, and team access.",
   },
   {
     route: "/us/account/staff/communications",
@@ -292,7 +293,7 @@ const sections: GuideSection[] = [
     eyebrow: "Checkout",
     title: "Cart, fulfillment, and payment",
     summary:
-      "Checkout is a single flow where the customer chooses fulfillment, confirms address and schedule, resolves inventory issues, and pays by Stripe card.",
+      "Checkout is a single flow where the customer chooses fulfillment, confirms address and schedule, resolves inventory issues, and saves a Stripe card for the final weighed charge.",
     useFor: [
       "Plant pickup orders.",
       "Atlanta delivery orders.",
@@ -306,12 +307,13 @@ const sections: GuideSection[] = [
       "Confirm the fulfillment type first. This affects dates, addresses, shipping method, thresholds, and inventory availability.",
       "Use the inventory notice before payment. Customers may substitute an item, remove it, join the waitlist, move the order date, or complete only the available quantity.",
       "Stripe is the card processor. During test mode, use Stripe test cards only.",
-      "After payment, the customer sees the order confirmation page and should receive a confirmation email.",
+      "After checkout, the customer sees the order confirmation page and should receive a confirmation email. For catch-weight orders, this is not the revenue charge.",
     ],
     watch: [
       "Wallet messaging should not be promised unless the backend supports it.",
-      "Inventory can change between cart building and payment. The final check happens before completion.",
-      "A successful payment is not the same as a posted QuickBooks sales order.",
+      "Inventory can change between cart building and checkout. The final inventory check happens before order completion.",
+      "Catch-weight checkout saves the card but does not authorize or charge the estimate. Staff charge the final amount in Pack & Finalize before shipment.",
+      "A successful final Stripe charge is not the same as a posted QuickBooks sales order.",
     ],
   },
   {
@@ -366,6 +368,36 @@ const sections: GuideSection[] = [
       "The checkout link expires. If a customer uses an old link and it fails, prepare a new one.",
       "Phone-order emails are separate from standard order confirmation emails; verify both when testing.",
       "If a line needs an override, the note should explain what the customer accepted or who approved it.",
+    ],
+  },
+  {
+    id: "catch-weight-finalization",
+    eyebrow: "Back office",
+    title: "Pack & Finalize catch-weight orders",
+    summary:
+      "Pack & Finalize is the staff workspace for entering actual meat weights, reviewing final totals, charging the saved card, and releasing the order for shipment.",
+    useFor: [
+      "Orders where actual cut weight is not known until staff pick from the meat cabinet.",
+      "Recording actual per-lb weights and piece counts before shipment.",
+      "Reviewing the final total against the original estimate.",
+      "Charging the saved Stripe card right before the order leaves.",
+      "Holding an order when the final charge fails.",
+    ],
+    howTo: [
+      "Open Staff Console and choose Pack & Finalize.",
+      "Start the pack session for the order.",
+      "Enter actual weight for every per-lb line and piece counts or quantity changes where needed.",
+      "Preview the order and fix any missing weights, missing QBD ListIDs, or removed-line reasons.",
+      "Approve the finalization only after the final total is correct.",
+      "Click Charge & Release when the order is ready to leave. If Stripe fails, do not ship the order.",
+      "After a successful charge, verify the order is ready to ship and that QuickBooks posting is pending or complete.",
+    ],
+    watch: [
+      "Stripe must not see an estimated catch-weight amount. It should only see the final weighed amount at Charge & Release.",
+      "Fulfillment is blocked until the final Stripe charge succeeds.",
+      "QuickBooks receives the finalized weighed lines, not the original estimate.",
+      "A charge-failed hold means contact the customer for payment update before shipment.",
+      "Final charge email goes after the card charge succeeds. It is separate from the checkout confirmation email.",
     ],
   },
   {
@@ -563,7 +595,7 @@ const sections: GuideSection[] = [
       "Medusa is the operational record for orders, carts, customers, products, variants, inventory, payments, saved cards, and fulfillment state.",
     useFor: [
       "Checking whether an order exists and what state it is in.",
-      "Checking payment authorization, capture, refund, and cancellation state.",
+      "Checking payment setup, final catch-weight charge, refund, and cancellation state.",
       "Checking product and variant IDs, SKUs, inventory quantities, and metadata.",
       "Checking customer profiles, addresses, saved cards, and account history.",
       "Checking allocation rows and availability snapshots when inventory is questioned.",
@@ -572,12 +604,14 @@ const sections: GuideSection[] = [
       "Use Medusa order state to answer whether checkout completed.",
       "Use Stripe payment state to answer whether money moved.",
       "Use QuickBooks sync state to answer whether accounting posted.",
+      "Use catch-weight finalization state to answer whether an order can leave the building.",
       "When editing product metadata, preserve qbd_list_id and allocation policy fields.",
       "For staff money actions, use the staff console unless a developer directs a specific backend operation.",
     ],
     watch: [
       "Medusa Admin can include legacy, disabled, reorder-only, or admin-only products. Do not treat every admin product as a storefront gap.",
       "A successful Stripe refund can still leave QBD posting pending.",
+      "A catch-weight order can be placed with a saved card but no Stripe charge. Do not treat the checkout estimate as collected revenue.",
       "Order cancellation after fulfillment may be restricted and may require operations review.",
     ],
   },
@@ -589,6 +623,7 @@ const sections: GuideSection[] = [
       "QuickBooks is accounting infrastructure. The Web Connector pulls requests from the sync service, exchanges QBXML with QuickBooks Desktop, and returns results.",
     useFor: [
       "Pushing Medusa orders into QuickBooks as sales orders.",
+      "Posting finalized catch-weight orders with actual weighed quantities and amounts.",
       "Reading QuickBooks catalog items, quantities, active status, ListIDs, and tax items.",
       "Posting accounting follow-up for refunds, captures, credits, and sales-order closes.",
       "Reconciling inventory allocation against QBD on-hand quantities.",
@@ -605,6 +640,7 @@ const sections: GuideSection[] = [
       "Green progress bars mean the session completed, not necessarily that every order posted correctly.",
       "Tax uses its own QuickBooks item. Product ListIDs do not fix a missing or wrong tax item.",
       "Canceled before QuickBooks sync can be skipped; canceled after posting should create a Web Connector sales-order close task.",
+      "Catch-weight orders should not post to QuickBooks before the final Stripe charge succeeds.",
       "Stripe refunds should create a Web Connector refund or credit-memo accounting task and then mark the Medusa order metadata when posted.",
       "Do not make speculative changes to QWC files, secrets, or QuickBooks item mappings.",
     ],
@@ -667,6 +703,17 @@ const playbooks: Playbook[] = [
       "Record the customer consent method, reason, and internal note.",
       "Preview the refund, type REFUND, and apply it.",
       "Verify Medusa payment state, Stripe refund state, refund email, QBD writer task, and final QuickBooks posting status separately.",
+    ],
+  },
+  {
+    title: "A catch-weight order is ready to ship",
+    steps: [
+      "Open Pack & Finalize and select the order.",
+      "Confirm every per-lb line has actual weight and every line has a QBD ListID or approved accounting resolution.",
+      "Preview and approve the final total.",
+      "Click Charge & Release only when the order is actually ready to leave.",
+      "If Stripe succeeds, proceed with shipment and then check QuickBooks posting status after Web Connector runs.",
+      "If Stripe fails, hold the order and contact the customer for updated payment before shipment.",
     ],
   },
   {

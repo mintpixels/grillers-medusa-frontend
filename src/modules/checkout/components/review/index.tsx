@@ -5,7 +5,7 @@ import { clx } from "@medusajs/ui"
 import PaymentButton from "../payment-button"
 import { useSearchParams } from "next/navigation"
 
-// Net-weight authorization disclaimer
+// Net-weight final charge disclosure
 const NetWeightDisclaimer = () => (
   <div className="bg-Gold/10 border border-Gold/20 rounded-lg p-4 mb-5">
     <div className="flex gap-3">
@@ -27,9 +27,9 @@ const NetWeightDisclaimer = () => (
           About Your Order Total
         </p>
         <p className="text-sm text-gray-600 leading-relaxed">
-          Your card will be authorized for the estimated amount shown. The final
-          charge will be based on actual product weights when your order is
-          weighed and packed.{" "}
+          Your card will be saved today, but it will not be charged or
+          authorized for the estimate shown. We charge the final weighed amount
+          right before shipment.{" "}
           <a
             href="/page/catch-weight-pricing"
             className="text-Gold hover:text-Gold/80 underline"

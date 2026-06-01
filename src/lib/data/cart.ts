@@ -1162,6 +1162,86 @@ export async function placeOrder(cartId?: string) {
   return cartRes.cart
 }
 
+export async function placeOrderWithSavedPaymentMethod({
+  cartId,
+  paymentMethodId,
+  setupIntentId,
+  consentVersion,
+  consentText,
+}: {
+  cartId?: string
+  paymentMethodId: string
+  setupIntentId?: string | null
+  consentVersion: string
+  consentText: string
+}) {
+  const active = await getCartStaffContext()
+  const id = cartId || (await getCurrentCartId(active))
+
+  if (!id) {
+    throw new Error("No existing cart found when placing an order")
+  }
+
+  const headers = await cartHeadersForStaffContext(active)
+
+  await verifyCartInventoryForCheckout(id)
+
+  if (active) {
+    await sdk.store.cart.update(
+      id,
+      withStaffCartMetadata({}, active, "order_submit_final_charge_setup", {
+        paymentMethodId,
+      }),
+      {},
+      headers
+    )
+  }
+
+  const cartRes = await sdk.client
+    .fetch<{
+      type: "order" | "cart"
+      order?: HttpTypes.StoreOrder
+      cart?: HttpTypes.StoreCart
+      error?: { message?: string }
+    }>("/store/grillers/checkout/place-order", {
+      method: "POST",
+      headers,
+      body: {
+        cart_id: id,
+        payment_method_id: paymentMethodId,
+        setup_intent_id: setupIntentId || null,
+        consent_version: consentVersion,
+        consent_text: consentText,
+      },
+    })
+    .then(async (result) => {
+      const cartCacheTag = await getCacheTag("carts")
+      revalidateTag(cartCacheTag)
+      return result
+    })
+    .catch((err) => {
+      throw medusaError(err)
+    })
+
+  if (cartRes?.type === "order" && cartRes.order) {
+    const countryCode =
+      cartRes.order.shipping_address?.country_code?.toLowerCase() || "us"
+
+    const orderCacheTag = await getCacheTag("orders")
+    revalidateTag(orderCacheTag)
+
+    await persistOrderShippingAddressToAccount(cartRes.order)
+    await removeCurrentCartId(active)
+    redirect(`/${countryCode}/order/${cartRes.order.id}/confirmed`)
+  }
+
+  if (cartRes?.error?.message) {
+    throw new Error(cartRes.error.message)
+  }
+
+  return cartRes.cart
+}
+
 /**
  * Issue #74 — best-effort: copy the just-completed order's shipping address
  * into the logged-in customer's address book if it's not already there.

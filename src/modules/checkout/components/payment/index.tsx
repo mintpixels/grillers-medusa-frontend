@@ -2,13 +2,15 @@
 
 import { RadioGroup } from "@headlessui/react"
 import { isStripe as isStripeFunc, paymentInfoMap } from "@lib/constants"
-import { initiatePaymentSession } from "@lib/data/cart"
-import type { SavedPaymentMethod } from "@lib/data/payment"
+import {
+  createPaymentMethodSetupIntent,
+  type SavedPaymentMethod,
+} from "@lib/data/payment"
 import { trackAddPaymentInfo } from "@lib/gtm"
 import { jitsuTrack } from "@lib/jitsu"
 import { useCartTitleMap } from "@lib/hooks/use-cart-title-map"
 import { CreditCard } from "@medusajs/icons"
-import { Button, clx } from "@medusajs/ui"
+import { clx } from "@medusajs/ui"
 import ErrorMessage from "@modules/checkout/components/error-message"
 import InventoryResolutionNotice from "@modules/checkout/components/inventory-resolution-notice"
 import PaymentButton from "@modules/checkout/components/payment-button"
@@ -16,7 +18,7 @@ import { StripeCardContainer } from "@modules/checkout/components/payment-contai
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useCallback, useEffect, useRef, useState } from "react"
 
-// Net-weight authorization disclaimer
+// Net-weight final charge disclosure
 const NetWeightDisclaimer = () => (
   <div className="bg-Gold/10 border border-Gold/20 rounded-lg p-4 mb-5">
     <div className="flex gap-3">
@@ -38,9 +40,10 @@ const NetWeightDisclaimer = () => (
           About Your Order Total
         </p>
         <p className="text-sm text-gray-600 leading-relaxed">
-          Your card will be authorized for the estimated amount shown. The final
-          charge will be based on actual product weights when your order is
-          weighed and packed.{" "}
+          Your card will be saved today, but it will not be charged or
+          authorized for the estimate shown. We charge the final weighed amount
+          right before shipment. If that charge fails, the order will be held
+          and we will contact you.{" "}
           <a
             href="/page/catch-weight-pricing"
             className="text-Gold hover:text-Gold/80 underline"
@@ -65,28 +68,24 @@ const Payment = ({
   const cartTitleMap = useCartTitleMap(cart?.items)
   const showsDeliveryStep = cart?.metadata?.fulfillmentType === "ups_shipping"
   const stepNumber = showsDeliveryStep ? 4 : 3
-  const pendingPaymentSession = cart.payment_collection?.payment_sessions?.find(
-    (paymentSession: any) => paymentSession.status === "pending"
-  )
-  const activeSession = isStripeFunc(pendingPaymentSession?.provider_id)
-    ? pendingPaymentSession
-    : undefined
-
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [, setCardBrand] = useState<string | null>(null)
   const [cardComplete, setCardComplete] = useState(false)
+  const [setupIntentClientSecret, setSetupIntentClientSecret] = useState<
+    string | null
+  >(null)
   const cardPaymentMethods =
     availablePaymentMethods?.filter((pm) => isStripeFunc(pm.id)) ?? []
   const stripeProviderId = cardPaymentMethods[0]?.id
 
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(
-    isStripeFunc(activeSession?.provider_id) ? activeSession?.provider_id : ""
+    ""
   )
   const [selectedSavedPaymentMethodId, setSelectedSavedPaymentMethodId] =
     useState<string | null>(null)
 
-  const hasInitiatedSession = useRef(false)
+  const hasPreparedSetupIntent = useRef(false)
   const hasAutoSelectedSavedCard = useRef(false)
 
   useEffect(() => {
@@ -135,10 +134,30 @@ const Payment = ({
     })
   }
 
-  const setPaymentMethod = async (
-    method: string,
-    data: Record<string, any> = { setup_future_usage: "off_session" }
-  ) => {
+  const prepareSetupIntent = async (force = false) => {
+    if (!force && (setupIntentClientSecret || hasPreparedSetupIntent.current)) {
+      return
+    }
+
+    setIsLoading(true)
+    hasPreparedSetupIntent.current = true
+    try {
+      const result = await createPaymentMethodSetupIntent()
+      if ("error" in result) {
+        setError(result.error)
+        hasPreparedSetupIntent.current = false
+        return
+      }
+      setSetupIntentClientSecret(result.client_secret)
+    } catch (err: any) {
+      setError(err.message || "Could not start card setup. Please try again.")
+      hasPreparedSetupIntent.current = false
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const setPaymentMethod = async (method: string) => {
     if (!isStripeFunc(method)) {
       setError("Credit card payment is the only available payment method.")
       return
@@ -146,18 +165,9 @@ const Payment = ({
 
     setError(null)
     setSelectedPaymentMethod(method)
-    if (!data.payment_method_id) {
-      setSelectedSavedPaymentMethodId(null)
-    }
-    try {
-      await initiatePaymentSession(cart, {
-        provider_id: method,
-        data,
-      })
-      router.refresh()
-    } catch (err: any) {
-      setError(err.message)
-    }
+    setSelectedSavedPaymentMethodId(null)
+    setCardComplete(false)
+    void prepareSetupIntent()
   }
 
   const handleSavedCardSelect = async (method: SavedPaymentMethod) => {
@@ -165,10 +175,8 @@ const Payment = ({
     setSelectedSavedPaymentMethodId(method.id)
     setSelectedPaymentMethod(stripeProviderId)
     setCardComplete(true)
-    await setPaymentMethod(stripeProviderId, {
-      payment_method_id: method.id,
-      setup_future_usage: "off_session",
-    })
+    setSetupIntentClientSecret(null)
+    hasPreparedSetupIntent.current = false
     const brand = method.data?.card?.brand || "card"
     const last4 = method.data?.card?.last4 || "saved"
     trackPaymentInfo(`${brand} ending in ${last4}`)
@@ -179,19 +187,23 @@ const Payment = ({
     hasAutoSelectedSavedCard.current = true
     setSelectedSavedPaymentMethodId(null)
     setCardComplete(false)
-    await setPaymentMethod(stripeProviderId)
+    setSetupIntentClientSecret(null)
+    hasPreparedSetupIntent.current = false
+    setSelectedPaymentMethod(stripeProviderId)
+    await prepareSetupIntent(true)
   }
 
   const paidByGiftcard =
     cart?.gift_cards && cart?.gift_cards?.length > 0 && cart?.total === 0
 
-  const hasCardPaymentSession =
-    activeSession && isStripeFunc(activeSession.provider_id)
+  const hasPreparedCardForFinalCharge = Boolean(
+    selectedSavedPaymentMethodId || (setupIntentClientSecret && cardComplete)
+  )
 
   // All fulfillment types (including pickup) now set a shipping method on the cart,
   // so we always require shipping_methods to be present.
   const paymentReady =
-    (hasCardPaymentSession && (cart?.shipping_methods?.length ?? 0) > 0) ||
+    (hasPreparedCardForFinalCharge && (cart?.shipping_methods?.length ?? 0) > 0) ||
     paidByGiftcard
 
   // Check if address step is complete (required before payment)
@@ -221,39 +233,10 @@ const Payment = ({
     })
   }
 
-  // For Stripe: initiate session when card details entered
-  const handleInitiateStripe = async () => {
-    setIsLoading(true)
-    try {
-      if (!selectedPaymentMethod || !isStripeFunc(selectedPaymentMethod)) {
-        setError("Credit card payment is the only available payment method.")
-        return
-      }
-
-      const checkActiveSession =
-        activeSession?.provider_id === selectedPaymentMethod
-
-      if (!checkActiveSession) {
-        await initiatePaymentSession(cart, {
-          provider_id: selectedPaymentMethod,
-          data: { setup_future_usage: "off_session" },
-        })
-      }
-
-      trackPaymentInfo(
-        paymentInfoMap[selectedPaymentMethod]?.title || selectedPaymentMethod
-      )
-    } catch (err: any) {
-      setError(err.message)
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
   useEffect(() => {
     setError(null)
     if (!isOpen) {
-      hasInitiatedSession.current = false
+      hasPreparedSetupIntent.current = false
       hasAutoSelectedSavedCard.current = false
     }
   }, [isOpen])
@@ -288,19 +271,18 @@ const Payment = ({
       isOpen &&
       selectedPaymentMethod &&
       isStripeFunc(selectedPaymentMethod) &&
-      !activeSession &&
-      !hasInitiatedSession.current
+      !selectedSavedPaymentMethodId &&
+      !setupIntentClientSecret &&
+      !hasPreparedSetupIntent.current
     ) {
-      hasInitiatedSession.current = true
-      initiatePaymentSession(cart, {
-        provider_id: selectedPaymentMethod,
-        data: { setup_future_usage: "off_session" },
-      }).catch((err: any) => setError(err.message))
+      void prepareSetupIntent()
     }
-  }, [isOpen, selectedPaymentMethod, activeSession])
-
-  // Check if all steps are ready to place order
-  const readyToPlaceOrder = paymentReady && addressComplete
+  }, [
+    isOpen,
+    selectedPaymentMethod,
+    selectedSavedPaymentMethodId,
+    setupIntentClientSecret,
+  ])
 
   return (
     <div
@@ -411,7 +393,7 @@ const Payment = ({
 
               <RadioGroup
                 value={selectedPaymentMethod}
-                onChange={(value: string) => setPaymentMethod(value)}
+                onChange={(value: string) => void setPaymentMethod(value)}
               >
                 {cardPaymentMethods.map((paymentMethod) => {
                   if (
@@ -465,22 +447,11 @@ const Payment = ({
             data-testid="payment-method-error-message"
           />
 
-          {/* For Stripe without active session, show button to enter card */}
-          {isStripe &&
-            !activeSession &&
-            !paidByGiftcard &&
-            !selectedSavedPaymentMethodId && (
-              <Button
-                size="large"
-                className="mt-5"
-                onClick={handleInitiateStripe}
-                isLoading={isLoading}
-                disabled={!cardComplete}
-                data-testid="submit-payment-button"
-              >
-                Enter card details
-              </Button>
-            )}
+          {isStripe && isLoading && !paidByGiftcard && (
+            <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm text-gray-600">
+              Preparing secure card setup...
+            </div>
+          )}
 
           {/* Place Order section - shown when payment is set up */}
           {(paymentReady || paidByGiftcard) && (
@@ -492,11 +463,12 @@ const Payment = ({
                 cart={cart}
                 cardComplete={cardComplete}
                 savedPaymentMethodId={selectedSavedPaymentMethodId}
+                setupIntentClientSecret={setupIntentClientSecret}
                 data-testid="submit-order-button"
               />
 
               <p className="text-xs text-gray-500 mt-4 leading-relaxed text-center">
-                By clicking Complete Purchase, you agree to our{" "}
+                By clicking Place Order, you agree to our{" "}
                 <a href="/terms" className="text-Gold hover:underline">
                   Terms of Use
                 </a>

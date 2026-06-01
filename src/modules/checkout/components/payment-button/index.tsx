@@ -1,7 +1,9 @@
 "use client"
 
-import { isStripe } from "@lib/constants"
-import { placeOrder, verifyCartInventoryForCheckout } from "@lib/data/cart"
+import {
+  placeOrderWithSavedPaymentMethod,
+  verifyCartInventoryForCheckout,
+} from "@lib/data/cart"
 import { jitsuTrack } from "@lib/jitsu"
 import { HttpTypes } from "@medusajs/types"
 import { useElements, useStripe } from "@stripe/react-stripe-js"
@@ -44,13 +46,19 @@ type PaymentButtonProps = {
   cart: HttpTypes.StoreCart
   cardComplete?: boolean
   savedPaymentMethodId?: string | null
+  setupIntentClientSecret?: string | null
   "data-testid": string
 }
+
+const FINAL_CHARGE_CONSENT_VERSION = "catch-weight-final-charge-2026-05-31"
+const FINAL_CHARGE_CONSENT_TEXT =
+  "I agree that Griller's Pride will save my card today without charging or authorizing the estimated total, then charge the final weighed amount right before shipment. If the charge fails, the order will be held."
 
 const PaymentButton: React.FC<PaymentButtonProps> = ({
   cart,
   cardComplete = false,
   savedPaymentMethodId,
+  setupIntentClientSecret,
   "data-testid": dataTestId,
 }) => {
   // All fulfillment types (including pickup) now set a shipping method on the cart
@@ -61,18 +69,15 @@ const PaymentButton: React.FC<PaymentButtonProps> = ({
     !cart.email ||
     (cart.shipping_methods?.length ?? 0) < 1
 
-  const paymentSession = cart.payment_collection?.payment_sessions?.find(
-    (session) => session.status === "pending" && isStripe(session.provider_id)
-  )
-
   switch (true) {
-    case isStripe(paymentSession?.provider_id):
+    case Boolean(savedPaymentMethodId || setupIntentClientSecret):
       return (
         <StripePaymentButton
           notReady={notReady}
           cart={cart}
           cardComplete={cardComplete}
           savedPaymentMethodId={savedPaymentMethodId}
+          setupIntentClientSecret={setupIntentClientSecret}
           data-testid={dataTestId}
         />
       )
@@ -86,20 +91,30 @@ const StripePaymentButton = ({
   notReady,
   cardComplete = false,
   savedPaymentMethodId,
+  setupIntentClientSecret,
   "data-testid": dataTestId,
 }: {
   cart: HttpTypes.StoreCart
   notReady: boolean
   cardComplete?: boolean
   savedPaymentMethodId?: string | null
+  setupIntentClientSecret?: string | null
   "data-testid"?: string
 }) => {
   const [submitting, setSubmitting] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const submittingRef = useRef(false)
 
-  const onPaymentCompleted = async () => {
-    await placeOrder()
+  const onPaymentCompleted = async (
+    paymentMethodId: string,
+    setupIntentId?: string | null
+  ) => {
+    await placeOrderWithSavedPaymentMethod({
+      paymentMethodId,
+      setupIntentId,
+      consentVersion: FINAL_CHARGE_CONSENT_VERSION,
+      consentText: FINAL_CHARGE_CONSENT_TEXT,
+    })
       .catch((err) => {
         setErrorMessage(err.message)
       })
@@ -113,20 +128,16 @@ const StripePaymentButton = ({
   const elements = useElements()
   const card = elements?.getElement("card")
 
-  const session = cart.payment_collection?.payment_sessions?.find(
-    (s) => s.status === "pending"
-  )
-
   const disabled = savedPaymentMethodId
-    ? !stripe
-    : !stripe || !elements || !card || !cardComplete
+    ? false
+    : !stripe || !elements || !card || !cardComplete || !setupIntentClientSecret
 
   const handlePayment = async () => {
     if (submittingRef.current) return
     submittingRef.current = true
     setSubmitting(true)
 
-    if (!stripe || !cart || (!savedPaymentMethodId && (!elements || !card))) {
+    if (!cart || (!savedPaymentMethodId && (!stripe || !elements || !card))) {
       submittingRef.current = false
       setSubmitting(false)
       return
@@ -141,65 +152,60 @@ const StripePaymentButton = ({
       return
     }
 
-    const paymentMethod = savedPaymentMethodId
-      ? savedPaymentMethodId
-      : {
-          card: card!,
-          billing_details: {
-            name:
-              cart.billing_address?.first_name +
-              " " +
-              cart.billing_address?.last_name,
-            address: {
-              city: cart.billing_address?.city ?? undefined,
-              country: cart.billing_address?.country_code ?? undefined,
-              line1: cart.billing_address?.address_1 ?? undefined,
-              line2: cart.billing_address?.address_2 ?? undefined,
-              postal_code: cart.billing_address?.postal_code ?? undefined,
-              state: cart.billing_address?.province ?? undefined,
-            },
-            email: cart.email,
-            phone: cart.billing_address?.phone ?? undefined,
+    if (savedPaymentMethodId) {
+      await onPaymentCompleted(savedPaymentMethodId, null)
+      return
+    }
+
+    const result = await stripe!.confirmCardSetup(setupIntentClientSecret!, {
+      payment_method: {
+        card: card!,
+        billing_details: {
+          name:
+            cart.billing_address?.first_name +
+            " " +
+            cart.billing_address?.last_name,
+          address: {
+            city: cart.billing_address?.city ?? undefined,
+            country: cart.billing_address?.country_code ?? undefined,
+            line1: cart.billing_address?.address_1 ?? undefined,
+            line2: cart.billing_address?.address_2 ?? undefined,
+            postal_code: cart.billing_address?.postal_code ?? undefined,
+            state: cart.billing_address?.province ?? undefined,
           },
-        }
+          email: cart.email,
+          phone: cart.billing_address?.phone ?? undefined,
+        },
+      },
+    })
 
-    await stripe
-      .confirmCardPayment(session?.data.client_secret as string, {
-        payment_method: paymentMethod,
+    if (result.error) {
+      jitsuTrack("payment_setup_failed", {
+        cart_id: cart.id,
+        error_message: result.error.message,
+        error_code: result.error.code,
+        payment_type: "stripe_card_setup",
       })
-      .then(({ error, paymentIntent }) => {
-        if (error) {
-          const pi = error.payment_intent
+      setErrorMessage(result.error.message || null)
+      submittingRef.current = false
+      setSubmitting(false)
+      return
+    }
 
-          if (
-            (pi && pi.status === "requires_capture") ||
-            (pi && pi.status === "succeeded")
-          ) {
-            onPaymentCompleted()
-          } else {
-            jitsuTrack("payment_failed", {
-              cart_id: cart.id,
-              error_message: error.message,
-              error_code: error.code,
-              payment_type: "stripe_card",
-              value: (cart.total || 0) / 100,
-              currency: cart.currency_code?.toUpperCase() || "USD",
-            })
-          }
+    const setupIntent = result.setupIntent
+    const paymentMethodId =
+      typeof setupIntent?.payment_method === "string"
+        ? setupIntent.payment_method
+        : setupIntent?.payment_method?.id
 
-          setErrorMessage(error.message || null)
-          return
-        }
+    if (!setupIntent?.id || !paymentMethodId || setupIntent.status !== "succeeded") {
+      setErrorMessage("Card setup did not complete. Please try again.")
+      submittingRef.current = false
+      setSubmitting(false)
+      return
+    }
 
-        if (
-          (paymentIntent && paymentIntent.status === "requires_capture") ||
-          paymentIntent.status === "succeeded"
-        ) {
-          return onPaymentCompleted()
-        }
-
-        return
-      })
+    await onPaymentCompleted(paymentMethodId, setupIntent.id)
   }
 
   return (
@@ -215,7 +221,7 @@ const StripePaymentButton = ({
         isLoading={submitting}
         data-testid={dataTestId}
       >
-        Complete Purchase
+        {savedPaymentMethodId ? "Place Order" : "Save Card & Place Order"}
       </GoldButton>
     </>
   )

@@ -40,6 +40,7 @@ import {
 import type { StaffImpersonationSession } from "@lib/data/staff/impersonation-types"
 import StaffOrderExceptionConsole from "@modules/staff/components/order-exception-console"
 import StaffTeamAccessConsole from "@modules/staff/components/team-access-console"
+import StaffCatchWeightFinalizationConsole from "@modules/staff/components/catch-weight-finalization-console"
 
 type Props = {
   countryCode: string
@@ -51,6 +52,7 @@ type Props = {
 type StaffWorkspace =
   | "phone_order"
   | "new_customer"
+  | "finalization"
   | "exceptions"
   | "team_access"
 
@@ -837,8 +839,8 @@ export default function PhoneOrderCopilot({
       <div
         className={`grid gap-3 ${
           canManageTeamAccess
-            ? "md:grid-cols-2 xl:grid-cols-5"
-            : "md:grid-cols-2 xl:grid-cols-4"
+            ? "md:grid-cols-2 xl:grid-cols-6"
+            : "md:grid-cols-2 xl:grid-cols-5"
         }`}
       >
         <button
@@ -859,6 +861,26 @@ export default function PhoneOrderCopilot({
           <span className="mt-2 block text-sm font-maison-neue opacity-75">
             Find the customer, enter their account, then shop, reorder, edit
             addresses, and check out from the customer-facing flow.
+          </span>
+        </button>
+        <button
+          className={`rounded-lg border p-5 text-left transition ${
+            activeWorkspace === "finalization"
+              ? "border-Charcoal bg-Charcoal text-white"
+              : "border-gray-200 bg-white text-Charcoal hover:border-Gold/50"
+          }`}
+          onClick={() => setActiveWorkspace("finalization")}
+          type="button"
+        >
+          <span className="block text-xs font-maison-neue-mono uppercase opacity-70">
+            Back office
+          </span>
+          <span className="mt-2 block text-xl font-gyst font-bold">
+            Pack & Finalize
+          </span>
+          <span className="mt-2 block text-sm font-maison-neue opacity-75">
+            Enter actual weights, review final totals, charge saved cards, and
+            release orders for shipment.
           </span>
         </button>
         <button
@@ -942,6 +964,8 @@ export default function PhoneOrderCopilot({
 
       {activeWorkspace === "team_access" && canManageTeamAccess ? (
         <StaffTeamAccessConsole />
+      ) : activeWorkspace === "finalization" ? (
+        <StaffCatchWeightFinalizationConsole />
       ) : isCustomerWorkspace ? (
         <>
           <section className="rounded-lg border border-gray-200 bg-white p-5">

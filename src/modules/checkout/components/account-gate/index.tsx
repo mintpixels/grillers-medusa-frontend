@@ -15,7 +15,7 @@ type AccountGateProps = {
 /**
  * Account gate component that requires users to log in or create an account
  * before proceeding to checkout. This is necessary for catch-weight billing
- * where the final charge may differ from the initial authorization.
+ * where the final charge is made from a saved card after actual weights are known.
  */
 export default function AccountGate({
   cart,
@@ -78,9 +78,9 @@ export default function AccountGate({
               Why do I need an account?
             </p>
             <p className="text-sm text-Charcoal/70">
-              Many of our products are sold by weight. Your card will be
-              authorized for an estimated amount, and the final charge will be
-              based on actual weights when your order is packed.
+              Many of our products are sold by weight. Your card will be saved
+              securely, then charged for actual weights when your order is
+              packed and ready to leave.
             </p>
           </div>
         </div>
