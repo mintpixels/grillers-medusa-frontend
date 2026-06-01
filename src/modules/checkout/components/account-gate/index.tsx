@@ -78,9 +78,8 @@ export default function AccountGate({
               Why do I need an account?
             </p>
             <p className="text-sm text-Charcoal/70">
-              Many of our products are sold by weight. Your card will be saved
-              securely, then charged for actual weights when your order is
-              packed and ready to leave.
+              Many products are sold by weight. Sign in so we can save your card
+              today and charge the final total when your order is packed.
             </p>
           </div>
         </div>

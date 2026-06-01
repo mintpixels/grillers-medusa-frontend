@@ -375,7 +375,7 @@ const sections: GuideSection[] = [
     eyebrow: "Back office",
     title: "Pack & Finalize catch-weight orders",
     summary:
-      "Pack & Finalize is the staff queue for every submitted launch order: staff enter actual meat weights, review final totals, charge the saved card, release the order for shipment, and record fulfillment.",
+      "Pack & Finalize is the staff queue for every submitted launch order: staff enter actual meat weights, resolve substitutions or removals, review final totals, charge the saved card, and record fulfillment.",
     useFor: [
       "Every submitted customer order, because launch orders contain catch-weight items whose actual cut weight is not known until staff pick from the meat cabinet.",
       "Recording actual per-lb weights and piece counts before shipment.",
@@ -387,7 +387,9 @@ const sections: GuideSection[] = [
       "Open Staff Console and choose Pack & Finalize.",
       "Start the pack session for the order.",
       "Enter actual weight for every per-lb line and piece counts or quantity changes where needed.",
-      "Preview the order and fix any missing weights, missing QBD ListIDs, or removed-line reasons.",
+      "If the picker substitutes a line, choose Substituted, find the replacement product, confirm the replacement QBD ListID, and record the substitution reason.",
+      "If a line cannot be filled, choose Removed and record the removal reason.",
+      "Preview the order and fix any missing weights, missing QBD ListIDs, replacement identities, substitution reasons, or removed-line reasons.",
       "Approve the finalization only after the final total is correct.",
       "Click Charge & Release when the order is ready to leave. If Stripe fails, do not ship the order.",
       "After a successful charge, the order moves to Ready ship. Click Mark Fulfilled when staff physically hand off the pickup, delivery, or shipment so Medusa records the fulfillment.",
@@ -398,6 +400,7 @@ const sections: GuideSection[] = [
       "Fulfillment is blocked until the final Stripe charge succeeds.",
       "Ready ship means the card has been charged and fulfillment is allowed; it does not by itself mean Medusa has a fulfillment record.",
       "QuickBooks receives the finalized weighed lines, not the original estimate.",
+      "Use customer-safe product names when discussing substitutions. QBD ListIDs are staff/accounting identity only.",
       "A charge-failed hold means contact the customer for payment update before shipment.",
       "Final charge email goes after the card charge succeeds. It is separate from the checkout confirmation email.",
     ],
@@ -712,6 +715,7 @@ const playbooks: Playbook[] = [
     steps: [
       "Open Pack & Finalize and select the order.",
       "Confirm every per-lb line has actual weight and every line has a QBD ListID or approved accounting resolution.",
+      "For substituted lines, confirm the replacement product, replacement QBD ListID, and substitution reason are saved before preview.",
       "Preview and approve the final total.",
       "Click Charge & Release only when the order is actually ready to leave.",
       "If Stripe succeeds, click Mark Fulfilled when the order physically leaves or is handed off.",

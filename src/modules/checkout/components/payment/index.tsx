@@ -40,10 +40,9 @@ const NetWeightDisclaimer = () => (
           About Your Order Total
         </p>
         <p className="text-sm text-gray-600 leading-relaxed">
-          Your card will be saved today, but it will not be charged or
-          authorized for the estimate shown. We charge the final weighed amount
-          right before shipment. If that charge fails, the order will be held
-          and we will contact you.{" "}
+          Your card is saved today. We will charge the final order total when
+          your order is packed and ready to leave. If payment cannot be
+          completed then, we will contact you before it ships.{" "}
           <a
             href="/page/catch-weight-pricing"
             className="text-Gold hover:text-Gold/80 underline"
@@ -79,9 +78,7 @@ const Payment = ({
     availablePaymentMethods?.filter((pm) => isStripeFunc(pm.id)) ?? []
   const stripeProviderId = cardPaymentMethods[0]?.id
 
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(
-    ""
-  )
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("")
   const [selectedSavedPaymentMethodId, setSelectedSavedPaymentMethodId] =
     useState<string | null>(null)
 
@@ -203,7 +200,8 @@ const Payment = ({
   // All fulfillment types (including pickup) now set a shipping method on the cart,
   // so we always require shipping_methods to be present.
   const paymentReady =
-    (hasPreparedCardForFinalCharge && (cart?.shipping_methods?.length ?? 0) > 0) ||
+    (hasPreparedCardForFinalCharge &&
+      (cart?.shipping_methods?.length ?? 0) > 0) ||
     paidByGiftcard
 
   // Check if address step is complete (required before payment)

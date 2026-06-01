@@ -52,7 +52,7 @@ type PaymentButtonProps = {
 
 const FINAL_CHARGE_CONSENT_VERSION = "catch-weight-final-charge-2026-05-31"
 const FINAL_CHARGE_CONSENT_TEXT =
-  "I agree that Griller's Pride will save my card today without charging or authorizing the estimated total, then charge the final weighed amount right before shipment. If the charge fails, the order will be held."
+  "I agree that Griller's Pride will save my card today and charge the final order total when my order is packed and ready to leave."
 
 const PaymentButton: React.FC<PaymentButtonProps> = ({
   cart,

@@ -48,6 +48,10 @@ export type StaffCatchWeightLine = {
   final_line_total?: number | string | null
   delta_line_total?: number | string | null
   status: string
+  replacement_variant_id?: string | null
+  replacement_qbd_list_id?: string | null
+  replacement_reason?: string | null
+  short_reason?: string | null
   note?: string | null
   errors?: Array<{ message?: string } | string>
   warnings?: Array<{ message?: string } | string>
@@ -141,6 +145,9 @@ export async function updateCatchWeightFinalizationLine(input: {
   actual_quantity?: string
   actual_unit_price?: string
   status?: string
+  replacement_variant_id?: string
+  replacement_qbd_list_id?: string
+  replacement_reason?: string
   short_reason?: string
   note?: string
 }) {
@@ -154,6 +161,9 @@ export async function updateCatchWeightFinalizationLine(input: {
         actual_quantity: input.actual_quantity || null,
         actual_unit_price: input.actual_unit_price || null,
         status: input.status || null,
+        replacement_variant_id: input.replacement_variant_id || null,
+        replacement_qbd_list_id: input.replacement_qbd_list_id || null,
+        replacement_reason: input.replacement_reason || null,
         short_reason: input.short_reason || null,
         note: input.note || null,
       }),

@@ -98,6 +98,7 @@ export type StaffProductSearchResult = {
   variantId: string
   variantTitle: string
   sku: string
+  qbdListId?: string
   inventoryQuantity?: number
   manageInventory?: boolean
   allowBackorder?: boolean
@@ -1384,35 +1385,47 @@ export async function searchStaffProducts(
         region_id: region.id,
         limit: 16,
         fields:
-          "*variants.calculated_price,+variants.inventory_quantity,+metadata,+tags,thumbnail,handle,title",
+          "*variants.calculated_price,+variants.inventory_quantity,+variants.metadata,+metadata,+tags,thumbnail,handle,title",
       },
     }
   )
 
   const results = (products || []).flatMap((product) =>
-    (product.variants || []).map((variant: AnyRecord) => ({
-      productId: product.id,
-      title: product.title || "",
-      handle: product.handle || "",
-      thumbnail: product.thumbnail || undefined,
-      variantId: variant.id,
-      variantTitle: variant.title || "Default",
-      sku: variant.sku || "",
-      inventoryQuantity:
-        typeof variant.inventory_quantity === "number"
-          ? variant.inventory_quantity
-          : undefined,
-      manageInventory: Boolean(variant.manage_inventory),
-      allowBackorder: Boolean(variant.allow_backorder),
-      calculatedAmount:
-        typeof variant.calculated_price?.calculated_amount === "number"
-          ? variant.calculated_price.calculated_amount
-          : undefined,
-      currencyCode:
-        variant.calculated_price?.currency_code ||
-        region.currency_code ||
-        "usd",
-    }))
+    (product.variants || []).map((variant: AnyRecord) => {
+      const productMetadata = product.metadata || {}
+      const variantMetadata = variant.metadata || {}
+      const qbdListId =
+        variantMetadata.qbd_list_id ||
+        variantMetadata.quickbooks_list_id ||
+        productMetadata.qbd_list_id ||
+        productMetadata.quickbooks_list_id ||
+        undefined
+
+      return {
+        productId: product.id,
+        title: product.title || "",
+        handle: product.handle || "",
+        thumbnail: product.thumbnail || undefined,
+        variantId: variant.id,
+        variantTitle: variant.title || "Default",
+        sku: variant.sku || "",
+        qbdListId: qbdListId ? String(qbdListId) : undefined,
+        inventoryQuantity:
+          typeof variant.inventory_quantity === "number"
+            ? variant.inventory_quantity
+            : undefined,
+        manageInventory: Boolean(variant.manage_inventory),
+        allowBackorder: Boolean(variant.allow_backorder),
+        calculatedAmount:
+          typeof variant.calculated_price?.calculated_amount === "number"
+            ? variant.calculated_price.calculated_amount
+            : undefined,
+        currencyCode:
+          variant.calculated_price?.currency_code ||
+          region.currency_code ||
+          "usd",
+      }
+    })
   )
 
   const availability = await checkStaffInventoryAvailability({
@@ -1430,7 +1443,10 @@ export async function searchStaffProducts(
           : result.title,
     })),
   }).catch((err) => {
-    console.error("[staff-phone-order] inventory search availability failed", err)
+    console.error(
+      "[staff-phone-order] inventory search availability failed",
+      err
+    )
     return null
   })
   const byVariant = new Map(
@@ -1488,17 +1504,23 @@ export async function prepareStaffPhoneOrder(
     const blockedLines = availability.lines.filter((line) =>
       ["partial", "blocked", "inactive"].includes(line.decision)
     )
-    const inactiveLine = blockedLines.find((line) => line.decision === "inactive")
+    const inactiveLine = blockedLines.find(
+      (line) => line.decision === "inactive"
+    )
     if (inactiveLine) {
       throw new Error(
-        `${inactiveLine.title || inactiveLine.sku || inactiveLine.variant_id} is not currently sellable. Choose a different item.`
+        `${
+          inactiveLine.title || inactiveLine.sku || inactiveLine.variant_id
+        } is not currently sellable. Choose a different item.`
       )
     }
     const missingOverride = blockedLines.find((line) => {
       const inputLine = input.lines.find(
         (candidate) => candidate.variantId === line.variant_id
       )
-      return !inputLine?.overrideReason?.trim() || !inputLine?.overrideNote?.trim()
+      return (
+        !inputLine?.overrideReason?.trim() || !inputLine?.overrideNote?.trim()
+      )
     })
     if (missingOverride) {
       throw new Error(
@@ -1779,10 +1801,15 @@ export async function completeStaffPhoneOrder(
       if (!availability) continue
       if (availability.decision === "inactive") {
         throw new Error(
-          `${availability.title || availability.sku || availability.variant_id} is not currently sellable. Choose a different item.`
+          `${
+            availability.title || availability.sku || availability.variant_id
+          } is not currently sellable. Choose a different item.`
         )
       }
-      if (availability.decision === "partial" || availability.decision === "blocked") {
+      if (
+        availability.decision === "partial" ||
+        availability.decision === "blocked"
+      ) {
         const lineMetadata = (itemRecord.metadata || {}) as AnyRecord
         if (
           !metadataText(lineMetadata.inventory_override_reason) ||

@@ -27,9 +27,8 @@ const NetWeightDisclaimer = () => (
           About Your Order Total
         </p>
         <p className="text-sm text-gray-600 leading-relaxed">
-          Your card will be saved today, but it will not be charged or
-          authorized for the estimate shown. We charge the final weighed amount
-          right before shipment.{" "}
+          Your card is saved today. We will charge the final order total when
+          your order is packed and ready to leave.{" "}
           <a
             href="/page/catch-weight-pricing"
             className="text-Gold hover:text-Gold/80 underline"
@@ -62,19 +61,25 @@ const Review = ({ cart }: { cart: any }) => {
     <div>
       {/* Step header */}
       <div className="flex items-center gap-3 mb-4">
-        <span className={clx(
-          "flex items-center justify-center w-7 h-7 rounded-full text-sm font-semibold",
-          {
-            "bg-Gold text-white": isOpen,
-            "bg-gray-200 text-gray-400": !isOpen,
-          }
-        )}>
+        <span
+          className={clx(
+            "flex items-center justify-center w-7 h-7 rounded-full text-sm font-semibold",
+            {
+              "bg-Gold text-white": isOpen,
+              "bg-gray-200 text-gray-400": !isOpen,
+            }
+          )}
+        >
           4
         </span>
-        <h2 className={clx("text-lg font-semibold", {
-          "text-gray-900": isOpen,
-          "text-gray-400": !isOpen,
-        })}>Review & Place Order</h2>
+        <h2
+          className={clx("text-lg font-semibold", {
+            "text-gray-900": isOpen,
+            "text-gray-400": !isOpen,
+          })}
+        >
+          Review & Place Order
+        </h2>
       </div>
 
       {isOpen && previousStepsCompleted && (
@@ -83,11 +88,20 @@ const Review = ({ cart }: { cart: any }) => {
 
           <p className="text-sm text-gray-500 mb-5 leading-relaxed">
             By clicking Place Order, you agree to our{" "}
-            <a href="/terms" className="text-Gold hover:underline">Terms of Use</a>,{" "}
-            <a href="/terms-of-sale" className="text-Gold hover:underline">Terms of Sale</a>, and{" "}
-            <a href="/privacy" className="text-Gold hover:underline">Privacy Policy</a>.
+            <a href="/terms" className="text-Gold hover:underline">
+              Terms of Use
+            </a>
+            ,{" "}
+            <a href="/terms-of-sale" className="text-Gold hover:underline">
+              Terms of Sale
+            </a>
+            , and{" "}
+            <a href="/privacy" className="text-Gold hover:underline">
+              Privacy Policy
+            </a>
+            .
           </p>
-          
+
           <PaymentButton cart={cart} data-testid="submit-order-button" />
         </>
       )}

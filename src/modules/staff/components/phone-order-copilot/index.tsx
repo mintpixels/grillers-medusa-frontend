@@ -796,7 +796,7 @@ export default function PhoneOrderCopilot({
       id: "finalization",
       eyebrow: "Back office",
       title: "Pack & finalize",
-      body: "Enter actual catch weights, review final totals, charge the saved card, and release shipment.",
+      body: "Enter actual catch weights, review final totals, charge the saved card, and record fulfillment.",
       icon: PackageCheck,
       onClick: () => setActiveWorkspace("finalization"),
     },
