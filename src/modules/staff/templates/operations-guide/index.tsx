@@ -375,7 +375,7 @@ const sections: GuideSection[] = [
     eyebrow: "Back office",
     title: "Pack & Finalize catch-weight orders",
     summary:
-      "Pack & Finalize is the staff queue for every submitted launch order: staff enter actual meat weights, review final totals, charge the saved card, and release the order for shipment.",
+      "Pack & Finalize is the staff queue for every submitted launch order: staff enter actual meat weights, review final totals, charge the saved card, release the order for shipment, and record fulfillment.",
     useFor: [
       "Every submitted customer order, because launch orders contain catch-weight items whose actual cut weight is not known until staff pick from the meat cabinet.",
       "Recording actual per-lb weights and piece counts before shipment.",
@@ -390,11 +390,13 @@ const sections: GuideSection[] = [
       "Preview the order and fix any missing weights, missing QBD ListIDs, or removed-line reasons.",
       "Approve the finalization only after the final total is correct.",
       "Click Charge & Release when the order is ready to leave. If Stripe fails, do not ship the order.",
-      "After a successful charge, verify the order is ready to ship and that QuickBooks posting is pending or complete.",
+      "After a successful charge, the order moves to Ready ship. Click Mark Fulfilled when staff physically hand off the pickup, delivery, or shipment so Medusa records the fulfillment.",
+      "After fulfillment, verify QuickBooks posting is pending or complete.",
     ],
     watch: [
       "Stripe must not see an estimated catch-weight amount. It should only see the final weighed amount at Charge & Release.",
       "Fulfillment is blocked until the final Stripe charge succeeds.",
+      "Ready ship means the card has been charged and fulfillment is allowed; it does not by itself mean Medusa has a fulfillment record.",
       "QuickBooks receives the finalized weighed lines, not the original estimate.",
       "A charge-failed hold means contact the customer for payment update before shipment.",
       "Final charge email goes after the card charge succeeds. It is separate from the checkout confirmation email.",
@@ -712,7 +714,8 @@ const playbooks: Playbook[] = [
       "Confirm every per-lb line has actual weight and every line has a QBD ListID or approved accounting resolution.",
       "Preview and approve the final total.",
       "Click Charge & Release only when the order is actually ready to leave.",
-      "If Stripe succeeds, proceed with shipment and then check QuickBooks posting status after Web Connector runs.",
+      "If Stripe succeeds, click Mark Fulfilled when the order physically leaves or is handed off.",
+      "After fulfillment, check QuickBooks posting status after Web Connector runs.",
       "If Stripe fails, hold the order and contact the customer for updated payment before shipment.",
     ],
   },
