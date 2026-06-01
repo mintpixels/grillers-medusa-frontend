@@ -14,6 +14,8 @@ import {
   SITE_NAME,
 } from "@lib/util/seo"
 
+const TYPEKIT_STYLESHEET = "https://use.typekit.net/ddo8gwe.css"
+
 // Site-wide robots policy. Production indexes normally; every other
 // environment (Vercel previews, localhost) emits `noindex, nofollow` so
 // search engines can't index staging URLs and split ranking signal away
@@ -73,6 +75,18 @@ export default function RootLayout(props: { children: React.ReactNode }) {
   const baseUrl = getBaseURL()
   const strapiMediaOrigin = getStrapiMediaOrigin()
   const algoliaDsnOrigin = getAlgoliaDsnOrigin()
+  const asyncTypekitLoader = `
+!function(d){
+  var href=${JSON.stringify(TYPEKIT_STYLESHEET)};
+  if(d.querySelector('link[href="'+href+'"]')) return;
+  var l=d.createElement('link');
+  l.rel='stylesheet';
+  l.href=href;
+  l.media='print';
+  l.onload=function(){this.media='all'};
+  d.head.appendChild(l);
+}(document);
+`
   const siteJsonLd = {
     "@context": "https://schema.org",
     "@graph": [
@@ -114,7 +128,12 @@ export default function RootLayout(props: { children: React.ReactNode }) {
         {algoliaDsnOrigin && (
           <link rel="preconnect" href={algoliaDsnOrigin} crossOrigin="" />
         )}
-        <link rel="stylesheet" href="https://use.typekit.net/ddo8gwe.css" />
+        <link rel="preconnect" href="https://use.typekit.net" />
+        <link rel="preconnect" href="https://p.typekit.net" />
+        <script dangerouslySetInnerHTML={{ __html: asyncTypekitLoader }} />
+        <noscript>
+          <link rel="stylesheet" href={TYPEKIT_STYLESHEET} />
+        </noscript>
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(siteJsonLd) }}

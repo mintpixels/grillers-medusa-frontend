@@ -1,6 +1,6 @@
-import Link from "next/link"
 import Image from "next/image"
 import { generatedSiteImages } from "@lib/content/generated-site-images"
+import HeroCta from "@modules/home/components/hero-cta"
 
 type HeroProps = {
   data: {
@@ -14,18 +14,9 @@ type HeroProps = {
     }
   }
   countryCode?: string
-  // Customer state used to render a state-conditional CTA (#57). Strapi's
-  // CTAButton (if set) overrides — editorial control wins.
-  isLoggedIn?: boolean
-  hasOrders?: boolean
 }
 
-const Hero = ({
-  data,
-  countryCode = "us",
-  isLoggedIn,
-  hasOrders,
-}: HeroProps) => {
+const Hero = ({ data, countryCode = "us" }: HeroProps) => {
   // Strapi-managed CTA wins when set; otherwise pick a state-conditional
   // default so every visitor has a clear next action.
   //
@@ -41,18 +32,6 @@ const Hero = ({
   //      (per QBD margin leaderboard) and a clean editorial landing.
   //      "Browse Bestsellers" → #bestsellers wasn't helping either —
   //      the bestsellers row sits one section below the hero already.
-  const fallbackCta =
-    isLoggedIn && hasOrders
-      ? {
-          text: "Reorder your favorites",
-          href: `/${countryCode}/account/reorder`,
-        }
-      : {
-          text: "Shop Kosher Beef",
-          href: `/${countryCode}/collections/kosher-beef`,
-        }
-  const ctaText = data?.CTAButton?.Text || fallbackCta.text
-  const ctaHref = data?.CTAButton?.Url || fallbackCta.href
   const heroImage = data?.BackgroundImage?.url || generatedSiteImages.homeHero
 
   return (
@@ -65,6 +44,7 @@ const Hero = ({
         alt=""
         fill
         priority
+        fetchPriority="high"
         sizes="100vw"
         className="absolute inset-0 object-cover"
         aria-hidden="true"
@@ -85,14 +65,11 @@ const Hero = ({
             {data?.HeroTitle}
           </h1>
         </div>
-        {ctaText && ctaHref && (
-          <Link
-            href={ctaHref}
-            className="mt-8 inline-block bg-Gold hover:bg-Gold/90 text-Charcoal font-maison-neue font-bold text-p-md px-8 py-4 rounded-[5px] uppercase tracking-wide transition-colors focus:outline-none focus:ring-2 focus:ring-Gold focus:ring-offset-2 focus:ring-offset-black"
-          >
-            {ctaText}
-          </Link>
-        )}
+        <HeroCta
+          countryCode={countryCode}
+          editorialText={data?.CTAButton?.Text}
+          editorialHref={data?.CTAButton?.Url}
+        />
       </div>
     </section>
   )

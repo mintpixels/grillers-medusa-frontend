@@ -11,7 +11,7 @@ const WholesaleBand: React.FC = () => {
       <div className="absolute inset-x-0 top-0 h-[5px] bg-Gold" />
       <div className="content-container py-12 md:py-16 lg:py-24">
         <div className="lg:hidden">
-          <p className="mb-4 font-rexton text-[11px] font-bold uppercase tracking-[2px] text-Gold">
+          <p className="mb-4 font-rexton text-[11px] font-bold uppercase tracking-[2px] text-[#755016]">
             For caterers · restaurants · congregations
           </p>
           <h2 className="mb-4 max-w-[390px] font-rexton text-[34px] font-bold uppercase leading-[0.98] tracking-[0.06em] text-Charcoal">
@@ -32,7 +32,7 @@ const WholesaleBand: React.FC = () => {
 
         <div className="hidden lg:grid lg:grid-cols-12 lg:items-end lg:gap-12">
           <div className="lg:col-span-7">
-            <div className="mb-5 font-rexton text-[11px] font-bold uppercase tracking-[2px] text-Gold">
+            <div className="mb-5 font-rexton text-[11px] font-bold uppercase tracking-[2px] text-[#755016]">
               For caterers · restaurants · congregations
             </div>
             <h2 className="mb-6 max-w-[700px] font-rexton text-[clamp(3.5rem,5.6vw,6.8rem)] font-bold uppercase leading-[0.98] tracking-[0.06em] text-Charcoal">

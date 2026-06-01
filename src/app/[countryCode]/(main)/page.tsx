@@ -10,23 +10,12 @@ import ShopCollectionsSection from "@modules/home/components/shop-collections"
 import LearnEntrySection from "@modules/home/components/learn-entry"
 import FollowUsSection from "@modules/home/components/follow-us"
 import BlogExploreSection from "@modules/home/components/blog-explore"
-import ReorderRow from "@modules/home/components/reorder-row"
+import PersonalizedReorderRow from "@modules/home/components/personalized-reorder-row"
 import HolidayBanner from "@modules/home/components/holiday-banner"
 import SpecialtyRow from "@modules/home/components/specialty-row"
 import DeliveryPromiseSection from "@modules/home/components/delivery-promise"
 import LazySection from "@modules/common/components/lazy-section"
 import StandardsComparison from "@modules/common/components/standards-comparison"
-import { getRegion } from "@lib/data/regions"
-import { retrieveCart } from "@lib/data/cart"
-import { retrieveCustomer } from "@lib/data/customer"
-import {
-  getLatestOrderDeliveryZip,
-  listPurchaseHistory,
-} from "@lib/data/orders"
-import {
-  getProductsByMedusaLookupRefs,
-  type StrapiCollectionProduct,
-} from "@lib/data/strapi/collections"
 import { getCuratedCollectionCards } from "@lib/data/strapi/curated-collections"
 import strapiClient from "@lib/strapi"
 import { GetHomePageQuery, type HomePageData } from "@lib/data/strapi/home"
@@ -39,109 +28,19 @@ import {
 import { generateAlternates } from "@lib/util/seo"
 import { getBaseURL } from "@lib/util/env"
 import { withTimeout } from "@lib/util/promise-timeout"
-import {
-  getAddressBookDeliveryZip,
-  normalizeDeliveryZip,
-} from "@lib/util/delivery-zip"
-import ExperimentExposure from "@lib/experiments/exposure"
-import { getExperimentAssignment } from "@lib/experiments/server"
 import { resolveHomeSections } from "@lib/util/home-sections"
 
 type PageProps = {
   params: Promise<{ countryCode: string }>
 }
 
-type PurchaseHistory = Awaited<ReturnType<typeof listPurchaseHistory>>
-type ReorderStrapiMap = Record<string, StrapiCollectionProduct>
+export function generateStaticParams() {
+  return [{ countryCode: "us" }]
+}
+
 type CuratedCollectionCards = Awaited<
   ReturnType<typeof getCuratedCollectionCards>
 >
-type CustomerZipSource = "cart" | "address" | "recent_order" | null
-type CustomerZipState = {
-  customerZip: string | null
-  customerZipSource: CustomerZipSource
-}
-
-function presentString(value: string | null | undefined): value is string {
-  return Boolean(value)
-}
-
-async function getReorderStrapiMap(
-  purchaseHistory: PurchaseHistory
-): Promise<ReorderStrapiMap> {
-  const reorderStrapiMap: ReorderStrapiMap = {}
-
-  if (!purchaseHistory.length) {
-    return reorderStrapiMap
-  }
-
-  const ids = Array.from(
-    new Set(purchaseHistory.map((h) => h.productId).filter(presentString))
-  )
-  const variantIds = Array.from(
-    new Set(purchaseHistory.map((h) => h.variantId).filter(presentString))
-  )
-  const skus = Array.from(
-    new Set(purchaseHistory.map((h) => h.sku).filter(presentString))
-  )
-
-  if (!ids.length && !variantIds.length && !skus.length) {
-    return reorderStrapiMap
-  }
-
-  try {
-    const strapiProducts = await withTimeout(
-      getProductsByMedusaLookupRefs(
-        { productIds: ids, variantIds, skus },
-        strapiClient
-      ),
-      1800,
-      [],
-      "home reorder enrichment"
-    )
-
-    for (const sp of strapiProducts) {
-      if (sp.MedusaProduct?.ProductId) {
-        reorderStrapiMap[sp.MedusaProduct.ProductId] = sp
-      }
-      for (const variant of sp.MedusaProduct?.Variants || []) {
-        if (variant.VariantId) {
-          reorderStrapiMap[variant.VariantId] = sp
-        }
-        if (variant.Sku) {
-          reorderStrapiMap[variant.Sku.trim().toLowerCase()] = sp
-        }
-      }
-    }
-  } catch (error) {
-    console.error("Error fetching reorder strapi enrichment:", error)
-  }
-
-  return reorderStrapiMap
-}
-
-async function ReorderRowBlock({
-  history,
-  strapiMapPromise,
-  firstName,
-  countryCode,
-}: {
-  history: PurchaseHistory
-  strapiMapPromise: Promise<ReorderStrapiMap>
-  firstName?: string | null
-  countryCode: string
-}) {
-  const strapiMap = await strapiMapPromise
-
-  return (
-    <ReorderRow
-      history={history}
-      strapiMap={strapiMap}
-      firstName={firstName}
-      countryCode={countryCode}
-    />
-  )
-}
 
 async function ShopCollectionsBlock({
   data,
@@ -163,24 +62,9 @@ async function ShopCollectionsBlock({
   )
 }
 
-async function DeliveryPromiseBlock({
-  countryCode,
-  customerZipPromise,
-  isLoggedIn,
-}: {
-  countryCode: string
-  customerZipPromise: Promise<CustomerZipState>
-  isLoggedIn: boolean
-}) {
-  const { customerZip, customerZipSource } = await customerZipPromise
-
+async function DeliveryPromiseBlock({ countryCode }: { countryCode: string }) {
   return (
-    <DeliveryPromiseSection
-      countryCode={countryCode}
-      customerZip={customerZip}
-      customerZipSource={customerZipSource}
-      isLoggedIn={isLoggedIn}
-    />
+    <DeliveryPromiseSection countryCode={countryCode} useStorefrontSession />
   )
 }
 
@@ -253,20 +137,7 @@ export default async function Home(props: {
 
   const { countryCode } = params
 
-  const [region, customer, cart, strapiData, globalData] = await Promise.all([
-    withTimeout(getRegion(countryCode), 1200, null, "home region"),
-    withTimeout(
-      retrieveCustomer().catch(() => null),
-      1000,
-      null,
-      "home customer"
-    ),
-    withTimeout(
-      retrieveCart().catch(() => null),
-      1000,
-      null,
-      "home cart"
-    ),
+  const [strapiData, globalData] = await Promise.all([
     withTimeout(
       strapiClient.request<HomePageData>(GetHomePageQuery).catch(() => null),
       3000,
@@ -281,73 +152,19 @@ export default async function Home(props: {
     ),
   ])
 
-  if (!region) {
-    // Fail open (same rationale as resolveHomeSections below): a transient
-    // Medusa region timeout must never blank the whole homepage. `region` is
-    // not consumed in the body — child sections re-resolve it per countryCode —
-    // so continuing without it degrades gracefully instead of rendering blank.
-    console.warn(
-      "home: region unavailable for countryCode; rendering without it"
-    )
-  }
-
-  // Customer state for the conditional Hero CTA (#57). Legacy QuickBooks
-  // history counts here, not just native Medusa orders, so migrated customers
-  // immediately get the reorder path on first login.
-  const isLoggedIn = !!customer
-  const cartZip = normalizeDeliveryZip(cart?.shipping_address?.postal_code)
-  const addressBookZip = getAddressBookDeliveryZip(customer?.addresses)
-  const latestOrderZipPromise =
-    isLoggedIn && !cartZip && !addressBookZip
-      ? withTimeout(
-          getLatestOrderDeliveryZip().catch(() => ""),
-          1000,
-          "",
-          "home latest order delivery zip"
-        )
-      : Promise.resolve("")
-  const customerZipPromise: Promise<CustomerZipState> =
-    latestOrderZipPromise.then((latestOrderZip) => {
-      const customerZip = cartZip || addressBookZip || latestOrderZip || null
-      const customerZipSource: CustomerZipSource = cartZip
-        ? "cart"
-        : addressBookZip
-        ? "address"
-        : latestOrderZip
-        ? "recent_order"
-        : null
-
-      return { customerZip, customerZipSource }
-    })
-
-  // Reorder-row data: fetch purchase history for logged-in customers. This
-  // combines native Medusa orders and the QuickBooks-backed legacy projection.
-  // Guests skip the call so the homepage RSC stays fast for them. (#53)
-  const purchaseHistory = isLoggedIn
-    ? await withTimeout(
-        listPurchaseHistory().catch(() => []),
-        1200,
-        [],
-        "home purchase history"
-      )
-    : []
-  const hasOrders = purchaseHistory.length > 0
-  const reorderStrapiMapPromise = getReorderStrapiMap(purchaseHistory)
-
   const homeCuratedCollectionsPromise = withTimeout(
     getCuratedCollectionCards({
       surface: "homepage",
-      customerState: hasOrders ? "returning" : "guest_or_no_orders",
+      customerState: "guest_or_no_orders",
       limit: 8,
     }),
     1800,
     [],
     "home curated collection cards"
   )
-  // Fail open: the route is force-dynamic and the body is driven entirely by
-  // the Strapi `home` query (3s timeout + .catch(()=>null)). Every Strapi
-  // publish busts the cached query; a slow/errored live re-fetch returned null
-  // Sections and the page rendered an empty <section> ("blank on normal load,
+  // Fail open: the body is driven by the Strapi `home` query (3s timeout +
+  // .catch(()=>null)). A slow/errored live re-fetch once returned null
+  // sections and the page rendered an empty <section> ("blank on normal load,
   // appears on hard reload"). resolveHomeSections substitutes a usable set so
   // the homepage is never blank.
   const { sections: homeSections, usedFallback: homeUsedFallback } =
@@ -378,17 +195,7 @@ export default async function Home(props: {
     baseUrl
   )
   const websiteJsonLd = generateWebSiteJsonLd(baseUrl, countryCode)
-  const homepageExperiment = await getExperimentAssignment(
-    "homepage_shopping_flow_v1",
-    {
-      routeMarket: countryCode,
-      customerType: customer ? "registered" : "guest",
-      userId: customer?.id,
-    }
-  )
-  const homepageVariant = homepageExperiment?.isEnabled
-    ? homepageExperiment.variantKey
-    : "control"
+  const homepageVariant: string = "control"
   const shouldMoveCollectionsEarly =
     homepageVariant === "products_earlier" && Boolean(shopCollectionsSection)
   const shouldDeferStory =
@@ -409,29 +216,15 @@ export default async function Home(props: {
           case "ComponentHomeHero":
             return (
               <React.Fragment key={section.__typename}>
-                <Hero
-                  data={section}
-                  countryCode={countryCode}
-                  isLoggedIn={isLoggedIn}
-                  hasOrders={hasOrders}
-                />
-                <TrustBand customer={customer} phoneNumber={null} />
+                <Hero data={section} countryCode={countryCode} />
+                <TrustBand phoneNumber={null} />
                 <HolidayBanner />
               </React.Fragment>
             )
           case "ComponentHomeBestsellers":
             return (
               <React.Fragment key={section.__typename}>
-                {isLoggedIn && hasOrders && purchaseHistory.length > 0 && (
-                  <React.Suspense fallback={null}>
-                    <ReorderRowBlock
-                      history={purchaseHistory}
-                      strapiMapPromise={reorderStrapiMapPromise}
-                      firstName={customer?.first_name}
-                      countryCode={countryCode}
-                    />
-                  </React.Suspense>
-                )}
+                <PersonalizedReorderRow countryCode={countryCode} />
                 <React.Suspense fallback={null}>
                   <BestsellersSection
                     data={section}
@@ -448,11 +241,7 @@ export default async function Home(props: {
                       />
                     </React.Suspense>
                     <React.Suspense fallback={null}>
-                      <DeliveryPromiseBlock
-                        countryCode={countryCode}
-                        customerZipPromise={customerZipPromise}
-                        isLoggedIn={isLoggedIn}
-                      />
+                      <DeliveryPromiseBlock countryCode={countryCode} />
                     </React.Suspense>
                   </>
                 )}
@@ -466,11 +255,7 @@ export default async function Home(props: {
                       />
                     </React.Suspense>
                     <React.Suspense fallback={null}>
-                      <DeliveryPromiseBlock
-                        countryCode={countryCode}
-                        customerZipPromise={customerZipPromise}
-                        isLoggedIn={isLoggedIn}
-                      />
+                      <DeliveryPromiseBlock countryCode={countryCode} />
                     </React.Suspense>
                     {!shouldDeferStory && storySupportSections}
                   </>
@@ -503,11 +288,7 @@ export default async function Home(props: {
                   />
                 </React.Suspense>
                 <React.Suspense fallback={null}>
-                  <DeliveryPromiseBlock
-                    countryCode={countryCode}
-                    customerZipPromise={customerZipPromise}
-                    isLoggedIn={isLoggedIn}
-                  />
+                  <DeliveryPromiseBlock countryCode={countryCode} />
                 </React.Suspense>
                 {!shouldDeferStory && storySupportSections}
               </React.Fragment>
@@ -540,7 +321,6 @@ export default async function Home(props: {
 
   return (
     <>
-      <ExperimentExposure assignment={homepageExperiment} />
       {/* Organization + WebSite JSON-LD for SEO (Google Knowledge Panel + sitelinks searchbox) */}
       {organizationJsonLd && (
         <script

@@ -1,81 +1,88 @@
-import { retrieveCart } from "@lib/data/cart"
-import { retrieveCustomer } from "@lib/data/customer"
-import { getDeliveryZipCookie } from "@lib/data/delivery-zip"
-import { getAtlantaDeliveryZipConfig } from "@lib/data/strapi/fulfillment"
-import { getAddressBookDeliveryZip } from "@lib/util/delivery-zip"
-import type { HttpTypes } from "@medusajs/types"
-import SideCart from "./index"
-import { getCartUpsellProducts } from "@modules/cart/components/cart-upsells/server"
-import { withTimeout } from "@lib/util/promise-timeout"
-import { buildCartProductDetailsMap } from "@lib/util/cart-product-details"
+"use client"
 
-/**
- * Server component wrapper that fetches cart data and renders the SideCart.
- * This is placed at the Layout level so the side cart is always available.
- */
-export default async function SideCartWrapper({
+import { useCallback, useEffect, useState } from "react"
+import type { HttpTypes } from "@medusajs/types"
+import type { AtlantaZipDayConfig } from "@lib/util/eligible-arrival-dates"
+import {
+  CART_UPDATED_EVENT,
+  type CartUpdatedDetail,
+} from "@lib/util/cart-events"
+import type { CartProductDetailsMap } from "@lib/util/cart-product-details"
+import type { CartUpsellProduct } from "@modules/cart/components/cart-upsells/types"
+import { useCart } from "./cart-context"
+import SideCart from "./index"
+
+type SideCartPayload = {
+  cart: HttpTypes.StoreCart | null
+  upsellProducts: CartUpsellProduct[]
+  countryCode: string
+  atlantaZipConfig?: Record<string, AtlantaZipDayConfig>
+  initialDeliveryZip?: string | null
+  productDetailsMap: CartProductDetailsMap
+}
+
+const emptyPayload = (countryCode: string): SideCartPayload => ({
+  cart: null,
+  upsellProducts: [],
+  countryCode,
+  atlantaZipConfig: undefined,
+  initialDeliveryZip: null,
+  productDetailsMap: {},
+})
+
+export default function SideCartWrapper({
   countryCode = "us",
-  cart: prefetchedCart,
-  customer: prefetchedCustomer,
 }: {
   countryCode?: string
-  cart?: HttpTypes.StoreCart | null
-  customer?: HttpTypes.StoreCustomer | null
 }) {
-  const [cart, atlantaZipConfig, savedZip, customer] = await Promise.all([
-    prefetchedCart !== undefined
-      ? prefetchedCart
-      : withTimeout(
-          retrieveCart().catch(() => null),
-          800,
-          null,
-          "side cart cart"
-        ),
-    withTimeout(
-      getAtlantaDeliveryZipConfig().catch(() => undefined),
-      800,
-      undefined,
-      "side cart delivery config"
-    ),
-    getDeliveryZipCookie(),
-    prefetchedCustomer !== undefined
-      ? prefetchedCustomer
-      : withTimeout(
-          retrieveCustomer().catch(() => null),
-          800,
-          null,
-          "side cart customer"
-        ),
-  ])
-  const [upsellProducts, productDetailsMap] = cart?.items?.length
-    ? await Promise.all([
-        withTimeout(
-          getCartUpsellProducts(countryCode).catch(() => []),
-          800,
-          [],
-          "side cart upsells"
-        ),
-        withTimeout(
-          buildCartProductDetailsMap(cart.items),
-          1000,
-          {},
-          "side cart product details"
-        ),
-      ])
-    : [[], {}]
-  const initialDeliveryZip =
-    cart?.shipping_address?.postal_code ||
-    savedZip ||
-    getAddressBookDeliveryZip(customer?.addresses)
-
-  return (
-    <SideCart
-      cart={cart}
-      upsellProducts={upsellProducts}
-      countryCode={countryCode}
-      atlantaZipConfig={atlantaZipConfig}
-      initialDeliveryZip={initialDeliveryZip}
-      productDetailsMap={productDetailsMap}
-    />
+  const { isOpen } = useCart()
+  const [payload, setPayload] = useState<SideCartPayload>(() =>
+    emptyPayload(countryCode)
   )
+  const [isLoading, setIsLoading] = useState(false)
+
+  const refreshSideCart = useCallback(async () => {
+    setIsLoading(true)
+
+    try {
+      const response = await fetch(
+        `/api/storefront/side-cart?countryCode=${encodeURIComponent(
+          countryCode
+        )}`,
+        {
+          credentials: "same-origin",
+          headers: {
+            Accept: "application/json",
+          },
+        }
+      )
+
+      if (!response.ok) return
+
+      const nextPayload = (await response.json()) as SideCartPayload
+      setPayload(nextPayload)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [countryCode])
+
+  useEffect(() => {
+    if (isOpen) {
+      void refreshSideCart()
+    }
+  }, [isOpen, refreshSideCart])
+
+  useEffect(() => {
+    const handleCartUpdated = (event: Event) => {
+      const detail = (event as CustomEvent<CartUpdatedDetail>).detail
+      if (!detail?.action) return
+      void refreshSideCart()
+    }
+
+    window.addEventListener(CART_UPDATED_EVENT, handleCartUpdated)
+    return () =>
+      window.removeEventListener(CART_UPDATED_EVENT, handleCartUpdated)
+  }, [refreshSideCart])
+
+  return <SideCart {...payload} isLoading={isLoading && isOpen} />
 }

@@ -128,6 +128,12 @@ function ensureExperimentIdCookie(
   return response
 }
 
+function publicShellResponse() {
+  const response = NextResponse.next()
+  response.headers.set("Cache-Control", "public, max-age=0, must-revalidate")
+  return response
+}
+
 /**
  * Middleware to handle region selection and onboarding status.
  */
@@ -141,20 +147,30 @@ export async function middleware(request: NextRequest) {
   let cacheIdCookie = request.cookies.get("_medusa_cache_id")
   let cacheId = cacheIdCookie?.value || crypto.randomUUID()
   const urlFirstSegment = request.nextUrl.pathname.split("/")[1]?.toLowerCase()
+  const urlSecondSegment = request.nextUrl.pathname.split("/")[2]?.toLowerCase()
+  const needsSessionCacheCookie = ["account", "cart", "checkout"].includes(
+    urlSecondSegment || ""
+  )
 
   // Griller's Pride currently sells through the default US storefront. Do not
   // put every localized page load behind Medusa /store/regions; if the backend
   // is cold or unavailable, the demo site should still render immediately.
   if (urlFirstSegment === DEFAULT_REGION) {
     if (cacheIdCookie) {
-      return ensureExperimentIdCookie(request, NextResponse.next())
+      return needsSessionCacheCookie
+        ? NextResponse.next()
+        : publicShellResponse()
+    }
+
+    if (!needsSessionCacheCookie) {
+      return publicShellResponse()
     }
 
     const nextResponse = NextResponse.next()
     nextResponse.cookies.set("_medusa_cache_id", cacheId, {
       maxAge: 60 * 60 * 24,
     })
-    return ensureExperimentIdCookie(request, nextResponse)
+    return nextResponse
   }
 
   let redirectUrl = request.nextUrl.href
@@ -169,7 +185,10 @@ export async function middleware(request: NextRequest) {
     // storefront route at the edge. Page-level data loaders already have
     // their own fallbacks; the middleware only needs enough information to
     // keep localized URLs such as /us/... moving.
-    console.error("Middleware.ts: Region lookup failed; falling back to default region.", error)
+    console.error(
+      "Middleware.ts: Region lookup failed; falling back to default region.",
+      error
+    )
     regionMap = new Map([[DEFAULT_REGION, 1]])
   }
 

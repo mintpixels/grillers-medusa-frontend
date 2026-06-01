@@ -1,6 +1,7 @@
 import { Metadata } from "next"
 
 import { generateAlternates } from "@lib/util/seo"
+import { getBaseURL } from "@lib/util/env"
 import { hitToProduct } from "@lib/algolia/hit-to-product"
 import { PRODUCT_INDEX } from "@lib/algolia/indexes"
 import { enrichStrapiProductsWithMedusaPrices } from "@lib/data/products"
@@ -14,9 +15,14 @@ import {
 import CollectionTemplate from "@modules/collections/templates"
 import ExperimentExposure from "@lib/experiments/exposure"
 import { getExperimentAssignment } from "@lib/experiments/server"
+import { itemListJsonLd, webPageJsonLd } from "@lib/util/structured-data"
 
 type Params = {
   params: Promise<{ countryCode: string }>
+}
+
+export function generateStaticParams() {
+  return [{ countryCode: "us" }]
 }
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
@@ -116,10 +122,44 @@ export default async function StorePage(props: Params) {
     routeMarket: countryCode,
     customerType: "unknown",
   })
+  const baseUrl = getBaseURL()
+  const productListJsonLd = itemListJsonLd(
+    baseUrl,
+    countryCode,
+    "All kosher products",
+    productsWithDisclosures
+      .filter((product) => product.MedusaProduct?.Handle)
+      .slice(0, 48)
+      .map((product) => ({
+        type: "Product",
+        name: product.Title,
+        path: `/products/${product.MedusaProduct!.Handle}`,
+        description:
+          product.MedusaProduct?.ShortDescription ||
+          product.MedusaProduct?.Description,
+        image: product.FeaturedImage?.url,
+      }))
+  )
+  const storeJsonLd = webPageJsonLd({
+    baseUrl,
+    countryCode,
+    path: "/store",
+    name: "Shop All Products",
+    description:
+      "Browse the Grillers Pride kosher catalog by product, cut, cooking state, sourcing, and certification.",
+    type: "CollectionPage",
+    breadcrumbs: [{ name: "Store", path: "/store" }],
+    mainEntity: productListJsonLd,
+    about: ["Kosher meat", "Frozen delivery", "Local pickup"],
+  })
 
   return (
     <>
       <ExperimentExposure assignment={plpExperiment} />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(storeJsonLd) }}
+      />
       <CollectionTemplate
         title="All Products"
         slug="store"

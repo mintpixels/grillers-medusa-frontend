@@ -146,14 +146,25 @@ export default function DeliveryPromiseClient({
   )
 
   useEffect(() => {
-    if (normalizedInitialZip) return
+    if (normalizedInitialZip) {
+      setZip(normalizedInitialZip)
+      setSubmittedZip(normalizedInitialZip)
+      setZipSource(normalizedInitialSource)
+      setIsEditingZip(false)
+      return
+    }
+
+    setZip("")
+    setSubmittedZip("")
+    setZipSource(null)
+    setIsEditingZip(!isLoggedIn)
     const saved = getStoredDeliveryZip()
     if (!saved) return
     setZip(saved)
     setSubmittedZip(saved)
     setZipSource("saved")
     setIsEditingZip(false)
-  }, [normalizedInitialZip])
+  }, [isLoggedIn, normalizedInitialSource, normalizedInitialZip])
 
   const result = useMemo(
     () => getPromise(submittedZip, atlantaSet, isLoggedIn),

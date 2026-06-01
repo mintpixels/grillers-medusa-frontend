@@ -49,7 +49,7 @@ export default function SpecialtySwiper({
           >
             <Image
               src="/images/icons/arrow-right.svg"
-              width={20}
+              width={21}
               height={12}
               alt=""
               className="rotate-180 group-hover:invert transition-all"
@@ -63,7 +63,7 @@ export default function SpecialtySwiper({
           >
             <Image
               src="/images/icons/arrow-right.svg"
-              width={20}
+              width={21}
               height={12}
               alt=""
               className="group-hover:invert transition-all"

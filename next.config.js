@@ -16,6 +16,7 @@ const nextConfig = {
     ALGOLIA_SEARCH_API_KEY: process.env.ALGOLIA_SEARCH_API_KEY,
   },
   reactStrictMode: true,
+  productionBrowserSourceMaps: true,
   logging: {
     fetches: {
       fullUrl: true,

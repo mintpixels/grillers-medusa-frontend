@@ -137,7 +137,10 @@ function withStaffCartMetadata<T extends Record<string, any>>(
  * @param cartId - optional - The ID of the cart to retrieve.
  * @returns The cart object if found, or null if not found.
  */
-export async function retrieveCart(cartId?: string) {
+export async function retrieveCart(
+  cartId?: string,
+  options: { fresh?: boolean } = {}
+) {
   const active = await getCartStaffContext()
   const explicitCartId = Boolean(cartId)
   const id = cartId || (await getCurrentCartId(active))
@@ -148,9 +151,11 @@ export async function retrieveCart(cartId?: string) {
 
   const headers = await cartHeadersForStaffContext(active)
 
-  const next = {
-    ...(await getCacheOptions("carts")),
-  }
+  const next = options.fresh
+    ? undefined
+    : {
+        ...(await getCacheOptions("carts")),
+      }
 
   return await sdk.client
     .fetch<HttpTypes.StoreCartResponse>(`/store/carts/${id}`, {
@@ -161,7 +166,7 @@ export async function retrieveCart(cartId?: string) {
       },
       headers,
       next,
-      cache: "force-cache",
+      cache: options.fresh ? "no-store" : "force-cache",
     })
     .then(async ({ cart }) => {
       if (!explicitCartId && active) {
@@ -1379,13 +1384,15 @@ export async function updateRegion(countryCode: string, currentPath: string) {
   redirect(`/${countryCode}${currentPath}`)
 }
 
-export async function listCartOptions() {
+export async function listCartOptions(options: { fresh?: boolean } = {}) {
   const active = await getCartStaffContext()
   const cartId = await getCurrentCartId(active)
   const headers = await cartHeadersForStaffContext(active)
-  const next = {
-    ...(await getCacheOptions("shippingOptions")),
-  }
+  const next = options.fresh
+    ? undefined
+    : {
+        ...(await getCacheOptions("shippingOptions")),
+      }
 
   return await sdk.client.fetch<{
     shipping_options: HttpTypes.StoreCartShippingOption[]
@@ -1393,7 +1400,7 @@ export async function listCartOptions() {
     query: { cart_id: cartId },
     next,
     headers,
-    cache: "force-cache",
+    cache: options.fresh ? "no-store" : "force-cache",
   })
 }
 

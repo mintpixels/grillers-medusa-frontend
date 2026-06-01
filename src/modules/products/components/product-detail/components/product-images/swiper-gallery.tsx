@@ -121,8 +121,8 @@ export default function ProductImagesSwiperGallery({
         >
           <Image
             src="/images/icons/arrow-left.svg"
-            width={12}
-            height={20}
+            width={20}
+            height={12}
             alt=""
             aria-hidden="true"
           />
@@ -135,8 +135,8 @@ export default function ProductImagesSwiperGallery({
         >
           <Image
             src="/images/icons/arrow-right.svg"
-            width={12}
-            height={20}
+            width={21}
+            height={12}
             alt=""
             aria-hidden="true"
           />

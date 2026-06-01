@@ -21,12 +21,14 @@ const DeleteButton = ({
   className,
   productInfo,
   onDeleted,
+  refreshPageOnDelete = true,
 }: {
   id: string
   children?: React.ReactNode
   className?: string
   productInfo?: ProductInfo
   onDeleted?: () => void
+  refreshPageOnDelete?: boolean
 }) => {
   const router = useRouter()
   const [isDeleting, setIsDeleting] = useState(false)
@@ -57,7 +59,9 @@ const DeleteButton = ({
       await deleteLineItem(id)
       onDeleted?.()
       dispatchCartUpdated({ action: "remove", lineId: id })
-      router.refresh()
+      if (refreshPageOnDelete) {
+        router.refresh()
+      }
     } catch (err) {
       console.error("[cart] failed to delete line item", err)
       setIsDeleting(false)

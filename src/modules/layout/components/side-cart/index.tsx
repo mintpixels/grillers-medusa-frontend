@@ -1,7 +1,6 @@
 "use client"
 
 import { Fragment, useCallback, useEffect, useRef, useState } from "react"
-import { useRouter } from "next/navigation"
 import Image from "next/image"
 import {
   Dialog,
@@ -157,7 +156,6 @@ const QuantitySelector = ({
   onOptimisticDelta: (delta: number, eligibleDelta: number) => void
   countsTowardFreeDelivery: boolean
 }) => {
-  const router = useRouter()
   const [isUpdating, setIsUpdating] = useState(false)
   const [optimisticQuantity, setOptimisticQuantity] = useState(item.quantity)
 
@@ -190,7 +188,6 @@ const QuantitySelector = ({
         new_quantity: newQuantity,
         price: (item.unit_price ?? 0) / 100,
       })
-      router.refresh()
     } catch (error) {
       setOptimisticQuantity(item.quantity)
       onOptimisticDelta(-priceDelta, -eligiblePriceDelta)
@@ -236,6 +233,7 @@ type SideCartProps = {
   atlantaZipConfig?: Record<string, AtlantaZipDayConfig>
   initialDeliveryZip?: string | null
   productDetailsMap?: CartProductDetailsMap
+  isLoading?: boolean
 }
 
 export default function SideCart({
@@ -245,6 +243,7 @@ export default function SideCart({
   atlantaZipConfig,
   initialDeliveryZip,
   productDetailsMap = {},
+  isLoading = false,
 }: SideCartProps) {
   const { isOpen, closeCart, openCart } = useCart()
   const [announcement, setAnnouncement] = useState("")
@@ -424,7 +423,19 @@ export default function SideCart({
                         </button>
                       </div>
 
-                      {cart && cart.items?.length ? (
+                      {isLoading ? (
+                        <div
+                          data-side-cart-scroll
+                          className="flex-1 min-h-0 overflow-y-auto overscroll-contain touch-pan-y [-webkit-overflow-scrolling:touch]"
+                        >
+                          <div className="flex min-h-full flex-col items-center justify-center px-8 py-16 pb-[calc(4rem+env(safe-area-inset-bottom))]">
+                            <Spinner size={28} />
+                            <p className="mt-4 text-p-sm font-maison-neue text-Charcoal/60">
+                              Loading cart
+                            </p>
+                          </div>
+                        </div>
+                      ) : cart && cart.items?.length ? (
                         <div
                           data-side-cart-scroll
                           className="flex-1 min-h-0 overflow-y-auto overscroll-contain touch-pan-y [-webkit-overflow-scrolling:touch]"
@@ -545,6 +556,7 @@ export default function SideCart({
                                             />
                                             <DeleteButton
                                               id={item.id}
+                                              refreshPageOnDelete={false}
                                               onDeleted={() =>
                                                 handleOptimisticDelta(
                                                   -getLineItemSubtotal(item),

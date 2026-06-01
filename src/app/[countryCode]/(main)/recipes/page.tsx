@@ -16,6 +16,7 @@ import {
 } from "@lib/content/ways-to-shop"
 import ExperimentExposure from "@lib/experiments/exposure"
 import { getExperimentAssignment } from "@lib/experiments/server"
+import { itemListJsonLd, webPageJsonLd } from "@lib/util/structured-data"
 
 type PageProps = {
   params: Promise<{ countryCode: string }>
@@ -29,6 +30,10 @@ type PageProps = {
     bucket?: string
     mission?: string
   }>
+}
+
+export function generateStaticParams() {
+  return [{ countryCode: "us" }]
 }
 
 export async function generateMetadata({
@@ -112,10 +117,39 @@ export default async function RecipesPage(props: PageProps) {
       customerType: "unknown",
     }
   )
+  const baseUrl = getBaseURL()
+  const recipeListJsonLd = itemListJsonLd(
+    baseUrl,
+    countryCode,
+    "Kosher recipes",
+    filteredRecipes.slice(0, 48).map((recipe) => ({
+      type: "Recipe",
+      name: recipe.Title,
+      path: `/recipes/${recipe.Slug}`,
+      description: recipe.ShortDescription,
+      image: recipe.Image?.url,
+    }))
+  )
+  const recipesJsonLd = webPageJsonLd({
+    baseUrl,
+    countryCode,
+    path: "/recipes",
+    name: "Recipes",
+    description:
+      "Kosher recipes, butcher guidance, and holiday cooking ideas from Grillers Pride.",
+    type: "CollectionPage",
+    breadcrumbs: [{ name: "Recipes", path: "/recipes" }],
+    mainEntity: recipeListJsonLd,
+    about: ["Kosher recipes", "Shabbos cooking", "Jewish holidays"],
+  })
 
   return (
     <>
       <ExperimentExposure assignment={recipesExperiment} />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(recipesJsonLd) }}
+      />
       <RecipesCollection
         recipes={recipes}
         page={page}

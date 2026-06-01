@@ -11,6 +11,7 @@ import { getCuratedCollectionCards } from "@lib/data/strapi/curated-collections"
 import ExperimentExposure from "@lib/experiments/exposure"
 import { getExperimentAssignment } from "@lib/experiments/server"
 import { withTimeout } from "@lib/util/promise-timeout"
+import { itemListJsonLd, webPageJsonLd } from "@lib/util/structured-data"
 
 type PageProps = {
   params: Promise<{ countryCode: string }>
@@ -20,6 +21,10 @@ type PageProps = {
 const title = "Shop Collections | Grillers Pride"
 const description =
   "Browse curated kosher meat collections built around first orders, Shabbos tables, freezer stocking, local delivery, and cold-chain shipping."
+
+export function generateStaticParams() {
+  return [{ countryCode: "us" }]
+}
 
 export async function generateMetadata({
   params,
@@ -79,18 +84,32 @@ export default async function CollectionsPage({
     [],
     "collections hub cards"
   )
-  const jsonLd = {
-    "@context": "https://schema.org",
-    "@type": "CollectionPage",
+  const baseUrl = getBaseURL()
+  const collectionListJsonLd = itemListJsonLd(
+    baseUrl,
+    countryCode,
+    "Grillers Pride collections",
+    collections
+      .filter((collection) => collection.Slug)
+      .slice(0, 60)
+      .map((collection) => ({
+        type: "CollectionPage",
+        name: collection.Name,
+        path: `/collections/${collection.Slug}`,
+        description: collection.ShortDescription,
+        image: collection.HeroImage?.url,
+      }))
+  )
+  const jsonLd = webPageJsonLd({
+    baseUrl,
+    countryCode,
+    path: "/collections",
     name: "Shop Collections",
     description,
-    url: pageUrl,
-    isPartOf: {
-      "@type": "WebSite",
-      name: "Grillers Pride",
-      url: getBaseURL(),
-    },
-  }
+    type: "CollectionPage",
+    breadcrumbs: [{ name: "Collections", path: "/collections" }],
+    mainEntity: collectionListJsonLd,
+  })
 
   return (
     <>

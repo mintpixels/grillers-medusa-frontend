@@ -42,7 +42,7 @@ export default function BlogExploreSection({
                   <span>{data.Button.Text}</span>
                   <Image
                     src="/images/icons/arrow-right.svg"
-                    width={20}
+                    width={21}
                     height={12}
                     alt=""
                     aria-hidden="true"

@@ -123,8 +123,8 @@ function FeaturedCollectionCard({ card }: { card: ShopCollectionCardData }) {
           View collection
           <Image
             src="/images/icons/arrow-right.svg"
-            width={18}
-            height={11}
+            width={21}
+            height={12}
             alt=""
             aria-hidden="true"
           />
@@ -262,7 +262,7 @@ export default function ShopCollectionsSection({
             See all
             <Image
               src="/images/icons/arrow-right.svg"
-              width={20}
+              width={21}
               height={12}
               alt=""
               aria-hidden="true"

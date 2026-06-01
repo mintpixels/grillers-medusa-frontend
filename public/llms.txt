@@ -2,47 +2,55 @@
 
 > Premium kosher butcher counter, deli, prepared foods, recipes, and education for customers ordering frozen delivery, local delivery, southeast pickup, and plant pickup.
 
-Canonical site: https://grillers-medusa-frontend.vercel.app
-Sitemap: https://grillers-medusa-frontend.vercel.app/sitemap.xml
-Robots: https://grillers-medusa-frontend.vercel.app/robots.txt
+Canonical site: [https://grillers-medusa-frontend.vercel.app](https://grillers-medusa-frontend.vercel.app)
+Sitemap: [https://grillers-medusa-frontend.vercel.app/sitemap.xml](https://grillers-medusa-frontend.vercel.app/sitemap.xml)
+Robots: [https://grillers-medusa-frontend.vercel.app/robots.txt](https://grillers-medusa-frontend.vercel.app/robots.txt)
 
 ## Core public pages
 
-- Home: https://grillers-medusa-frontend.vercel.app/us
-- Store: https://grillers-medusa-frontend.vercel.app/us/store
-- Search: https://grillers-medusa-frontend.vercel.app/us/search
-- Collections: https://grillers-medusa-frontend.vercel.app/us/collections
-- Learn hub: https://grillers-medusa-frontend.vercel.app/us/learn
-- Cut library: https://grillers-medusa-frontend.vercel.app/us/learn/cuts
-- Recipes: https://grillers-medusa-frontend.vercel.app/us/recipes
-- Customer service: https://grillers-medusa-frontend.vercel.app/us/customer-service
+- [Home](https://grillers-medusa-frontend.vercel.app/us)
+- [Store](https://grillers-medusa-frontend.vercel.app/us/store)
+- [Search](https://grillers-medusa-frontend.vercel.app/us/search)
+- [Collections](https://grillers-medusa-frontend.vercel.app/us/collections)
+- [Learn hub](https://grillers-medusa-frontend.vercel.app/us/learn)
+- [Cut library](https://grillers-medusa-frontend.vercel.app/us/learn/cuts)
+- [Recipes](https://grillers-medusa-frontend.vercel.app/us/recipes)
+- [Customer service](https://grillers-medusa-frontend.vercel.app/us/customer-service)
 
 ## Ordering and fulfillment
 
-- UPS frozen delivery: https://grillers-medusa-frontend.vercel.app/us/shipping/ups
-- Local delivery: https://grillers-medusa-frontend.vercel.app/us/shipping/local-delivery
-- Southeast pickup: https://grillers-medusa-frontend.vercel.app/us/shipping/southeast-pickup
-- Plant pickup: https://grillers-medusa-frontend.vercel.app/us/shipping/plant-pickup
-- Holiday deadlines: https://grillers-medusa-frontend.vercel.app/us/holidays/order-deadlines
+- [UPS frozen delivery](https://grillers-medusa-frontend.vercel.app/us/shipping/ups)
+- [Local delivery](https://grillers-medusa-frontend.vercel.app/us/shipping/local-delivery)
+- [Southeast pickup](https://grillers-medusa-frontend.vercel.app/us/shipping/southeast-pickup)
+- [Plant pickup](https://grillers-medusa-frontend.vercel.app/us/shipping/plant-pickup)
+- [Holiday deadlines](https://grillers-medusa-frontend.vercel.app/us/holidays/order-deadlines)
 
 ## Kashruth and trust
 
-- Kashruth supervision: https://grillers-medusa-frontend.vercel.app/us/kashruth/supervision
-- Shchita and hechsherim: https://grillers-medusa-frontend.vercel.app/us/kashruth/hechsherim
-- Kosher for Passover: https://grillers-medusa-frontend.vercel.app/us/kashruth/passover
+- [Kashruth supervision](https://grillers-medusa-frontend.vercel.app/us/kashruth/supervision)
+- [Shchita and hechsherim](https://grillers-medusa-frontend.vercel.app/us/kashruth/hechsherim)
+- [Kosher for Passover](https://grillers-medusa-frontend.vercel.app/us/kashruth/passover)
 
 ## Product discovery
 
 Product pages follow this pattern:
 
-https://grillers-medusa-frontend.vercel.app/us/products/{product-handle}
+`https://grillers-medusa-frontend.vercel.app/us/products/{product-handle}`
 
 Each product page is intended to provide the product title, SKU, description, kosher and dietary claims, pack-size context, price, availability, product imagery, fulfillment context, and add-to-cart action.
 
+## Page structure map
+
+- Store and collection pages expose a page title, short page description, crawlable product links, active filters, product imagery, prices, availability context, and ItemList structured data for the visible discovery set.
+- Product pages expose Product structured data, canonical product URL, product image, SKU/MPN context, kosher diet context, price offer, availability, cold-chain fulfillment context, ingredient and pack-size facts, and add-to-cart controls.
+- Recipe pages expose Recipe structured data on detail pages; the recipe hub exposes crawlable recipe links and ItemList structured data for filtered recipe discovery.
+- Learn, kashruth, shipping, holiday, and policy pages expose one clear H1, section headings, canonical metadata, and page-specific explanatory content from Strapi.
+- Customer service exposes ContactPage and FAQPage structured data, phone, email, hours, policy links, and visible FAQ questions and answers.
+
 ## Agentic commerce
 
-- Manifest: https://grillers-medusa-frontend.vercel.app/agentic-commerce/manifest.json
-- Product feed: https://grillers-medusa-frontend.vercel.app/agentic-commerce/products.json?countryCode=us
+- [Agentic commerce manifest](https://grillers-medusa-frontend.vercel.app/agentic-commerce/manifest.json)
+- [Agentic product feed](https://grillers-medusa-frontend.vercel.app/agentic-commerce/products.json?countryCode=us)
 
 Use the product feed for canonical product URLs, variant-level item IDs, SKU/MPN values, descriptions, images, live Medusa prices, availability, categories, kosher claims, and fulfillment context. Treat the storefront cart and checkout as the authoritative source for taxes, shipping, discounts, minimums, payment readiness, and final totals.
 

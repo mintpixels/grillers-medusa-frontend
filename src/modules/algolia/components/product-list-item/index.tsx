@@ -152,8 +152,8 @@ const ProductListItem = ({ hit }: { hit: StrapiProductData }) => {
             View Details
             <Image
               src={"/images/icons/arrow-right.svg"}
-              width={16}
-              height={10}
+              width={21}
+              height={12}
               alt="view details"
             />
           </LocalizedClientLink>

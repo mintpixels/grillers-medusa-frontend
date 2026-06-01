@@ -5,10 +5,15 @@ import medusaError from "@lib/util/medusa-error"
 import { HttpTypes } from "@medusajs/types"
 import { getCacheOptions } from "./cookies"
 
-export const listRegions = async () => {
-  const next = {
-    ...(await getCacheOptions("regions")),
-  }
+export const listRegions = async (
+  options: { personalizedCacheTag?: boolean } = {}
+) => {
+  const next =
+    options.personalizedCacheTag === false
+      ? {}
+      : {
+          ...(await getCacheOptions("regions")),
+        }
 
   return sdk.client
     .fetch<{ regions: HttpTypes.StoreRegion[] }>(`/store/regions`, {

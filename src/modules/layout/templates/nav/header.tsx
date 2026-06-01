@@ -1,7 +1,5 @@
-import { Suspense } from "react"
-
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
-import AccountMenu from "@modules/layout/components/account-menu"
+import AccountButton from "@modules/layout/components/account-button"
 import CartButton from "@modules/layout/components/cart-button"
 import HeaderCountrySelect from "@modules/layout/components/header-country-select"
 import Image from "next/image"
@@ -10,32 +8,16 @@ import type { HttpTypes } from "@medusajs/types"
 import { MobileNavMenu } from "./menu"
 import SearchBar from "./search-bar"
 import MobileSearch from "./mobile-search"
-import { isStaffCustomer } from "@lib/util/staff-access"
 import { ShieldCheck } from "lucide-react"
 
 type HeaderProps = {
   navLinks: HeaderNavLink[]
   regions: HttpTypes.StoreRegion[]
   phoneNumber?: string | null
-  customer?: HttpTypes.StoreCustomer | null
-  cart?: HttpTypes.StoreCart | null
   navCounts?: Record<string, number | null>
 }
 
-const Header = ({
-  navLinks,
-  regions,
-  phoneNumber,
-  customer,
-  cart,
-  navCounts,
-}: HeaderProps) => {
-  const initials = customer
-    ? `${(customer.first_name?.[0] || "").toUpperCase()}${(
-        customer.last_name?.[0] || ""
-      ).toUpperCase()}`
-    : null
-  const canUseStaffTools = isStaffCustomer(customer)
+const Header = ({ navLinks, regions, phoneNumber, navCounts }: HeaderProps) => {
   return (
     <header className="relative inset-x-0 z-40 bg-white border-b border-[#000/25]">
       <a
@@ -62,7 +44,7 @@ const Header = ({
               quality={100}
               priority
               aria-hidden="true"
-              className="md:w-[40px] md:h-[36px]"
+              className="h-[36px] w-[82px]"
             />
             <span className="hidden md:inline text-xl font-rexton font-bold text-[#2D479D] uppercase tracking-wider">
               Griller&apos;s <span className="text-Gold">&#9733;</span> Pride
@@ -117,49 +99,9 @@ const Header = ({
             <MobileSearch />
 
             <div className="h-full flex items-center">
-              {initials ? (
-                <AccountMenu
-                  initials={initials}
-                  firstName={customer?.first_name || ""}
-                  canUseStaffTools={canUseStaffTools}
-                />
-              ) : (
-                <LocalizedClientLink
-                  className="min-w-[44px] min-h-[44px] inline-flex items-center justify-center hover:text-ui-fg-base focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold rounded"
-                  href="/account"
-                  data-testid="nav-account-link"
-                  aria-label="My account"
-                >
-                  <Image
-                    src={"/images/icons/account.svg"}
-                    alt=""
-                    width={24}
-                    height={24}
-                    aria-hidden="true"
-                  />
-                </LocalizedClientLink>
-              )}
+              <AccountButton />
             </div>
-            <Suspense
-              fallback={
-                <LocalizedClientLink
-                  className="min-w-[44px] min-h-[44px] inline-flex items-center justify-center hover:text-ui-fg-base"
-                  href="/cart"
-                  data-testid="nav-cart-link"
-                  aria-label="Shopping cart"
-                >
-                  <Image
-                    src={"/images/icons/cart.svg"}
-                    alt=""
-                    width={24}
-                    height={24}
-                    aria-hidden="true"
-                  />
-                </LocalizedClientLink>
-              }
-            >
-              <CartButton cart={cart} />
-            </Suspense>
+            <CartButton />
           </div>
         </div>
       </nav>

@@ -1,7 +1,6 @@
 import { listRegions } from "@lib/data/regions"
 import { HeaderNavQuery } from "@lib/data/strapi/header"
 import type { HeaderNavLink } from "@lib/data/strapi/header"
-import type { HttpTypes } from "@medusajs/types"
 import strapiClient from "@lib/strapi"
 import { withTimeout } from "@lib/util/promise-timeout"
 import { augmentHeaderNav } from "@lib/util/header-nav"
@@ -9,12 +8,7 @@ import AnnouncementBarProvider from "../../../../components/announcement-bar-pro
 import Header from "./header"
 import Menu from "./menu"
 
-type NavProps = {
-  customer?: HttpTypes.StoreCustomer | null
-  cart?: HttpTypes.StoreCart | null
-}
-
-export default async function Nav({ customer, cart }: NavProps = {}) {
+export default async function Nav() {
   const [navLinksData, regions] = await Promise.all([
     withTimeout(
       strapiClient.request<any>(HeaderNavQuery).catch(() => null),
@@ -23,7 +17,7 @@ export default async function Nav({ customer, cart }: NavProps = {}) {
       "nav links"
     ),
     withTimeout(
-      listRegions().catch(() => []),
+      listRegions({ personalizedCacheTag: false }).catch(() => []),
       1000,
       [],
       "nav regions"
@@ -42,8 +36,6 @@ export default async function Nav({ customer, cart }: NavProps = {}) {
         navLinks={navLinks}
         regions={regions || []}
         phoneNumber={phoneNumber}
-        customer={customer}
-        cart={cart}
         navCounts={navCounts}
       />
       <Menu navLinks={navLinks} navCounts={navCounts} />

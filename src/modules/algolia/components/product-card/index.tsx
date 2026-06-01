@@ -196,7 +196,7 @@ const ProductCard = ({ hit }: { hit: StrapiProductData }) => {
           </span>
           <Image
             src={"/images/icons/arrow-right.svg"}
-            width={20}
+            width={21}
             height={12}
             alt="view details"
           />

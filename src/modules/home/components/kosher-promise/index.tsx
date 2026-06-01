@@ -30,12 +30,15 @@ const KosherPromise = ({
     <section className="pt-[70px] pb-[145px] md:pt-[55px] md:pb-[65px] bg-Charcoal overflow-hidden">
       <div className="flex flex-col items-center text-center max-w-[650px] mx-auto relative">
         {data?.TopLogo?.url && (
-          <Image
-            src={data.TopLogo.url}
-            width={69}
-            height={79}
-            alt={data?.KosherPromiseTitle}
-          />
+          <div className="h-[79px] w-[69px] flex-none">
+            <Image
+              className="h-[79px] w-[69px] object-contain"
+              src={data.TopLogo.url}
+              width={69}
+              height={79}
+              alt={data?.KosherPromiseTitle}
+            />
+          </div>
         )}
 
         <h2 className="text-h3 font-gyst text-Scroll pt-8 pb-7">
@@ -87,7 +90,7 @@ const KosherPromise = ({
             </span>
             <Image
               src={"/images/icons/arrow-right.svg"}
-              width={20}
+              width={21}
               height={12}
               alt=""
               aria-hidden="true"

@@ -6,7 +6,7 @@ import LocalizedClientLink from "@modules/common/components/localized-client-lin
 import Image from "next/image"
 import type { HeaderNavLink } from "@lib/data/strapi/header"
 import { sectionHref } from "@lib/util/header-nav"
-import { Award, Clock, Star } from "lucide-react"
+import { Award, Clock, Menu, Star } from "lucide-react"
 
 // Icon mapper for bottom bar certifications
 const iconMap = {
@@ -65,13 +65,7 @@ export const MobileNavMenu = ({
         aria-controls="mobile-menu"
         onClick={() => setMobileOpen(true)}
       >
-        <Image
-          src={"/images/icons/hamburger.svg"}
-          alt=""
-          width={24}
-          height={24}
-          aria-hidden="true"
-        />
+        <Menu className="h-6 w-6" aria-hidden="true" strokeWidth={2} />
       </button>
 
       <Dialog

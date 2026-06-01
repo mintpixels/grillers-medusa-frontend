@@ -169,7 +169,7 @@
   }
 
   .font-gyst {
-    @apply font-['gyst-variable'];
+    font-family: "gyst-variable", var(--font-rexton), Georgia, serif;
   }
 
   .footer-overscroll-fill {

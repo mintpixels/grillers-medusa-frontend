@@ -115,8 +115,8 @@ export default function ProductCardSwiperCarousel({
         >
           <Image
             src="/images/icons/arrow-left.svg"
-            width={8}
-            height={14}
+            width={20}
+            height={12}
             alt=""
             aria-hidden="true"
           />
@@ -129,8 +129,8 @@ export default function ProductCardSwiperCarousel({
         >
           <Image
             src="/images/icons/arrow-right.svg"
-            width={8}
-            height={14}
+            width={21}
+            height={12}
             alt=""
             aria-hidden="true"
           />

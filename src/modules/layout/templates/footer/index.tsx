@@ -346,9 +346,9 @@ export default async function Footer() {
               <Image
                 src="/images/logos/logo-horizontal.svg"
                 alt="Grillers Pride"
-                width={180}
-                height={36}
-                className="brightness-0 invert"
+                width={256}
+                height={24}
+                className="h-auto w-[180px] brightness-0 invert"
               />
             </Link>
             <Text className="text-sm text-Pewter text-center">
@@ -405,9 +405,9 @@ export default async function Footer() {
                 <Image
                   src="/images/logos/logo-horizontal.svg"
                   alt="Grillers Pride"
-                  width={180}
-                  height={36}
-                  className="brightness-0 invert"
+                  width={256}
+                  height={24}
+                  className="h-auto w-[180px] brightness-0 invert"
                 />
               </Link>
 
