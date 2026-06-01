@@ -222,31 +222,34 @@ export async function fulfillReleasedCatchWeightOrder(orderId: string) {
 
   const now = new Date().toISOString()
   const idempotencyKey = `staff-fulfill:${orderId}:${Date.now()}`
-  const { fulfillment } = await adminFetch<{ fulfillment: AnyRecord }>(
-    `/admin/orders/${orderId}/fulfillments`,
-    {
-      method: "POST",
-      headers: { "Idempotency-Key": idempotencyKey },
-      body: JSON.stringify({
-        items,
-        created_by: staff.id,
-        no_notification: false,
-        metadata: {
-          source: "staff_catch_weight_console",
-          finalization_id: detail.finalization.id,
-          staff_actor_customer_id: staff.id,
-          staff_actor_email: staff.email || null,
-          staff_actor_name: staffDisplayName(staff),
-        },
-      }),
-    }
-  )
+  const fulfillmentResponse = await adminFetch<{
+    fulfillment?: AnyRecord
+    order?: AnyRecord
+  }>(`/admin/orders/${orderId}/fulfillments`, {
+    method: "POST",
+    headers: { "Idempotency-Key": idempotencyKey },
+    body: JSON.stringify({
+      items,
+      no_notification: false,
+      metadata: {
+        source: "staff_catch_weight_console",
+        finalization_id: detail.finalization.id,
+        staff_actor_customer_id: staff.id,
+        staff_actor_email: staff.email || null,
+        staff_actor_name: staffDisplayName(staff),
+      },
+    }),
+  })
+  const fulfillmentId =
+    fulfillmentResponse.fulfillment?.id ||
+    activeFulfillments(fulfillmentResponse.order)[0]?.id ||
+    null
 
   await updateOrderMetadata(orderId, {
     ...appendStaffAuditLog(order.metadata, {
       action: "catch_weight_fulfillment_created",
       status: "completed",
-      fulfillment_id: fulfillment?.id || null,
+      fulfillment_id: fulfillmentId,
       finalization_id: detail.finalization.id,
       staff_actor_customer_id: staff.id,
       staff_actor_email: staff.email || null,
@@ -256,7 +259,7 @@ export async function fulfillReleasedCatchWeightOrder(orderId: string) {
     catch_weight_status: "released_to_fulfillment",
     finalization_status: "released_to_fulfillment",
     fulfillment_gate_status: "released",
-    staff_last_fulfillment_id: fulfillment?.id || null,
+    staff_last_fulfillment_id: fulfillmentId,
     staff_last_fulfilled_at: now,
   })
 
