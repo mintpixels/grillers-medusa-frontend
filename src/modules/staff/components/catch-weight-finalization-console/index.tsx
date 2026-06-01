@@ -315,7 +315,10 @@ export default function StaffCatchWeightFinalizationConsole() {
     startTransition(async () => {
       try {
         const result = await action(selectedOrderId)
-        setDetail(result)
+        setDetail({
+          ...result,
+          order: result.order || detail?.order || { id: selectedOrderId },
+        })
         setStatus(label)
         loadQueue(selectedOrderId)
       } catch (err: any) {
