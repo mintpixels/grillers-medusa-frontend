@@ -788,7 +788,7 @@ export default function PhoneOrderCopilot({
       id: "exceptions",
       eyebrow: "Existing orders",
       title: "Order support",
-      body: "Find open orders, review payment and fulfillment state, then record an audited exception.",
+      body: "Look up orders for customer questions, payment state, cancellations, refunds, notes, and audited exceptions.",
       icon: ClipboardList,
       onClick: () => setActiveWorkspace("exceptions"),
     },

@@ -340,12 +340,12 @@ export default function StaffCatchWeightFinalizationConsole() {
               Pack and finalize
             </p>
             <h2 className="mt-1 text-2xl font-gyst font-bold text-Charcoal">
-              Catch-weight release queue
+              Pack & finalize queue
             </h2>
           </div>
           <div className="flex flex-wrap gap-2">
             {[
-              ["Open", "pending_pack,packing,packed_pending_review,packed_pending_charge,charge_failed_hold"],
+              ["Needs packing", "pending_pack,packing,packed_pending_review,packed_pending_charge,charge_failed_hold"],
               ["Ready charge", "packed_pending_charge"],
               ["Charge holds", "charge_failed_hold"],
               ["Ready ship", "charged_ready_to_ship,released_to_fulfillment"],
@@ -430,7 +430,7 @@ export default function StaffCatchWeightFinalizationConsole() {
             })}
             {!queue.length && (
               <p className="px-4 py-8 text-sm font-maison-neue text-Charcoal/55">
-                No orders in this queue.
+                No submitted orders are waiting for catch-weight finalization.
               </p>
             )}
           </div>

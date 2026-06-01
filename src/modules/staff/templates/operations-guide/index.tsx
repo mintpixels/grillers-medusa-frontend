@@ -63,8 +63,8 @@ const systemMap = [
 const dailyChecklist = [
   "Open the staff console and confirm you can see Order Support without being redirected.",
   "Check QuickBooks Web Connector. A green bar means the session ran; still open Last Result or the log if the status says it sent an error back to the application.",
-  "Open Pack & Finalize for catch-weight orders that need packing, review, final charge, or charge-failed hold handling.",
-  "Review open orders in Staff Console, especially unfulfilled, awaiting payment, QBD failed, or QBD pending/manual orders.",
+  "Open Pack & Finalize first. Every submitted launch order should appear there before it can ship.",
+  "Use Order Support as lookup, not as a second fulfillment queue, especially for customer questions, refunds, cancellations, QBD failed, or QBD pending/manual orders.",
   "Open Customer Communications when checking campaign drafts, lifecycle flow health, customer timelines, suppressions, or Postmark delivery status.",
   "Place a small test order only when needed, using Stripe test cards while the site is still in test mode.",
   "Check that order, cancellation, refund, and back-in-stock emails are being received and that product names are customer-safe Strapi or Medusa names.",
@@ -375,9 +375,9 @@ const sections: GuideSection[] = [
     eyebrow: "Back office",
     title: "Pack & Finalize catch-weight orders",
     summary:
-      "Pack & Finalize is the staff workspace for entering actual meat weights, reviewing final totals, charging the saved card, and releasing the order for shipment.",
+      "Pack & Finalize is the staff queue for every submitted launch order: staff enter actual meat weights, review final totals, charge the saved card, and release the order for shipment.",
     useFor: [
-      "Orders where actual cut weight is not known until staff pick from the meat cabinet.",
+      "Every submitted customer order, because launch orders contain catch-weight items whose actual cut weight is not known until staff pick from the meat cabinet.",
       "Recording actual per-lb weights and piece counts before shipment.",
       "Reviewing the final total against the original estimate.",
       "Charging the saved Stripe card right before the order leaves.",
@@ -405,7 +405,7 @@ const sections: GuideSection[] = [
     eyebrow: "Order support",
     title: "Refunds, cancellations, notes, credits, and QBD retries",
     summary:
-      "Order Support is for existing orders. It can search current Medusa orders and imported legacy QuickBooks history, then apply audited actions to live Medusa orders.",
+      "Order Support is an order lookup and exception workspace, not the fulfillment queue. It can search current Medusa orders and imported legacy QuickBooks history, then apply audited actions to live Medusa orders.",
     useFor: [
       "Finding open, fulfilled, paid, refunded, or historical orders.",
       "Recording internal notes.",
@@ -418,7 +418,7 @@ const sections: GuideSection[] = [
     ],
     howTo: [
       "Open Staff Console and choose Order Support.",
-      "Search by order number, invoice, email, customer name, or phone, or start from the open queue.",
+      "Search by order number, invoice, email, customer name, or phone, or filter unfulfilled orders when support needs a starting list.",
       "Select the order and review item, payment, fulfillment, audit, and QBD status before choosing an action.",
       "Pick the action. Add a reason, internal staff note, and customer consent method when required.",
       "For refund, capture, or cancellation, review first and type the required confirmation word.",

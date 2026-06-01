@@ -365,11 +365,12 @@ export default function StaffOrderExceptionConsole() {
                   Existing order support
                 </p>
                 <h2 className="mt-1 text-xl font-maison-neue font-semibold text-Charcoal">
-                  Open orders
+                  Order lookup
                 </h2>
                 <p className="mt-1 max-w-3xl text-sm font-maison-neue text-Charcoal/55">
-                  Start from unfulfilled orders, or search historical orders by
-                  order number, invoice, email, customer name, or phone.
+                  Search current and historical orders for customer questions,
+                  payment state, cancellations, refunds, notes, and audited
+                  exceptions. Pack & Finalize is the fulfillment queue.
                 </p>
               </div>
               <div className="flex flex-wrap gap-2 text-xs font-maison-neue-mono uppercase text-Charcoal/60">
@@ -378,7 +379,7 @@ export default function StaffOrderExceptionConsole() {
                   {query.trim()
                     ? "matching"
                     : queueFilter === "open"
-                    ? "open"
+                    ? "unfulfilled"
                     : "current"}
                 </span>
                 <span className="inline-flex min-h-[32px] items-center gap-1 rounded-full border border-gray-200 bg-SilverPlate/40 px-3">
