@@ -8,7 +8,6 @@ import {
   fulfillReleasedCatchWeightOrder,
   getCatchWeightFinalizationDetail,
   listCatchWeightFinalizationQueue,
-  previewCatchWeightFinalization,
   startCatchWeightFinalization,
   updateCatchWeightFinalizationLine,
   type StaffCatchWeightFinalizationDetail,
@@ -25,10 +24,10 @@ import {
 } from "@lib/data/staff/order-entry"
 
 const statusLabels: Record<string, string> = {
-  pending_pack: "Needs pack",
+  pending_pack: "Ready to pack",
   packing: "Packing",
-  packed_pending_review: "Review",
-  packed_pending_charge: "Ready charge",
+  packed_pending_review: "Packing",
+  packed_pending_charge: "Ready to charge",
   charge_attempting: "Charging",
   charge_failed_hold: "Charge hold",
   charged_ready_to_ship: "Ready ship",
@@ -295,7 +294,7 @@ function LineEditor({
 
     setSaveState("idle")
     const timer = window.setTimeout(() => {
-      persistDraft(draft, { validate: false, refresh: false })
+      persistDraft(draft, { validate: false, refresh: true })
     }, 900)
 
     return () => window.clearTimeout(timer)
@@ -545,6 +544,20 @@ export default function StaffCatchWeightFinalizationConsole() {
     detail?.finalization?.currency_code ||
     selectedSummary?.currency_code ||
     "usd"
+  const blockingErrorCount =
+    (detail?.errors?.length || 0) +
+    (detail?.lines || []).reduce(
+      (count, line) => count + (line.errors?.length || 0),
+      0
+    )
+
+  async function loadPackingDetail(orderId: string) {
+    const result = await getCatchWeightFinalizationDetail(orderId)
+    if (result.finalization?.status === "pending_pack") {
+      return startCatchWeightFinalization(orderId)
+    }
+    return result
+  }
 
   function loadQueue(nextSelectedOrderId?: string | null) {
     startTransition(async () => {
@@ -554,11 +567,14 @@ export default function StaffCatchWeightFinalizationConsole() {
           limit: 100,
         })
         setQueue(rows)
+        const requestedId = nextSelectedOrderId ?? selectedOrderId
         const nextId =
-          nextSelectedOrderId || selectedOrderId || rows[0]?.order_id || null
+          requestedId && rows.some((row) => row.order_id === requestedId)
+            ? requestedId
+            : null
         setSelectedOrderId(nextId)
         if (nextId) {
-          setDetail(await getCatchWeightFinalizationDetail(nextId))
+          setDetail(await loadPackingDetail(nextId))
         } else {
           setDetail(null)
         }
@@ -573,7 +589,7 @@ export default function StaffCatchWeightFinalizationConsole() {
     setError(null)
     startTransition(async () => {
       try {
-        setDetail(await getCatchWeightFinalizationDetail(orderId))
+        setDetail(await loadPackingDetail(orderId))
       } catch (err: any) {
         setError(err.message || "Could not load order.")
       }
@@ -634,7 +650,7 @@ export default function StaffCatchWeightFinalizationConsole() {
                 "Needs packing",
                 "pending_pack,packing,packed_pending_review,packed_pending_charge,charge_failed_hold",
               ],
-              ["Ready charge", "packed_pending_charge"],
+              ["Ready to charge", "packed_pending_charge"],
               ["Charge holds", "charge_failed_hold"],
               ["Ready ship", "charged_ready_to_ship,released_to_fulfillment"],
             ].map(([label, value]) => (
@@ -770,7 +786,7 @@ export default function StaffCatchWeightFinalizationConsole() {
                     </div>
                     <div>
                       <p className="text-xs font-maison-neue-mono uppercase text-Charcoal/45">
-                        Delta
+                        Change
                       </p>
                       <p className="font-maison-neue text-sm text-Charcoal">
                         {money(totals.delta_total, currencyCode)}
@@ -781,49 +797,19 @@ export default function StaffCatchWeightFinalizationConsole() {
 
                 <div className="mt-5 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
                   <Button
-                    className={`${secondaryButtonClass} w-full sm:w-auto`}
-                    disabled={Boolean(pendingAction)}
-                    isLoading={pendingAction === "start"}
-                    onClick={() =>
-                      runAction(
-                        "start",
-                        "Packing started.",
-                        startCatchWeightFinalization
-                      )
-                    }
-                    type="button"
-                  >
-                    Start Pack
-                  </Button>
-                  <Button
-                    className={`${secondaryButtonClass} w-full sm:w-auto`}
-                    disabled={Boolean(pendingAction)}
-                    isLoading={pendingAction === "preview"}
-                    onClick={() =>
-                      runAction(
-                        "preview",
-                        "Preview refreshed.",
-                        previewCatchWeightFinalization
-                      )
-                    }
-                    type="button"
-                  >
-                    Preview
-                  </Button>
-                  <Button
                     className={`${primaryButtonClass} w-full sm:w-auto`}
-                    disabled={Boolean(pendingAction)}
+                    disabled={Boolean(pendingAction) || blockingErrorCount > 0}
                     isLoading={pendingAction === "approve"}
                     onClick={() =>
                       runAction(
                         "approve",
-                        "Finalization approved.",
+                        "Ready to charge.",
                         approveCatchWeightFinalization
                       )
                     }
                     type="button"
                   >
-                    Approve
+                    Mark Ready to Charge
                   </Button>
                   <Button
                     className="min-h-[42px] w-full rounded-md bg-Gold px-4 text-xs font-rexton font-bold uppercase text-Charcoal sm:w-auto"
@@ -832,13 +818,13 @@ export default function StaffCatchWeightFinalizationConsole() {
                     onClick={() =>
                       runAction(
                         "charge",
-                        "Card charged and order released.",
+                        "Card charged; order ready to ship.",
                         chargeAndReleaseCatchWeightOrder
                       )
                     }
                     type="button"
                   >
-                    Charge & Release
+                    Charge Card & Release
                   </Button>
                   {readyForFulfillment && (
                     <Button
