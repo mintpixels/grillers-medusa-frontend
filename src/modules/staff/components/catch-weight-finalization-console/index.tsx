@@ -22,6 +22,10 @@ import {
   searchStaffProducts,
   type StaffProductSearchResult,
 } from "@lib/data/staff/order-entry"
+import {
+  replacementPriceLabel,
+  replacementUnitPrice,
+} from "./replacement-pricing"
 
 const statusLabels: Record<string, string> = {
   pending_pack: "Ready to pack",
@@ -215,8 +219,8 @@ function LineEditor({
       replacement_qbd_list_id:
         product.qbdListId || current.replacement_qbd_list_id,
       actual_unit_price:
-        typeof product.calculatedAmount === "number"
-          ? String(product.calculatedAmount)
+        replacementUnitPrice(product) !== null
+          ? String(replacementUnitPrice(product))
           : current.actual_unit_price,
       replacement_reason:
         current.replacement_reason || `Substituted with ${replacementTitle}`,
@@ -454,12 +458,7 @@ function LineEditor({
                       {[
                         product.variantTitle,
                         product.sku,
-                        typeof product.calculatedAmount === "number"
-                          ? money(
-                              product.calculatedAmount,
-                              product.currencyCode || currencyCode
-                            )
-                          : "Price unavailable",
+                        replacementPriceLabel(product, currencyCode),
                         product.qbdListId ? "QBD saved" : "Missing QBD",
                       ]
                         .filter(Boolean)
