@@ -209,16 +209,49 @@ function positiveDraftQuantity(value: string) {
   return Number.isFinite(amount) && amount > 0 ? amount : 0
 }
 
+function positiveWholeQuantity(value: unknown) {
+  const amount = Number(value)
+  return Number.isFinite(amount) && amount > 0 ? Math.ceil(amount) : 0
+}
+
+function expectedUnitWeightCount(
+  line: StaffCatchWeightLine,
+  draft: ReturnType<typeof draftFromLine>
+) {
+  return (
+    positiveWholeQuantity(draft.actual_quantity) ||
+    positiveWholeQuantity(line.actual_quantity) ||
+    positiveWholeQuantity(line.actual_piece_count)
+  )
+}
+
+function unitWeightRows(
+  line: StaffCatchWeightLine,
+  draft: ReturnType<typeof draftFromLine>
+) {
+  const rowCount = Math.max(
+    draft.actual_unit_weights.length,
+    expectedUnitWeightCount(line, draft),
+    1
+  )
+  return Array.from(
+    { length: rowCount },
+    (_, index) => draft.actual_unit_weights[index] || ""
+  )
+}
+
 function deriveLineStatus(
   draft: ReturnType<typeof draftFromLine>,
   requiresActualWeight: boolean,
-  packingPhase: boolean
+  packingPhase: boolean,
+  expectedWeightCount = 0
 ) {
   if (draft.status === "removed" || draft.status === "substituted") {
     return draft.status
   }
   if (requiresActualWeight && packingPhase) {
-    return positiveWeightCount(draft.actual_unit_weights) > 0
+    const neededWeights = Math.max(1, expectedWeightCount)
+    return positiveWeightCount(draft.actual_unit_weights) >= neededWeights
       ? "ready"
       : "needs_weight"
   }
@@ -230,11 +263,17 @@ function deriveLineStatus(
 function withDerivedLineStatus(
   draft: ReturnType<typeof draftFromLine>,
   requiresActualWeight: boolean,
-  packingPhase: boolean
+  packingPhase: boolean,
+  expectedWeightCount = 0
 ) {
   return {
     ...draft,
-    status: deriveLineStatus(draft, requiresActualWeight, packingPhase),
+    status: deriveLineStatus(
+      draft,
+      requiresActualWeight,
+      packingPhase,
+      expectedWeightCount
+    ),
   }
 }
 
@@ -362,10 +401,9 @@ function LineEditor({
   const fixedPriceLine = lineIsFixedPrice(line, title)
   const packingPhase = phase === "packing"
   const effectiveUnitWeightTotal = weightTotal(draft.actual_unit_weights)
-  const effectiveActualQuantity =
-    requiresActualWeight && draft.actual_unit_weights.length
-      ? String(positiveWeightCount(draft.actual_unit_weights))
-      : draft.actual_quantity
+  const expectedWeights = expectedUnitWeightCount(line, draft)
+  const enteredWeightCount = positiveWeightCount(draft.actual_unit_weights)
+  const effectiveActualQuantity = draft.actual_quantity
   const skuSummary = [
     line.sku,
     line.qbd_list_id ? `QBD ${line.qbd_list_id}` : "Missing QBD",
@@ -391,47 +429,67 @@ function LineEditor({
   }, [line])
 
   function update(key: keyof typeof draft, value: string) {
-    setDraft((current) =>
-      withDerivedLineStatus(
-        {
-          ...current,
-          [key]: value,
-          ...(key === "actual_quantity" ? { actual_piece_count: value } : {}),
-        },
+    setDraft((current) => {
+      const nextDraft = {
+        ...current,
+        [key]: value,
+        ...(key === "actual_quantity" ? { actual_piece_count: value } : {}),
+      }
+      return withDerivedLineStatus(
+        nextDraft,
         requiresActualWeight,
-        packingPhase
+        packingPhase,
+        expectedUnitWeightCount(line, nextDraft)
       )
-    )
+    })
   }
 
   function updateUnitWeight(index: number, value: string) {
     setDraft((current) => {
-      const actualUnitWeights = [...current.actual_unit_weights]
+      const rowCount = Math.max(
+        current.actual_unit_weights.length,
+        expectedUnitWeightCount(line, current),
+        index + 1
+      )
+      const actualUnitWeights = Array.from(
+        { length: rowCount },
+        (_, rowIndex) => current.actual_unit_weights[rowIndex] || ""
+      )
       actualUnitWeights[index] = value
-      return {
+      const nextDraft = {
         ...current,
         actual_unit_weights: actualUnitWeights,
         actual_weight_total: numberText(weightTotal(actualUnitWeights)),
-        actual_quantity: String(positiveWeightCount(actualUnitWeights) || ""),
-        actual_piece_count: String(positiveWeightCount(actualUnitWeights) || ""),
+      }
+      return {
+        ...nextDraft,
         status: deriveLineStatus(
-          {
-            ...current,
-            actual_unit_weights: actualUnitWeights,
-            actual_quantity: String(positiveWeightCount(actualUnitWeights) || ""),
-          },
+          nextDraft,
           requiresActualWeight,
-          packingPhase
+          packingPhase,
+          expectedUnitWeightCount(line, current)
         ),
       }
     })
   }
 
   function addUnitWeight() {
-    setDraft((current) => ({
-      ...current,
-      actual_unit_weights: [...current.actual_unit_weights, ""],
-    }))
+    setDraft((current) => {
+      const rowCount = Math.max(
+        current.actual_unit_weights.length,
+        expectedUnitWeightCount(line, current)
+      )
+      return {
+        ...current,
+        actual_unit_weights: [
+          ...Array.from(
+            { length: rowCount },
+            (_, index) => current.actual_unit_weights[index] || ""
+          ),
+          "",
+        ],
+      }
+    })
   }
 
   function removeUnitWeight(index: number) {
@@ -439,20 +497,18 @@ function LineEditor({
       const actualUnitWeights = current.actual_unit_weights.filter(
         (_, rowIndex) => rowIndex !== index
       )
-      return {
+      const nextDraft = {
         ...current,
         actual_unit_weights: actualUnitWeights,
         actual_weight_total: numberText(weightTotal(actualUnitWeights)),
-        actual_quantity: String(positiveWeightCount(actualUnitWeights) || ""),
-        actual_piece_count: String(positiveWeightCount(actualUnitWeights) || ""),
+      }
+      return {
+        ...nextDraft,
         status: deriveLineStatus(
-          {
-            ...current,
-            actual_unit_weights: actualUnitWeights,
-            actual_quantity: String(positiveWeightCount(actualUnitWeights) || ""),
-          },
+          nextDraft,
           requiresActualWeight,
-          packingPhase
+          packingPhase,
+          expectedUnitWeightCount(line, current)
         ),
       }
     })
@@ -511,12 +567,15 @@ function LineEditor({
     const normalizedDraft = withDerivedLineStatus(
       draftToSave,
       requiresActualWeight,
-      packingPhase
+      packingPhase,
+      expectedUnitWeightCount(line, draftToSave)
     )
     const signature = draftSignature(normalizedDraft)
     const actualWeight = requiresActualWeight
       ? weightTotal(normalizedDraft.actual_unit_weights)
       : Number(normalizedDraft.actual_weight_total)
+    const expectedWeightRows = expectedUnitWeightCount(line, normalizedDraft)
+    const enteredWeights = positiveWeightCount(normalizedDraft.actual_unit_weights)
 
     if (
       options.validate &&
@@ -528,11 +587,24 @@ function LineEditor({
       setError("Enter each packed item's weight before marking this line ready.")
       return
     }
+    if (
+      options.validate &&
+      requiresActualWeight &&
+      packingPhase &&
+      expectedWeightRows > 0 &&
+      enteredWeights < expectedWeightRows
+    ) {
+      setError(
+        `Enter ${expectedWeightRows} item weight${
+          expectedWeightRows === 1 ? "" : "s"
+        } before marking this line ready.`
+      )
+      return
+    }
 
     const actualQuantity =
-      requiresActualWeight && normalizedDraft.actual_unit_weights.length
-        ? positiveWeightCount(normalizedDraft.actual_unit_weights)
-        : Number(normalizedDraft.actual_quantity)
+      Number(normalizedDraft.actual_quantity) ||
+      (requiresActualWeight ? enteredWeights : 0)
     if (
       options.validate &&
       normalizedDraft.status === "ready" &&
@@ -621,7 +693,8 @@ function LineEditor({
           status: "needs_pick",
         },
         requiresActualWeight,
-        packingPhase
+        packingPhase,
+        expectedUnitWeightCount(line, current)
       )
     )
   }
@@ -657,8 +730,12 @@ function LineEditor({
               {skuSummary}
             </p>
             <p className="mt-2 text-sm font-maison-neue text-Charcoal/60">
-              Ordered {numberText(line.ordered_quantity) || "0"} | Fulfilled{" "}
+              Ordered {numberText(line.ordered_quantity) || "0"} |{" "}
+              {requiresActualWeight ? "Picked" : "Fulfilled"}{" "}
               {effectiveActualQuantity || "0"}
+              {requiresActualWeight
+                ? ` | weighed ${enteredWeightCount}/${expectedWeights || "?"}`
+                : ""}
               {line.estimated_weight_total !== null &&
               line.estimated_weight_total !== undefined
                 ? ` | est. ${numberText(line.estimated_weight_total)} lb`
@@ -709,10 +786,7 @@ function LineEditor({
                 </Button>
               </div>
               <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                {(draft.actual_unit_weights.length
-                  ? draft.actual_unit_weights
-                  : [""]
-                ).map((weight, index) => (
+                {unitWeightRows(line, draft).map((weight, index) => (
                   <div
                     className="grid grid-cols-[minmax(0,1fr)_42px] gap-2"
                     key={`weight-${index}`}
@@ -745,15 +819,21 @@ function LineEditor({
                   Total weight: {numberText(effectiveUnitWeightTotal) || "0"} lb
                 </div>
                 <div className="rounded-md border border-gray-100 bg-gray-50 px-3 py-2 text-sm font-maison-neue text-Charcoal/70">
-                  Fulfilled count: {effectiveActualQuantity || "0"}
+                  Weighed packs: {enteredWeightCount}/{expectedWeights || "?"}
                 </div>
               </div>
             </div>
           ) : requiresActualWeight ? (
-            <div className="flex min-w-0 flex-col gap-1">
+            <div className="flex min-w-0 flex-col gap-1 sm:col-span-2">
               <span className={labelClass}>Weight</span>
-              <div className="flex min-h-[42px] items-center rounded-md border border-gray-100 bg-gray-50 px-3 text-sm text-Charcoal/55">
-                Packer enters item weights
+              <div className="rounded-md border border-blue-100 bg-blue-50/50 px-3 py-3 text-sm text-blue-900">
+                <p className="font-maison-neue font-semibold">
+                  Weight entry opens after Claim Pack.
+                </p>
+                <p className="mt-1 text-xs font-maison-neue text-blue-900/70">
+                  Pickers enter the fulfilled count here. Packers will get one
+                  weight box for each picked pack.
+                </p>
               </div>
             </div>
           ) : (

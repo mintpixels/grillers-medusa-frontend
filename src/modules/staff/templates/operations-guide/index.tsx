@@ -391,7 +391,7 @@ const sections: GuideSection[] = [
       "Pickers use the Picking tab. Claim the pick and enter the actual Fulfilled quantity for each line. A normal line becomes ready from the fulfilled quantity; use Remove or Substitute only for exceptions. New lines start with Fulfilled at 0.",
       "Click Ready For Packing only when every line is picked, removed, or substituted and the lug can move to the packing table.",
       "Packers use Ready for packing and Packing. Claim the pack before entering final pack data so two staff members do not work the same order phase at once.",
-      "Use the Per pack and By weight chips to see what the line needs. Per-pack lines need fulfilled quantity. By-weight lines need one weight entered for each packed item; the system calculates total pounds and fulfilled count.",
+      "Use the Per pack and By weight chips to see what the line needs. Per-pack lines need fulfilled quantity. By-weight lines unlock item-weight boxes after Claim Pack, one box for each picked pack; every picked pack must have a weight before the line is ready.",
       "Line edits autosave as staff type, and final totals refresh after each saved change. Use Save Line only when you want to validate a line immediately.",
       "If staff add an item that was not on the original customer order, use Add item, search the product, enter fulfilled quantity, and choose a product with a saved QuickBooks item ID.",
       "If the picker substitutes a line, click Substitute, find the replacement product, confirm the replacement QBD ListID and replacement unit price, and record the substitution reason.",
