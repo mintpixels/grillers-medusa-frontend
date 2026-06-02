@@ -397,6 +397,7 @@ const sections: GuideSection[] = [
       "Fulfillment is blocked until the final Stripe charge succeeds.",
       "Ready ship means the card has been charged and fulfillment is allowed; it does not by itself mean Medusa has a fulfillment record.",
       "QuickBooks receives the finalized weighed lines, not the original estimate. For per-lb items, QuickBooks quantity is the final pounds and QuickBooks amount is the final line subtotal; piece count and picker notes travel in the line description.",
+      "For UPS or free-shipping orders, the final total should preserve net shipping and promotion adjustments. If the final charge looks lower by the free-shipping amount, hold the order and escalate before charging.",
       "Use customer-safe product names when discussing substitutions. QBD ListIDs are staff/accounting identity only.",
       "A charge-failed hold means contact the customer for payment update before shipment.",
       "Final charge email goes after the card charge succeeds. It is separate from the checkout confirmation email.",
