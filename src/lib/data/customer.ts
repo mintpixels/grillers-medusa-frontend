@@ -4,6 +4,10 @@ import { sdk } from "@lib/config"
 import medusaError from "@lib/util/medusa-error"
 import { isSameAddressKey } from "@lib/util/compare-addresses"
 import { isValidUSPhone, stripPhone } from "@lib/util/format-phone"
+import {
+  buildSmsMarketingConsentMetadata,
+  formWantsSmsMarketing,
+} from "@lib/util/sms-consent"
 import { isStaffCustomer } from "@lib/util/staff-access"
 import { HttpTypes } from "@medusajs/types"
 import { revalidateTag } from "next/cache"
@@ -304,7 +308,17 @@ export async function signupWithCredentials(data: {
   password: string
   first_name: string
   last_name: string
+  phone?: string
+  sms_marketing_opt_in?: boolean
 }) {
+  const phone = data.phone ? stripPhone(data.phone) : ""
+  if (data.sms_marketing_opt_in && phone.length !== 10) {
+    return {
+      success: false,
+      error: "Enter a valid 10-digit phone number to get text messages.",
+    }
+  }
+
   try {
     const token = await sdk.auth.register("customer", "emailpass", {
       email: data.email,
@@ -318,6 +332,13 @@ export async function signupWithCredentials(data: {
         email: data.email,
         first_name: data.first_name,
         last_name: data.last_name,
+        phone,
+        metadata: data.sms_marketing_opt_in
+          ? buildSmsMarketingConsentMetadata({
+              phone,
+              source: "checkout_account_signup",
+            })
+          : undefined,
       },
       {},
       headers
@@ -508,6 +529,13 @@ export const updateCustomer = async (body: HttpTypes.StoreUpdateCustomer) => {
 export async function signup(_currentState: unknown, formData: FormData) {
   const password = formData.get("password") as string
   const rawPhone = (formData.get("phone") as string) || ""
+  const smsMarketingOptIn = formWantsSmsMarketing(formData)
+  const phone = rawPhone ? stripPhone(rawPhone) : ""
+
+  if (smsMarketingOptIn && phone.length !== 10) {
+    return "Enter a valid 10-digit phone number to get text messages."
+  }
+
   const customerForm = {
     email: formData.get("email") as string,
     first_name: formData.get("first_name") as string,
@@ -515,7 +543,13 @@ export async function signup(_currentState: unknown, formData: FormData) {
     // Normalize phone to digits-only so the display layer is the single
     // source of formatting (#68). Empty string is preserved when no phone
     // was provided.
-    phone: rawPhone ? stripPhone(rawPhone) : "",
+    phone,
+    metadata: smsMarketingOptIn
+      ? buildSmsMarketingConsentMetadata({
+          phone,
+          source: "account_signup",
+        })
+      : undefined,
   }
 
   try {

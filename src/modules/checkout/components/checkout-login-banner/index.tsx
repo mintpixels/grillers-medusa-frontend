@@ -3,6 +3,11 @@
 import React, { useState } from "react"
 import { useRouter } from "next/navigation"
 import { loginWithCredentials, signupWithCredentials, signoutKeepCart, requestPasswordReset } from "@lib/data/customer"
+import { formatPhone } from "@lib/util/format-phone"
+import {
+  SMS_MARKETING_DISCLOSURE,
+  SMS_MARKETING_OPT_IN_LABEL,
+} from "@lib/util/sms-consent"
 import { HttpTypes } from "@medusajs/types"
 
 const SmallSpinner = () => (
@@ -41,6 +46,8 @@ const CheckoutLoginBanner: React.FC<Props> = ({ customer }) => {
   const [password, setPassword] = useState("")
   const [firstName, setFirstName] = useState("")
   const [lastName, setLastName] = useState("")
+  const [phone, setPhone] = useState("")
+  const [smsMarketingOptIn, setSmsMarketingOptIn] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showWhy, setShowWhy] = useState(false)
@@ -91,6 +98,8 @@ const CheckoutLoginBanner: React.FC<Props> = ({ customer }) => {
     setPassword("")
     setFirstName("")
     setLastName("")
+    setPhone("")
+    setSmsMarketingOptIn(false)
   }
 
   const handleSignIn = async (e: React.FormEvent) => {
@@ -138,6 +147,8 @@ const CheckoutLoginBanner: React.FC<Props> = ({ customer }) => {
         password,
         first_name: firstName,
         last_name: lastName,
+        phone,
+        sms_marketing_opt_in: smsMarketingOptIn,
       })
       if (result.success) {
         router.refresh()
@@ -388,6 +399,30 @@ const CheckoutLoginBanner: React.FC<Props> = ({ customer }) => {
               required
               className="w-full h-10 px-3 text-sm bg-ui-bg-field border border-ui-border-base rounded-md focus:outline-none focus:ring-1 focus:ring-Gold focus:border-Gold"
             />
+            <input
+              type="tel"
+              value={formatPhone(phone)}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="Phone number"
+              autoComplete="tel"
+              className="w-full h-10 px-3 text-sm bg-ui-bg-field border border-ui-border-base rounded-md focus:outline-none focus:ring-1 focus:ring-Gold focus:border-Gold"
+            />
+            <label className="flex items-start gap-3 rounded-md border border-gray-200 bg-Scroll/30 px-3 py-3">
+              <input
+                checked={smsMarketingOptIn}
+                className="mt-1 h-4 w-4 shrink-0 accent-Gold"
+                onChange={(e) => setSmsMarketingOptIn(e.target.checked)}
+                type="checkbox"
+              />
+              <span className="text-left">
+                <span className="block text-sm font-semibold text-Charcoal">
+                  {SMS_MARKETING_OPT_IN_LABEL}
+                </span>
+                <span className="mt-1 block text-xs leading-relaxed text-Charcoal/55">
+                  {SMS_MARKETING_DISCLOSURE}
+                </span>
+              </span>
+            </label>
             <input
               type="password"
               value={password}

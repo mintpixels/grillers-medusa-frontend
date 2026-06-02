@@ -8,6 +8,7 @@ import { getRegion } from "@lib/data/regions"
 import { sendEmail } from "@lib/postmark"
 import { staffDisplayName, isStaffCustomer } from "@lib/util/staff-access"
 import { stripPhone } from "@lib/util/format-phone"
+import { buildSmsMarketingConsentMetadata } from "@lib/util/sms-consent"
 import medusaError from "@lib/util/medusa-error"
 import {
   checkStaffInventoryAvailability,
@@ -1030,15 +1031,22 @@ export async function createStaffCustomer(input: {
   company?: string
   defaultAddress?: StaffAddressInput
   sendAccountInvite?: boolean
+  smsMarketingOptIn?: boolean
 }): Promise<StaffCustomerSummary> {
   const staff = await requireStaff()
   const email = validateEmail(input.email)
   const defaultAddress = input.defaultAddress
+  const customerPhone = stripPhone(input.phone || defaultAddress?.phone || "")
   if (!input.firstName.trim() || !input.lastName.trim()) {
     throw new Error("Enter the customer's first and last name before creating.")
   }
-  if (!stripPhone(input.phone || defaultAddress?.phone || "")) {
+  if (!customerPhone) {
     throw new Error("Enter the customer's phone number before creating.")
+  }
+  if (input.smsMarketingOptIn && customerPhone.length !== 10) {
+    throw new Error(
+      "Enter a valid 10-digit phone number before opting the customer into texts."
+    )
   }
   if (defaultAddress) {
     validateAddress(defaultAddress, "New customer address")
@@ -1104,6 +1112,12 @@ export async function createStaffCustomer(input: {
       input.sendAccountInvite !== false && !inviteResult.ok
         ? inviteResult.message || "unknown"
         : "",
+    ...(input.smsMarketingOptIn
+      ? buildSmsMarketingConsentMetadata({
+          phone: customerPhone,
+          source: "staff_customer_create",
+        })
+      : {}),
     staff_created_auth_identity: true,
     created_at: createdAt,
   }
@@ -1115,6 +1129,7 @@ export async function createStaffCustomer(input: {
     targetCustomerId: customer.id,
     targetCustomerEmail: email,
     accountClaimStatus: metadata.account_claim_status,
+    smsMarketingOptIn: Boolean(input.smsMarketingOptIn),
     source: "staff_phone_order_create",
   })
   if (defaultAddress) {
@@ -1133,9 +1148,7 @@ export async function createStaffCustomer(input: {
     body: JSON.stringify({
       first_name: input.firstName.trim(),
       last_name: input.lastName.trim(),
-      phone: input.phone
-        ? stripPhone(input.phone)
-        : stripPhone(defaultAddress?.phone || ""),
+      phone: customerPhone,
       company_name: metadataText(input.company) || "",
       metadata,
     }),

@@ -8,6 +8,10 @@ import ErrorMessage from "@modules/checkout/components/error-message"
 import { SubmitButton } from "@modules/checkout/components/submit-button"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import { signup } from "@lib/data/customer"
+import {
+  SMS_MARKETING_DISCLOSURE,
+  SMS_MARKETING_OPT_IN_LABEL,
+} from "@lib/util/sms-consent"
 
 type Props = {
   setCurrentView: (view: LOGIN_VIEW) => void
@@ -29,6 +33,9 @@ const Register = ({ setCurrentView }: Props) => {
         email: customer.email,
         first_name: customer.first_name,
         last_name: customer.last_name,
+        phone: customer.phone,
+        sms_consent: customer.metadata?.sms_consent === true,
+        sms_consent_source: customer.metadata?.sms_consent_source,
       })
     }
   }, [message])
@@ -76,6 +83,23 @@ const Register = ({ setCurrentView }: Props) => {
             autoComplete="tel"
             data-testid="phone-input"
           />
+          <label className="mt-1 flex items-start gap-3 rounded-md border border-ui-border-base bg-ui-bg-subtle px-3 py-3">
+            <input
+              className="mt-1 h-4 w-4 shrink-0 accent-Gold"
+              name="sms_marketing_opt_in"
+              type="checkbox"
+              value="on"
+              data-testid="sms-marketing-opt-in"
+            />
+            <span className="text-left">
+              <span className="block text-small-regular font-semibold text-ui-fg-base">
+                {SMS_MARKETING_OPT_IN_LABEL}
+              </span>
+              <span className="mt-1 block text-xs leading-relaxed text-ui-fg-subtle">
+                {SMS_MARKETING_DISCLOSURE}
+              </span>
+            </span>
+          </label>
           <Input
             label="Password"
             name="password"
