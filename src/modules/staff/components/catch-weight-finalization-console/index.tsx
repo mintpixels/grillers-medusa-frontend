@@ -27,6 +27,10 @@ import {
   type StaffProductSearchResult,
 } from "@lib/data/staff/order-entry"
 import {
+  parseStaffAuditLog,
+  type StaffAuditEntry,
+} from "@lib/data/staff/exception-types"
+import {
   replacementPriceLabel,
   replacementUnitPrice,
 } from "./replacement-pricing"
@@ -245,6 +249,81 @@ function pricingBasisBadge(requiresActualWeight: boolean) {
     >
       {requiresActualWeight ? "By weight" : "Per pack"}
     </span>
+  )
+}
+
+function auditActionLabel(entry: StaffAuditEntry) {
+  return (entry.action || entry.staff_action || "staff action").replace(
+    /_/g,
+    " "
+  )
+}
+
+function OrderAuditTrail({ order }: { order: Record<string, any> }) {
+  const auditLog = parseStaffAuditLog(order?.metadata || {})
+  const recent = auditLog.slice(-8).reverse()
+
+  return (
+    <div className="border-b border-gray-200 bg-white p-4 sm:p-5">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-xs font-maison-neue-mono uppercase text-Gold">
+            Audit trail
+          </p>
+          <h4 className="mt-1 text-base font-maison-neue font-semibold text-Charcoal">
+            Staff timeline
+          </h4>
+        </div>
+        <p className="text-xs font-maison-neue text-Charcoal/45">
+          {auditLog.length ? `${auditLog.length} recorded actions` : "No actions yet"}
+        </p>
+      </div>
+
+      {recent.length ? (
+        <div className="mt-3 grid gap-3 lg:grid-cols-2">
+          {recent.map((entry, index) => (
+            <div
+              className="rounded-md border border-gray-100 bg-SilverPlate/20 px-3 py-2"
+              key={`${entry.at || "audit"}-${index}`}
+            >
+              <p className="text-sm font-maison-neue font-semibold capitalize text-Charcoal">
+                {auditActionLabel(entry)}
+              </p>
+              <p className="mt-1 text-xs font-maison-neue text-Charcoal/55">
+                {[
+                  entry.status,
+                  entry.staff_actor_name ||
+                    entry.staff_actor_email ||
+                    entry.staff_actor_customer_id ||
+                    entry.staff_actor_id,
+                  entry.at,
+                ]
+                  .filter(Boolean)
+                  .join(" | ")}
+              </p>
+              {(entry.line_item_id ||
+                entry.sku ||
+                entry.finalization_id ||
+                entry.charge_attempt_id) && (
+                <p className="mt-1 truncate text-xs font-maison-neue text-Charcoal/45">
+                  {[
+                    entry.sku ? `SKU ${entry.sku}` : "",
+                    entry.line_item_id ? `Line ${entry.line_item_id}` : "",
+                    entry.charge_attempt_id ? `Charge ${entry.charge_attempt_id}` : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" | ")}
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-3 rounded-md border border-gray-100 bg-SilverPlate/20 px-3 py-2 text-sm font-maison-neue text-Charcoal/55">
+          This order has no recorded staff actions yet.
+        </p>
+      )}
+    </div>
   )
 }
 
@@ -1782,6 +1861,8 @@ export default function StaffCatchWeightFinalizationConsole({
                   </p>
                 )}
               </div>
+
+              <OrderAuditTrail order={detail.order} />
 
               {canEditLines && (
                 <AddFinalizationItem

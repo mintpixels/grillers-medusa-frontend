@@ -387,6 +387,7 @@ const sections: GuideSection[] = [
     ],
     howTo: [
       "Open Staff Console and choose Pack & Finalize.",
+      "Use the Staff timeline on the order to review recent staff actions before charging, releasing, or fulfilling. It records who changed the order, what changed, and when it happened.",
       "Pickers use the Picking tab. Claim the pick and enter the actual Fulfilled quantity for each line. A normal line becomes ready from the fulfilled quantity; use Remove or Substitute only for exceptions. New lines start with Fulfilled at 0.",
       "Click Ready For Packing only when every line is picked, removed, or substituted and the lug can move to the packing table.",
       "Packers use Ready for packing and Packing. Claim the pack before entering final pack data so two staff members do not work the same order phase at once.",
@@ -408,6 +409,7 @@ const sections: GuideSection[] = [
       "Team Access can assign Office, Picker, Packer, Manager, or Super Admin roles. Legacy General staff remains broad access for existing staff.",
       "Pickers can pick and hand off orders. Packers can pack, enter item weights, and record boxes. Managers and super admins can be granted final-charge permission.",
       "Packers can enter packing data without being allowed to charge saved cards. Super admins grant final-charge permission in Team Access.",
+      "Every Pack & Finalize mutation should write to the order staff timeline, including claim pick, line edits, added items, substitutions, removals, box capture, ready-for-charge, charge attempts, and fulfillment.",
       "Fulfillment is blocked until the final Stripe charge succeeds.",
       "Ready ship means the card has been charged and fulfillment is allowed; it does not by itself mean Medusa has a fulfillment record.",
       "QuickBooks receives the finalized weighed lines, not the original estimate. For per-lb items, QuickBooks quantity is the final pounds and QuickBooks amount is the final line subtotal; fulfilled quantity and staff notes travel in the line metadata or description.",
