@@ -10,8 +10,10 @@ import {
   listCatchWeightFinalizationQueue,
   startCatchWeightFinalization,
   updateCatchWeightFinalizationLine,
+  updateCatchWeightFinalizationPackages,
   type StaffCatchWeightFinalizationDetail,
   type StaffCatchWeightFinalizationSummary,
+  type StaffFinalizationPackage,
   type StaffCatchWeightLine,
 } from "@lib/data/staff/catch-weight-finalization"
 import {
@@ -30,11 +32,11 @@ import {
 const statusLabels: Record<string, string> = {
   pending_pack: "Ready to pack",
   packing: "Packing",
-  packed_pending_review: "Packing",
+  packed_pending_review: "Packing review",
   packed_pending_charge: "Ready to charge",
   charge_attempting: "Charging",
   charge_failed_hold: "Charge hold",
-  charged_ready_to_ship: "Ready ship",
+  charged_ready_to_ship: "Ready to ship",
   released_to_fulfillment: "Released",
   ready: "Ready",
   needs_weight: "Needs weight",
@@ -112,6 +114,10 @@ function lineRequiresActualWeight(line: StaffCatchWeightLine, title: string) {
   )
 }
 
+function lineIsFixedPrice(line: StaffCatchWeightLine, title: string) {
+  return !lineRequiresActualWeight(line, title)
+}
+
 function draftFromLine(line: StaffCatchWeightLine) {
   return {
     actual_weight_total: numberText(line.actual_weight_total),
@@ -159,6 +165,7 @@ function LineEditor({
   const isSubstituted = draft.status === "substituted"
   const title = line.customer_title || line.title_snapshot || "Order line"
   const requiresActualWeight = lineRequiresActualWeight(line, title)
+  const fixedPriceLine = lineIsFixedPrice(line, title)
   const skuSummary = [
     line.sku,
     line.qbd_list_id ? `QBD ${line.qbd_list_id}` : "Missing QBD",
@@ -184,7 +191,11 @@ function LineEditor({
   }, [line])
 
   function update(key: keyof typeof draft, value: string) {
-    setDraft((current) => ({ ...current, [key]: value }))
+    setDraft((current) => ({
+      ...current,
+      [key]: value,
+      ...(key === "actual_quantity" ? { actual_piece_count: value } : {}),
+    }))
   }
 
   function runReplacementSearch() {
@@ -327,7 +338,8 @@ function LineEditor({
               {skuSummary}
             </p>
             <p className="mt-2 text-sm font-maison-neue text-Charcoal/60">
-              Ordered {numberText(line.ordered_quantity) || "0"}
+              Ordered {numberText(line.ordered_quantity) || "0"} | Fulfilled{" "}
+              {draft.actual_quantity || "0"}
               {line.estimated_weight_total !== null &&
               line.estimated_weight_total !== undefined
                 ? ` | est. ${numberText(line.estimated_weight_total)} lb`
@@ -354,34 +366,37 @@ function LineEditor({
         </div>
 
         <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <label className="flex min-w-0 flex-col gap-1">
-            <span className={labelClass}>Weight lb</span>
-            <input
-              className={fieldClass}
-              inputMode="decimal"
-              value={draft.actual_weight_total}
-              disabled={isRemoved}
-              onChange={(event) =>
-                update("actual_weight_total", event.target.value)
-              }
-            />
-          </label>
+          {requiresActualWeight ? (
+            <label className="flex min-w-0 flex-col gap-1">
+              <span className={labelClass}>Actual weight lb</span>
+              <input
+                className={fieldClass}
+                inputMode="decimal"
+                value={draft.actual_weight_total}
+                disabled={isRemoved}
+                onChange={(event) =>
+                  update("actual_weight_total", event.target.value)
+                }
+              />
+            </label>
+          ) : (
+            <div className="flex min-w-0 flex-col gap-1">
+              <span className={labelClass}>Weight</span>
+              <div className="flex min-h-[42px] items-center rounded-md border border-gray-100 bg-gray-50 px-3 text-sm text-Charcoal/55">
+                No weight needed
+              </div>
+            </div>
+          )}
+
+          <div className="flex min-w-0 flex-col gap-1">
+            <span className={labelClass}>Ordered</span>
+            <div className="flex min-h-[42px] items-center rounded-md border border-gray-100 bg-gray-50 px-3 text-sm text-Charcoal/70">
+              {numberText(line.ordered_quantity) || "0"}
+            </div>
+          </div>
 
           <label className="flex min-w-0 flex-col gap-1">
-            <span className={labelClass}>Pieces</span>
-            <input
-              className={fieldClass}
-              inputMode="decimal"
-              value={draft.actual_piece_count}
-              disabled={isRemoved}
-              onChange={(event) =>
-                update("actual_piece_count", event.target.value)
-              }
-            />
-          </label>
-
-          <label className="flex min-w-0 flex-col gap-1">
-            <span className={labelClass}>Quantity</span>
+            <span className={labelClass}>Fulfilled</span>
             <input
               className={fieldClass}
               inputMode="decimal"
@@ -407,6 +422,13 @@ function LineEditor({
             </select>
           </label>
         </div>
+
+        {fixedPriceLine && (
+          <p className="mt-2 text-xs font-maison-neue text-Charcoal/45">
+            Fixed-price line: final amount follows fulfilled quantity, not
+            weight.
+          </p>
+        )}
 
         {isRemoved && (
           <label className="mt-4 flex flex-col gap-1">
@@ -545,7 +567,213 @@ function LineEditor({
   )
 }
 
-export default function StaffCatchWeightFinalizationConsole() {
+function packageDrafts(packages: StaffFinalizationPackage[] | undefined) {
+  const rows = packages?.length
+    ? packages
+    : [
+        {
+          package_type: "",
+          count: "",
+          packed_weight_lb: "",
+          note: "",
+        },
+      ]
+
+  return rows.map((pkg) => ({
+    id: pkg.id || "",
+    package_type: pkg.package_type || "",
+    count: numberText(pkg.count),
+    packed_weight_lb: numberText(pkg.packed_weight_lb),
+    note: pkg.note || "",
+  }))
+}
+
+function cleanPackageDrafts(
+  packages: ReturnType<typeof packageDrafts>
+): StaffFinalizationPackage[] {
+  return packages
+    .map((pkg) => ({
+      id: pkg.id || undefined,
+      package_type: pkg.package_type.trim(),
+      count: pkg.count.trim(),
+      packed_weight_lb: pkg.packed_weight_lb.trim(),
+      note: pkg.note.trim(),
+    }))
+    .filter(
+      (pkg) => pkg.package_type || pkg.count || pkg.packed_weight_lb || pkg.note
+    )
+}
+
+function PackageCapture({
+  orderId,
+  detail,
+  onSaved,
+}: {
+  orderId: string
+  detail: StaffCatchWeightFinalizationDetail
+  onSaved: () => void
+}) {
+  const [packages, setPackages] = useState(() => packageDrafts(detail.packages))
+  const [error, setError] = useState<string | null>(null)
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle")
+  const [isPending, startTransition] = useTransition()
+
+  useEffect(() => {
+    setPackages(packageDrafts(detail.packages))
+    setError(null)
+    setSaveState("idle")
+  }, [detail.packages])
+
+  function update(index: number, key: keyof (typeof packages)[number], value: string) {
+    setPackages((current) =>
+      current.map((pkg, rowIndex) =>
+        rowIndex === index ? { ...pkg, [key]: value } : pkg
+      )
+    )
+  }
+
+  function addRow() {
+    setPackages((current) => [
+      ...current,
+      { id: "", package_type: "", count: "", packed_weight_lb: "", note: "" },
+    ])
+  }
+
+  function removeRow(index: number) {
+    setPackages((current) =>
+      current.length === 1
+        ? packageDrafts([])
+        : current.filter((_, rowIndex) => rowIndex !== index)
+    )
+  }
+
+  function save() {
+    setError(null)
+    setSaveState("saving")
+    startTransition(async () => {
+      try {
+        await updateCatchWeightFinalizationPackages({
+          orderId,
+          packages: cleanPackageDrafts(packages),
+        })
+        setSaveState("saved")
+        onSaved()
+      } catch (err: any) {
+        setSaveState("idle")
+        setError(err.message || "Could not save package details.")
+      }
+    })
+  }
+
+  return (
+    <div className="border-b border-gray-200 bg-SilverPlate/20 p-4 sm:p-5">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <p className="text-xs font-maison-neue-mono uppercase text-Gold">
+            Shipping boxes
+          </p>
+          <h4 className="mt-1 text-base font-maison-neue font-semibold text-Charcoal">
+            Package capture
+          </h4>
+          <p className="mt-1 max-w-2xl text-sm font-maison-neue text-Charcoal/60">
+            Enter each shipper size, count, and packed weight before the card is
+            charged.
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            className={secondaryButtonClass}
+            onClick={addRow}
+            type="button"
+          >
+            Add Box
+          </Button>
+          <Button
+            className={primaryButtonClass}
+            isLoading={isPending || saveState === "saving"}
+            onClick={save}
+            type="button"
+          >
+            Save Boxes
+          </Button>
+        </div>
+      </div>
+
+      <div className="mt-4 space-y-3">
+        {packages.map((pkg, index) => (
+          <div
+            className="grid gap-3 rounded-md border border-gray-200 bg-white p-3 md:grid-cols-[minmax(0,1fr)_100px_140px_minmax(0,1fr)_auto]"
+            key={`${pkg.id || "new"}-${index}`}
+          >
+            <label className="flex min-w-0 flex-col gap-1">
+              <span className={labelClass}>Size/type</span>
+              <input
+                className={fieldClass}
+                placeholder="Small, medium, 345, micro"
+                value={pkg.package_type}
+                onChange={(event) =>
+                  update(index, "package_type", event.target.value)
+                }
+              />
+            </label>
+            <label className="flex min-w-0 flex-col gap-1">
+              <span className={labelClass}>Count</span>
+              <input
+                className={fieldClass}
+                inputMode="numeric"
+                value={pkg.count}
+                onChange={(event) => update(index, "count", event.target.value)}
+              />
+            </label>
+            <label className="flex min-w-0 flex-col gap-1">
+              <span className={labelClass}>Packed lb</span>
+              <input
+                className={fieldClass}
+                inputMode="decimal"
+                value={pkg.packed_weight_lb}
+                onChange={(event) =>
+                  update(index, "packed_weight_lb", event.target.value)
+                }
+              />
+            </label>
+            <label className="flex min-w-0 flex-col gap-1">
+              <span className={labelClass}>Note</span>
+              <input
+                className={fieldClass}
+                value={pkg.note}
+                onChange={(event) => update(index, "note", event.target.value)}
+              />
+            </label>
+            <button
+              className="min-h-[42px] self-end rounded-md border border-gray-200 px-3 text-xs font-maison-neue-mono uppercase text-Charcoal/60"
+              onClick={() => removeRow(index)}
+              type="button"
+            >
+              Remove
+            </button>
+          </div>
+        ))}
+      </div>
+      {(error || saveState === "saved") && (
+        <p
+          className={`mt-3 rounded-md border px-3 py-2 text-sm ${
+            error
+              ? "border-red-200 bg-red-50 text-red-700"
+              : "border-emerald-200 bg-emerald-50 text-emerald-800"
+          }`}
+        >
+          {error || "Package details saved."}
+        </p>
+      )}
+    </div>
+  )
+}
+
+export default function StaffCatchWeightFinalizationConsole({
+  canChargeFinalOrders = false,
+}: {
+  canChargeFinalOrders?: boolean
+}) {
   const [queue, setQueue] = useState<StaffCatchWeightFinalizationSummary[]>([])
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null)
   const [detail, setDetail] =
@@ -653,6 +881,11 @@ export default function StaffCatchWeightFinalizationConsole() {
   const totals = detail?.totals || detail?.finalization || {}
   const readyForFulfillment = catchWeightReadyForFulfillment(detail)
   const fulfilled = hasActiveFulfillment(detail?.order)
+  const chargeDisabledReason = !canChargeFinalOrders
+    ? "This staff account can pack orders but is not allowed to charge saved cards."
+    : blockingErrorCount > 0
+    ? "Resolve packing errors before charging."
+    : null
 
   return (
     <section className="overflow-hidden rounded-lg border border-gray-200 bg-white">
@@ -825,17 +1058,17 @@ export default function StaffCatchWeightFinalizationConsole() {
                     onClick={() =>
                       runAction(
                         "approve",
-                        "Ready to charge.",
+                        "Ready for final charge.",
                         approveCatchWeightFinalization
                       )
                     }
                     type="button"
                   >
-                    Mark Ready to Charge
+                    Mark Ready
                   </Button>
                   <Button
                     className="min-h-[42px] w-full rounded-md bg-Gold px-4 text-xs font-rexton font-bold uppercase text-Charcoal sm:w-auto"
-                    disabled={Boolean(pendingAction)}
+                    disabled={Boolean(pendingAction) || Boolean(chargeDisabledReason)}
                     isLoading={pendingAction === "charge"}
                     onClick={() =>
                       runAction(
@@ -870,7 +1103,21 @@ export default function StaffCatchWeightFinalizationConsole() {
                     </Button>
                   )}
                 </div>
+                {chargeDisabledReason && (
+                  <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                    {chargeDisabledReason}
+                  </p>
+                )}
               </div>
+
+              {(detail.package_capture_required ||
+                (detail.packages && detail.packages.length > 0)) && (
+                <PackageCapture
+                  orderId={detail.order.id}
+                  detail={detail}
+                  onSaved={() => loadDetail(detail.order.id)}
+                />
+              )}
 
               <div>
                 {detail.lines.map((line) => (

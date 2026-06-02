@@ -4,6 +4,7 @@ import "server-only"
 
 import { retrieveAuthenticatedCustomerForStaffAccess } from "@lib/data/customer"
 import {
+  canChargeFinalOrders,
   isBootstrapSuperAdminEmail,
   isSuperAdminCustomer,
   staffAccessRole,
@@ -26,6 +27,7 @@ export type StaffTeamUser = {
   phone: string
   company: string
   role: StaffAccessRole
+  finalChargeEnabled: boolean
   isBootstrapSuperAdmin: boolean
   latestStaffAccessEvent?: StaffAuditEntry
   recentStaffAccessEvents: StaffAuditEntry[]
@@ -34,6 +36,7 @@ export type StaffTeamUser = {
 export type StaffRoleUpdateInput = {
   customerId: string
   role: StaffAccessRole
+  finalChargeEnabled?: boolean
   reason: string
   confirmation: string
 }
@@ -93,6 +96,7 @@ function summarizeCustomer(customer: AnyRecord): StaffTeamUser {
     phone: customer.phone || "",
     company: customer.company_name || "",
     role: staffAccessRole(customer),
+    finalChargeEnabled: canChargeFinalOrders(customer),
     isBootstrapSuperAdmin: isBootstrapSuperAdminEmail(customer.email),
     latestStaffAccessEvent: events[0],
     recentStaffAccessEvents: events,
@@ -105,7 +109,8 @@ function requiredConfirmation(role: StaffAccessRole): string {
 
 function roleMetadata(
   current: AnyRecord | null | undefined,
-  role: StaffAccessRole
+  role: StaffAccessRole,
+  options: { finalChargeEnabled?: boolean } = {}
 ): AnyRecord {
   const metadata = { ...(current || {}) }
   const hasStaffAccess = role !== "customer"
@@ -120,6 +125,10 @@ function roleMetadata(
   metadata.staff_super_admin = role === "super_admin"
   metadata.staff_access_revoked = role === "customer"
   metadata.staff_access_updated_at = now
+  metadata.final_charge_enabled =
+    role === "super_admin" ||
+    (hasStaffAccess && Boolean(options.finalChargeEnabled))
+  metadata.can_charge_final_orders = metadata.final_charge_enabled
 
   if (role === "customer") {
     const roleValue = String(metadata.role || "").trim().toLowerCase()
@@ -233,7 +242,9 @@ export async function updateStaffTeamRole(
     }
 
     const metadata = appendStaffAuditLog(
-      roleMetadata(customer.metadata, role),
+      roleMetadata(customer.metadata, role, {
+        finalChargeEnabled: input.finalChargeEnabled,
+      }),
       {
         action: "staff_role_change",
         staff_actor_customer_id: actor.id,
@@ -244,6 +255,9 @@ export async function updateStaffTeamRole(
         target_name: formatCustomerName(customer),
         previous_role: previousRole,
         role,
+        final_charge_enabled:
+          role === "super_admin" ||
+          (role !== "customer" && Boolean(input.finalChargeEnabled)),
         reason,
       }
     )

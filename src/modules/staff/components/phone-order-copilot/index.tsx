@@ -42,7 +42,10 @@ import {
   type StaffPrepareOrderResult,
   type StaffProductSearchResult,
 } from "@lib/data/staff/order-entry"
-import { isSuperAdminCustomer } from "@lib/util/staff-access"
+import {
+  canChargeFinalOrders,
+  isSuperAdminCustomer,
+} from "@lib/util/staff-access"
 import {
   startStaffImpersonation,
   stopStaffImpersonation,
@@ -354,6 +357,7 @@ export default function PhoneOrderCopilot({
   const [activeWorkspace, setActiveWorkspace] =
     useState<StaffWorkspace>(initialWorkspace)
   const canManageTeamAccess = isSuperAdminCustomer(staffCustomer)
+  const canChargeFinalizedOrders = canChargeFinalOrders(staffCustomer)
   const isCustomerWorkspace =
     activeWorkspace === "phone_order" || activeWorkspace === "new_customer"
   const hasSelectedCustomer = Boolean(draftCustomer.id)
@@ -796,7 +800,7 @@ export default function PhoneOrderCopilot({
       id: "finalization",
       eyebrow: "Back office",
       title: "Pack & finalize",
-      body: "Enter actual catch weights, review final totals, charge the saved card, and record fulfillment.",
+      body: "Enter fulfilled quantities, actual weights, substitutions, shipping boxes, and release orders after the final card charge.",
       icon: PackageCheck,
       onClick: () => setActiveWorkspace("finalization"),
     },
@@ -998,7 +1002,9 @@ export default function PhoneOrderCopilot({
       {activeWorkspace === "team_access" && canManageTeamAccess ? (
         <StaffTeamAccessConsole />
       ) : activeWorkspace === "finalization" ? (
-        <StaffCatchWeightFinalizationConsole />
+        <StaffCatchWeightFinalizationConsole
+          canChargeFinalOrders={canChargeFinalizedOrders}
+        />
       ) : isCustomerWorkspace ? (
         <>
           <section className="rounded-lg border border-gray-200 bg-white p-5">

@@ -49,6 +49,7 @@ export default function StaffTeamAccessConsole() {
   const [results, setResults] = useState<StaffTeamUser[]>([])
   const [selected, setSelected] = useState<StaffTeamUser | null>(null)
   const [roleDraft, setRoleDraft] = useState<StaffAccessRole>("staff")
+  const [finalChargeDraft, setFinalChargeDraft] = useState(false)
   const [reason, setReason] = useState("")
   const [confirmation, setConfirmation] = useState("")
   const [status, setStatus] = useState<string | null>(null)
@@ -91,6 +92,7 @@ export default function StaffTeamAccessConsole() {
   function selectUser(user: StaffTeamUser) {
     setSelected(user)
     setRoleDraft(user.role === "customer" ? "staff" : user.role)
+    setFinalChargeDraft(user.finalChargeEnabled)
     setReason("")
     setConfirmation("")
     setError(null)
@@ -105,6 +107,7 @@ export default function StaffTeamAccessConsole() {
       const result = await updateStaffTeamRole({
         customerId: selected.id,
         role: roleDraft,
+        finalChargeEnabled: finalChargeDraft,
         reason,
         confirmation,
       })
@@ -119,6 +122,7 @@ export default function StaffTeamAccessConsole() {
         current.map((user) => (user.id === result.user!.id ? result.user! : user))
       )
       setRoleDraft(result.user.role)
+      setFinalChargeDraft(result.user.finalChargeEnabled)
       setReason("")
       setConfirmation("")
       setStatus(`${displayName(result.user)} is now ${staffRoleLabel(result.user.role)}.`)
@@ -214,10 +218,17 @@ export default function StaffTeamAccessConsole() {
                     <span className="block break-all">{user.email}</span>
                     {user.phone && <span className="block">{user.phone}</span>}
                   </span>
-                  <span
-                    className={`w-fit rounded-full border px-3 py-1 text-xs font-maison-neue-mono uppercase ${roleBadgeClass(user.role)}`}
-                  >
-                    {staffRoleLabel(user.role)}
+                  <span>
+                    <span
+                      className={`inline-flex w-fit rounded-full border px-3 py-1 text-xs font-maison-neue-mono uppercase ${roleBadgeClass(user.role)}`}
+                    >
+                      {staffRoleLabel(user.role)}
+                    </span>
+                    {user.finalChargeEnabled && (
+                      <span className="mt-1 block w-fit rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-maison-neue-mono uppercase text-emerald-800 md:mt-2">
+                        Can charge
+                      </span>
+                    )}
                   </span>
                 </button>
               ))}
@@ -285,6 +296,12 @@ export default function StaffTeamAccessConsole() {
                       }
                       onChange={() => {
                         setRoleDraft(option.value)
+                        if (option.value === "customer") {
+                          setFinalChargeDraft(false)
+                        }
+                        if (option.value === "super_admin") {
+                          setFinalChargeDraft(true)
+                        }
                         setConfirmation("")
                       }}
                       type="radio"
@@ -300,6 +317,31 @@ export default function StaffTeamAccessConsole() {
                   </label>
                 ))}
               </div>
+
+              <label
+                className={`flex gap-3 rounded-md border p-3 ${
+                  roleDraft === "customer"
+                    ? "border-gray-100 bg-gray-50 text-Charcoal/45"
+                    : "border-emerald-200 bg-emerald-50/60 text-Charcoal"
+                }`}
+              >
+                <input
+                  checked={roleDraft === "super_admin" || finalChargeDraft}
+                  className="mt-1"
+                  disabled={roleDraft === "customer" || roleDraft === "super_admin"}
+                  onChange={(event) => setFinalChargeDraft(event.target.checked)}
+                  type="checkbox"
+                />
+                <span>
+                  <span className="block text-sm font-maison-neue font-semibold">
+                    Can charge final orders
+                  </span>
+                  <span className="mt-1 block text-xs font-maison-neue text-Charcoal/60">
+                    Allows this staff member to press Charge Card & Release in
+                    Pack & Finalize. Super admins always have this permission.
+                  </span>
+                </span>
+              </label>
 
               <label className="flex flex-col gap-1">
                 <span className={labelClass()}>Reason</span>

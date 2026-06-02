@@ -8,7 +8,11 @@ import {
   buildCatchWeightFulfillmentItems,
   catchWeightReadyForFulfillment,
 } from "@lib/util/catch-weight-fulfillment"
-import { isStaffCustomer, staffDisplayName } from "@lib/util/staff-access"
+import {
+  canChargeFinalOrders,
+  isStaffCustomer,
+  staffDisplayName,
+} from "@lib/util/staff-access"
 import { revalidatePath } from "next/cache"
 import { adminFetch, appendStaffAuditLog } from "./admin"
 
@@ -57,10 +61,20 @@ export type StaffCatchWeightLine = {
   warnings?: Array<{ message?: string } | string>
 }
 
+export type StaffFinalizationPackage = {
+  id?: string | null
+  package_type?: string | null
+  count?: number | string | null
+  packed_weight_lb?: number | string | null
+  note?: string | null
+}
+
 export type StaffCatchWeightFinalizationDetail = {
   order: AnyRecord
   finalization: StaffCatchWeightFinalizationSummary & AnyRecord
   lines: StaffCatchWeightLine[]
+  package_capture_required?: boolean
+  packages?: StaffFinalizationPackage[]
   payment_setup?: AnyRecord | null
   charge_attempts?: AnyRecord[]
   errors?: Array<{ line_item_id?: string; message: string }>
@@ -173,6 +187,24 @@ export async function updateCatchWeightFinalizationLine(input: {
   return result.line
 }
 
+export async function updateCatchWeightFinalizationPackages(input: {
+  orderId: string
+  packages: StaffFinalizationPackage[]
+}) {
+  await requireStaffOperator()
+  const result = await adminFetch<StaffCatchWeightFinalizationDetail>(
+    `/admin/grillers/orders/${input.orderId}/finalization/packages`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        packages: input.packages,
+      }),
+    }
+  )
+  revalidateStaffOrders()
+  return result
+}
+
 export async function previewCatchWeightFinalization(orderId: string) {
   return adminFetch<StaffCatchWeightFinalizationDetail>(
     `/admin/grillers/orders/${orderId}/finalization/preview`,
@@ -190,6 +222,11 @@ export async function approveCatchWeightFinalization(orderId: string) {
 }
 
 export async function chargeAndReleaseCatchWeightOrder(orderId: string) {
+  const staff = await requireStaffOperator()
+  if (!canChargeFinalOrders(staff)) {
+    throw new Error("This staff account is not allowed to charge final orders.")
+  }
+
   const result = await adminFetch<StaffCatchWeightFinalizationDetail>(
     `/admin/grillers/orders/${orderId}/finalization/charge-and-release`,
     {

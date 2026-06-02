@@ -151,6 +151,18 @@ export function isSuperAdminCustomer(customer: StaffCustomerLike): boolean {
   return staffAccessRole(customer) === "super_admin"
 }
 
+export function canChargeFinalOrders(customer: StaffCustomerLike): boolean {
+  if (isSuperAdminCustomer(customer)) return true
+
+  const metadata = (customer?.metadata || {}) as StaffMetadata
+  return [
+    metadata?.final_charge_enabled,
+    metadata?.can_charge_final_orders,
+    metadata?.staff_final_charge_enabled,
+    metadata?.catch_weight_charge_enabled,
+  ].some(truthyStaffValue)
+}
+
 export function isExplicitStaffDeny(value: unknown): boolean {
   return falseyStaffValue(value)
 }
