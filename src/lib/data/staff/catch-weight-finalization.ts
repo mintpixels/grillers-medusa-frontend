@@ -204,6 +204,47 @@ export async function updateCatchWeightFinalizationLine(input: {
   return result.line
 }
 
+export async function addCatchWeightFinalizationLine(input: {
+  orderId: string
+  product_id?: string
+  variant_id: string
+  sku?: string
+  qbd_list_id?: string
+  title: string
+  customer_title?: string
+  pricing_mode?: string
+  actual_unit_price?: string
+  actual_quantity?: string
+  actual_piece_count?: string
+  actual_weight_total?: string
+  actual_unit_weights?: string[]
+  note?: string
+}) {
+  const result = await adminFetch<{ line: StaffCatchWeightLine }>(
+    `/admin/grillers/orders/${input.orderId}/finalization/lines`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        product_id: input.product_id || null,
+        variant_id: input.variant_id,
+        sku: input.sku || null,
+        qbd_list_id: input.qbd_list_id || null,
+        title: input.title,
+        customer_title: input.customer_title || input.title,
+        pricing_mode: input.pricing_mode || null,
+        actual_unit_price: input.actual_unit_price || null,
+        actual_quantity: input.actual_quantity || null,
+        actual_piece_count: input.actual_piece_count || null,
+        actual_weight_total: input.actual_weight_total || null,
+        actual_unit_weights: input.actual_unit_weights || null,
+        note: input.note || null,
+      }),
+    }
+  )
+  revalidateStaffOrders()
+  return result.line
+}
+
 export async function updateCatchWeightFinalizationPackages(input: {
   orderId: string
   packages: StaffFinalizationPackage[]

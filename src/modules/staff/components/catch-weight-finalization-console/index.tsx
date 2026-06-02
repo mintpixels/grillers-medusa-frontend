@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from "react"
 import Button from "@modules/common/components/button"
 import {
+  addCatchWeightFinalizationLine,
   approveCatchWeightFinalization,
   chargeAndReleaseCatchWeightOrder,
   fulfillReleasedCatchWeightOrder,
@@ -199,6 +200,40 @@ function positiveWeightCount(weights: string[]) {
   }).length
 }
 
+function positiveDraftQuantity(value: string) {
+  const amount = Number(value)
+  return Number.isFinite(amount) && amount > 0 ? amount : 0
+}
+
+function deriveLineStatus(
+  draft: ReturnType<typeof draftFromLine>,
+  requiresActualWeight: boolean,
+  packingPhase: boolean
+) {
+  if (draft.status === "removed" || draft.status === "substituted") {
+    return draft.status
+  }
+  if (requiresActualWeight && packingPhase) {
+    return positiveWeightCount(draft.actual_unit_weights) > 0
+      ? "ready"
+      : "needs_weight"
+  }
+  return positiveDraftQuantity(draft.actual_quantity) > 0
+    ? "ready"
+    : "needs_pick"
+}
+
+function withDerivedLineStatus(
+  draft: ReturnType<typeof draftFromLine>,
+  requiresActualWeight: boolean,
+  packingPhase: boolean
+) {
+  return {
+    ...draft,
+    status: deriveLineStatus(draft, requiresActualWeight, packingPhase),
+  }
+}
+
 function pricingBasisBadge(requiresActualWeight: boolean) {
   return (
     <span
@@ -277,11 +312,17 @@ function LineEditor({
   }, [line])
 
   function update(key: keyof typeof draft, value: string) {
-    setDraft((current) => ({
-      ...current,
-      [key]: value,
-      ...(key === "actual_quantity" ? { actual_piece_count: value } : {}),
-    }))
+    setDraft((current) =>
+      withDerivedLineStatus(
+        {
+          ...current,
+          [key]: value,
+          ...(key === "actual_quantity" ? { actual_piece_count: value } : {}),
+        },
+        requiresActualWeight,
+        packingPhase
+      )
+    )
   }
 
   function updateUnitWeight(index: number, value: string) {
@@ -294,6 +335,15 @@ function LineEditor({
         actual_weight_total: numberText(weightTotal(actualUnitWeights)),
         actual_quantity: String(positiveWeightCount(actualUnitWeights) || ""),
         actual_piece_count: String(positiveWeightCount(actualUnitWeights) || ""),
+        status: deriveLineStatus(
+          {
+            ...current,
+            actual_unit_weights: actualUnitWeights,
+            actual_quantity: String(positiveWeightCount(actualUnitWeights) || ""),
+          },
+          requiresActualWeight,
+          packingPhase
+        ),
       }
     })
   }
@@ -316,6 +366,15 @@ function LineEditor({
         actual_weight_total: numberText(weightTotal(actualUnitWeights)),
         actual_quantity: String(positiveWeightCount(actualUnitWeights) || ""),
         actual_piece_count: String(positiveWeightCount(actualUnitWeights) || ""),
+        status: deriveLineStatus(
+          {
+            ...current,
+            actual_unit_weights: actualUnitWeights,
+            actual_quantity: String(positiveWeightCount(actualUnitWeights) || ""),
+          },
+          requiresActualWeight,
+          packingPhase
+        ),
       }
     })
   }
@@ -370,14 +429,19 @@ function LineEditor({
     draftToSave: ReturnType<typeof draftFromLine>,
     options: { validate: boolean; refresh: boolean }
   ) {
-    const signature = draftSignature(draftToSave)
+    const normalizedDraft = withDerivedLineStatus(
+      draftToSave,
+      requiresActualWeight,
+      packingPhase
+    )
+    const signature = draftSignature(normalizedDraft)
     const actualWeight = requiresActualWeight
-      ? weightTotal(draftToSave.actual_unit_weights)
-      : Number(draftToSave.actual_weight_total)
+      ? weightTotal(normalizedDraft.actual_unit_weights)
+      : Number(normalizedDraft.actual_weight_total)
 
     if (
       options.validate &&
-      draftToSave.status === "ready" &&
+      normalizedDraft.status === "ready" &&
       requiresActualWeight &&
       packingPhase &&
       (!Number.isFinite(actualWeight) || actualWeight <= 0)
@@ -387,12 +451,12 @@ function LineEditor({
     }
 
     const actualQuantity =
-      requiresActualWeight && draftToSave.actual_unit_weights.length
-        ? positiveWeightCount(draftToSave.actual_unit_weights)
-        : Number(draftToSave.actual_quantity)
+      requiresActualWeight && normalizedDraft.actual_unit_weights.length
+        ? positiveWeightCount(normalizedDraft.actual_unit_weights)
+        : Number(normalizedDraft.actual_quantity)
     if (
       options.validate &&
-      draftToSave.status === "ready" &&
+      normalizedDraft.status === "ready" &&
       (!Number.isFinite(actualQuantity) || actualQuantity <= 0)
     ) {
       setError("Enter the fulfilled quantity before marking this line ready.")
@@ -401,8 +465,8 @@ function LineEditor({
 
     if (
       options.validate &&
-      draftToSave.status === "removed" &&
-      !draftToSave.short_reason.trim()
+      normalizedDraft.status === "removed" &&
+      !normalizedDraft.short_reason.trim()
     ) {
       setError("Add a removal reason before saving this line.")
       return
@@ -410,10 +474,10 @@ function LineEditor({
 
     if (
       options.validate &&
-      draftToSave.status === "substituted" &&
-      (!draftToSave.replacement_variant_id.trim() ||
-        !draftToSave.replacement_qbd_list_id.trim() ||
-        !draftToSave.replacement_reason.trim())
+      normalizedDraft.status === "substituted" &&
+      (!normalizedDraft.replacement_variant_id.trim() ||
+        !normalizedDraft.replacement_qbd_list_id.trim() ||
+        !normalizedDraft.replacement_reason.trim())
     ) {
       setError("Choose a replacement and add the substitution reason.")
       return
@@ -424,12 +488,12 @@ function LineEditor({
       await updateCatchWeightFinalizationLine({
         orderId,
         lineItemId: line.line_item_id,
-        ...draftToSave,
+        ...normalizedDraft,
         actual_weight_total: requiresActualWeight
-          ? numberText(weightTotal(draftToSave.actual_unit_weights))
-          : draftToSave.actual_weight_total,
+          ? numberText(weightTotal(normalizedDraft.actual_unit_weights))
+          : normalizedDraft.actual_weight_total,
         actual_unit_weights: requiresActualWeight
-          ? draftToSave.actual_unit_weights
+          ? normalizedDraft.actual_unit_weights
           : [],
       })
       lastSavedSignature.current = signature
@@ -450,6 +514,37 @@ function LineEditor({
     startTransition(async () => {
       await persistDraft(draft, { validate: true, refresh: true })
     })
+  }
+
+  function markRemoved() {
+    setDraft((current) => ({
+      ...current,
+      status: "removed",
+    }))
+  }
+
+  function markSubstituted() {
+    setDraft((current) => ({
+      ...current,
+      status: "substituted",
+    }))
+  }
+
+  function clearException() {
+    setDraft((current) =>
+      withDerivedLineStatus(
+        {
+          ...current,
+          replacement_variant_id: "",
+          replacement_qbd_list_id: "",
+          replacement_reason: "",
+          short_reason: "",
+          status: "needs_pick",
+        },
+        requiresActualWeight,
+        packingPhase
+      )
+    )
   }
 
   useEffect(() => {
@@ -613,23 +708,40 @@ function LineEditor({
             />
           </label>
 
-          <label className="flex min-w-0 flex-col gap-1">
-            <span className={labelClass}>Pick result</span>
-            <select
-              className={fieldClass}
-              value={draft.status}
-              disabled={!canEdit}
-              onChange={(event) => update("status", event.target.value)}
-            >
-              <option value="needs_pick">Needs pick</option>
-              {(packingPhase || draft.status === "needs_weight") && (
-                <option value="needs_weight">Needs weight</option>
+          <div className="flex min-w-0 flex-col gap-1">
+            <span className={labelClass}>Line action</span>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {isRemoved || isSubstituted ? (
+                <button
+                  className={secondaryButtonClass}
+                  disabled={!canEdit}
+                  onClick={clearException}
+                  type="button"
+                >
+                  Clear
+                </button>
+              ) : (
+                <>
+                  <button
+                    className={secondaryButtonClass}
+                    disabled={!canEdit}
+                    onClick={markRemoved}
+                    type="button"
+                  >
+                    Remove
+                  </button>
+                  <button
+                    className={secondaryButtonClass}
+                    disabled={!canEdit}
+                    onClick={markSubstituted}
+                    type="button"
+                  >
+                    Substitute
+                  </button>
+                </>
               )}
-              <option value="ready">Ready</option>
-              <option value="removed">Removed</option>
-              <option value="substituted">Substituted</option>
-            </select>
-          </label>
+            </div>
+          </div>
         </div>
 
         {fixedPriceLine && (
@@ -780,6 +892,181 @@ function LineEditor({
             : "Changes save automatically"}
         </p>
       </div>
+    </div>
+  )
+}
+
+function AddFinalizationItem({
+  orderId,
+  currencyCode,
+  canEdit,
+  onSaved,
+}: {
+  orderId: string
+  currencyCode: string
+  canEdit: boolean
+  onSaved: () => void
+}) {
+  const [query, setQuery] = useState("")
+  const [results, setResults] = useState<StaffProductSearchResult[]>([])
+  const [quantity, setQuantity] = useState("1")
+  const [note, setNote] = useState("")
+  const [error, setError] = useState<string | null>(null)
+  const [isSearchPending, startSearchTransition] = useTransition()
+  const [isAddPending, startAddTransition] = useTransition()
+
+  function runSearch() {
+    const q = query.trim()
+    setError(null)
+    if (q.length < 2) {
+      setError("Search by product name or SKU.")
+      return
+    }
+    startSearchTransition(async () => {
+      try {
+        const nextResults = await searchStaffProducts(q, "us")
+        setResults(nextResults)
+        if (!nextResults.length) setError("No products found.")
+      } catch (err: any) {
+        setError(err.message || "Could not search products.")
+      }
+    })
+  }
+
+  function addProduct(product: StaffProductSearchResult) {
+    const amount = Number(quantity)
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setError("Enter a fulfilled quantity greater than zero.")
+      return
+    }
+    if (!product.qbdListId) {
+      setError("This product is missing a QuickBooks item ID.")
+      return
+    }
+    const title =
+      product.variantTitle && product.variantTitle !== "Default"
+        ? `${product.title} - ${product.variantTitle}`
+        : product.title
+    const unitPrice = replacementUnitPrice(product)
+
+    startAddTransition(async () => {
+      try {
+        await addCatchWeightFinalizationLine({
+          orderId,
+          product_id: product.productId,
+          variant_id: product.variantId,
+          sku: product.sku,
+          qbd_list_id: product.qbdListId,
+          title,
+          customer_title: title,
+          pricing_mode: product.pricingMode,
+          actual_unit_price:
+            unitPrice !== null && unitPrice !== undefined
+              ? String(unitPrice)
+              : "",
+          actual_quantity: quantity,
+          actual_piece_count: quantity,
+          note,
+        })
+        setQuery("")
+        setResults([])
+        setQuantity("1")
+        setNote("")
+        setError(null)
+        onSaved()
+      } catch (err: any) {
+        setError(err.message || "Could not add item.")
+      }
+    })
+  }
+
+  if (!canEdit) return null
+
+  return (
+    <div className="border-b border-gray-200 bg-SilverPlate/20 p-4 sm:p-5">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
+        <label className="flex min-w-0 flex-1 flex-col gap-1">
+          <span className={labelClass}>Add item</span>
+          <input
+            className={fieldClass}
+            type="search"
+            placeholder="Search product or SKU"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") runSearch()
+            }}
+          />
+        </label>
+        <label className="flex min-w-0 flex-col gap-1 lg:w-28">
+          <span className={labelClass}>Fulfilled</span>
+          <input
+            className={fieldClass}
+            inputMode="decimal"
+            value={quantity}
+            onChange={(event) => setQuantity(event.target.value)}
+          />
+        </label>
+        <label className="flex min-w-0 flex-1 flex-col gap-1">
+          <span className={labelClass}>Note</span>
+          <input
+            className={fieldClass}
+            value={note}
+            onChange={(event) => setNote(event.target.value)}
+          />
+        </label>
+        <Button
+          className={`${secondaryButtonClass} w-full lg:w-auto`}
+          isLoading={isSearchPending}
+          onClick={runSearch}
+          type="button"
+        >
+          Search
+        </Button>
+      </div>
+
+      {results.length > 0 && (
+        <div className="mt-3 max-h-72 overflow-auto rounded-md border border-gray-200 bg-white">
+          {results.map((product) => (
+            <button
+              className="grid w-full gap-2 border-b border-gray-100 px-3 py-3 text-left last:border-b-0 hover:bg-SilverPlate/35 sm:grid-cols-[minmax(0,1fr)_auto]"
+              disabled={isAddPending}
+              key={product.variantId}
+              onClick={() => addProduct(product)}
+              type="button"
+            >
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-maison-neue font-semibold text-Charcoal">
+                  {product.variantTitle && product.variantTitle !== "Default"
+                    ? `${product.title} - ${product.variantTitle}`
+                    : product.title}
+                </span>
+                <span className="mt-1 block text-xs font-maison-neue text-Charcoal/55">
+                  {[
+                    product.sku,
+                    replacementPriceLabel(product, currencyCode),
+                    product.qbdListId ? "QBD saved" : "Missing QBD",
+                  ]
+                    .filter(Boolean)
+                    .join(" | ")}
+                </span>
+              </span>
+              <span className="flex items-center gap-2 sm:justify-end">
+                {pricingBasisBadge(product.pricingMode === "per_lb")}
+                <span className="text-xs font-maison-neue-mono uppercase text-Gold">
+                  Add
+                </span>
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {error && (
+        <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          {error}
+        </p>
+      )}
     </div>
   )
 }
@@ -1495,6 +1782,15 @@ export default function StaffCatchWeightFinalizationConsole({
                   </p>
                 )}
               </div>
+
+              {canEditLines && (
+                <AddFinalizationItem
+                  orderId={detail.order.id}
+                  currencyCode={currencyCode}
+                  canEdit={canEditLines}
+                  onSaved={() => loadDetail(detail.order.id)}
+                />
+              )}
 
               {!waitingForPacker &&
                 inPackingPhase &&

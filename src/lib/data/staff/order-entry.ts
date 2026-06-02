@@ -15,6 +15,7 @@ import {
   inventoryLineMessage,
   type InventoryAvailabilityLine,
 } from "@lib/data/inventory-allocation"
+import { resolvePricingMode, type PriceDisplayMode } from "@lib/util/price-display"
 import type { HttpTypes } from "@medusajs/types"
 import { randomBytes } from "crypto"
 import { revalidateTag } from "next/cache"
@@ -105,6 +106,7 @@ export type StaffProductSearchResult = {
   allowBackorder?: boolean
   calculatedAmount?: number
   currencyCode?: string
+  pricingMode?: PriceDisplayMode
   availability?: InventoryAvailabilityLine
 }
 
@@ -1437,6 +1439,18 @@ export async function searchStaffProducts(
           variant.calculated_price?.currency_code ||
           region.currency_code ||
           "usd",
+        pricingMode: resolvePricingMode(
+          {
+            ...productMetadata,
+            ...variantMetadata,
+          },
+          variant.sku || "",
+          null,
+          (variantMetadata.PricingMode ||
+            productMetadata.PricingMode ||
+            variantMetadata.pricing_mode ||
+            productMetadata.pricing_mode) as PriceDisplayMode | null
+        ),
       }
     })
   )
