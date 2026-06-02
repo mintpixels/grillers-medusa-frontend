@@ -387,8 +387,9 @@ const sections: GuideSection[] = [
     howTo: [
       "Open Staff Console and choose Pack & Finalize.",
       "Open an order when the lug and paper order reach the packing table. Pending orders move into packing automatically when staff open them.",
-      "For each line, compare Ordered to Fulfilled. Change Fulfilled if fewer units were packed.",
-      "Enter actual total weight for every per-lb line. Fixed-price lines do not need weight.",
+      "For each line, compare Ordered to Fulfilled. New lines start with Fulfilled at 0 because staff have not recorded the packed quantity yet.",
+      "Use the Per pack and By weight chips to see what the line needs. Per-pack lines need fulfilled quantity only; by-weight lines need fulfilled quantity and actual total weight.",
+      "Mark a line Ready only after the actual fulfilled quantity is entered. For by-weight lines, enter actual total weight before marking Ready.",
       "Line edits autosave as staff type, and final totals refresh after each saved change. Use Save Line only when you want to validate a line immediately.",
       "If the picker substitutes a line, choose Substituted, find the replacement product, confirm the replacement QBD ListID and replacement unit price, and record the substitution reason.",
       "If a line cannot be filled, choose Removed and record the removal reason.",

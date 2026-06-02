@@ -39,6 +39,7 @@ const statusLabels: Record<string, string> = {
   charged_ready_to_ship: "Ready to ship",
   released_to_fulfillment: "Released",
   ready: "Ready",
+  needs_pick: "Needs pick",
   needs_weight: "Needs weight",
   removed: "Removed",
   substituted: "Substituted",
@@ -52,6 +53,7 @@ const statusClass: Record<string, string> = {
   packing: "border-amber-200 bg-amber-50 text-amber-800",
   packed_pending_review: "border-amber-200 bg-amber-50 text-amber-800",
   ready: "border-emerald-200 bg-emerald-50 text-emerald-800",
+  needs_pick: "border-amber-200 bg-amber-50 text-amber-800",
   needs_weight: "border-amber-200 bg-amber-50 text-amber-800",
   removed: "border-red-200 bg-red-50 text-red-800",
   substituted: "border-blue-200 bg-blue-50 text-blue-800",
@@ -119,12 +121,17 @@ function lineIsFixedPrice(line: StaffCatchWeightLine, title: string) {
 }
 
 function draftFromLine(line: StaffCatchWeightLine) {
+  const title = line.customer_title || line.title_snapshot || "Order line"
+  const defaultStatus = lineRequiresActualWeight(line, title)
+    ? "needs_weight"
+    : "needs_pick"
+
   return {
     actual_weight_total: numberText(line.actual_weight_total),
-    actual_piece_count: numberText(line.actual_piece_count),
-    actual_quantity: numberText(line.actual_quantity ?? line.ordered_quantity),
+    actual_piece_count: numberText(line.actual_piece_count ?? 0),
+    actual_quantity: numberText(line.actual_quantity ?? 0),
     actual_unit_price: numberText(line.actual_unit_price),
-    status: line.status || "ready",
+    status: line.status || defaultStatus,
     replacement_variant_id: line.replacement_variant_id || "",
     replacement_qbd_list_id: line.replacement_qbd_list_id || "",
     replacement_reason: line.replacement_reason || "",
@@ -135,6 +142,20 @@ function draftFromLine(line: StaffCatchWeightLine) {
 
 function draftSignature(draft: ReturnType<typeof draftFromLine>) {
   return JSON.stringify(draft)
+}
+
+function pricingBasisBadge(requiresActualWeight: boolean) {
+  return (
+    <span
+      className={`inline-flex min-h-[26px] items-center rounded-full border px-2.5 text-[11px] font-maison-neue-mono uppercase ${
+        requiresActualWeight
+          ? "border-blue-200 bg-blue-50 text-blue-800"
+          : "border-gray-200 bg-gray-50 text-Charcoal/65"
+      }`}
+    >
+      {requiresActualWeight ? "By weight" : "Per pack"}
+    </span>
+  )
 }
 
 function LineEditor({
@@ -261,6 +282,16 @@ function LineEditor({
       return
     }
 
+    const actualQuantity = Number(draftToSave.actual_quantity)
+    if (
+      options.validate &&
+      draftToSave.status === "ready" &&
+      (!Number.isFinite(actualQuantity) || actualQuantity <= 0)
+    ) {
+      setError("Enter the fulfilled quantity before marking this line ready.")
+      return
+    }
+
     if (
       options.validate &&
       draftToSave.status === "removed" &&
@@ -332,6 +363,7 @@ function LineEditor({
               <h4 className="min-w-0 text-base font-maison-neue font-semibold leading-snug text-Charcoal">
                 {title}
               </h4>
+              {pricingBasisBadge(requiresActualWeight)}
               {statusBadge(draft.status)}
             </div>
             <p className="mt-1 truncate text-[11px] font-maison-neue-mono uppercase text-Charcoal/45">
@@ -415,8 +447,9 @@ function LineEditor({
               value={draft.status}
               onChange={(event) => update("status", event.target.value)}
             >
-              <option value="ready">Ready</option>
+              <option value="needs_pick">Needs pick</option>
               <option value="needs_weight">Needs weight</option>
+              <option value="ready">Ready</option>
               <option value="removed">Removed</option>
               <option value="substituted">Substituted</option>
             </select>
