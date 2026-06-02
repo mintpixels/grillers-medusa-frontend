@@ -160,6 +160,11 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
   const rawFulfillmentType = cart.metadata?.fulfillmentType as string | undefined
   const fulfillmentType = rawFulfillmentType && rawFulfillmentType.length > 0 ? rawFulfillmentType as FulfillmentType : undefined
   const scheduledDate = cart.metadata?.scheduledDate as string | undefined
+  const requestedDeliveryDate = cart.metadata?.requestedDeliveryDate as
+    | string
+    | undefined
+  const displayDate =
+    fulfillmentType === "ups_shipping" ? requestedDeliveryDate : scheduledDate
   const hasFulfillment = Boolean(fulfillmentType)
 
   const showSelection = !hasFulfillment || isEditing
@@ -417,13 +422,18 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
     setError(null)
 
     try {
-      const today = new Date().toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' })
-
       await setFulfillmentDetails({
         cartId: cart.id,
         fulfillmentType: option,
         fulfillmentZip: option === "atlanta_delivery" ? shipZip : "00000",
-        scheduledDate: today,
+        scheduledDate:
+          option === "ups_shipping"
+            ? ""
+            : new Date().toLocaleDateString("en-US", {
+                month: "numeric",
+                day: "numeric",
+                year: "numeric",
+              }),
       })
 
       await attachShippingMethod(option)
@@ -855,10 +865,10 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
               {fulfillmentLabels[fulfillmentType].label}
             </h3>
             
-            {scheduledDate && (
+            {displayDate && (
               <div className="flex items-center gap-1.5 text-sm text-Charcoal/70 mb-1.5">
                 <CalendarIcon />
-                <span className="font-medium">{scheduledDate}</span>
+                <span className="font-medium">{displayDate}</span>
               </div>
             )}
             

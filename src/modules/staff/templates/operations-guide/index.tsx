@@ -384,7 +384,7 @@ const sections: GuideSection[] = [
       "Open an order. Pending orders move into packing automatically when staff open them.",
       "Enter actual weight for every per-lb line and piece counts or quantity changes where needed.",
       "Line edits autosave as staff type, and final totals refresh after each saved change. Use Save Line only when you want to validate a line immediately.",
-      "If the picker substitutes a line, choose Substituted, find the replacement product, confirm the replacement QBD ListID, and record the substitution reason.",
+      "If the picker substitutes a line, choose Substituted, find the replacement product, confirm the replacement QBD ListID and replacement unit price, and record the substitution reason.",
       "If a line cannot be filled, choose Removed and record the removal reason.",
       "Fix any missing weights, missing QBD ListIDs, replacement identities, substitution reasons, or removed-line reasons shown in the queue.",
       "Click Mark Ready to Charge only after the final total is correct and the order is packed.",
@@ -515,7 +515,7 @@ const sections: GuideSection[] = [
       "Plant pickup date rules, blackout dates, additional dates, cutoff hours, and post-order note are content-managed.",
       "Atlanta delivery uses ZIP/day configuration and delivery windows.",
       "Southeast pickup uses Strapi pickup locations with available dates and cutoff days.",
-      "UPS shipping uses shipping settings, real-time rate toggle, origin ZIP, and fallback amount.",
+      "UPS shipping uses shipping settings, real-time rate toggle, origin ZIP, fallback amount, and the customer's requested arrival date. UPS does not use a scheduled pickup or local-delivery date.",
     ],
     watch: [
       "Changing fulfillment settings affects checkout immediately after deploy/cache refresh.",

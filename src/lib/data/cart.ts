@@ -616,15 +616,9 @@ export async function setFulfillmentDetails({
   const metadata: Record<string, string | undefined> = {
     fulfillmentType,
     fulfillmentZip,
-    scheduledDate,
-  }
-
-  // Only include optional fields if provided
-  if (scheduledTimeWindow) {
-    metadata.scheduledTimeWindow = scheduledTimeWindow
-  }
-  if (pickupLocationId) {
-    metadata.pickupLocationId = pickupLocationId
+    scheduledDate: fulfillmentType === "ups_shipping" ? "" : scheduledDate,
+    scheduledTimeWindow: scheduledTimeWindow || "",
+    pickupLocationId: pickupLocationId || "",
   }
 
   return sdk.store.cart

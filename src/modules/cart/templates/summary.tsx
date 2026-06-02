@@ -47,6 +47,11 @@ const Summary = ({ cart, deliveryZip, atlantaZipConfig }: SummaryProps) => {
   
   const fulfillmentType = cart.metadata?.fulfillmentType as FulfillmentType | undefined
   const scheduledDate = cart.metadata?.scheduledDate as string | undefined
+  const requestedDeliveryDate = cart.metadata?.requestedDeliveryDate as
+    | string
+    | undefined
+  const displayDate =
+    fulfillmentType === "ups_shipping" ? requestedDeliveryDate : scheduledDate
 
   const handleChangeFulfillment = async () => {
     setIsChanging(true)
@@ -73,8 +78,8 @@ const Summary = ({ cart, deliveryZip, atlantaZipConfig }: SummaryProps) => {
               <p className="text-sm font-medium text-Charcoal">
                 {formatFulfillmentType(fulfillmentType)}
               </p>
-              {scheduledDate && (
-                <p className="text-xs text-Charcoal/70">{scheduledDate}</p>
+              {displayDate && (
+                <p className="text-xs text-Charcoal/70">{displayDate}</p>
               )}
             </div>
             <button

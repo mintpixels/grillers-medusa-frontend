@@ -43,8 +43,8 @@ function lineCopy(line: InventoryAvailabilityLine) {
 function requestedFulfillmentDateFromCart(cart: HttpTypes.StoreCart) {
   const metadata = (cart.metadata || {}) as Record<string, unknown>
   const requestedDate =
-    metadata.scheduledDate ||
     metadata.requestedDeliveryDate ||
+    metadata.scheduledDate ||
     metadata.requested_fulfillment_date
 
   return typeof requestedDate === "string" ? requestedDate : undefined
@@ -237,8 +237,8 @@ export default function InventoryResolutionNotice({ cart }: Props) {
                           productTitle: line.title || item.product_title || item.title,
                           sku: line.sku,
                           requestedFulfillmentDate: String(
-                            cart.metadata?.scheduledDate ||
-                              cart.metadata?.requestedDeliveryDate ||
+                            cart.metadata?.requestedDeliveryDate ||
+                              cart.metadata?.scheduledDate ||
                               ""
                           ),
                           waitlistReason:

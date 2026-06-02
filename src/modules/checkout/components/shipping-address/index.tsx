@@ -11,6 +11,11 @@ import AddressAutocomplete from "../address-autocomplete"
 import StateSelect from "../state-select"
 import { getStoredDeliveryZip, storeDeliveryZip } from "@lib/util/delivery-zip"
 import { unscrambleAddress } from "@lib/util/format-address"
+import {
+  type AddressSuggestionFields,
+  type AddressSuggestionConflict,
+  getAddressSuggestionConflict,
+} from "./address-suggestion"
 
 function getPreferredAddress(
   addresses?: HttpTypes.StoreCustomerAddress[] | null
@@ -80,6 +85,10 @@ const ShippingAddress = ({
       "",
     email: cart?.email || customer?.email || "",
   })
+  const [addressSuggestionConflict, setAddressSuggestionConflict] =
+    useState<AddressSuggestionConflict | null>(null)
+  const [pendingAddressSuggestion, setPendingAddressSuggestion] =
+    useState<AddressSuggestionFields | null>(null)
 
   useFormPersistence("checkout_shipping_draft", formData, setFormData)
 
@@ -267,6 +276,16 @@ const ShippingAddress = ({
       return
     }
 
+    if (
+      name === "shipping_address.address_1" ||
+      name === "shipping_address.city" ||
+      name === "shipping_address.province" ||
+      name === "shipping_address.postal_code"
+    ) {
+      setAddressSuggestionConflict(null)
+      setPendingAddressSuggestion(null)
+    }
+
     setFormData({
       ...formData,
       [name]: value,
@@ -280,13 +299,7 @@ const ShippingAddress = ({
     }
   }
 
-  const handleAddressSelect = (fields: {
-    address_1: string
-    city: string
-    province: string
-    postal_code: string
-    country_code: string
-  }) => {
+  const applyAddressFields = (fields: AddressSuggestionFields) => {
     setFormData((prev: Record<string, any>) => ({
       ...prev,
       "shipping_address.address_1": fields.address_1,
@@ -304,6 +317,32 @@ const ShippingAddress = ({
     if (!customer && fields.postal_code) {
       storeDeliveryZip(fields.postal_code)
     }
+    setAddressSuggestionConflict(null)
+    setPendingAddressSuggestion(null)
+  }
+
+  const handleAddressSelect = (fields: AddressSuggestionFields) => {
+    const conflict = getAddressSuggestionConflict(
+      {
+        city: formData["shipping_address.city"],
+        province: formData["shipping_address.province"],
+        postal_code: formData["shipping_address.postal_code"],
+      },
+      fields
+    )
+
+    if (conflict) {
+      setFormData((prev: Record<string, any>) => ({
+        ...prev,
+        "shipping_address.address_1":
+          formData["shipping_address.address_1"] || prev["shipping_address.address_1"],
+      }))
+      setAddressSuggestionConflict(conflict)
+      setPendingAddressSuggestion(fields)
+      return
+    }
+
+    applyAddressFields(fields)
   }
 
   return (
@@ -355,6 +394,35 @@ const ShippingAddress = ({
             data-testid="shipping-address-input"
           />
         </div>
+        {addressSuggestionConflict && pendingAddressSuggestion && (
+          <div className="col-span-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            <p className="font-medium">Review the selected address</p>
+            <p className="mt-1 text-xs leading-relaxed">
+              The suggestion is in {addressSuggestionConflict.suggested}, but
+              the form has {addressSuggestionConflict.typed}. We kept the typed
+              address so the state and ZIP do not change silently.
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="rounded-md bg-Charcoal px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-white"
+                onClick={() => applyAddressFields(pendingAddressSuggestion)}
+              >
+                Use suggestion
+              </button>
+              <button
+                type="button"
+                className="rounded-md border border-amber-300 bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-amber-900"
+                onClick={() => {
+                  setAddressSuggestionConflict(null)
+                  setPendingAddressSuggestion(null)
+                }}
+              >
+                Keep typed
+              </button>
+            </div>
+          </div>
+        )}
         <div className="col-span-2">
           <Input
             label="Company (optional)"

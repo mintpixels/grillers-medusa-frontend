@@ -60,6 +60,9 @@ function formatTimeWindow(windowId: string): string {
 export default function FulfillmentDetails({ order, plantPickupNote }: FulfillmentDetailsProps) {
   const fulfillmentType = order.metadata?.fulfillmentType as FulfillmentType | undefined
   const scheduledDate = order.metadata?.scheduledDate as string | undefined
+  const requestedDeliveryDate = order.metadata?.requestedDeliveryDate as
+    | string
+    | undefined
   const timeWindow = order.metadata?.scheduledTimeWindow as string | undefined
   const pickupLocationId = order.metadata?.pickupLocationId as string | undefined
   const orderNotes = order.metadata?.orderNotes as string | undefined
@@ -124,10 +127,12 @@ export default function FulfillmentDetails({ order, plantPickupNote }: Fulfillme
 
       {fulfillmentType === "ups_shipping" && (
         <div className="space-y-3">
-          <div>
-            <p className="text-sm text-gray-600">Expected Delivery</p>
-            <p className="font-medium">{formatDate(scheduledDate || "")}</p>
-          </div>
+          {requestedDeliveryDate && (
+            <div>
+              <p className="text-sm text-gray-600">Requested Arrival</p>
+              <p className="font-medium">{formatDate(requestedDeliveryDate)}</p>
+            </div>
+          )}
           <div className="bg-white/50 rounded p-3 mt-4">
             <p className="text-sm text-Charcoal">
               Your order will be shipped via UPS. You will receive tracking

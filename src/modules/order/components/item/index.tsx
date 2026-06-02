@@ -25,7 +25,7 @@ const OrderItem = ({ item, currencyCode }: ItemProps) => {
   )
   const metadata = useProductMetadata(productId)
   const priceDisplay = formatProductPriceDisplay(
-    (item.unit_price ?? 0) / 100,
+    item.unit_price ?? 0,
     metadata,
     (item as any).variant?.sku || (item as any).variant_sku || null
   )

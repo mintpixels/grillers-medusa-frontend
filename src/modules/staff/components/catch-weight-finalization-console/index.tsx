@@ -214,6 +214,10 @@ function LineEditor({
       replacement_variant_id: product.variantId,
       replacement_qbd_list_id:
         product.qbdListId || current.replacement_qbd_list_id,
+      actual_unit_price:
+        typeof product.calculatedAmount === "number"
+          ? String(product.calculatedAmount)
+          : current.actual_unit_price,
       replacement_reason:
         current.replacement_reason || `Substituted with ${replacementTitle}`,
     }))
@@ -450,6 +454,12 @@ function LineEditor({
                       {[
                         product.variantTitle,
                         product.sku,
+                        typeof product.calculatedAmount === "number"
+                          ? money(
+                              product.calculatedAmount,
+                              product.currencyCode || currencyCode
+                            )
+                          : "Price unavailable",
                         product.qbdListId ? "QBD saved" : "Missing QBD",
                       ]
                         .filter(Boolean)
@@ -460,7 +470,7 @@ function LineEditor({
               </div>
             )}
 
-            <div className="mt-3 grid gap-3 md:grid-cols-2">
+            <div className="mt-3 grid gap-3 md:grid-cols-3">
               <label className="flex min-w-0 flex-col gap-1">
                 <span className={labelClass}>Replacement variant ID</span>
                 <input
@@ -481,7 +491,18 @@ function LineEditor({
                   }
                 />
               </label>
-              <label className="flex min-w-0 flex-col gap-1 md:col-span-2">
+              <label className="flex min-w-0 flex-col gap-1">
+                <span className={labelClass}>Replacement unit price</span>
+                <input
+                  className={fieldClass}
+                  inputMode="decimal"
+                  value={draft.actual_unit_price}
+                  onChange={(event) =>
+                    update("actual_unit_price", event.target.value)
+                  }
+                />
+              </label>
+              <label className="flex min-w-0 flex-col gap-1 md:col-span-3">
                 <span className={labelClass}>Substitution reason</span>
                 <input
                   className={fieldClass}

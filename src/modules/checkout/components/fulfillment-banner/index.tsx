@@ -75,6 +75,9 @@ export default function FulfillmentBanner({ cart }: FulfillmentBannerProps) {
   
   const fulfillmentType = cart.metadata?.fulfillmentType as FulfillmentType | undefined
   const scheduledDate = cart.metadata?.scheduledDate as string | undefined
+  const requestedDeliveryDate = cart.metadata?.requestedDeliveryDate as
+    | string
+    | undefined
   const scheduledTimeWindow = cart.metadata?.scheduledTimeWindow as string | undefined
   const pickupLocationId = cart.metadata?.pickupLocationId as string | undefined
 
@@ -84,6 +87,8 @@ export default function FulfillmentBanner({ cart }: FulfillmentBannerProps) {
 
   const config = fulfillmentConfig[fulfillmentType]
   const isPickup = fulfillmentType === "plant_pickup" || fulfillmentType === "southeast_pickup"
+  const displayDate =
+    fulfillmentType === "ups_shipping" ? requestedDeliveryDate : scheduledDate
 
   const handleChange = async () => {
     setIsChanging(true)
@@ -123,13 +128,13 @@ export default function FulfillmentBanner({ cart }: FulfillmentBannerProps) {
             </h3>
             
             {/* Schedule info */}
-            {scheduledDate && (
+            {displayDate && (
               <div className="flex items-center gap-2 text-sm text-Charcoal/80 mb-2">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
-                <span className="font-medium">{scheduledDate}</span>
-                {scheduledTimeWindow && (
+                <span className="font-medium">{displayDate}</span>
+                {fulfillmentType !== "ups_shipping" && scheduledTimeWindow && (
                   <>
                     <span className="text-Charcoal/40">•</span>
                     <span>{formatTimeWindow(scheduledTimeWindow)}</span>
