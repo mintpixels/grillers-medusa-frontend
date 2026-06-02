@@ -48,6 +48,7 @@ export type StaffCatchWeightLine = {
   actual_quantity?: number | string | null
   actual_piece_count?: number | string | null
   actual_weight_total?: number | string | null
+  metadata?: Record<string, any> | null
   actual_unit_price?: number | string | null
   final_line_total?: number | string | null
   delta_line_total?: number | string | null
@@ -64,8 +65,10 @@ export type StaffCatchWeightLine = {
 export type StaffFinalizationPackage = {
   id?: string | null
   package_type?: string | null
+  shipper_qbd_list_id?: string | null
   count?: number | string | null
   packed_weight_lb?: number | string | null
+  dry_ice_lb?: number | string | null
   note?: string | null
 }
 
@@ -142,9 +145,21 @@ export async function getCatchWeightFinalizationDetail(orderId: string) {
   )
 }
 
-export async function startCatchWeightFinalization(orderId: string) {
+export async function startCatchWeightFinalization(
+  orderId: string,
+  phase: "pick" | "pack" = "pick"
+) {
   const result = await adminFetch<StaffCatchWeightFinalizationDetail>(
     `/admin/grillers/orders/${orderId}/finalization/start`,
+    { method: "POST", body: JSON.stringify({ phase }) }
+  )
+  revalidateStaffOrders()
+  return result
+}
+
+export async function markCatchWeightReadyForPacking(orderId: string) {
+  const result = await adminFetch<StaffCatchWeightFinalizationDetail>(
+    `/admin/grillers/orders/${orderId}/finalization/ready-for-packing`,
     { method: "POST", body: JSON.stringify({}) }
   )
   revalidateStaffOrders()
@@ -155,6 +170,7 @@ export async function updateCatchWeightFinalizationLine(input: {
   orderId: string
   lineItemId: string
   actual_weight_total?: string
+  actual_unit_weights?: string[]
   actual_piece_count?: string
   actual_quantity?: string
   actual_unit_price?: string
@@ -171,6 +187,7 @@ export async function updateCatchWeightFinalizationLine(input: {
       method: "PATCH",
       body: JSON.stringify({
         actual_weight_total: input.actual_weight_total || null,
+        actual_unit_weights: input.actual_unit_weights || null,
         actual_piece_count: input.actual_piece_count || null,
         actual_quantity: input.actual_quantity || null,
         actual_unit_price: input.actual_unit_price || null,

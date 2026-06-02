@@ -1,4 +1,8 @@
 import {
+  canManageOrderSupport,
+  canPackCatchWeightOrders,
+  canPickCatchWeightOrders,
+  canUseOfficeConsole,
   isStaffCustomer,
   isStaffMetadata,
   isSuperAdminCustomer,
@@ -17,9 +21,29 @@ describe("staff access helpers", () => {
   it("accepts staff roles", () => {
     expect(isStaffMetadata({ staff_role: "customer_service" })).toBe(true)
     expect(isStaffMetadata({ role: "ops" })).toBe(true)
+    expect(staffMetadataRole({ gp_staff_role: "picker" })).toBe("picker")
+    expect(staffMetadataRole({ gp_staff_role: "packer" })).toBe("packer")
+    expect(staffMetadataRole({ gp_staff_role: "office" })).toBe("office")
+    expect(staffMetadataRole({ gp_staff_role: "manager" })).toBe("manager")
     expect(staffMetadataRole({ gp_staff_role: "super_admin" })).toBe(
       "super_admin"
     )
+  })
+
+  it("maps staff roles to workflow capabilities", () => {
+    const picker = { metadata: { gp_staff_role: "picker" } } as any
+    const packer = { metadata: { gp_staff_role: "packer" } } as any
+    const office = { metadata: { gp_staff_role: "office" } } as any
+    const manager = { metadata: { gp_staff_role: "manager" } } as any
+
+    expect(canPickCatchWeightOrders(picker)).toBe(true)
+    expect(canPackCatchWeightOrders(picker)).toBe(false)
+    expect(canPickCatchWeightOrders(packer)).toBe(true)
+    expect(canPackCatchWeightOrders(packer)).toBe(true)
+    expect(canUseOfficeConsole(office)).toBe(true)
+    expect(canPackCatchWeightOrders(office)).toBe(false)
+    expect(canManageOrderSupport(manager)).toBe(true)
+    expect(canPackCatchWeightOrders(manager)).toBe(true)
   })
 
   it("rejects normal customer metadata", () => {

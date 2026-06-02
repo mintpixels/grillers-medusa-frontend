@@ -6,7 +6,14 @@ type StaffCustomerLike =
   | null
   | undefined
 
-export type StaffAccessRole = "customer" | "staff" | "super_admin"
+export type StaffAccessRole =
+  | "customer"
+  | "staff"
+  | "office"
+  | "picker"
+  | "packer"
+  | "manager"
+  | "super_admin"
 
 export const STAFF_ROLE_OPTIONS: Array<{
   value: StaffAccessRole
@@ -22,9 +29,38 @@ export const STAFF_ROLE_OPTIONS: Array<{
   },
   {
     value: "staff",
-    label: "Staff",
-    description: "Can enter customer context, place phone orders, and support orders.",
+    label: "General staff",
+    description:
+      "Legacy broad access across customer context, order support, and back office work.",
     confirmation: "STAFF",
+  },
+  {
+    value: "office",
+    label: "Office",
+    description:
+      "Customer context, account creation, phone orders, order support, and communications.",
+    confirmation: "OFFICE",
+  },
+  {
+    value: "picker",
+    label: "Picker",
+    description:
+      "Can pick order lines, record shortages/substitutions, and hand orders to packing.",
+    confirmation: "PICKER",
+  },
+  {
+    value: "packer",
+    label: "Packer",
+    description:
+      "Can enter fulfilled quantities, per-item weights, package details, and mark packed orders ready.",
+    confirmation: "PACKER",
+  },
+  {
+    value: "manager",
+    label: "Manager",
+    description:
+      "Office plus pick/pack access, exception review, and optional final charge permission.",
+    confirmation: "MANAGER",
   },
   {
     value: "super_admin",
@@ -50,6 +86,10 @@ const FALSE_VALUES = new Set(["0", "false", "no", "n", "customer", "none"])
 
 const STAFF_ROLES = new Set([
   "staff",
+  "office",
+  "picker",
+  "packer",
+  "manager",
   "admin",
   "ops",
   "operator",
@@ -112,6 +152,15 @@ export function staffMetadataRole(metadata: StaffMetadata): StaffAccessRole {
     return "super_admin"
   }
 
+  if (
+    role === "office" ||
+    role === "picker" ||
+    role === "packer" ||
+    role === "manager"
+  ) {
+    return role
+  }
+
   if (STAFF_ROLES.has(role)) {
     return "staff"
   }
@@ -161,6 +210,26 @@ export function canChargeFinalOrders(customer: StaffCustomerLike): boolean {
     metadata?.staff_final_charge_enabled,
     metadata?.catch_weight_charge_enabled,
   ].some(truthyStaffValue)
+}
+
+export function canUseOfficeConsole(customer: StaffCustomerLike): boolean {
+  const role = staffAccessRole(customer)
+  return ["staff", "office", "manager", "super_admin"].includes(role)
+}
+
+export function canPickCatchWeightOrders(customer: StaffCustomerLike): boolean {
+  const role = staffAccessRole(customer)
+  return ["staff", "picker", "packer", "manager", "super_admin"].includes(role)
+}
+
+export function canPackCatchWeightOrders(customer: StaffCustomerLike): boolean {
+  const role = staffAccessRole(customer)
+  return ["staff", "packer", "manager", "super_admin"].includes(role)
+}
+
+export function canManageOrderSupport(customer: StaffCustomerLike): boolean {
+  const role = staffAccessRole(customer)
+  return ["staff", "office", "manager", "super_admin"].includes(role)
 }
 
 export function isExplicitStaffDeny(value: unknown): boolean {

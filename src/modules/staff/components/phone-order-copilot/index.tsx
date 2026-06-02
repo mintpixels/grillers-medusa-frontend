@@ -44,6 +44,10 @@ import {
 } from "@lib/data/staff/order-entry"
 import {
   canChargeFinalOrders,
+  canManageOrderSupport,
+  canPackCatchWeightOrders,
+  canPickCatchWeightOrders,
+  canUseOfficeConsole,
   isSuperAdminCustomer,
 } from "@lib/util/staff-access"
 import {
@@ -363,6 +367,10 @@ export default function PhoneOrderCopilot({
     useState<StaffWorkspace>(initialWorkspace)
   const canManageTeamAccess = isSuperAdminCustomer(staffCustomer)
   const canChargeFinalizedOrders = canChargeFinalOrders(staffCustomer)
+  const canUseOffice = canUseOfficeConsole(staffCustomer)
+  const canUseOrderSupport = canManageOrderSupport(staffCustomer)
+  const canUsePickQueue = canPickCatchWeightOrders(staffCustomer)
+  const canUsePackQueue = canPackCatchWeightOrders(staffCustomer)
   const isCustomerWorkspace =
     activeWorkspace === "phone_order" || activeWorkspace === "new_customer"
   const hasSelectedCustomer = Boolean(draftCustomer.id)
@@ -797,46 +805,60 @@ export default function PhoneOrderCopilot({
   }
 
   const workspaceActions: StaffWorkspaceAction[] = [
-    {
-      id: "exceptions",
-      eyebrow: "Existing orders",
-      title: "Order support",
-      body: "Look up orders for customer questions, payment state, cancellations, refunds, notes, and audited exceptions.",
-      icon: ClipboardList,
-      onClick: () => setActiveWorkspace("exceptions"),
-    },
-    {
-      id: "finalization",
-      eyebrow: "Back office",
-      title: "Pack & finalize",
-      body: "Enter fulfilled quantities, actual weights, substitutions, shipping boxes, and release orders after the final card charge.",
-      icon: PackageCheck,
-      onClick: () => setActiveWorkspace("finalization"),
-    },
-    {
-      id: "phone_order",
-      eyebrow: "Customer context",
-      title: "Enter account",
-      body: "Impersonate a customer, shop, reorder, edit addresses, and check out through the storefront flow.",
-      icon: UserRoundCheck,
-      onClick: openCustomerContextWorkspace,
-    },
-    {
-      id: "new_customer",
-      eyebrow: "New customer",
-      title: "Create account",
-      body: "Start a caller profile with contact and delivery details before continuing into order entry.",
-      icon: UserPlus,
-      onClick: openNewCustomerWorkspace,
-    },
-    {
-      id: "communications",
-      eyebrow: "Customer messaging",
-      title: "Communications",
-      body: "Open timelines, approved staff notes, Postmark delivery, lifecycle flows, and campaigns.",
-      icon: MessageSquare,
-      href: "/account/staff/communications",
-    },
+    ...(canUseOrderSupport
+      ? [
+          {
+            id: "exceptions" as const,
+            eyebrow: "Existing orders",
+            title: "Order support",
+            body: "Look up orders for customer questions, payment state, cancellations, refunds, notes, and audited exceptions.",
+            icon: ClipboardList,
+            onClick: () => setActiveWorkspace("exceptions"),
+          },
+        ]
+      : []),
+    ...(canUsePickQueue || canUsePackQueue
+      ? [
+          {
+            id: "finalization" as const,
+            eyebrow: canUsePackQueue ? "Pick and pack" : "Picking",
+            title: canUsePackQueue ? "Pick, pack & finalize" : "Pick orders",
+            body: canUsePackQueue
+              ? "Pick handoffs, fulfilled quantities, per-item weights, substitutions, shipping boxes, and final release."
+              : "Pick order lines, record shortages or substitutions, and hand ready orders to packing.",
+            icon: PackageCheck,
+            onClick: () => setActiveWorkspace("finalization"),
+          },
+        ]
+      : []),
+    ...(canUseOffice
+      ? [
+          {
+            id: "phone_order" as const,
+            eyebrow: "Customer context",
+            title: "Enter account",
+            body: "Impersonate a customer, shop, reorder, edit addresses, and check out through the storefront flow.",
+            icon: UserRoundCheck,
+            onClick: openCustomerContextWorkspace,
+          },
+          {
+            id: "new_customer" as const,
+            eyebrow: "New customer",
+            title: "Create account",
+            body: "Start a caller profile with contact and delivery details before continuing into order entry.",
+            icon: UserPlus,
+            onClick: openNewCustomerWorkspace,
+          },
+          {
+            id: "communications" as const,
+            eyebrow: "Customer messaging",
+            title: "Communications",
+            body: "Open timelines, approved staff notes, Postmark delivery, lifecycle flows, and campaigns.",
+            icon: MessageSquare,
+            href: "/account/staff/communications",
+          },
+        ]
+      : []),
     ...(canManageTeamAccess
       ? [
           {
@@ -1036,6 +1058,8 @@ export default function PhoneOrderCopilot({
       ) : activeWorkspace === "finalization" ? (
         <StaffCatchWeightFinalizationConsole
           canChargeFinalOrders={canChargeFinalizedOrders}
+          canPickOrders={canUsePickQueue}
+          canPackOrders={canUsePackQueue}
         />
       ) : isCustomerWorkspace ? (
         <>

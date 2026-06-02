@@ -8,6 +8,7 @@ import {
   fulfillReleasedCatchWeightOrder,
   getCatchWeightFinalizationDetail,
   listCatchWeightFinalizationQueue,
+  markCatchWeightReadyForPacking,
   startCatchWeightFinalization,
   updateCatchWeightFinalizationLine,
   updateCatchWeightFinalizationPackages,
@@ -30,7 +31,10 @@ import {
 } from "./replacement-pricing"
 
 const statusLabels: Record<string, string> = {
-  pending_pack: "Ready to pack",
+  pending_pick: "Needs picking",
+  picking: "Picking",
+  ready_for_packing: "Ready for packing",
+  pending_pack: "Needs picking",
   packing: "Packing",
   packed_pending_review: "Packing review",
   packed_pending_charge: "Ready to charge",
@@ -50,6 +54,10 @@ const statusClass: Record<string, string> = {
   packed_pending_charge: "border-emerald-200 bg-emerald-50 text-emerald-800",
   charged_ready_to_ship: "border-blue-200 bg-blue-50 text-blue-800",
   released_to_fulfillment: "border-blue-200 bg-blue-50 text-blue-800",
+  ready_for_packing: "border-blue-200 bg-blue-50 text-blue-800",
+  pending_pick: "border-amber-200 bg-amber-50 text-amber-800",
+  pending_pack: "border-amber-200 bg-amber-50 text-amber-800",
+  picking: "border-amber-200 bg-amber-50 text-amber-800",
   packing: "border-amber-200 bg-amber-50 text-amber-800",
   packed_pending_review: "border-amber-200 bg-amber-50 text-amber-800",
   ready: "border-emerald-200 bg-emerald-50 text-emerald-800",
@@ -70,6 +78,35 @@ const secondaryButtonClass =
 
 const primaryButtonClass =
   "min-h-[42px] rounded-md bg-Charcoal px-4 text-xs font-rexton font-bold uppercase text-white"
+
+const shipperOptions = [
+  {
+    value: "Shipper-Micro",
+    label: "Micro",
+    detail: "16x14x13 OD",
+    qbdListId: "8000085A-1415899147",
+  },
+  {
+    value: "Shipper-330-Medium",
+    label: "330 Medium",
+    detail: "18x15x13 OD",
+    qbdListId: "8000085B-1415899316",
+  },
+  {
+    value: "Shipper-345-Large",
+    label: "345 Large",
+    detail: "24x17x13 OD",
+    qbdListId: "8000085C-1415899425",
+  },
+  {
+    value: "Shipper-360-ExtraLarge",
+    label: "360 Extra large",
+    detail: "24x21x17 OD",
+    qbdListId: "8000085D-1415899521",
+  },
+]
+
+type FinalizationPhase = "picking" | "packing"
 
 function money(value?: number | string | null, currencyCode = "usd") {
   const amount = Number(value)
@@ -122,16 +159,19 @@ function lineIsFixedPrice(line: StaffCatchWeightLine, title: string) {
 
 function draftFromLine(line: StaffCatchWeightLine) {
   const title = line.customer_title || line.title_snapshot || "Order line"
-  const defaultStatus = lineRequiresActualWeight(line, title)
-    ? "needs_weight"
-    : "needs_pick"
+  const unitWeights = Array.isArray(line.metadata?.actual_unit_weights_lb)
+    ? line.metadata?.actual_unit_weights_lb
+        .map((value: unknown) => numberText(value as number | string))
+        .filter(Boolean)
+    : []
 
   return {
     actual_weight_total: numberText(line.actual_weight_total),
+    actual_unit_weights: unitWeights,
     actual_piece_count: numberText(line.actual_piece_count ?? 0),
     actual_quantity: numberText(line.actual_quantity ?? 0),
     actual_unit_price: numberText(line.actual_unit_price),
-    status: line.status || defaultStatus,
+    status: line.status || "needs_pick",
     replacement_variant_id: line.replacement_variant_id || "",
     replacement_qbd_list_id: line.replacement_qbd_list_id || "",
     replacement_reason: line.replacement_reason || "",
@@ -142,6 +182,21 @@ function draftFromLine(line: StaffCatchWeightLine) {
 
 function draftSignature(draft: ReturnType<typeof draftFromLine>) {
   return JSON.stringify(draft)
+}
+
+function weightTotal(weights: string[]) {
+  const total = weights.reduce((sum, value) => {
+    const amount = Number(value)
+    return Number.isFinite(amount) && amount > 0 ? sum + amount : sum
+  }, 0)
+  return total > 0 ? Math.round(total * 1000) / 1000 : 0
+}
+
+function positiveWeightCount(weights: string[]) {
+  return weights.filter((value) => {
+    const amount = Number(value)
+    return Number.isFinite(amount) && amount > 0
+  }).length
 }
 
 function pricingBasisBadge(requiresActualWeight: boolean) {
@@ -162,11 +217,15 @@ function LineEditor({
   orderId,
   line,
   currencyCode,
+  phase,
+  canEdit,
   onSaved,
 }: {
   orderId: string
   line: StaffCatchWeightLine
   currencyCode: string
+  phase: FinalizationPhase
+  canEdit: boolean
   onSaved: () => void
 }) {
   const [draft, setDraft] = useState(() => draftFromLine(line))
@@ -187,6 +246,12 @@ function LineEditor({
   const title = line.customer_title || line.title_snapshot || "Order line"
   const requiresActualWeight = lineRequiresActualWeight(line, title)
   const fixedPriceLine = lineIsFixedPrice(line, title)
+  const packingPhase = phase === "packing"
+  const effectiveUnitWeightTotal = weightTotal(draft.actual_unit_weights)
+  const effectiveActualQuantity =
+    requiresActualWeight && draft.actual_unit_weights.length
+      ? String(positiveWeightCount(draft.actual_unit_weights))
+      : draft.actual_quantity
   const skuSummary = [
     line.sku,
     line.qbd_list_id ? `QBD ${line.qbd_list_id}` : "Missing QBD",
@@ -217,6 +282,42 @@ function LineEditor({
       [key]: value,
       ...(key === "actual_quantity" ? { actual_piece_count: value } : {}),
     }))
+  }
+
+  function updateUnitWeight(index: number, value: string) {
+    setDraft((current) => {
+      const actualUnitWeights = [...current.actual_unit_weights]
+      actualUnitWeights[index] = value
+      return {
+        ...current,
+        actual_unit_weights: actualUnitWeights,
+        actual_weight_total: numberText(weightTotal(actualUnitWeights)),
+        actual_quantity: String(positiveWeightCount(actualUnitWeights) || ""),
+        actual_piece_count: String(positiveWeightCount(actualUnitWeights) || ""),
+      }
+    })
+  }
+
+  function addUnitWeight() {
+    setDraft((current) => ({
+      ...current,
+      actual_unit_weights: [...current.actual_unit_weights, ""],
+    }))
+  }
+
+  function removeUnitWeight(index: number) {
+    setDraft((current) => {
+      const actualUnitWeights = current.actual_unit_weights.filter(
+        (_, rowIndex) => rowIndex !== index
+      )
+      return {
+        ...current,
+        actual_unit_weights: actualUnitWeights,
+        actual_weight_total: numberText(weightTotal(actualUnitWeights)),
+        actual_quantity: String(positiveWeightCount(actualUnitWeights) || ""),
+        actual_piece_count: String(positiveWeightCount(actualUnitWeights) || ""),
+      }
+    })
   }
 
   function runReplacementSearch() {
@@ -270,19 +371,25 @@ function LineEditor({
     options: { validate: boolean; refresh: boolean }
   ) {
     const signature = draftSignature(draftToSave)
-    const actualWeight = Number(draftToSave.actual_weight_total)
+    const actualWeight = requiresActualWeight
+      ? weightTotal(draftToSave.actual_unit_weights)
+      : Number(draftToSave.actual_weight_total)
 
     if (
       options.validate &&
       draftToSave.status === "ready" &&
       requiresActualWeight &&
+      packingPhase &&
       (!Number.isFinite(actualWeight) || actualWeight <= 0)
     ) {
-      setError("Enter the actual weight before marking this line ready.")
+      setError("Enter each packed item's weight before marking this line ready.")
       return
     }
 
-    const actualQuantity = Number(draftToSave.actual_quantity)
+    const actualQuantity =
+      requiresActualWeight && draftToSave.actual_unit_weights.length
+        ? positiveWeightCount(draftToSave.actual_unit_weights)
+        : Number(draftToSave.actual_quantity)
     if (
       options.validate &&
       draftToSave.status === "ready" &&
@@ -318,6 +425,12 @@ function LineEditor({
         orderId,
         lineItemId: line.line_item_id,
         ...draftToSave,
+        actual_weight_total: requiresActualWeight
+          ? numberText(weightTotal(draftToSave.actual_unit_weights))
+          : draftToSave.actual_weight_total,
+        actual_unit_weights: requiresActualWeight
+          ? draftToSave.actual_unit_weights
+          : [],
       })
       lastSavedSignature.current = signature
       if (latestDraftSignature.current === signature) {
@@ -371,10 +484,13 @@ function LineEditor({
             </p>
             <p className="mt-2 text-sm font-maison-neue text-Charcoal/60">
               Ordered {numberText(line.ordered_quantity) || "0"} | Fulfilled{" "}
-              {draft.actual_quantity || "0"}
+              {effectiveActualQuantity || "0"}
               {line.estimated_weight_total !== null &&
               line.estimated_weight_total !== undefined
                 ? ` | est. ${numberText(line.estimated_weight_total)} lb`
+                : ""}
+              {requiresActualWeight && effectiveUnitWeightTotal > 0
+                ? ` | actual ${numberText(effectiveUnitWeightTotal)} lb`
                 : ""}
               {line.final_line_total !== null &&
               line.final_line_total !== undefined
@@ -389,6 +505,7 @@ function LineEditor({
           </div>
           <Button
             className={`${primaryButtonClass} w-full sm:w-auto`}
+            disabled={!canEdit}
             isLoading={isPending || saveState === "saving"}
             onClick={save}
             type="button"
@@ -398,19 +515,73 @@ function LineEditor({
         </div>
 
         <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {requiresActualWeight ? (
-            <label className="flex min-w-0 flex-col gap-1">
-              <span className={labelClass}>Actual weight lb</span>
-              <input
-                className={fieldClass}
-                inputMode="decimal"
-                value={draft.actual_weight_total}
-                disabled={isRemoved}
-                onChange={(event) =>
-                  update("actual_weight_total", event.target.value)
-                }
-              />
-            </label>
+          {requiresActualWeight && packingPhase ? (
+            <div className="min-w-0 sm:col-span-2 xl:col-span-4">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <span className={labelClass}>Item weights</span>
+                  <p className="mt-1 text-xs font-maison-neue text-Charcoal/45">
+                    Enter one weight per packed item. Total and fulfilled count
+                    calculate automatically.
+                  </p>
+                </div>
+                <Button
+                  className={`${secondaryButtonClass} w-full sm:w-auto`}
+                  disabled={!canEdit || isRemoved}
+                  onClick={addUnitWeight}
+                  type="button"
+                >
+                  Add Item Weight
+                </Button>
+              </div>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                {(draft.actual_unit_weights.length
+                  ? draft.actual_unit_weights
+                  : [""]
+                ).map((weight, index) => (
+                  <div
+                    className="grid grid-cols-[minmax(0,1fr)_42px] gap-2"
+                    key={`weight-${index}`}
+                  >
+                    <label className="flex min-w-0 flex-col gap-1">
+                      <span className={labelClass}>Item {index + 1} lb</span>
+                      <input
+                        className={fieldClass}
+                        inputMode="decimal"
+                        value={weight}
+                        disabled={!canEdit || isRemoved}
+                        onChange={(event) =>
+                          updateUnitWeight(index, event.target.value)
+                        }
+                      />
+                    </label>
+                    <button
+                      className="mt-5 min-h-[42px] rounded-md border border-gray-200 px-2 text-xs font-maison-neue-mono uppercase text-Charcoal/55 disabled:opacity-40"
+                      disabled={!canEdit || isRemoved}
+                      onClick={() => removeUnitWeight(index)}
+                      type="button"
+                    >
+                      X
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                <div className="rounded-md border border-gray-100 bg-gray-50 px-3 py-2 text-sm font-maison-neue text-Charcoal/70">
+                  Total weight: {numberText(effectiveUnitWeightTotal) || "0"} lb
+                </div>
+                <div className="rounded-md border border-gray-100 bg-gray-50 px-3 py-2 text-sm font-maison-neue text-Charcoal/70">
+                  Fulfilled count: {effectiveActualQuantity || "0"}
+                </div>
+              </div>
+            </div>
+          ) : requiresActualWeight ? (
+            <div className="flex min-w-0 flex-col gap-1">
+              <span className={labelClass}>Weight</span>
+              <div className="flex min-h-[42px] items-center rounded-md border border-gray-100 bg-gray-50 px-3 text-sm text-Charcoal/55">
+                Packer enters item weights
+              </div>
+            </div>
           ) : (
             <div className="flex min-w-0 flex-col gap-1">
               <span className={labelClass}>Weight</span>
@@ -433,7 +604,9 @@ function LineEditor({
               className={fieldClass}
               inputMode="decimal"
               value={draft.actual_quantity}
-              disabled={isRemoved}
+              disabled={
+                !canEdit || isRemoved || (requiresActualWeight && packingPhase)
+              }
               onChange={(event) =>
                 update("actual_quantity", event.target.value)
               }
@@ -445,10 +618,13 @@ function LineEditor({
             <select
               className={fieldClass}
               value={draft.status}
+              disabled={!canEdit}
               onChange={(event) => update("status", event.target.value)}
             >
               <option value="needs_pick">Needs pick</option>
-              <option value="needs_weight">Needs weight</option>
+              {(packingPhase || draft.status === "needs_weight") && (
+                <option value="needs_weight">Needs weight</option>
+              )}
               <option value="ready">Ready</option>
               <option value="removed">Removed</option>
               <option value="substituted">Substituted</option>
@@ -469,6 +645,7 @@ function LineEditor({
             <input
               className={fieldClass}
               value={draft.short_reason}
+              disabled={!canEdit}
               onChange={(event) => update("short_reason", event.target.value)}
             />
           </label>
@@ -483,6 +660,7 @@ function LineEditor({
                   className={fieldClass}
                   type="search"
                   value={replacementQuery}
+                  disabled={!canEdit}
                   onChange={(event) => setReplacementQuery(event.target.value)}
                   onKeyDown={(event) => {
                     if (event.key === "Enter") runReplacementSearch()
@@ -492,6 +670,7 @@ function LineEditor({
               <Button
                 className={`${secondaryButtonClass} w-full lg:w-auto`}
                 isLoading={isSearchPending}
+                disabled={!canEdit}
                 onClick={runReplacementSearch}
                 type="button"
               >
@@ -532,6 +711,7 @@ function LineEditor({
                 <input
                   className={fieldClass}
                   value={draft.replacement_variant_id}
+                  disabled={!canEdit}
                   onChange={(event) =>
                     update("replacement_variant_id", event.target.value)
                   }
@@ -542,6 +722,7 @@ function LineEditor({
                 <input
                   className={fieldClass}
                   value={draft.replacement_qbd_list_id}
+                  disabled={!canEdit}
                   onChange={(event) =>
                     update("replacement_qbd_list_id", event.target.value)
                   }
@@ -553,6 +734,7 @@ function LineEditor({
                   className={fieldClass}
                   inputMode="decimal"
                   value={draft.actual_unit_price}
+                  disabled={!canEdit}
                   onChange={(event) =>
                     update("actual_unit_price", event.target.value)
                   }
@@ -563,6 +745,7 @@ function LineEditor({
                 <input
                   className={fieldClass}
                   value={draft.replacement_reason}
+                  disabled={!canEdit}
                   onChange={(event) =>
                     update("replacement_reason", event.target.value)
                   }
@@ -577,6 +760,7 @@ function LineEditor({
           <input
             className={fieldClass}
             value={draft.note}
+            disabled={!canEdit}
             onChange={(event) => update("note", event.target.value)}
           />
         </label>
@@ -606,8 +790,10 @@ function packageDrafts(packages: StaffFinalizationPackage[] | undefined) {
     : [
         {
           package_type: "",
+          shipper_qbd_list_id: "",
           count: "",
           packed_weight_lb: "",
+          dry_ice_lb: "",
           note: "",
         },
       ]
@@ -615,8 +801,10 @@ function packageDrafts(packages: StaffFinalizationPackage[] | undefined) {
   return rows.map((pkg) => ({
     id: pkg.id || "",
     package_type: pkg.package_type || "",
+    shipper_qbd_list_id: pkg.shipper_qbd_list_id || "",
     count: numberText(pkg.count),
     packed_weight_lb: numberText(pkg.packed_weight_lb),
+    dry_ice_lb: numberText(pkg.dry_ice_lb),
     note: pkg.note || "",
   }))
 }
@@ -628,12 +816,20 @@ function cleanPackageDrafts(
     .map((pkg) => ({
       id: pkg.id || undefined,
       package_type: pkg.package_type.trim(),
+      shipper_qbd_list_id: pkg.shipper_qbd_list_id.trim(),
       count: pkg.count.trim(),
       packed_weight_lb: pkg.packed_weight_lb.trim(),
+      dry_ice_lb: pkg.dry_ice_lb.trim(),
       note: pkg.note.trim(),
     }))
     .filter(
-      (pkg) => pkg.package_type || pkg.count || pkg.packed_weight_lb || pkg.note
+      (pkg) =>
+        pkg.package_type ||
+        pkg.shipper_qbd_list_id ||
+        pkg.count ||
+        pkg.packed_weight_lb ||
+        pkg.dry_ice_lb ||
+        pkg.note
     )
 }
 
@@ -665,10 +861,33 @@ function PackageCapture({
     )
   }
 
+  function selectShipper(index: number, value: string) {
+    const option = shipperOptions.find((item) => item.value === value)
+    setPackages((current) =>
+      current.map((pkg, rowIndex) =>
+        rowIndex === index
+          ? {
+              ...pkg,
+              package_type: value,
+              shipper_qbd_list_id: option?.qbdListId || "",
+            }
+          : pkg
+      )
+    )
+  }
+
   function addRow() {
     setPackages((current) => [
       ...current,
-      { id: "", package_type: "", count: "", packed_weight_lb: "", note: "" },
+      {
+        id: "",
+        package_type: "",
+        shipper_qbd_list_id: "",
+        count: "1",
+        packed_weight_lb: "",
+        dry_ice_lb: "",
+        note: "",
+      },
     ])
   }
 
@@ -682,6 +901,16 @@ function PackageCapture({
 
   function save() {
     setError(null)
+    const overweightRow = packages.findIndex((pkg) => {
+      const packedWeight = Number(pkg.packed_weight_lb)
+      return Number.isFinite(packedWeight) && packedWeight > 50
+    })
+    if (overweightRow >= 0) {
+      setError(
+        `Package ${overweightRow + 1} is over 50 lb including dry ice and packaging.`
+      )
+      return
+    }
     setSaveState("saving")
     startTransition(async () => {
       try {
@@ -735,19 +964,39 @@ function PackageCapture({
       <div className="mt-4 space-y-3">
         {packages.map((pkg, index) => (
           <div
-            className="grid gap-3 rounded-md border border-gray-200 bg-white p-3 md:grid-cols-[minmax(0,1fr)_100px_140px_minmax(0,1fr)_auto]"
+            className="grid gap-3 rounded-md border border-gray-200 bg-white p-3 md:grid-cols-[minmax(220px,1.2fr)_90px_120px_120px_minmax(0,1fr)_auto]"
             key={`${pkg.id || "new"}-${index}`}
           >
             <label className="flex min-w-0 flex-col gap-1">
-              <span className={labelClass}>Size/type</span>
-              <input
+              <span className={labelClass}>Shipper</span>
+              <select
                 className={fieldClass}
-                placeholder="Small, medium, 345, micro"
                 value={pkg.package_type}
                 onChange={(event) =>
-                  update(index, "package_type", event.target.value)
+                  selectShipper(index, event.target.value)
                 }
-              />
+              >
+                <option value="">Choose shipper</option>
+                {shipperOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label} - {option.detail}
+                  </option>
+                ))}
+                <option value="Other">Other</option>
+              </select>
+              {pkg.shipper_qbd_list_id && (
+                <span className="truncate text-[11px] font-maison-neue text-Charcoal/45">
+                  QBD item saved
+                </span>
+              )}
+              {pkg.package_type === "Other" && (
+                <input
+                  className={fieldClass}
+                  placeholder="Describe box or packaging"
+                  value={pkg.note}
+                  onChange={(event) => update(index, "note", event.target.value)}
+                />
+              )}
             </label>
             <label className="flex min-w-0 flex-col gap-1">
               <span className={labelClass}>Count</span>
@@ -766,6 +1015,17 @@ function PackageCapture({
                 value={pkg.packed_weight_lb}
                 onChange={(event) =>
                   update(index, "packed_weight_lb", event.target.value)
+                }
+              />
+            </label>
+            <label className="flex min-w-0 flex-col gap-1">
+              <span className={labelClass}>Dry ice lb</span>
+              <input
+                className={fieldClass}
+                inputMode="decimal"
+                value={pkg.dry_ice_lb}
+                onChange={(event) =>
+                  update(index, "dry_ice_lb", event.target.value)
                 }
               />
             </label>
@@ -804,15 +1064,21 @@ function PackageCapture({
 
 export default function StaffCatchWeightFinalizationConsole({
   canChargeFinalOrders = false,
+  canPickOrders = true,
+  canPackOrders = true,
 }: {
   canChargeFinalOrders?: boolean
+  canPickOrders?: boolean
+  canPackOrders?: boolean
 }) {
   const [queue, setQueue] = useState<StaffCatchWeightFinalizationSummary[]>([])
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null)
   const [detail, setDetail] =
     useState<StaffCatchWeightFinalizationDetail | null>(null)
-  const [filter, setFilter] = useState(
-    "pending_pack,packing,packed_pending_review,packed_pending_charge,charge_failed_hold"
+  const [filter, setFilter] = useState(() =>
+    canPickOrders
+      ? "pending_pick,picking,pending_pack"
+      : "ready_for_packing,packing,packed_pending_review"
   )
   const [error, setError] = useState<string | null>(null)
   const [status, setStatus] = useState<string | null>(null)
@@ -834,14 +1100,6 @@ export default function StaffCatchWeightFinalizationConsole({
       0
     )
 
-  async function loadPackingDetail(orderId: string) {
-    const result = await getCatchWeightFinalizationDetail(orderId)
-    if (result.finalization?.status === "pending_pack") {
-      return startCatchWeightFinalization(orderId)
-    }
-    return result
-  }
-
   function loadQueue(nextSelectedOrderId?: string | null) {
     startTransition(async () => {
       try {
@@ -857,7 +1115,7 @@ export default function StaffCatchWeightFinalizationConsole({
             : null
         setSelectedOrderId(nextId)
         if (nextId) {
-          setDetail(await loadPackingDetail(nextId))
+          setDetail(await getCatchWeightFinalizationDetail(nextId))
         } else {
           setDetail(null)
         }
@@ -872,7 +1130,7 @@ export default function StaffCatchWeightFinalizationConsole({
     setError(null)
     startTransition(async () => {
       try {
-        setDetail(await loadPackingDetail(orderId))
+        setDetail(await getCatchWeightFinalizationDetail(orderId))
       } catch (err: any) {
         setError(err.message || "Could not load order.")
       }
@@ -912,10 +1170,31 @@ export default function StaffCatchWeightFinalizationConsole({
   }, [filter])
 
   const totals = detail?.totals || detail?.finalization || {}
+  const currentStatus = detail?.finalization?.status || ""
+  const pickingStatuses = new Set(["pending_pick", "picking", "pending_pack"])
+  const packingStatuses = new Set([
+    "packing",
+    "packed_pending_review",
+    "packed_pending_charge",
+    "charge_failed_hold",
+    "charged_ready_to_ship",
+    "released_to_fulfillment",
+  ])
+  const inPickingPhase = pickingStatuses.has(currentStatus)
+  const waitingForPacker = currentStatus === "ready_for_packing"
+  const inPackingPhase = waitingForPacker || packingStatuses.has(currentStatus)
+  const editorPhase: FinalizationPhase = inPackingPhase ? "packing" : "picking"
+  const canEditLines = inPickingPhase
+    ? canPickOrders
+    : inPackingPhase && !waitingForPacker
+    ? canPackOrders
+    : false
   const readyForFulfillment = catchWeightReadyForFulfillment(detail)
   const fulfilled = hasActiveFulfillment(detail?.order)
   const chargeDisabledReason = !canChargeFinalOrders
     ? "This staff account can pack orders but is not allowed to charge saved cards."
+    : !canPackOrders
+    ? "This staff account is not allowed to pack and release orders."
     : blockingErrorCount > 0
     ? "Resolve packing errors before charging."
     : null
@@ -935,13 +1214,23 @@ export default function StaffCatchWeightFinalizationConsole({
           <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 sm:flex-wrap sm:overflow-visible">
             {[
               [
-                "Needs packing",
-                "pending_pack,packing,packed_pending_review,packed_pending_charge,charge_failed_hold",
+                "Picking",
+                "pending_pick,picking,pending_pack",
               ],
+              ["Ready for packing", "ready_for_packing"],
+              ["Packing", "packing,packed_pending_review"],
               ["Ready to charge", "packed_pending_charge"],
               ["Charge holds", "charge_failed_hold"],
               ["Ready ship", "charged_ready_to_ship,released_to_fulfillment"],
-            ].map(([label, value]) => (
+            ]
+              .filter(([label]) => {
+                if (label === "Picking") return canPickOrders
+                if (label === "Ready for packing" || label === "Packing") {
+                  return canPackOrders || canPickOrders
+                }
+                return canPackOrders || canChargeFinalOrders
+              })
+              .map(([label, value]) => (
               <button
                 key={value}
                 type="button"
@@ -1084,36 +1373,100 @@ export default function StaffCatchWeightFinalizationConsole({
                 </div>
 
                 <div className="mt-5 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
-                  <Button
-                    className={`${primaryButtonClass} w-full sm:w-auto`}
-                    disabled={Boolean(pendingAction) || blockingErrorCount > 0}
-                    isLoading={pendingAction === "approve"}
-                    onClick={() =>
-                      runAction(
-                        "approve",
-                        "Ready for final charge.",
-                        approveCatchWeightFinalization
-                      )
-                    }
-                    type="button"
-                  >
-                    Mark Ready
-                  </Button>
-                  <Button
-                    className="min-h-[42px] w-full rounded-md bg-Gold px-4 text-xs font-rexton font-bold uppercase text-Charcoal sm:w-auto"
-                    disabled={Boolean(pendingAction) || Boolean(chargeDisabledReason)}
-                    isLoading={pendingAction === "charge"}
-                    onClick={() =>
-                      runAction(
-                        "charge",
-                        "Card charged; order ready to ship.",
-                        chargeAndReleaseCatchWeightOrder
-                      )
-                    }
-                    type="button"
-                  >
-                    Charge Card & Release
-                  </Button>
+                  {["pending_pick", "pending_pack"].includes(currentStatus) && (
+                    <Button
+                      className={`${primaryButtonClass} w-full sm:w-auto`}
+                      disabled={!canPickOrders || Boolean(pendingAction)}
+                      isLoading={pendingAction === "start-pick"}
+                      onClick={() =>
+                        runAction(
+                          "start-pick",
+                          "Picking claimed.",
+                          (orderId) =>
+                            startCatchWeightFinalization(orderId, "pick")
+                        )
+                      }
+                      type="button"
+                    >
+                      Claim Pick
+                    </Button>
+                  )}
+                  {inPickingPhase && (
+                    <Button
+                      className={`${secondaryButtonClass} w-full sm:w-auto`}
+                      disabled={!canPickOrders || Boolean(pendingAction)}
+                      isLoading={pendingAction === "ready-pack"}
+                      onClick={() =>
+                        runAction(
+                          "ready-pack",
+                          "Order ready for packing.",
+                          markCatchWeightReadyForPacking
+                        )
+                      }
+                      type="button"
+                    >
+                      Ready For Packing
+                    </Button>
+                  )}
+                  {waitingForPacker && (
+                    <Button
+                      className={`${primaryButtonClass} w-full sm:w-auto`}
+                      disabled={!canPackOrders || Boolean(pendingAction)}
+                      isLoading={pendingAction === "start-pack"}
+                      onClick={() =>
+                        runAction(
+                          "start-pack",
+                          "Packing claimed.",
+                          (orderId) =>
+                            startCatchWeightFinalization(orderId, "pack")
+                        )
+                      }
+                      type="button"
+                    >
+                      Claim Pack
+                    </Button>
+                  )}
+                  {inPackingPhase && !waitingForPacker && (
+                    <Button
+                      className={`${primaryButtonClass} w-full sm:w-auto`}
+                      disabled={
+                        !canPackOrders ||
+                        Boolean(pendingAction) ||
+                        blockingErrorCount > 0
+                      }
+                      isLoading={pendingAction === "approve"}
+                      onClick={() =>
+                        runAction(
+                          "approve",
+                          "Ready for final charge.",
+                          approveCatchWeightFinalization
+                        )
+                      }
+                      type="button"
+                    >
+                      Mark Ready For Charge
+                    </Button>
+                  )}
+                  {inPackingPhase && !waitingForPacker && (
+                    <Button
+                      className="min-h-[42px] w-full rounded-md bg-Gold px-4 text-xs font-rexton font-bold uppercase text-Charcoal sm:w-auto"
+                      disabled={
+                        Boolean(pendingAction) ||
+                        Boolean(chargeDisabledReason)
+                      }
+                      isLoading={pendingAction === "charge"}
+                      onClick={() =>
+                        runAction(
+                          "charge",
+                          "Card charged; order ready to ship.",
+                          chargeAndReleaseCatchWeightOrder
+                        )
+                      }
+                      type="button"
+                    >
+                      Charge Card & Release
+                    </Button>
+                  )}
                   {readyForFulfillment && (
                     <Button
                       className={`min-h-[42px] w-full rounded-md px-4 text-xs font-rexton font-bold uppercase sm:w-auto ${
@@ -1136,15 +1489,17 @@ export default function StaffCatchWeightFinalizationConsole({
                     </Button>
                   )}
                 </div>
-                {chargeDisabledReason && (
+                {inPackingPhase && !waitingForPacker && chargeDisabledReason && (
                   <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
                     {chargeDisabledReason}
                   </p>
                 )}
               </div>
 
-              {(detail.package_capture_required ||
-                (detail.packages && detail.packages.length > 0)) && (
+              {!waitingForPacker &&
+                inPackingPhase &&
+                (detail.package_capture_required ||
+                  (detail.packages && detail.packages.length > 0)) && (
                 <PackageCapture
                   orderId={detail.order.id}
                   detail={detail}
@@ -1159,6 +1514,8 @@ export default function StaffCatchWeightFinalizationConsole({
                     orderId={detail.order.id}
                     line={line}
                     currencyCode={currencyCode}
+                    phase={editorPhase}
+                    canEdit={canEditLines}
                     onSaved={() => loadDetail(detail.order.id)}
                   />
                 ))}

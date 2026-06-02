@@ -27,6 +27,15 @@ function roleBadgeClass(role: StaffAccessRole) {
   if (role === "super_admin") {
     return "border-Gold bg-Gold/15 text-Charcoal"
   }
+  if (role === "manager") {
+    return "border-emerald-200 bg-emerald-50 text-emerald-800"
+  }
+  if (role === "picker" || role === "packer") {
+    return "border-blue-200 bg-blue-50 text-blue-800"
+  }
+  if (role === "office") {
+    return "border-amber-200 bg-amber-50 text-amber-800"
+  }
   if (role === "staff") {
     return "border-Charcoal/25 bg-Charcoal/5 text-Charcoal"
   }

@@ -47,9 +47,21 @@ export type StaffTeamSearchResult = {
   error?: string
 }
 
-const VALID_ROLES = new Set<StaffAccessRole>(["customer", "staff", "super_admin"])
+const VALID_ROLES = new Set<StaffAccessRole>([
+  "customer",
+  "staff",
+  "office",
+  "picker",
+  "packer",
+  "manager",
+  "super_admin",
+])
 const LEGACY_STAFF_ROLES = new Set([
   "staff",
+  "office",
+  "picker",
+  "packer",
+  "manager",
   "admin",
   "ops",
   "operator",
