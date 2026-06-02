@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState, useTransition } from "react"
+import { useEffect, useMemo, useRef, useState, useTransition } from "react"
 import Button from "@modules/common/components/button"
 import {
   approveCatchWeightFinalization,
@@ -109,6 +109,25 @@ function lineRequiresActualWeight(line: StaffCatchWeightLine, title: string) {
   )
 }
 
+function draftFromLine(line: StaffCatchWeightLine) {
+  return {
+    actual_weight_total: numberText(line.actual_weight_total),
+    actual_piece_count: numberText(line.actual_piece_count),
+    actual_quantity: numberText(line.actual_quantity ?? line.ordered_quantity),
+    actual_unit_price: numberText(line.actual_unit_price),
+    status: line.status || "ready",
+    replacement_variant_id: line.replacement_variant_id || "",
+    replacement_qbd_list_id: line.replacement_qbd_list_id || "",
+    replacement_reason: line.replacement_reason || "",
+    short_reason: line.short_reason || "",
+    note: line.note || "",
+  }
+}
+
+function draftSignature(draft: ReturnType<typeof draftFromLine>) {
+  return JSON.stringify(draft)
+}
+
 function LineEditor({
   orderId,
   line,
@@ -120,25 +139,19 @@ function LineEditor({
   currencyCode: string
   onSaved: () => void
 }) {
-  const [draft, setDraft] = useState({
-    actual_weight_total: numberText(line.actual_weight_total),
-    actual_piece_count: numberText(line.actual_piece_count),
-    actual_quantity: numberText(line.actual_quantity ?? line.ordered_quantity),
-    actual_unit_price: numberText(line.actual_unit_price),
-    status: line.status || "ready",
-    replacement_variant_id: line.replacement_variant_id || "",
-    replacement_qbd_list_id: line.replacement_qbd_list_id || "",
-    replacement_reason: line.replacement_reason || "",
-    short_reason: line.short_reason || "",
-    note: line.note || "",
-  })
+  const [draft, setDraft] = useState(() => draftFromLine(line))
   const [replacementQuery, setReplacementQuery] = useState("")
   const [replacementResults, setReplacementResults] = useState<
     StaffProductSearchResult[]
   >([])
   const [error, setError] = useState<string | null>(null)
+  const [saveState, setSaveState] = useState<
+    "idle" | "saving" | "saved" | "error"
+  >("idle")
   const [isPending, startTransition] = useTransition()
   const [isSearchPending, startSearchTransition] = useTransition()
+  const lastSavedSignature = useRef(draftSignature(draft))
+  const latestDraftSignature = useRef(draftSignature(draft))
   const isRemoved = draft.status === "removed"
   const isSubstituted = draft.status === "substituted"
   const title = line.customer_title || line.title_snapshot || "Order line"
@@ -157,20 +170,12 @@ function LineEditor({
     .join(" | ")
 
   useEffect(() => {
-    setDraft({
-      actual_weight_total: numberText(line.actual_weight_total),
-      actual_piece_count: numberText(line.actual_piece_count),
-      actual_quantity: numberText(
-        line.actual_quantity ?? line.ordered_quantity
-      ),
-      actual_unit_price: numberText(line.actual_unit_price),
-      status: line.status || "ready",
-      replacement_variant_id: line.replacement_variant_id || "",
-      replacement_qbd_list_id: line.replacement_qbd_list_id || "",
-      replacement_reason: line.replacement_reason || "",
-      short_reason: line.short_reason || "",
-      note: line.note || "",
-    })
+    const nextDraft = draftFromLine(line)
+    const nextSignature = draftSignature(nextDraft)
+    setDraft(nextDraft)
+    lastSavedSignature.current = nextSignature
+    latestDraftSignature.current = nextSignature
+    setSaveState("idle")
     setReplacementQuery("")
     setReplacementResults([])
   }, [line])
@@ -221,12 +226,16 @@ function LineEditor({
     setReplacementResults([])
   }
 
-  function save() {
-    setError(null)
-    const actualWeight = Number(draft.actual_weight_total)
+  async function persistDraft(
+    draftToSave: ReturnType<typeof draftFromLine>,
+    options: { validate: boolean; refresh: boolean }
+  ) {
+    const signature = draftSignature(draftToSave)
+    const actualWeight = Number(draftToSave.actual_weight_total)
 
     if (
-      draft.status === "ready" &&
+      options.validate &&
+      draftToSave.status === "ready" &&
       requiresActualWeight &&
       (!Number.isFinite(actualWeight) || actualWeight <= 0)
     ) {
@@ -234,34 +243,65 @@ function LineEditor({
       return
     }
 
-    if (isRemoved && !draft.short_reason.trim()) {
+    if (
+      options.validate &&
+      draftToSave.status === "removed" &&
+      !draftToSave.short_reason.trim()
+    ) {
       setError("Add a removal reason before saving this line.")
       return
     }
 
     if (
-      isSubstituted &&
-      (!draft.replacement_variant_id.trim() ||
-        !draft.replacement_qbd_list_id.trim() ||
-        !draft.replacement_reason.trim())
+      options.validate &&
+      draftToSave.status === "substituted" &&
+      (!draftToSave.replacement_variant_id.trim() ||
+        !draftToSave.replacement_qbd_list_id.trim() ||
+        !draftToSave.replacement_reason.trim())
     ) {
       setError("Choose a replacement and add the substitution reason.")
       return
     }
 
-    startTransition(async () => {
-      try {
-        await updateCatchWeightFinalizationLine({
-          orderId,
-          lineItemId: line.line_item_id,
-          ...draft,
-        })
-        onSaved()
-      } catch (err: any) {
-        setError(err.message || "Could not save line.")
+    setSaveState("saving")
+    try {
+      await updateCatchWeightFinalizationLine({
+        orderId,
+        lineItemId: line.line_item_id,
+        ...draftToSave,
+      })
+      lastSavedSignature.current = signature
+      if (latestDraftSignature.current === signature) {
+        setSaveState("saved")
       }
+      if (options.refresh) onSaved()
+    } catch (err: any) {
+      setSaveState("error")
+      setError(err.message || "Could not save line.")
+    }
+  }
+
+  function save() {
+    setError(null)
+    startTransition(async () => {
+      await persistDraft(draft, { validate: true, refresh: true })
     })
   }
+
+  useEffect(() => {
+    const signature = draftSignature(draft)
+    latestDraftSignature.current = signature
+    if (signature === lastSavedSignature.current) return
+
+    setSaveState("idle")
+    const timer = window.setTimeout(() => {
+      persistDraft(draft, { validate: false, refresh: false })
+    }, 900)
+
+    return () => window.clearTimeout(timer)
+    // Save state is intentionally debounced from the current draft only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft, orderId, line.line_item_id])
 
   return (
     <div className="border-b border-gray-200 px-4 py-4 last:border-b-0">
@@ -279,10 +319,12 @@ function LineEditor({
             </p>
             <p className="mt-2 text-sm font-maison-neue text-Charcoal/60">
               Ordered {numberText(line.ordered_quantity) || "0"}
-              {line.estimated_weight_total
+              {line.estimated_weight_total !== null &&
+              line.estimated_weight_total !== undefined
                 ? ` | est. ${numberText(line.estimated_weight_total)} lb`
                 : ""}
-              {line.final_line_total
+              {line.final_line_total !== null &&
+              line.final_line_total !== undefined
                 ? ` | final ${money(line.final_line_total, currencyCode)}`
                 : ""}
             </p>
@@ -294,7 +336,7 @@ function LineEditor({
           </div>
           <Button
             className={`${primaryButtonClass} w-full sm:w-auto`}
-            isLoading={isPending}
+            isLoading={isPending || saveState === "saving"}
             onClick={save}
             type="button"
           >
@@ -468,6 +510,15 @@ function LineEditor({
             {error || lineMessage(line.errors) || lineMessage(line.warnings)}
           </p>
         )}
+        <p className="mt-3 text-xs font-maison-neue text-Charcoal/45">
+          {saveState === "saving"
+            ? "Autosaving..."
+            : saveState === "saved"
+            ? "Saved"
+            : saveState === "error"
+            ? "Autosave failed"
+            : "Changes save automatically"}
+        </p>
       </div>
     </div>
   )
@@ -657,10 +708,11 @@ export default function StaffCatchWeightFinalizationConsole() {
                   </span>
                   <span className="text-right text-sm font-maison-neue text-Charcoal">
                     {money(
-                      item.final_order_total || item.estimated_order_total,
+                      item.final_order_total ?? item.estimated_order_total,
                       item.currency_code
                     )}
-                    {item.delta_total ? (
+                    {item.delta_total !== null &&
+                    item.delta_total !== undefined ? (
                       <span className="block text-xs text-Charcoal/50">
                         {money(item.delta_total, item.currency_code)}
                       </span>

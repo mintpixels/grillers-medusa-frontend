@@ -40,9 +40,8 @@ const NetWeightDisclaimer = () => (
           About Your Order Total
         </p>
         <p className="text-sm text-gray-600 leading-relaxed">
-          Your card is saved today. We will charge the final order total when
-          your order is packed and ready to leave. If payment cannot be
-          completed then, we will contact you before it ships.{" "}
+          Your card is saved today. We charge the final total when your order is
+          packed and ready to leave.{" "}
           <a
             href="/page/catch-weight-pricing"
             className="text-Gold hover:text-Gold/80 underline"

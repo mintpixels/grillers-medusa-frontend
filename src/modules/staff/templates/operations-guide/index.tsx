@@ -173,8 +173,7 @@ const publicSurfaces = [
   {
     route: "/us/account/staff/operations-guide",
     name: "This guide",
-    staffUse:
-      "Use as the staff operating manual and training link.",
+    staffUse: "Use as the staff operating manual and training link.",
   },
   {
     route: "/us/customer-service",
@@ -191,14 +190,12 @@ const publicSurfaces = [
   {
     route: "/us/kashruth/[slug]",
     name: "Kashruth pages",
-    staffUse:
-      "Use for Passover, hechsherim, and supervision explanations.",
+    staffUse: "Use for Passover, hechsherim, and supervision explanations.",
   },
   {
     route: "/us/holidays/order-deadlines",
     name: "Holiday deadlines",
-    staffUse:
-      "Use for seasonal cutoff and holiday ordering guidance.",
+    staffUse: "Use for seasonal cutoff and holiday ordering guidance.",
   },
   {
     route: "/us/page/[slug]",
@@ -227,8 +224,7 @@ const publicSurfaces = [
   {
     route: "/us/navigation",
     name: "Site navigation",
-    staffUse:
-      "Use as a fast staff index of product and collection URLs.",
+    staffUse: "Use as a fast staff index of product and collection URLs.",
   },
   {
     route: "/agentic-commerce/*",
@@ -387,6 +383,7 @@ const sections: GuideSection[] = [
       "Open Staff Console and choose Pack & Finalize.",
       "Start the pack session for the order.",
       "Enter actual weight for every per-lb line and piece counts or quantity changes where needed.",
+      "Line edits autosave as staff type. Use Save Line when you want to validate the line immediately or refresh the final totals.",
       "If the picker substitutes a line, choose Substituted, find the replacement product, confirm the replacement QBD ListID, and record the substitution reason.",
       "If a line cannot be filled, choose Removed and record the removal reason.",
       "Preview the order and fix any missing weights, missing QBD ListIDs, replacement identities, substitution reasons, or removed-line reasons.",
@@ -399,7 +396,7 @@ const sections: GuideSection[] = [
       "Stripe must not see an estimated catch-weight amount. It should only see the final weighed amount at Charge & Release.",
       "Fulfillment is blocked until the final Stripe charge succeeds.",
       "Ready ship means the card has been charged and fulfillment is allowed; it does not by itself mean Medusa has a fulfillment record.",
-      "QuickBooks receives the finalized weighed lines, not the original estimate.",
+      "QuickBooks receives the finalized weighed lines, not the original estimate. For per-lb items, QuickBooks quantity is the final pounds and QuickBooks amount is the final line subtotal; piece count and picker notes travel in the line description.",
       "Use customer-safe product names when discussing substitutions. QBD ListIDs are staff/accounting identity only.",
       "A charge-failed hold means contact the customer for payment update before shipment.",
       "Final charge email goes after the card charge succeeds. It is separate from the checkout confirmation email.",
@@ -937,7 +934,11 @@ export default function StaffOperationsGuide() {
 
       <div className="divide-y divide-gray-200">
         {sections.map((section) => (
-          <section className="scroll-mt-24 py-9" id={section.id} key={section.id}>
+          <section
+            className="scroll-mt-24 py-9"
+            id={section.id}
+            key={section.id}
+          >
             <div className="mb-6 max-w-3xl">
               <p className="text-xs font-maison-neue-mono uppercase text-Gold">
                 {section.eyebrow}

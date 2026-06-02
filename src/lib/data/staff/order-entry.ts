@@ -850,7 +850,7 @@ async function sendReviewLinkEmail({
         lines
       )}</pre>
       <p>Please review the items, quantities, fulfillment details, and estimated total before payment.</p>
-      <p>Catch-weight items are authorized at the estimate and finalized after packing by actual weight.</p>
+      <p>Your card is saved at checkout. We charge the final weighed total when the order is packed and ready to leave.</p>
       <p><a href="${checkoutUrl}">Review and pay for your order</a></p>
       <p>If anything is wrong, call Grillers Pride before completing checkout.</p>
     `,
@@ -861,7 +861,7 @@ async function sendReviewLinkEmail({
       linesSummary(lines),
       "",
       "Please review the items, quantities, fulfillment details, and estimated total before payment.",
-      "Catch-weight items are authorized at the estimate and finalized after packing by actual weight.",
+      "Your card is saved at checkout. We charge the final weighed total when the order is packed and ready to leave.",
       "",
       checkoutUrl,
       "",
@@ -899,7 +899,7 @@ async function sendStaffPaidConfirmation({
       <p><strong>Staff representative:</strong> ${staffName}</p>
       <p><strong>Order:</strong> ${orderId}</p>
       <pre style="font-family:inherit;white-space:pre-wrap">${lines}</pre>
-      <p>Your card was authorized for the estimated amount. Catch-weight items are finalized after packing by actual weight.</p>
+      <p>Your card is saved for the final weighed charge when the order is packed and ready to leave.</p>
       <p>Call Grillers Pride if anything looks wrong.</p>
     `,
     textBody: [
@@ -909,7 +909,7 @@ async function sendStaffPaidConfirmation({
       "",
       lines,
       "",
-      "Your card was authorized for the estimated amount. Catch-weight items are finalized after packing by actual weight.",
+      "Your card is saved for the final weighed charge when the order is packed and ready to leave.",
       "Call Grillers Pride if anything looks wrong.",
     ].join("\n"),
   })
