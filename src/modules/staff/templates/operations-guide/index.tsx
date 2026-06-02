@@ -67,7 +67,7 @@ const dailyChecklist = [
   "Use Order Support as lookup, not as a second fulfillment queue, especially for customer questions, refunds, cancellations, QBD failed, or QBD pending/manual orders.",
   "Open Customer Communications when checking campaign drafts, lifecycle flow health, customer timelines, suppressions, or Postmark delivery status.",
   "Place a small test order only when needed, using Stripe test cards while the site is still in test mode.",
-  "Check that order, cancellation, refund, and back-in-stock emails are being received and that product names are customer-safe Strapi or Medusa names.",
+  "Check that order, cancellation, refund, and back-in-stock emails are being received and that product names, PDP links, and pricing basis details are customer-safe.",
   "Before changing product availability, decide whether the item is out of stock, seasonal inactive, discontinued, or internal only. Those mean different things to customers.",
   "For any money action, verify three places separately: Medusa order/payment state, Stripe payment/refund state, and QuickBooks posting state.",
   "Before activating an experiment, confirm the experiment is approved, revenue gates are healthy if it affects shopping revenue, and the control still matches the current production experience.",
@@ -528,7 +528,7 @@ const sections: GuideSection[] = [
     eyebrow: "Email",
     title: "Customer emails and Postmark",
     summary:
-      "Transactional emails tell the customer what happened. They must use the same customer-safe product names as the storefront and include SKU as helpful subtext, not QuickBooks accounting names.",
+      "Transactional emails tell the customer what happened. They must use the same customer-safe product names as the storefront, link item names back to PDPs when a product handle exists, and include SKU plus pricing basis as helpful subtext, not QuickBooks accounting names.",
     useFor: [
       "Welcome and account claim emails.",
       "Password reset emails.",
@@ -544,6 +544,7 @@ const sections: GuideSection[] = [
     ],
     howTo: [
       "Order emails are built from Medusa order data enriched for customer-safe display.",
+      "Order, shipped, canceled, and final-charge item rows should show a PDP-linked customer title, SKU subtext, and whether the item is priced by pound or by pack. Per-pound rows should include the customer-facing price per pound when the order data can derive it.",
       "Refund emails are triggered by the payment.refunded event after the refund is created.",
       "Cancellation emails are triggered by order cancellation events.",
       "Back-in-stock emails use the Strapi back-in-stock request row and product snapshot.",
@@ -555,6 +556,7 @@ const sections: GuideSection[] = [
     ],
     watch: [
       "Do not send QuickBooks item names, ListIDs, item hex values, or seasonal sorting prefixes in customer email rows.",
+      "If an order email item row is missing a PDP link, pricing basis, or per-pound rate, check the Strapi product handle, PricingMode, AvgPackWeight, and Medusa order line metadata before editing the template.",
       "A customer note in Order Support is not always automatically emailed. Confirm before promising the customer will receive that note.",
       "If a refund succeeds but no email arrives, check the Medusa payment.refunded event and Postmark delivery before blaming Stripe.",
       "Marketing and lifecycle email preferences do not stop transactional order, refund, cancellation, password, or account emails.",
