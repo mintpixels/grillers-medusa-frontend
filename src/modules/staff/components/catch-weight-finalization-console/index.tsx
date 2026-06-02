@@ -281,7 +281,9 @@ function LineEditor({
       if (latestDraftSignature.current === signature) {
         setSaveState("saved")
       }
-      if (options.refresh) onSaved()
+      if (options.refresh && latestDraftSignature.current === signature) {
+        onSaved()
+      }
     } catch (err: any) {
       setSaveState("error")
       setError(err.message || "Could not save line.")
