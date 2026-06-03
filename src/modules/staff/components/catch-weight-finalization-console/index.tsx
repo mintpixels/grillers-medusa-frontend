@@ -446,6 +446,54 @@ function lineHasShortage(
   return ordered > 0 && actual >= 0 && actual < ordered
 }
 
+function readinessIssueAppliesToDraft(
+  issue: ReadinessIssue,
+  line: StaffCatchWeightLine,
+  draft: ReturnType<typeof draftFromLine>,
+  packingPhase: boolean
+) {
+  const message = issue.message
+  const actual = actualQuantityValue(draft)
+  const ordered = orderedQuantity(line)
+  const isException =
+    draft.status === "removed" || draft.status === "substituted"
+
+  if (message === "Removed as out of stock.") {
+    return draft.status === "removed"
+  }
+
+  if (message === "Substitution selected.") {
+    return draft.status === "substituted"
+  }
+
+  if (message.includes("Removed lines need")) {
+    return draft.status === "removed" && !draft.short_reason && !draft.note
+  }
+
+  if (message.includes("Finish the substitution")) {
+    return (
+      draft.status === "substituted" &&
+      (!draft.replacement_variant_id ||
+        !draft.replacement_qbd_list_id ||
+        !draft.replacement_reason)
+    )
+  }
+
+  if (message.startsWith("Picked is 0")) {
+    return !packingPhase && !isException && actual <= 0
+  }
+
+  if (message.includes("Save the picked count")) {
+    return !isException && draft.status !== "ready"
+  }
+
+  if (message.startsWith("Picked ") || message.includes("shortage")) {
+    return ordered > 0 && actual < ordered
+  }
+
+  return true
+}
+
 function positiveWholeQuantity(value: unknown) {
   const amount = Number(value)
   return Number.isFinite(amount) && amount > 0 ? Math.ceil(amount) : 0
@@ -723,7 +771,10 @@ function LineEditor({
   ]
     .filter(Boolean)
     .join(" | ")
-  const hasBlockingReadinessIssue = readinessIssues.some(
+  const visibleReadinessIssues = readinessIssues.filter((issue) =>
+    readinessIssueAppliesToDraft(issue, line, draft, packingPhase)
+  )
+  const hasBlockingReadinessIssue = visibleReadinessIssues.some(
     (issue) => issue.tone === "blocker"
   )
 
@@ -1086,7 +1137,7 @@ function LineEditor({
         className={`rounded-md border bg-white p-4 ${
           hasBlockingReadinessIssue
             ? "border-amber-300"
-            : readinessIssues.length
+            : visibleReadinessIssues.length
             ? "border-blue-200"
             : "border-gray-100"
         }`}
@@ -1129,7 +1180,7 @@ function LineEditor({
                 Replacement: {replacementSummary}
               </p>
             )}
-            {readinessIssues.length > 0 && (
+            {visibleReadinessIssues.length > 0 && (
               <div
                 className={`mt-3 rounded-md border px-3 py-2 text-sm ${
                   hasBlockingReadinessIssue
@@ -1143,7 +1194,7 @@ function LineEditor({
                     : "Intentional exception"}
                 </p>
                 <ul className="mt-1 list-disc space-y-1 pl-5 font-maison-neue">
-                  {readinessIssues.map((issue) => (
+                  {visibleReadinessIssues.map((issue) => (
                     <li key={`${issue.tone}-${issue.message}`}>
                       {issue.message}
                     </li>
