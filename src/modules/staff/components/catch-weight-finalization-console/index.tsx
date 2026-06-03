@@ -655,11 +655,13 @@ function expectedUnitWeightCount(
 ) {
   return (
     Math.max(
-      positiveWholeQuantity(draft.actual_quantity),
       positiveWholeQuantity(line.metadata?.picked_quantity)
     ) ||
+    positiveWholeQuantity(line.ordered_quantity) ||
     positiveWholeQuantity(line.actual_quantity) ||
-    positiveWholeQuantity(line.actual_piece_count)
+    positiveWholeQuantity(line.actual_piece_count) ||
+    positiveWeightCount(draft.actual_unit_weights) ||
+    1
   )
 }
 
@@ -667,11 +669,7 @@ function unitWeightRows(
   line: StaffCatchWeightLine,
   draft: ReturnType<typeof draftFromLine>
 ) {
-  const rowCount = Math.max(
-    draft.actual_unit_weights.length,
-    expectedUnitWeightCount(line, draft),
-    1
-  )
+  const rowCount = expectedUnitWeightCount(line, draft)
   return Array.from(
     { length: rowCount },
     (_, index) => draft.actual_unit_weights[index] || ""
@@ -897,11 +895,10 @@ function LineEditor({
   const lineHasFullQuantity = orderedCount > 0 && actualCount >= orderedCount
   const lineHasPartialShortage =
     orderedCount > 0 && actualCount > 0 && actualCount < orderedCount
+  const canPickLineExceptions = !packingPhase
   const stockExceptionDisabled =
-    !canEdit || (!packingPhase && (orderedCount <= 0 || lineHasFullQuantity))
-  const removeActionLabel = packingPhase
-    ? "Remove"
-    : lineHasPartialShortage
+    !canEdit || orderedCount <= 0 || lineHasFullQuantity
+  const removeActionLabel = lineHasPartialShortage
     ? "Some Out Of Stock"
     : "Out Of Stock"
   const quantityInputLabel = packingPhase ? "Packed" : "Picked"
@@ -927,6 +924,15 @@ function LineEditor({
   const hasBlockingReadinessIssue = visibleReadinessIssues.some(
     (issue) => issue.tone === "blocker"
   )
+  const staleWeightErrorResolved =
+    requiresActualWeight &&
+    packingPhase &&
+    enteredWeightCount >= Math.max(1, expectedWeights) &&
+    effectiveUnitWeightTotal > 0
+  const serverLineErrorMessage = staleWeightErrorResolved
+    ? null
+    : lineMessage(line.errors)
+  const serverLineWarningMessage = lineMessage(line.warnings)
 
   useEffect(() => {
     const nextDraft = draftFromLine(line)
@@ -941,6 +947,7 @@ function LineEditor({
   }, [line])
 
   function update(key: keyof typeof draft, value: string) {
+    setError(null)
     setLineStatusMessage(null)
     setDraft((current) => {
       const nextDraft = {
@@ -959,10 +966,10 @@ function LineEditor({
   }
 
   function updateUnitWeight(index: number, value: string) {
+    setError(null)
     setLineStatusMessage(null)
     setDraft((current) => {
       const rowCount = Math.max(
-        current.actual_unit_weights.length,
         expectedUnitWeightCount(line, current),
         index + 1
       )
@@ -984,52 +991,7 @@ function LineEditor({
           nextDraft,
           requiresActualWeight,
           packingPhase,
-          expectedUnitWeightCount(line, current)
-        ),
-      }
-    })
-  }
-
-  function addUnitWeight() {
-    setLineStatusMessage(null)
-    setDraft((current) => {
-      const rowCount = Math.max(
-        current.actual_unit_weights.length,
-        expectedUnitWeightCount(line, current)
-      )
-      return {
-        ...current,
-        actual_unit_weights: [
-          ...Array.from(
-            { length: rowCount },
-            (_, index) => current.actual_unit_weights[index] || ""
-          ),
-          "",
-        ],
-      }
-    })
-  }
-
-  function removeUnitWeight(index: number) {
-    setLineStatusMessage(null)
-    setDraft((current) => {
-      const actualUnitWeights = current.actual_unit_weights.filter(
-        (_, rowIndex) => rowIndex !== index
-      )
-      const nextDraft = {
-        ...current,
-        actual_unit_weights: actualUnitWeights,
-        actual_quantity: numberText(positiveWeightCount(actualUnitWeights)),
-        actual_piece_count: numberText(positiveWeightCount(actualUnitWeights)),
-        actual_weight_total: numberText(weightTotal(actualUnitWeights)),
-      }
-      return {
-        ...nextDraft,
-        status: deriveLineStatus(
-          nextDraft,
-          requiresActualWeight,
-          packingPhase,
-          expectedUnitWeightCount(line, current)
+          expectedUnitWeightCount(line, nextDraft)
         ),
       }
     })
@@ -1371,46 +1333,28 @@ function LineEditor({
                 <div>
                   <span className={labelClass}>Item weights</span>
                   <p className="mt-1 text-xs font-maison-neue text-Charcoal/45">
-                    Enter one weight per packed item. Total and fulfilled count
+                    Enter one weight per packed item. Total and packed count
                     calculate automatically.
                   </p>
                 </div>
-                <Button
-                  className={`${secondaryButtonClass} w-full sm:w-auto`}
-                  disabled={!canEdit || isRemoved}
-                  onClick={addUnitWeight}
-                  type="button"
-                >
-                  Add Item Weight
-                </Button>
               </div>
               <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
                 {unitWeightRows(line, draft).map((weight, index) => (
-                  <div
-                    className="grid grid-cols-[minmax(0,1fr)_42px] gap-2"
+                  <label
+                    className="flex min-w-0 flex-col gap-1"
                     key={`weight-${index}`}
                   >
-                    <label className="flex min-w-0 flex-col gap-1">
-                      <span className={labelClass}>Item {index + 1} lb</span>
-                      <input
-                        className={fieldClass}
-                        inputMode="decimal"
-                        value={weight}
-                        disabled={!canEdit || isRemoved}
-                        onChange={(event) =>
-                          updateUnitWeight(index, event.target.value)
-                        }
-                      />
-                    </label>
-                    <button
-                      className="mt-5 min-h-[42px] rounded-md border border-gray-200 px-2 text-xs font-maison-neue-mono uppercase text-Charcoal/55 disabled:opacity-40"
+                    <span className={labelClass}>Item {index + 1} lb</span>
+                    <input
+                      className={fieldClass}
+                      inputMode="decimal"
+                      value={weight}
                       disabled={!canEdit || isRemoved}
-                      onClick={() => removeUnitWeight(index)}
-                      type="button"
-                    >
-                      X
-                    </button>
-                  </div>
+                      onChange={(event) =>
+                        updateUnitWeight(index, event.target.value)
+                      }
+                    />
+                  </label>
                 ))}
               </div>
               <div className="mt-3 grid gap-2 sm:grid-cols-2">
@@ -1466,53 +1410,55 @@ function LineEditor({
             />
           </label>
 
-          <div className="flex min-w-0 flex-col gap-1 sm:col-span-2 xl:col-span-2">
-            <span className={labelClass}>Line action</span>
-            <div className="grid gap-2 sm:grid-cols-2">
-              {isRemoved || isSubstituted ? (
-                <button
-                  className={`${secondaryButtonClass} w-full min-w-0 px-3 text-center`}
-                  disabled={!canEdit}
-                  onClick={restoreOriginalLine}
-                  type="button"
-                >
-                  {isRemoved ? "Found Stock" : "Use Original"}
-                </button>
-              ) : (
-                <>
-                  <button
-                    className={`w-full min-w-0 px-3 text-center ${
-                      stockExceptionDisabled
-                        ? disabledButtonClass
-                        : secondaryButtonClass
-                    }`}
-                    disabled={stockExceptionDisabled}
-                    onClick={
-                      !packingPhase && lineHasPartialShortage
-                        ? markPartialOutOfStock
-                        : markRemoved
-                    }
-                    title={
-                      !packingPhase && lineHasFullQuantity
-                        ? "Picked already matches ordered quantity."
-                        : undefined
-                    }
-                    type="button"
-                  >
-                    {removeActionLabel}
-                  </button>
+          {canPickLineExceptions && (
+            <div className="flex min-w-0 flex-col gap-1 sm:col-span-2 xl:col-span-2">
+              <span className={labelClass}>Line action</span>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {isRemoved || isSubstituted ? (
                   <button
                     className={`${secondaryButtonClass} w-full min-w-0 px-3 text-center`}
                     disabled={!canEdit}
-                    onClick={markSubstituted}
+                    onClick={restoreOriginalLine}
                     type="button"
                   >
-                    Substitute
+                    {isRemoved ? "Found Stock" : "Use Original"}
                   </button>
-                </>
-              )}
+                ) : (
+                  <>
+                    <button
+                      className={`w-full min-w-0 px-3 text-center ${
+                        stockExceptionDisabled
+                          ? disabledButtonClass
+                          : secondaryButtonClass
+                      }`}
+                      disabled={stockExceptionDisabled}
+                      onClick={
+                        lineHasPartialShortage
+                          ? markPartialOutOfStock
+                          : markRemoved
+                      }
+                      title={
+                        lineHasFullQuantity
+                          ? "Picked already matches ordered quantity."
+                          : undefined
+                      }
+                      type="button"
+                    >
+                      {removeActionLabel}
+                    </button>
+                    <button
+                      className={`${secondaryButtonClass} w-full min-w-0 px-3 text-center`}
+                      disabled={!canEdit}
+                      onClick={markSubstituted}
+                      type="button"
+                    >
+                      Substitute
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {fixedPriceLine && (
@@ -1530,10 +1476,16 @@ function LineEditor({
                 ? OUT_OF_STOCK_LABEL
                 : draft.short_reason || OUT_OF_STOCK_LABEL}
             </p>
-            <p className="mt-1 text-xs text-amber-900/70">
-              Found the item? Use Found Stock to restore the ordered count and
-              clear this exception.
-            </p>
+            {canPickLineExceptions ? (
+              <p className="mt-1 text-xs text-amber-900/70">
+                Found the item? Use Found Stock to restore the ordered count and
+                clear this exception.
+              </p>
+            ) : (
+              <p className="mt-1 text-xs text-amber-900/70">
+                If this exception is wrong, send the order back to picking.
+              </p>
+            )}
           </div>
         )}
 
@@ -1541,13 +1493,13 @@ function LineEditor({
           !isSubstituted &&
           lineHasShortage(line, draft) &&
           (draft.short_reason === OUT_OF_STOCK_REASON ||
-            actualQuantityValue(draft) > 0) && (
+            (!packingPhase && actualQuantityValue(draft) > 0)) && (
             <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-maison-neue text-amber-900">
               Shortage reason: {OUT_OF_STOCK_LABEL}
             </div>
           )}
 
-        {isSubstituted && (
+        {isSubstituted && canPickLineExceptions && (
           <div className="mt-4 rounded-md border border-blue-100 bg-blue-50/40 p-3">
             <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
               <label className="flex min-w-0 flex-col gap-1">
@@ -1662,8 +1614,8 @@ function LineEditor({
         </label>
 
         {(lineStatusMessage ||
-          lineMessage(line.errors) ||
-          lineMessage(line.warnings) ||
+          serverLineErrorMessage ||
+          serverLineWarningMessage ||
           error) && (
           <p
             className={`mt-3 rounded-md border px-3 py-2 text-sm ${
@@ -1676,8 +1628,8 @@ function LineEditor({
           >
             {error ||
               lineStatusMessage ||
-              lineMessage(line.errors) ||
-              lineMessage(line.warnings)}
+              serverLineErrorMessage ||
+              serverLineWarningMessage}
           </p>
         )}
         <p className="mt-3 text-xs font-maison-neue text-Charcoal/45">
@@ -2953,7 +2905,7 @@ export default function StaffCatchWeightFinalizationConsole({
 
               {canViewAuditTrail && <OrderAuditTrail order={detail.order} />}
 
-              {canEditLines && (
+              {canEditLines && inPickingPhase && (
                 <AddFinalizationItem
                   orderId={detail.order.id}
                   currencyCode={currencyCode}
