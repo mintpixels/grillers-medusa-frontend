@@ -733,7 +733,7 @@ function LineEditor({
               Ordered {numberText(line.ordered_quantity) || "0"} |{" "}
               {requiresActualWeight ? "Picked" : "Fulfilled"}{" "}
               {effectiveActualQuantity || "0"}
-              {requiresActualWeight
+              {requiresActualWeight && packingPhase
                 ? ` | weighed ${enteredWeightCount}/${expectedWeights || "?"}`
                 : ""}
               {line.estimated_weight_total !== null &&
@@ -867,12 +867,12 @@ function LineEditor({
             />
           </label>
 
-          <div className="flex min-w-0 flex-col gap-1">
+          <div className="flex min-w-0 flex-col gap-1 sm:col-span-2 xl:col-span-2">
             <span className={labelClass}>Line action</span>
             <div className="grid gap-2 sm:grid-cols-2">
               {isRemoved || isSubstituted ? (
                 <button
-                  className={secondaryButtonClass}
+                  className={`${secondaryButtonClass} w-full min-w-0 px-3 text-center`}
                   disabled={!canEdit}
                   onClick={clearException}
                   type="button"
@@ -882,7 +882,7 @@ function LineEditor({
               ) : (
                 <>
                   <button
-                    className={secondaryButtonClass}
+                    className={`${secondaryButtonClass} w-full min-w-0 px-3 text-center`}
                     disabled={!canEdit}
                     onClick={markRemoved}
                     type="button"
@@ -890,7 +890,7 @@ function LineEditor({
                     Remove
                   </button>
                   <button
-                    className={secondaryButtonClass}
+                    className={`${secondaryButtonClass} w-full min-w-0 px-3 text-center`}
                     disabled={!canEdit}
                     onClick={markSubstituted}
                     type="button"
