@@ -23,11 +23,15 @@ import {
   type StaffOrderOperationalState,
 } from "./exception-types"
 import {
-  staffCapturedCurrencyAmount,
   staffCurrencyAmount,
   staffMinorUnitsFromCurrency,
   staffPositiveCurrencyAmount,
 } from "./money"
+import {
+  collectStaffOrderPayments,
+  validateFullStripeCaptureAmount,
+  type StaffOrderPayment,
+} from "./order-exception-payments"
 
 type AnyRecord = Record<string, any>
 type StaffActionStatus =
@@ -89,16 +93,7 @@ export type StaffExceptionOrderItem = {
   total: number
 }
 
-export type StaffExceptionPayment = {
-  id: string
-  amount: number
-  capturedAmount: number
-  refundedAmount: number
-  refundableAmount: number
-  currencyCode: string
-  providerId?: string
-  status?: string
-}
+export type StaffExceptionPayment = StaffOrderPayment
 
 export type StaffExceptionAddress = {
   name: string
@@ -199,7 +194,7 @@ const ORDER_LIST_FIELDS =
   "id,display_id,email,status,fulfillment_status,payment_status,total,currency_code,created_at,updated_at,+metadata,*customer,*items"
 
 const ORDER_DETAIL_FIELDS =
-  "id,display_id,email,status,fulfillment_status,payment_status,total,subtotal,shipping_total,tax_total,discount_total,currency_code,created_at,updated_at,canceled_at,+metadata,*customer,*items,*items.variant,*items.product,*shipping_address,*billing_address,*shipping_methods,*fulfillments,*payment_collections,*payment_collections.payments"
+  "id,display_id,email,status,fulfillment_status,payment_status,total,subtotal,shipping_total,tax_total,discount_total,currency_code,created_at,updated_at,canceled_at,+metadata,*customer,*items,*items.variant,*items.product,*shipping_address,*billing_address,*shipping_methods,*fulfillments,*payment_collections,*payment_collections.payments,*payment_collections.payments.captures,*payment_collections.payments.refunds"
 
 function amount(value: unknown): number {
   const number = Number(value)
@@ -653,53 +648,7 @@ function shippingOverrideSummary(
   return parts.join(" ")
 }
 
-function collectPayments(order: AnyRecord): StaffExceptionPayment[] {
-  const collections = Array.isArray(order.payment_collections)
-    ? order.payment_collections
-    : []
-
-  return collections.flatMap((collection: AnyRecord) => {
-    const payments = Array.isArray(collection.payments)
-      ? collection.payments
-      : []
-    return payments.map((payment: AnyRecord) => {
-      const refunds = Array.isArray(payment.refunds) ? payment.refunds : []
-      const explicitRefundedAmount = numericValue(payment.refunded_amount)
-      const refundedAmount = staffCurrencyAmount(
-        explicitRefundedAmount !== null
-          ? explicitRefundedAmount
-          : refunds.reduce(
-              (sum: number, refund: AnyRecord) => sum + amount(refund.amount),
-              0
-            )
-      )
-      const paymentAmount = staffCurrencyAmount(payment.amount)
-      const paymentStatus = String(
-        payment.status || collection.status || ""
-      ).toLowerCase()
-      const capturedAmount = staffCapturedCurrencyAmount({
-        capturedAmount: payment.captured_amount,
-        paymentAmount,
-        status: paymentStatus,
-      })
-
-      return {
-        id: payment.id,
-        amount: paymentAmount,
-        capturedAmount,
-        refundedAmount,
-        refundableAmount: staffCurrencyAmount(
-          Math.max(0, capturedAmount - refundedAmount)
-        ),
-        currencyCode:
-          payment.currency_code || collection.currency_code || "usd",
-        providerId:
-          payment.provider_id || payment.provider || collection.provider_id,
-        status: payment.status || collection.status,
-      }
-    })
-  })
-}
+const collectPayments = collectStaffOrderPayments
 
 function staffTimeline(
   metadata: AnyRecord | null | undefined
@@ -1130,13 +1079,7 @@ function validateAction(input: StaffExceptionActionInput, order: AnyRecord) {
     if (remaining <= 0) {
       throw new Error("This payment does not have an authorized balance to capture.")
     }
-    if (captureAmount > remaining) {
-      throw new Error(
-        `Capture amount exceeds the remaining authorized balance of ${remaining.toFixed(
-          2
-        )}.`
-      )
-    }
+    validateFullStripeCaptureAmount({ captureAmount, remaining })
   }
 
   if (input.action === "retry_qbd_posting") {

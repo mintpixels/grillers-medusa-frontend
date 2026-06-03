@@ -220,6 +220,14 @@ function isStripePayment(
     .includes("stripe")
 }
 
+function remainingCaptureAmount(
+  payment?: StaffExceptionOrderDetail["payments"][number]
+) {
+  if (!payment || !isStripePayment(payment)) return undefined
+  const remaining = Math.max(0, payment.amount - payment.capturedAmount)
+  return remaining > 0 ? Number(remaining.toFixed(2)) : undefined
+}
+
 function actionUnavailableReason(
   action: StaffExceptionActionType,
   order: StaffExceptionOrderDetail | null
@@ -612,16 +620,24 @@ export default function StaffOrderExceptionConsole() {
 
   function chooseAction(action: StaffExceptionActionType) {
     if (!selectedOrder) return
-    setAcknowledged(false)
-    setPreview(null)
-    setTypedConfirmation("")
-    setActionDraft({
+    const nextDraft = {
       ...emptyAction(selectedOrder.id, selectedOrder),
       action,
       customerConsentMethod: actionRequiresCustomerConsent(action)
         ? "phone"
         : "not_applicable",
-    })
+    }
+    if (action === "capture_payment") {
+      const payment = selectedOrder.payments.find(
+        (candidate) => remainingCaptureAmount(candidate) !== undefined
+      )
+      nextDraft.paymentId = payment?.id || ""
+      nextDraft.amount = remainingCaptureAmount(payment)
+    }
+    setAcknowledged(false)
+    setPreview(null)
+    setTypedConfirmation("")
+    setActionDraft(nextDraft)
   }
 
   function reviewAction() {
@@ -1125,6 +1141,7 @@ export default function StaffOrderExceptionConsole() {
                           min="0"
                           step="0.01"
                           type="number"
+                          disabled={selectedAction === "capture_payment"}
                           value={actionDraft.amount ?? ""}
                           onChange={(event) =>
                             updateActionDraft({
@@ -1145,11 +1162,19 @@ export default function StaffOrderExceptionConsole() {
                           <select
                             className={fieldClass()}
                             value={actionDraft.paymentId || ""}
-                            onChange={(event) =>
+                            onChange={(event) => {
+                              const paymentId = event.target.value
+                              const payment = selectedOrder.payments.find(
+                                (candidate) => candidate.id === paymentId
+                              )
                               updateActionDraft({
-                                paymentId: event.target.value,
+                                paymentId,
+                                amount:
+                                  selectedAction === "capture_payment"
+                                    ? remainingCaptureAmount(payment)
+                                    : actionDraft.amount,
                               })
-                            }
+                            }}
                           >
                             <option value="">Auto select</option>
                             {selectedOrder.payments.map((payment) => (
@@ -1162,6 +1187,13 @@ export default function StaffOrderExceptionConsole() {
                               </option>
                             ))}
                           </select>
+                          {selectedAction === "capture_payment" && (
+                            <span className="text-xs font-maison-neue text-Charcoal/55">
+                              Stripe captures the full remaining authorization.
+                              Partial capture is blocked until the payment
+                              provider supports it safely.
+                            </span>
+                          )}
                         </label>
                       )}
 
