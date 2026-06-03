@@ -249,25 +249,61 @@ function lineActualQuantity(line: StaffCatchWeightLine) {
   return Number.isFinite(amount) && amount > 0 ? amount : 0
 }
 
+type ReadinessIssue = {
+  lineKey: string
+  title: string
+  message: string
+  tone: "blocker" | "warning"
+}
+
+function lineIssueKey(line: StaffCatchWeightLine) {
+  return line.line_item_id || line.id
+}
+
 function finalizationPickerReadiness(
   detail: StaffCatchWeightFinalizationDetail | null
 ) {
-  if (!detail) return { blockers: [], warnings: [] }
+  if (!detail) return { blockers: [], warnings: [], lineIssues: {} }
 
   const blockers: string[] = []
   const warnings: string[] = []
+  const lineIssues: Record<string, ReadinessIssue[]> = {}
+
+  function addLineIssue(
+    line: StaffCatchWeightLine,
+    tone: ReadinessIssue["tone"],
+    message: string
+  ) {
+    const title = lineDisplayTitle(line)
+    const issue = {
+      lineKey: lineIssueKey(line),
+      title,
+      message,
+      tone,
+    }
+    lineIssues[issue.lineKey] = [...(lineIssues[issue.lineKey] || []), issue]
+
+    if (tone === "blocker") {
+      blockers.push(`${title}: ${message}`)
+    } else {
+      warnings.push(`${title}: ${message}`)
+    }
+  }
 
   for (const line of detail.lines || []) {
-    const title = lineDisplayTitle(line)
     const ordered = orderedQuantity(line)
     const picked = lineActualQuantity(line)
     const status = line.status || "needs_pick"
 
     if (status === "removed") {
       if (!line.short_reason && !line.note) {
-        blockers.push(`${title}: removed lines need an out-of-stock reason.`)
+        addLineIssue(
+          line,
+          "blocker",
+          "Removed lines need an out-of-stock reason."
+        )
       } else {
-        warnings.push(`${title}: removed as out of stock.`)
+        addLineIssue(line, "warning", "Removed as out of stock.")
       }
       continue
     }
@@ -278,16 +314,18 @@ function finalizationPickerReadiness(
         !line.replacement_qbd_list_id ||
         !line.replacement_reason
       ) {
-        blockers.push(`${title}: finish the substitution before handoff.`)
+        addLineIssue(line, "blocker", "Finish the substitution before handoff.")
       } else {
-        warnings.push(`${title}: substitution selected.`)
+        addLineIssue(line, "warning", "Substitution selected.")
       }
       continue
     }
 
     if (picked <= 0) {
-      blockers.push(
-        `${title}: picked is 0 of ${
+      addLineIssue(
+        line,
+        "blocker",
+        `Picked is 0 of ${
           ordered || 0
         }. Enter a picked count, or use Out of Stock/Substitute if it is out of stock.`
       )
@@ -295,27 +333,33 @@ function finalizationPickerReadiness(
     }
 
     if (status !== "ready") {
-      blockers.push(
-        `${title}: save the picked count so the line is marked ready.`
+      addLineIssue(
+        line,
+        "blocker",
+        "Save the picked count so the line is marked ready."
       )
       continue
     }
 
     if (ordered > 0 && picked < ordered && !line.short_reason) {
-      blockers.push(
-        `${title}: picked ${picked} of ${ordered}; save the line so the out-of-stock shortage is recorded.`
+      addLineIssue(
+        line,
+        "blocker",
+        `Picked ${picked} of ${ordered}; save the line so the out-of-stock shortage is recorded.`
       )
       continue
     }
 
     if (ordered > 0 && picked < ordered) {
-      warnings.push(
-        `${title}: picked ${picked} of ${ordered}; shortage will be recorded as out of stock.`
+      addLineIssue(
+        line,
+        "warning",
+        `Picked ${picked} of ${ordered}; shortage will be recorded as out of stock.`
       )
     }
   }
 
-  return { blockers, warnings }
+  return { blockers, warnings, lineIssues }
 }
 
 function lineRequiresActualWeight(line: StaffCatchWeightLine, title: string) {
@@ -616,6 +660,7 @@ function LineEditor({
   currencyCode,
   phase,
   canEdit,
+  readinessIssues = [],
   onSaved,
 }: {
   orderId: string
@@ -623,6 +668,7 @@ function LineEditor({
   currencyCode: string
   phase: FinalizationPhase
   canEdit: boolean
+  readinessIssues?: ReadinessIssue[]
   onSaved: () => void
 }) {
   const [draft, setDraft] = useState(() => draftFromLine(line))
@@ -674,6 +720,9 @@ function LineEditor({
   ]
     .filter(Boolean)
     .join(" | ")
+  const hasBlockingReadinessIssue = readinessIssues.some(
+    (issue) => issue.tone === "blocker"
+  )
 
   useEffect(() => {
     const nextDraft = draftFromLine(line)
@@ -1006,7 +1055,15 @@ function LineEditor({
 
   return (
     <div className="border-b border-gray-200 px-4 py-4 last:border-b-0">
-      <div className="rounded-md border border-gray-100 bg-white p-4">
+      <div
+        className={`rounded-md border bg-white p-4 ${
+          hasBlockingReadinessIssue
+            ? "border-amber-300"
+            : readinessIssues.length
+            ? "border-blue-200"
+            : "border-gray-100"
+        }`}
+      >
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
@@ -1044,6 +1101,28 @@ function LineEditor({
               <p className="mt-1 truncate text-xs font-maison-neue text-blue-700">
                 Replacement: {replacementSummary}
               </p>
+            )}
+            {readinessIssues.length > 0 && (
+              <div
+                className={`mt-3 rounded-md border px-3 py-2 text-sm ${
+                  hasBlockingReadinessIssue
+                    ? "border-amber-200 bg-amber-50 text-amber-900"
+                    : "border-blue-100 bg-blue-50/70 text-blue-900"
+                }`}
+              >
+                <p className="font-maison-neue font-semibold">
+                  {hasBlockingReadinessIssue
+                    ? "Needs attention before handoff"
+                    : "Intentional exception"}
+                </p>
+                <ul className="mt-1 list-disc space-y-1 pl-5 font-maison-neue">
+                  {readinessIssues.map((issue) => (
+                    <li key={`${issue.tone}-${issue.message}`}>
+                      {issue.message}
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
           </div>
           <Button
@@ -2511,13 +2590,12 @@ export default function StaffCatchWeightFinalizationConsole({
                             Ready For Packing is blocked.
                           </p>
                           <p className="mt-1 font-maison-neue text-amber-900/75">
-                            Clear these items before the handoff button unlocks.
+                            {pickerReadiness.blockers.length} highlighted line
+                            {pickerReadiness.blockers.length === 1
+                              ? ""
+                              : "s"}{" "}
+                            need attention below.
                           </p>
-                          <ul className="mt-2 list-disc space-y-1 pl-5">
-                            {pickerReadiness.blockers.map((issue) => (
-                              <li key={issue}>{issue}</li>
-                            ))}
-                          </ul>
                         </>
                       )}
                       {pickerReadiness.warnings.length > 0 && (
@@ -2529,11 +2607,15 @@ export default function StaffCatchWeightFinalizationConsole({
                           >
                             Review intentional exceptions:
                           </p>
-                          <ul className="mt-2 list-disc space-y-1 pl-5">
-                            {pickerReadiness.warnings.map((issue) => (
-                              <li key={issue}>{issue}</li>
-                            ))}
-                          </ul>
+                          <p className="mt-1 font-maison-neue text-amber-900/75">
+                            {pickerReadiness.warnings.length} highlighted
+                            exception
+                            {pickerReadiness.warnings.length === 1
+                              ? ""
+                              : "s"}{" "}
+                            should be reviewed on the affected line
+                            {pickerReadiness.warnings.length === 1 ? "" : "s"}.
+                          </p>
                         </>
                       )}
                     </div>
@@ -2588,6 +2670,9 @@ export default function StaffCatchWeightFinalizationConsole({
                     currencyCode={currencyCode}
                     phase={editorPhase}
                     canEdit={canEditLines}
+                    readinessIssues={
+                      pickerReadiness.lineIssues[lineIssueKey(line)] || []
+                    }
                     onSaved={() => loadDetail(detail.order.id)}
                   />
                 ))}
