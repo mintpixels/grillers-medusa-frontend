@@ -207,6 +207,82 @@ function finalizationBlockingIssues(
   return issues
 }
 
+function lineDisplayTitle(line: StaffCatchWeightLine) {
+  return line.customer_title || line.title_snapshot || "Order line"
+}
+
+function lineActualQuantity(line: StaffCatchWeightLine) {
+  const amount = Number(line.actual_quantity)
+  return Number.isFinite(amount) && amount > 0 ? amount : 0
+}
+
+function finalizationPickerReadiness(
+  detail: StaffCatchWeightFinalizationDetail | null
+) {
+  if (!detail) return { blockers: [], warnings: [] }
+
+  const blockers: string[] = []
+  const warnings: string[] = []
+
+  for (const line of detail.lines || []) {
+    const title = lineDisplayTitle(line)
+    const ordered = orderedQuantity(line)
+    const picked = lineActualQuantity(line)
+    const status = line.status || "needs_pick"
+
+    if (status === "removed") {
+      if (!line.short_reason && !line.note) {
+        blockers.push(`${title}: removed lines need an out-of-stock reason.`)
+      } else {
+        warnings.push(`${title}: removed as out of stock.`)
+      }
+      continue
+    }
+
+    if (status === "substituted") {
+      if (
+        !line.replacement_variant_id ||
+        !line.replacement_qbd_list_id ||
+        !line.replacement_reason
+      ) {
+        blockers.push(`${title}: finish the substitution before handoff.`)
+      } else {
+        warnings.push(`${title}: substitution selected.`)
+      }
+      continue
+    }
+
+    if (picked <= 0) {
+      blockers.push(
+        `${title}: picked is 0 of ${ordered || 0}. Enter a picked count, or use Out of Stock/Substitute if it is out of stock.`
+      )
+      continue
+    }
+
+    if (status !== "ready") {
+      blockers.push(
+        `${title}: save the picked count so the line is marked ready.`
+      )
+      continue
+    }
+
+    if (ordered > 0 && picked < ordered && !line.short_reason) {
+      blockers.push(
+        `${title}: picked ${picked} of ${ordered}; save the line so the out-of-stock shortage is recorded.`
+      )
+      continue
+    }
+
+    if (ordered > 0 && picked < ordered) {
+      warnings.push(
+        `${title}: picked ${picked} of ${ordered}; shortage will be recorded as out of stock.`
+      )
+    }
+  }
+
+  return { blockers, warnings }
+}
+
 function lineRequiresActualWeight(line: StaffCatchWeightLine, title: string) {
   const estimatedWeight = Number(line.estimated_weight_total)
   return (
@@ -525,6 +601,7 @@ function LineEditor({
   const requiresActualWeight = lineRequiresActualWeight(line, title)
   const fixedPriceLine = lineIsFixedPrice(line, title)
   const packingPhase = phase === "packing"
+  const removeActionLabel = packingPhase ? "Remove" : "Out of Stock"
   const pickedCount = pickedQuantity(line)
   const quantityInputLabel = packingPhase ? "Packed" : "Picked"
   const effectiveUnitWeightTotal = weightTotal(draft.actual_unit_weights)
@@ -1029,7 +1106,7 @@ function LineEditor({
                     onClick={markRemoved}
                     type="button"
                   >
-                    Remove
+                    {removeActionLabel}
                   </button>
                   <button
                     className={`${secondaryButtonClass} w-full min-w-0 px-3 text-center`}
@@ -1719,6 +1796,10 @@ export default function StaffCatchWeightFinalizationConsole({
     [detail]
   )
   const blockingErrorCount = blockingIssues.length
+  const pickerReadiness = useMemo(
+    () => finalizationPickerReadiness(detail),
+    [detail]
+  )
 
   function loadQueue(nextSelectedOrderId?: string | null) {
     startTransition(async () => {
@@ -1814,11 +1895,12 @@ export default function StaffCatchWeightFinalizationConsole({
     "released_to_fulfillment",
   ])
   const inPickingPhase = pickingStatuses.has(currentStatus)
+  const pickClaimed = currentStatus === "picking"
   const waitingForPacker = currentStatus === "ready_for_packing"
   const inPackingPhase = waitingForPacker || packingStatuses.has(currentStatus)
   const editorPhase: FinalizationPhase = inPackingPhase ? "packing" : "picking"
   const canEditLines = inPickingPhase
-    ? canPickOrders
+    ? canPickOrders && pickClaimed
     : inPackingPhase && !waitingForPacker
     ? canPackOrders
     : false
@@ -1834,6 +1916,13 @@ export default function StaffCatchWeightFinalizationConsole({
     (blockingErrorCount > 0
       ? "Resolve the listed packing issues before charging."
       : null)
+  const readyForPackingDisabledReason = !canPickOrders
+    ? "This staff account is not allowed to pick orders."
+    : !pickClaimed
+    ? "Claim the pick before handing this order to packing."
+    : pickerReadiness.blockers.length
+    ? "Resolve the listed pick issues before handing this order to packing."
+    : null
 
   return (
     <section className="overflow-hidden rounded-lg border border-gray-200 bg-white">
@@ -2027,10 +2116,13 @@ export default function StaffCatchWeightFinalizationConsole({
                       Claim Pick
                     </Button>
                   )}
-                  {inPickingPhase && (
+                  {pickClaimed && (
                     <Button
                       className={`${secondaryButtonClass} w-full sm:w-auto`}
-                      disabled={!canPickOrders || Boolean(pendingAction)}
+                      disabled={
+                        Boolean(pendingAction) ||
+                        Boolean(readyForPackingDisabledReason)
+                      }
                       isLoading={pendingAction === "ready-pack"}
                       onClick={() =>
                         runAction(
@@ -2136,6 +2228,53 @@ export default function StaffCatchWeightFinalizationConsole({
                     </Button>
                   )}
                 </div>
+                {inPickingPhase && !pickClaimed && (
+                  <div className="mt-3 rounded-md border border-blue-100 bg-blue-50/50 px-3 py-2 text-sm text-blue-900">
+                    <p className="font-maison-neue font-semibold">
+                      Claim this pick before editing or handing it to packing.
+                    </p>
+                    <p className="mt-1 font-maison-neue text-blue-900/75">
+                      Claiming records who owns the pick and unlocks the picked
+                      count, remove, and substitute controls.
+                    </p>
+                  </div>
+                )}
+                {pickClaimed &&
+                  (pickerReadiness.blockers.length > 0 ||
+                    pickerReadiness.warnings.length > 0) && (
+                    <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                      {pickerReadiness.blockers.length > 0 && (
+                        <>
+                          <p className="font-maison-neue font-semibold">
+                            Finish these before handing to packing:
+                          </p>
+                          <ul className="mt-2 list-disc space-y-1 pl-5">
+                            {pickerReadiness.blockers.map((issue) => (
+                              <li key={issue}>{issue}</li>
+                            ))}
+                          </ul>
+                        </>
+                      )}
+                      {pickerReadiness.warnings.length > 0 && (
+                        <>
+                          <p
+                            className={`font-maison-neue font-semibold ${
+                              pickerReadiness.blockers.length > 0
+                                ? "mt-3"
+                                : ""
+                            }`}
+                          >
+                            Review intentional exceptions:
+                          </p>
+                          <ul className="mt-2 list-disc space-y-1 pl-5">
+                            {pickerReadiness.warnings.map((issue) => (
+                              <li key={issue}>{issue}</li>
+                            ))}
+                          </ul>
+                        </>
+                      )}
+                    </div>
+                  )}
                 {inPackingPhase && !waitingForPacker && chargeDisabledReason && (
                   <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
                     {blockingIssues.length ? (
