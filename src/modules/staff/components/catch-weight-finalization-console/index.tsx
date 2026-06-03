@@ -1344,7 +1344,7 @@ function packageDrafts(packages: StaffFinalizationPackage[] | undefined) {
         {
           package_type: "",
           shipper_qbd_list_id: "",
-          count: "",
+          count: "1",
           packed_weight_lb: "",
           dry_ice_lb: "",
           note: "",
@@ -1355,7 +1355,7 @@ function packageDrafts(packages: StaffFinalizationPackage[] | undefined) {
     id: pkg.id || "",
     package_type: pkg.package_type || "",
     shipper_qbd_list_id: pkg.shipper_qbd_list_id || "",
-    count: numberText(pkg.count),
+    count: "1",
     packed_weight_lb: numberText(pkg.packed_weight_lb),
     dry_ice_lb: numberText(pkg.dry_ice_lb),
     note: pkg.note || "",
@@ -1370,7 +1370,7 @@ function cleanPackageDrafts(
       id: pkg.id || undefined,
       package_type: pkg.package_type.trim(),
       shipper_qbd_list_id: pkg.shipper_qbd_list_id.trim(),
-      count: pkg.count.trim(),
+      count: "1",
       packed_weight_lb: pkg.packed_weight_lb.trim(),
       dry_ice_lb: pkg.dry_ice_lb.trim(),
       note: pkg.note.trim(),
@@ -1379,11 +1379,14 @@ function cleanPackageDrafts(
       (pkg) =>
         pkg.package_type ||
         pkg.shipper_qbd_list_id ||
-        pkg.count ||
         pkg.packed_weight_lb ||
         pkg.dry_ice_lb ||
         pkg.note
     )
+}
+
+function packageSignature(packages: ReturnType<typeof packageDrafts>) {
+  return JSON.stringify(cleanPackageDrafts(packages))
 }
 
 function PackageCapture({
@@ -1399,9 +1402,15 @@ function PackageCapture({
   const [error, setError] = useState<string | null>(null)
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle")
   const [isPending, startTransition] = useTransition()
+  const lastSavedSignature = useRef(packageSignature(packages))
+  const latestPackageSignature = useRef(packageSignature(packages))
 
   useEffect(() => {
-    setPackages(packageDrafts(detail.packages))
+    const nextPackages = packageDrafts(detail.packages)
+    const nextSignature = packageSignature(nextPackages)
+    setPackages(nextPackages)
+    lastSavedSignature.current = nextSignature
+    latestPackageSignature.current = nextSignature
     setError(null)
     setSaveState("idle")
   }, [detail.packages])
@@ -1452,9 +1461,14 @@ function PackageCapture({
     )
   }
 
-  function save() {
+  async function persistPackages(
+    packagesToSave: ReturnType<typeof packageDrafts>,
+    options: { refresh: boolean }
+  ) {
     setError(null)
-    const overweightRow = packages.findIndex((pkg) => {
+    const cleanPackages = cleanPackageDrafts(packagesToSave)
+    const signature = JSON.stringify(cleanPackages)
+    const overweightRow = cleanPackages.findIndex((pkg) => {
       const packedWeight = Number(pkg.packed_weight_lb)
       return Number.isFinite(packedWeight) && packedWeight > 50
     })
@@ -1465,20 +1479,40 @@ function PackageCapture({
       return
     }
     setSaveState("saving")
-    startTransition(async () => {
-      try {
-        await updateCatchWeightFinalizationPackages({
-          orderId,
-          packages: cleanPackageDrafts(packages),
-        })
+    try {
+      await updateCatchWeightFinalizationPackages({
+        orderId,
+        packages: cleanPackages,
+      })
+      lastSavedSignature.current = signature
+      if (latestPackageSignature.current === signature) {
         setSaveState("saved")
-        onSaved()
-      } catch (err: any) {
-        setSaveState("idle")
-        setError(err.message || "Could not save package details.")
       }
-    })
+      if (options.refresh && latestPackageSignature.current === signature) {
+        onSaved()
+      }
+    } catch (err: any) {
+      setSaveState("idle")
+      setError(err.message || "Could not save package details.")
+    }
   }
+
+  useEffect(() => {
+    const signature = packageSignature(packages)
+    latestPackageSignature.current = signature
+    if (signature === lastSavedSignature.current) return
+
+    setSaveState("idle")
+    const timer = window.setTimeout(() => {
+      startTransition(async () => {
+        await persistPackages(packages, { refresh: true })
+      })
+    }, 900)
+
+    return () => window.clearTimeout(timer)
+    // Package save is intentionally debounced from the current draft only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [packages, orderId])
 
   return (
     <div className="border-b border-gray-200 bg-SilverPlate/20 p-4 sm:p-5">
@@ -1492,11 +1526,18 @@ function PackageCapture({
           </h4>
           <p className="mt-1 max-w-2xl text-sm font-maison-neue text-Charcoal/60">
             {detail.package_capture_required
-              ? "Enter each shipper size, count, dry ice, and packed weight before the card is charged."
-              : "Record the coolers, igloos, or other packaging used before marking the pack ready."}
+              ? "Add one row per physical container. Packed lb is the full scale weight, including the box or cooler and dry ice; record dry ice separately."
+              : "Add one row per cooler, igloo, or other container used before marking the pack ready."}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
+          <span className="text-xs font-maison-neue text-Charcoal/50">
+            {isPending || saveState === "saving"
+              ? "Saving package details..."
+              : saveState === "saved"
+              ? "Package details saved."
+              : "Changes save automatically"}
+          </span>
           <Button
             className={secondaryButtonClass}
             onClick={addRow}
@@ -1504,21 +1545,13 @@ function PackageCapture({
           >
             Add Package
           </Button>
-          <Button
-            className={primaryButtonClass}
-            isLoading={isPending || saveState === "saving"}
-            onClick={save}
-            type="button"
-          >
-            Save Packages
-          </Button>
         </div>
       </div>
 
       <div className="mt-4 space-y-3">
         {packages.map((pkg, index) => (
           <div
-            className="grid gap-3 rounded-md border border-gray-200 bg-white p-3 md:grid-cols-[minmax(220px,1.2fr)_90px_120px_120px_minmax(0,1fr)_auto]"
+            className="grid gap-3 rounded-md border border-gray-200 bg-white p-3 md:grid-cols-[minmax(220px,1.2fr)_120px_120px_minmax(0,1fr)_auto]"
             key={`${pkg.id || "new"}-${index}`}
           >
             <label className="flex min-w-0 flex-col gap-1">
@@ -1552,19 +1585,11 @@ function PackageCapture({
               )}
             </label>
             <label className="flex min-w-0 flex-col gap-1">
-              <span className={labelClass}>Count</span>
-              <input
-                className={fieldClass}
-                inputMode="numeric"
-                value={pkg.count}
-                onChange={(event) => update(index, "count", event.target.value)}
-              />
-            </label>
-            <label className="flex min-w-0 flex-col gap-1">
-              <span className={labelClass}>Packed lb</span>
+              <span className={labelClass}>Full packed lb</span>
               <input
                 className={fieldClass}
                 inputMode="decimal"
+                placeholder="Box + product + dry ice"
                 value={pkg.packed_weight_lb}
                 onChange={(event) =>
                   update(index, "packed_weight_lb", event.target.value)
@@ -1576,6 +1601,7 @@ function PackageCapture({
               <input
                 className={fieldClass}
                 inputMode="decimal"
+                placeholder="Dry ice only"
                 value={pkg.dry_ice_lb}
                 onChange={(event) =>
                   update(index, "dry_ice_lb", event.target.value)
