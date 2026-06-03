@@ -1875,6 +1875,7 @@ export default function StaffCatchWeightFinalizationConsole({
   const [status, setStatus] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const [pendingAction, setPendingAction] = useState<string | null>(null)
+  const queueRequestRef = useRef(0)
 
   const selectedSummary = useMemo(
     () => queue.find((item) => item.order_id === selectedOrderId),
@@ -1894,19 +1895,39 @@ export default function StaffCatchWeightFinalizationConsole({
     [detail]
   )
 
-  function loadQueue(nextSelectedOrderId?: string | null) {
+  function loadQueue(
+    nextSelectedOrderId?: string | null,
+    filterOverride?: {
+      query?: string
+      fulfillmentType?: string
+      dateFrom?: string
+      dateTo?: string
+    }
+  ) {
+    const requestId = queueRequestRef.current + 1
+    queueRequestRef.current = requestId
+    const nextQuery = filterOverride?.query ?? queueQuery
+    const nextFulfillmentType =
+      filterOverride?.fulfillmentType ?? fulfillmentTypeFilter
+    const nextDateFrom = filterOverride?.dateFrom ?? dateFromFilter
+    const nextDateTo = filterOverride?.dateTo ?? dateToFilter
+
     startTransition(async () => {
       try {
         const rows = await listCatchWeightFinalizationQueue({
           status: filter,
           limit: 100,
-          query: queueQuery,
-          fulfillmentType: fulfillmentTypeFilter,
-          dateFrom: dateFromFilter,
-          dateTo: dateToFilter,
+          query: nextQuery.trim(),
+          fulfillmentType: nextFulfillmentType,
+          dateFrom: nextDateFrom,
+          dateTo: nextDateTo,
         })
+        if (requestId !== queueRequestRef.current) return
         setQueue(rows)
-        const requestedId = nextSelectedOrderId ?? selectedOrderId
+        const requestedId =
+          nextSelectedOrderId === undefined
+            ? selectedOrderId
+            : nextSelectedOrderId
         const nextId =
           requestedId && rows.some((row) => row.order_id === requestedId)
             ? requestedId
@@ -1918,6 +1939,7 @@ export default function StaffCatchWeightFinalizationConsole({
           setDetail(null)
         }
       } catch (err: any) {
+        if (requestId !== queueRequestRef.current) return
         setError(err.message || "Could not load finalization queue.")
       }
     })
@@ -1928,28 +1950,14 @@ export default function StaffCatchWeightFinalizationConsole({
     setFulfillmentTypeFilter("")
     setDateFromFilter("")
     setDateToFilter("")
-    startTransition(async () => {
-      try {
-        const rows = await listCatchWeightFinalizationQueue({
-          status: filter,
-          limit: 100,
-        })
-        setQueue(rows)
-        setSelectedOrderId(null)
-        setDetail(null)
-      } catch (err: any) {
-        setError(err.message || "Could not load finalization queue.")
-      }
+    setError(null)
+    setStatus(null)
+    loadQueue(null, {
+      query: "",
+      fulfillmentType: "",
+      dateFrom: "",
+      dateTo: "",
     })
-  }
-
-  function submitQueueFiltersOnEnter(event: {
-    key: string
-    preventDefault: () => void
-  }) {
-    if (event.key !== "Enter") return
-    event.preventDefault()
-    loadQueue()
   }
 
   function loadDetail(orderId: string) {
@@ -2022,9 +2030,13 @@ export default function StaffCatchWeightFinalizationConsole({
   }
 
   useEffect(() => {
-    loadQueue()
+    const timeout = window.setTimeout(() => {
+      loadQueue()
+    }, 250)
+
+    return () => window.clearTimeout(timeout)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filter])
+  }, [filter, queueQuery, fulfillmentTypeFilter, dateFromFilter, dateToFilter])
 
   const totals = detail?.totals || detail?.finalization || {}
   const currentStatus = detail?.finalization?.status || ""
@@ -2141,7 +2153,6 @@ export default function StaffCatchWeightFinalizationConsole({
                   placeholder="Order, email, name, ZIP"
                   value={queueQuery}
                   onChange={(event) => setQueueQuery(event.target.value)}
-                  onKeyDown={submitQueueFiltersOnEnter}
                 />
               </label>
               <label className="flex min-w-0 flex-col gap-1">
@@ -2168,7 +2179,6 @@ export default function StaffCatchWeightFinalizationConsole({
                     type="date"
                     value={dateFromFilter}
                     onChange={(event) => setDateFromFilter(event.target.value)}
-                    onKeyDown={submitQueueFiltersOnEnter}
                   />
                 </label>
                 <label className="flex min-w-0 flex-col gap-1">
@@ -2178,27 +2188,27 @@ export default function StaffCatchWeightFinalizationConsole({
                     type="date"
                     value={dateToFilter}
                     onChange={(event) => setDateToFilter(event.target.value)}
-                    onKeyDown={submitQueueFiltersOnEnter}
                   />
                 </label>
               </div>
-              <div className="grid grid-cols-2 gap-2">
-                <Button
-                  className={`${secondaryButtonClass} w-full`}
-                  disabled={!activeQueueFilters || isPending}
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs font-maison-neue text-Charcoal/45">
+                  {isPending
+                    ? "Updating queue..."
+                    : "Results update as you filter."}
+                </p>
+                <button
+                  className={`min-h-[42px] shrink-0 rounded-md border px-4 text-xs font-rexton font-bold uppercase ${
+                    activeQueueFilters
+                      ? "border-Charcoal bg-white text-Charcoal hover:border-Gold/70"
+                      : "cursor-not-allowed border-gray-200 bg-gray-50 text-Charcoal/35"
+                  }`}
+                  disabled={!activeQueueFilters}
                   onClick={clearQueueFilters}
                   type="button"
                 >
                   Clear
-                </Button>
-                <Button
-                  className={`${primaryButtonClass} w-full`}
-                  isLoading={isPending}
-                  onClick={() => loadQueue()}
-                  type="button"
-                >
-                  Apply
-                </Button>
+                </button>
               </div>
             </div>
           </div>
