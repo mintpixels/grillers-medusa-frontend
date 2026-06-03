@@ -1654,32 +1654,53 @@ export async function applyStaffOrderException(
             downstream_request_key: requestKey,
           },
           {
-            staff_exception_status: "cancel_requested",
+            staff_exception_status: "cancel_requested_qbd_pending",
+            medusa_cancel_status: "requested",
             ...qbdFields,
             downstream_request_key: requestKey,
           }
         )
-        await adminFetch<{ order: AnyRecord }>(
-          `/admin/orders/${order.id}/cancel`,
-          {
-            method: "POST",
-            headers: { "Idempotency-Key": requestKey },
-          }
-        )
-        await appendOrderAudit(
-          order.id,
-          {
-            ...baseAuditEntry({ staff, input, order, status: "completed" }),
-            ...qbdFields,
-            downstream_request_key: requestKey,
-          },
-          {
-            staff_exception_status: "cancel_completed_qbd_pending",
-            ...qbdFields,
-            downstream_request_key: requestKey,
-          }
-        )
-        break
+        try {
+          await adminFetch<{ order: AnyRecord }>(
+            `/admin/orders/${order.id}/cancel`,
+            {
+              method: "POST",
+              headers: { "Idempotency-Key": requestKey },
+            }
+          )
+        } catch (err) {
+          await appendOrderAudit(
+            order.id,
+            {
+              ...baseAuditEntry({ staff, input, order, status: "failed" }),
+              ...qbdFields,
+              qbd_posting_required: false,
+              medusa_cancel_status: "failed",
+              medusa_cancel_error:
+                err instanceof Error ? err.message : String(err),
+              downstream_request_key: requestKey,
+              downstream_error:
+                err instanceof Error ? err.message : String(err),
+            },
+            {
+              staff_exception_status: "cancel_failed",
+              ...qbdFields,
+              qbd_posting_required: false,
+              qbd_posting_status: "blocked_by_cancel_failure",
+              medusa_cancel_status: "failed",
+              medusa_cancel_error:
+                err instanceof Error ? err.message : String(err),
+              downstream_request_key: requestKey,
+            }
+          )
+          throw err
+        }
+        // Medusa rejects order metadata updates after cancellation, so the
+        // pre-cancel audit row above is the durable accounting handoff marker.
+        return {
+          ok: true,
+          order: await getStaffExceptionOrderDetail(order.id),
+        }
       }
       case "refund_payment": {
         const payment = refundableStripePayment(order, input.paymentId)
