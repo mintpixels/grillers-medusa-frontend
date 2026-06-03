@@ -157,12 +157,54 @@ function statusBadge(status?: string) {
   )
 }
 
-function lineMessage(value: StaffCatchWeightLine["errors"]) {
+function messagesFromLineValue(value: StaffCatchWeightLine["errors"]) {
   if (!Array.isArray(value) || !value.length) return null
-  return value
+  const messages = value
     .map((item) => (typeof item === "string" ? item : item.message))
-    .filter(Boolean)
-    .join(" ")
+    .filter((message): message is string => Boolean(message))
+  return messages.length ? messages : null
+}
+
+function lineMessage(value: StaffCatchWeightLine["errors"]) {
+  return messagesFromLineValue(value)?.join(" ") || null
+}
+
+function finalizationBlockingIssues(
+  detail: StaffCatchWeightFinalizationDetail | null
+) {
+  if (!detail) return []
+
+  const linesByItemId = new Map(
+    (detail.lines || []).map((line) => [line.line_item_id, line])
+  )
+  const issues: string[] = []
+  const seen = new Set<string>()
+  const pushIssue = (message?: string | null, lineItemId?: string | null) => {
+    if (!message) return
+    const line = lineItemId ? linesByItemId.get(lineItemId) : null
+    const title = line?.customer_title || line?.title_snapshot
+    const text = title ? `${title}: ${message}` : message
+    const key = `${lineItemId || "order"}:${message}`
+    if (seen.has(key)) return
+    seen.add(key)
+    issues.push(text)
+  }
+
+  for (const error of detail.errors || []) {
+    if (typeof error === "string") {
+      pushIssue(error)
+    } else {
+      pushIssue(error.message, error.line_item_id)
+    }
+  }
+
+  for (const line of detail.lines || []) {
+    for (const message of messagesFromLineValue(line.errors) || []) {
+      pushIssue(message, line.line_item_id)
+    }
+  }
+
+  return issues
 }
 
 function lineRequiresActualWeight(line: StaffCatchWeightLine, title: string) {
@@ -1672,12 +1714,11 @@ export default function StaffCatchWeightFinalizationConsole({
     detail?.finalization?.currency_code ||
     selectedSummary?.currency_code ||
     "usd"
-  const blockingErrorCount =
-    (detail?.errors?.length || 0) +
-    (detail?.lines || []).reduce(
-      (count, line) => count + (line.errors?.length || 0),
-      0
-    )
+  const blockingIssues = useMemo(
+    () => finalizationBlockingIssues(detail),
+    [detail]
+  )
+  const blockingErrorCount = blockingIssues.length
 
   function loadQueue(nextSelectedOrderId?: string | null) {
     startTransition(async () => {
@@ -1783,13 +1824,16 @@ export default function StaffCatchWeightFinalizationConsole({
     : false
   const readyForFulfillment = catchWeightReadyForFulfillment(detail)
   const fulfilled = hasActiveFulfillment(detail?.order)
-  const chargeDisabledReason = !canChargeFinalOrders
+  const permissionChargeDisabledReason = !canChargeFinalOrders
     ? "This staff account can pack orders but is not allowed to charge saved cards."
     : !canPackOrders
     ? "This staff account is not allowed to pack and release orders."
-    : blockingErrorCount > 0
-    ? "Resolve packing errors before charging."
     : null
+  const chargeDisabledReason =
+    permissionChargeDisabledReason ||
+    (blockingErrorCount > 0
+      ? "Resolve the listed packing issues before charging."
+      : null)
 
   return (
     <section className="overflow-hidden rounded-lg border border-gray-200 bg-white">
@@ -2093,9 +2137,22 @@ export default function StaffCatchWeightFinalizationConsole({
                   )}
                 </div>
                 {inPackingPhase && !waitingForPacker && chargeDisabledReason && (
-                  <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-                    {chargeDisabledReason}
-                  </p>
+                  <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                    {blockingIssues.length ? (
+                      <>
+                        <p className="font-maison-neue font-semibold">
+                          Resolve these before charging:
+                        </p>
+                        <ul className="mt-2 list-disc space-y-1 pl-5">
+                          {blockingIssues.map((issue) => (
+                            <li key={issue}>{issue}</li>
+                          ))}
+                        </ul>
+                      </>
+                    ) : (
+                      chargeDisabledReason
+                    )}
+                  </div>
                 )}
               </div>
 

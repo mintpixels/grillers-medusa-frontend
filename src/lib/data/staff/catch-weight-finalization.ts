@@ -17,6 +17,7 @@ import { revalidatePath } from "next/cache"
 import { adminFetch, appendStaffAuditLog } from "./admin"
 
 type AnyRecord = Record<string, any>
+type StaffAuditCustomer = Parameters<typeof staffDisplayName>[0] & AnyRecord
 
 export type StaffCatchWeightFinalizationSummary = {
   id: string
@@ -80,8 +81,8 @@ export type StaffCatchWeightFinalizationDetail = {
   packages?: StaffFinalizationPackage[]
   payment_setup?: AnyRecord | null
   charge_attempts?: AnyRecord[]
-  errors?: Array<{ line_item_id?: string; message: string }>
-  warnings?: Array<{ line_item_id?: string; message: string }>
+  errors?: Array<{ line_item_id?: string; message: string } | string>
+  warnings?: Array<{ line_item_id?: string; message: string } | string>
   totals?: AnyRecord
 }
 
@@ -101,7 +102,7 @@ async function requireStaffOperator() {
   return staff
 }
 
-function staffAuditPayload(staff: AnyRecord) {
+function staffAuditPayload(staff: StaffAuditCustomer) {
   return {
     staff_actor_customer_id: staff.id,
     staff_actor_email: staff.email || null,
