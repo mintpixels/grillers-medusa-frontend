@@ -677,6 +677,9 @@ function LineEditor({
     StaffProductSearchResult[]
   >([])
   const [error, setError] = useState<string | null>(null)
+  const [lineStatusMessage, setLineStatusMessage] = useState<string | null>(
+    null
+  )
   const [saveState, setSaveState] = useState<
     "idle" | "saving" | "saved" | "error"
   >("idle")
@@ -731,11 +734,13 @@ function LineEditor({
     lastSavedSignature.current = nextSignature
     latestDraftSignature.current = nextSignature
     setSaveState("idle")
+    setLineStatusMessage(null)
     setReplacementQuery("")
     setReplacementResults([])
   }, [line])
 
   function update(key: keyof typeof draft, value: string) {
+    setLineStatusMessage(null)
     setDraft((current) => {
       const nextDraft = {
         ...current,
@@ -753,6 +758,7 @@ function LineEditor({
   }
 
   function updateUnitWeight(index: number, value: string) {
+    setLineStatusMessage(null)
     setDraft((current) => {
       const rowCount = Math.max(
         current.actual_unit_weights.length,
@@ -784,6 +790,7 @@ function LineEditor({
   }
 
   function addUnitWeight() {
+    setLineStatusMessage(null)
     setDraft((current) => {
       const rowCount = Math.max(
         current.actual_unit_weights.length,
@@ -803,6 +810,7 @@ function LineEditor({
   }
 
   function removeUnitWeight(index: number) {
+    setLineStatusMessage(null)
     setDraft((current) => {
       const actualUnitWeights = current.actual_unit_weights.filter(
         (_, rowIndex) => rowIndex !== index
@@ -829,6 +837,7 @@ function LineEditor({
   function runReplacementSearch() {
     const query = replacementQuery.trim()
     setError(null)
+    setLineStatusMessage(null)
     if (query.length < 2) {
       setError("Search by product name or SKU.")
       return
@@ -846,6 +855,7 @@ function LineEditor({
   }
 
   function selectReplacement(product: StaffProductSearchResult) {
+    setLineStatusMessage(null)
     const replacementTitle =
       product.variantTitle && product.variantTitle !== "Default"
         ? `${product.title} - ${product.variantTitle}`
@@ -983,12 +993,14 @@ function LineEditor({
 
   function save() {
     setError(null)
+    setLineStatusMessage(null)
     startTransition(async () => {
       await persistDraft(draft, { validate: true, refresh: true })
     })
   }
 
   function markRemoved() {
+    setLineStatusMessage(null)
     setDraft((current) => ({
       ...current,
       status: "removed",
@@ -997,6 +1009,7 @@ function LineEditor({
   }
 
   function markPartialOutOfStock() {
+    setLineStatusMessage(null)
     setDraft((current) =>
       withDerivedLineStatus(
         {
@@ -1013,29 +1026,43 @@ function LineEditor({
   }
 
   function markSubstituted() {
+    setLineStatusMessage(null)
     setDraft((current) => ({
       ...current,
       status: "substituted",
     }))
   }
 
-  function clearException() {
-    setDraft((current) =>
-      withDerivedLineStatus(
-        {
-          ...current,
-          replacement_variant_id: "",
-          replacement_qbd_list_id: "",
-          replacement_reason: "",
-          short_reason: "",
-          status: "needs_pick",
-        },
+  function restoreOriginalLine() {
+    setError(null)
+    setLineStatusMessage(
+      isRemoved
+        ? "Stock found. Picked count was restored to the ordered count."
+        : "Original item restored. Changes save automatically."
+    )
+    setDraft((current) => {
+      const restoredCount = numberText(
+        packingPhase ? pickedCount || orderedCount : orderedCount
+      )
+      const nextDraft = {
+        ...current,
+        actual_quantity: restoredCount || current.actual_quantity,
+        actual_piece_count: restoredCount || current.actual_piece_count,
+        replacement_variant_id: "",
+        replacement_qbd_list_id: "",
+        replacement_reason: "",
+        short_reason: "",
+        status: "needs_pick",
+      }
+
+      return withDerivedLineStatus(
+        nextDraft,
         requiresActualWeight,
         packingPhase,
-        expectedUnitWeightCount(line, current),
+        expectedUnitWeightCount(line, nextDraft),
         line
       )
-    )
+    })
   }
 
   useEffect(() => {
@@ -1245,10 +1272,10 @@ function LineEditor({
                 <button
                   className={`${secondaryButtonClass} w-full min-w-0 px-3 text-center`}
                   disabled={!canEdit}
-                  onClick={clearException}
+                  onClick={restoreOriginalLine}
                   type="button"
                 >
-                  Clear
+                  {isRemoved ? "Found Stock" : "Use Original"}
                 </button>
               ) : (
                 <>
@@ -1296,10 +1323,16 @@ function LineEditor({
 
         {isRemoved && (
           <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-maison-neue text-amber-900">
-            Reason:{" "}
-            {draft.short_reason === OUT_OF_STOCK_REASON
-              ? OUT_OF_STOCK_LABEL
-              : draft.short_reason || OUT_OF_STOCK_LABEL}
+            <p>
+              Reason:{" "}
+              {draft.short_reason === OUT_OF_STOCK_REASON
+                ? OUT_OF_STOCK_LABEL
+                : draft.short_reason || OUT_OF_STOCK_LABEL}
+            </p>
+            <p className="mt-1 text-xs text-amber-900/70">
+              Found the item? Use Found Stock to restore the ordered count and
+              clear this exception.
+            </p>
           </div>
         )}
 
@@ -1427,9 +1460,23 @@ function LineEditor({
           />
         </label>
 
-        {(lineMessage(line.errors) || lineMessage(line.warnings) || error) && (
-          <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-            {error || lineMessage(line.errors) || lineMessage(line.warnings)}
+        {(lineStatusMessage ||
+          lineMessage(line.errors) ||
+          lineMessage(line.warnings) ||
+          error) && (
+          <p
+            className={`mt-3 rounded-md border px-3 py-2 text-sm ${
+              error
+                ? "border-red-200 bg-red-50 text-red-700"
+                : lineStatusMessage
+                ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                : "border-amber-200 bg-amber-50 text-amber-800"
+            }`}
+          >
+            {error ||
+              lineStatusMessage ||
+              lineMessage(line.errors) ||
+              lineMessage(line.warnings)}
           </p>
         )}
         <p className="mt-3 text-xs font-maison-neue text-Charcoal/45">
