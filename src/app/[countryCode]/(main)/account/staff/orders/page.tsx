@@ -7,7 +7,9 @@ import {
   DEFAULT_SOCIAL_IMAGE,
   SITE_NAME,
 } from "@lib/util/seo"
-import PhoneOrderCopilot from "@modules/staff/components/phone-order-copilot"
+import PhoneOrderCopilot, {
+  type StaffWorkspace,
+} from "@modules/staff/components/phone-order-copilot"
 import { Metadata } from "next"
 import { notFound, redirect } from "next/navigation"
 
@@ -35,12 +37,35 @@ export const metadata: Metadata = {
   },
 }
 
+const STAFF_WORKSPACES = new Set<StaffWorkspace>([
+  "phone_order",
+  "new_customer",
+  "finalization",
+  "exceptions",
+  "team_access",
+])
+
+function staffWorkspaceFromSearchParam(
+  value?: string | string[]
+): StaffWorkspace {
+  const candidate = Array.isArray(value) ? value[0] : value
+  return STAFF_WORKSPACES.has(candidate as StaffWorkspace)
+    ? (candidate as StaffWorkspace)
+    : "exceptions"
+}
+
 export default async function StaffPhoneOrdersPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ countryCode: string }>
+  searchParams?: Promise<Record<string, string | string[] | undefined>>
 }) {
   const { countryCode } = await params
+  const resolvedSearchParams = searchParams ? await searchParams : {}
+  const initialWorkspace = staffWorkspaceFromSearchParam(
+    resolvedSearchParams.workspace
+  )
   const customer = await retrieveAuthenticatedCustomerForStaffAccess()
 
   if (!customer) {
@@ -58,7 +83,7 @@ export default async function StaffPhoneOrdersPage({
       countryCode={countryCode}
       staffCustomer={customer}
       initialImpersonation={impersonation}
-      initialWorkspace="exceptions"
+      initialWorkspace={initialWorkspace}
     />
   )
 }

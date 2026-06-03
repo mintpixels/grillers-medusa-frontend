@@ -1,8 +1,8 @@
 "use client"
 
-import { useMemo, useState, useTransition } from "react"
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react"
 import type { HttpTypes } from "@medusajs/types"
-import { useRouter } from "next/navigation"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import {
   BookOpenText,
   ClipboardList,
@@ -70,7 +70,7 @@ type Props = {
   initialWorkspace?: StaffWorkspace
 }
 
-type StaffWorkspace =
+export type StaffWorkspace =
   | "phone_order"
   | "new_customer"
   | "finalization"
@@ -365,6 +365,20 @@ export default function PhoneOrderCopilot({
   const [isPending, startTransition] = useTransition()
   const [activeWorkspace, setActiveWorkspace] =
     useState<StaffWorkspace>(initialWorkspace)
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const selectWorkspace = useCallback(
+    (workspace: StaffWorkspace) => {
+      setActiveWorkspace(workspace)
+      const nextParams = new URLSearchParams(searchParams.toString())
+      nextParams.set("workspace", workspace)
+      const query = nextParams.toString()
+      router.replace(query ? `${pathname}?${query}` : pathname, {
+        scroll: false,
+      })
+    },
+    [pathname, router, searchParams]
+  )
   const canManageTeamAccess = isSuperAdminCustomer(staffCustomer)
   const canChargeFinalizedOrders = canChargeFinalOrders(staffCustomer)
   const canUseOffice = canUseOfficeConsole(staffCustomer)
@@ -465,7 +479,7 @@ export default function PhoneOrderCopilot({
   ) {
     setError(null)
     if (!options.preserveStatus) setStatus(null)
-    setActiveWorkspace("phone_order")
+    selectWorkspace("phone_order")
     setShowNewCustomerForm(false)
     setCheckoutUrl(null)
     setDraftCustomer(draftFromCustomer(customer))
@@ -581,12 +595,12 @@ export default function PhoneOrderCopilot({
   }
 
   function openCustomerContextWorkspace() {
-    setActiveWorkspace("phone_order")
+    selectWorkspace("phone_order")
     setShowNewCustomerForm(false)
   }
 
   function openNewCustomerWorkspace() {
-    setActiveWorkspace("new_customer")
+    selectWorkspace("new_customer")
     startNewCustomer()
   }
 
@@ -594,7 +608,7 @@ export default function PhoneOrderCopilot({
     setShowNewCustomerForm(false)
     setSmsMarketingOptIn(false)
     if (activeWorkspace === "new_customer") {
-      setActiveWorkspace("phone_order")
+      selectWorkspace("phone_order")
     }
   }
 
@@ -813,7 +827,7 @@ export default function PhoneOrderCopilot({
             title: "Order support",
             body: "Look up orders for customer questions, payment state, cancellations, refunds, notes, and audited exceptions.",
             icon: ClipboardList,
-            onClick: () => setActiveWorkspace("exceptions"),
+            onClick: () => selectWorkspace("exceptions"),
           },
         ]
       : []),
@@ -827,7 +841,7 @@ export default function PhoneOrderCopilot({
               ? "Pick handoffs, packed counts, per-item weights, substitutions, boxes, coolers, and final release."
               : "Pick order lines, record shortages or substitutions, and hand ready orders to packing.",
             icon: PackageCheck,
-            onClick: () => setActiveWorkspace("finalization"),
+            onClick: () => selectWorkspace("finalization"),
           },
         ]
       : []),
@@ -867,7 +881,7 @@ export default function PhoneOrderCopilot({
             title: "Team access",
             body: "Manage staff members, super admins, and every permission change audit record.",
             icon: ShieldCheck,
-            onClick: () => setActiveWorkspace("team_access"),
+            onClick: () => selectWorkspace("team_access"),
           },
         ]
       : []),
@@ -876,6 +890,16 @@ export default function PhoneOrderCopilot({
   const activeWorkspaceAction = workspaceActions.find(
     (action) => action.id === activeWorkspace
   )
+  const fallbackWorkspace = workspaceActions.find(
+    (action): action is StaffWorkspaceAction & { id: StaffWorkspace } =>
+      action.id !== "communications"
+  )?.id
+
+  useEffect(() => {
+    if (!activeWorkspaceAction && fallbackWorkspace) {
+      selectWorkspace(fallbackWorkspace)
+    }
+  }, [activeWorkspaceAction, fallbackWorkspace, selectWorkspace])
 
   const workspaceItemClass =
     "group flex h-full min-h-[132px] w-full flex-col justify-between rounded-md border p-4 text-left transition focus:outline-none focus:ring-2 focus:ring-Gold focus:ring-offset-2"
