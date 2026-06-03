@@ -293,6 +293,25 @@ export async function returnCatchWeightOrderToPicking(input: {
   return detailForStaff(result, staff)
 }
 
+export async function returnCatchWeightOrderToPacking(input: {
+  orderId: string
+  reason?: string
+}) {
+  const staff = await requireStaffOperator()
+  const result = await adminFetch<StaffCatchWeightFinalizationDetail>(
+    `/admin/grillers/orders/${input.orderId}/finalization/return-to-packing`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        reason: input.reason || null,
+        ...staffAuditPayload(staff),
+      }),
+    }
+  )
+  revalidateStaffOrders()
+  return detailForStaff(result, staff)
+}
+
 export async function addCatchWeightFinalizationLine(input: {
   orderId: string
   product_id?: string

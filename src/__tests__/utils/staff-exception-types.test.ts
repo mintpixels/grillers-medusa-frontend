@@ -7,6 +7,7 @@ import {
   actionRequiresQuickBooksPosting,
   actionRequiresCustomerConsent,
   parseStaffAuditLog,
+  staffOrderItemEditEligibility,
   staffOrderOperationalState,
   VISIBLE_STAFF_EXCEPTION_ACTIONS,
 } from "@lib/data/staff/exception-types"
@@ -59,6 +60,7 @@ describe("staff exception helpers", () => {
   it("separates audit-only actions from Medusa mutations", () => {
     expect(actionMutatesMedusa("refund_payment")).toBe(true)
     expect(actionMutatesMedusa("capture_payment")).toBe(true)
+    expect(actionMutatesMedusa("edit_order_items")).toBe(true)
     expect(actionMutatesMedusa("cancel_order")).toBe(true)
     expect(actionIsAuditOnly("shipping_override")).toBe(true)
     expect(actionIsAuditOnly("credit_memo")).toBe(true)
@@ -67,6 +69,7 @@ describe("staff exception helpers", () => {
 
   it("marks all accounting-sensitive actions for QuickBooks posting", () => {
     expect(actionRequiresQuickBooksPosting("refund_payment")).toBe(true)
+    expect(actionRequiresQuickBooksPosting("edit_order_items")).toBe(true)
     expect(actionRequiresQuickBooksPosting("capture_payment")).toBe(true)
     expect(actionRequiresQuickBooksPosting("cancel_order")).toBe(true)
     expect(actionRequiresQuickBooksPosting("record_offline_payment")).toBe(true)
@@ -81,6 +84,7 @@ describe("staff exception helpers", () => {
       (action) => action.value
     )
     expect(visible).toContain("record_offline_payment")
+    expect(visible).toContain("edit_order_items")
     expect(visible).toContain("credit_memo")
     expect(visible).not.toContain("record_check_refund")
   })
@@ -107,10 +111,46 @@ describe("staff exception helpers", () => {
       actionIsBlockedByOperationalState("credit_memo", "completed_or_shipped")
     ).toBe(false)
     expect(
+      actionIsBlockedByOperationalState(
+        "edit_order_items",
+        "completed_or_shipped"
+      )
+    ).toBe(true)
+    expect(
+      actionIsBlockedByOperationalState(
+        "edit_order_items",
+        "fulfillment_locked"
+      )
+    ).toBe(true)
+    expect(
       actionIsBlockedByOperationalState("refund_payment", "canceled")
     ).toBe(true)
     expect(actionIsBlockedByOperationalState("record_note", "canceled")).toBe(
       false
     )
+  })
+
+  it("allows order item edits only before a pick is claimed", () => {
+    expect(staffOrderItemEditEligibility({ metadata: {} }).canEdit).toBe(true)
+    expect(
+      staffOrderItemEditEligibility({
+        metadata: { finalization_status: "pending_pick" },
+      }).canEdit
+    ).toBe(true)
+    expect(
+      staffOrderItemEditEligibility({
+        metadata: { finalization_status: "pending_pack" },
+      }).canEdit
+    ).toBe(true)
+    expect(
+      staffOrderItemEditEligibility({
+        metadata: { finalization_status: "picking" },
+      }).canEdit
+    ).toBe(false)
+    expect(
+      staffOrderItemEditEligibility({
+        metadata: { finalization_status: "ready_for_packing" },
+      }).canEdit
+    ).toBe(false)
   })
 })

@@ -37,6 +37,13 @@ export const STAFF_EXCEPTION_ACTIONS = [
     visibleInOrderSupport: true,
   },
   {
+    value: "edit_order_items",
+    label: "Edit order items",
+    moneyMovement: false,
+    requiresConsent: true,
+    visibleInOrderSupport: true,
+  },
+  {
     value: "credit_memo",
     label: "Issue account credit",
     moneyMovement: true,
@@ -98,6 +105,13 @@ export type StaffOrderOperationalState =
   | "fulfillment_locked"
   | "confirmed"
   | "open"
+
+export type StaffOrderItemEditEligibility = {
+  canEdit: boolean
+  status: string
+  label: string
+  reason: string
+}
 
 export type StaffAuditEntry = {
   at?: string
@@ -183,6 +197,84 @@ export function staffOrderOperationalState(
   return "open"
 }
 
+export function staffOrderPickPackStatus(
+  order: AnyRecord | null | undefined
+): string {
+  const metadata = order?.metadata || {}
+  return String(
+    metadata.finalization_status ||
+      metadata.catch_weight_status ||
+      metadata.pick_pack_status ||
+      ""
+  )
+    .trim()
+    .toLowerCase()
+}
+
+export function staffOrderItemEditEligibility(
+  order: AnyRecord | null | undefined
+): StaffOrderItemEditEligibility {
+  if (!order) {
+    return {
+      canEdit: false,
+      status: "unknown",
+      label: "No order",
+      reason: "Choose an order before editing items.",
+    }
+  }
+
+  const operationalState = staffOrderOperationalState(order)
+  if (operationalState === "canceled") {
+    return {
+      canEdit: false,
+      status: "canceled",
+      label: "Canceled",
+      reason: "Canceled orders cannot be edited from Order Support.",
+    }
+  }
+  if (
+    operationalState === "completed_or_shipped" ||
+    operationalState === "fulfillment_locked"
+  ) {
+    return {
+      canEdit: false,
+      status: operationalState,
+      label: "Fulfillment locked",
+      reason:
+        "Order items cannot be edited after fulfillment has started. Use a note, refund, credit, or cancellation workflow instead.",
+    }
+  }
+
+  const status = staffOrderPickPackStatus(order)
+  if (!status || status === "pending_pick" || status === "pending_pack") {
+    return {
+      canEdit: true,
+      status: status || "not_started",
+      label: status ? status.replace(/_/g, " ") : "Not started",
+      reason:
+        "This order has not been claimed by a picker, or the picker put it back.",
+    }
+  }
+
+  if (status === "picking") {
+    return {
+      canEdit: false,
+      status,
+      label: "Picker claimed",
+      reason:
+        "A picker has claimed this order. Ask the picker to put the pick back before changing items.",
+    }
+  }
+
+  return {
+    canEdit: false,
+    status,
+    label: status.replace(/_/g, " "),
+    reason:
+      "This order is already in packing, charging, shipping, or release. Item edits must happen before picking starts.",
+  }
+}
+
 export function staffExceptionActionConfig(action: StaffExceptionActionType) {
   return STAFF_EXCEPTION_ACTIONS.find((item) => item.value === action)
 }
@@ -216,6 +308,7 @@ export function actionMutatesMedusa(action: StaffExceptionActionType): boolean {
   return (
     action === "refund_payment" ||
     action === "capture_payment" ||
+    action === "edit_order_items" ||
     action === "cancel_order"
   )
 }
@@ -225,6 +318,7 @@ export function actionRequiresQuickBooksPosting(
 ): boolean {
   return (
     action === "record_note" ||
+    action === "edit_order_items" ||
     action === "cancel_order" ||
     action === "record_offline_payment" ||
     action === "credit_memo" ||
@@ -247,7 +341,15 @@ export function actionIsBlockedByOperationalState(
   }
 
   if (state === "completed_or_shipped") {
-    return action === "cancel_order" || action === "capture_payment"
+    return (
+      action === "cancel_order" ||
+      action === "capture_payment" ||
+      action === "edit_order_items"
+    )
+  }
+
+  if (state === "fulfillment_locked") {
+    return action === "edit_order_items"
   }
 
   return false

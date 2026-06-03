@@ -15,6 +15,7 @@ import {
   actionRequiresCustomerConsent,
   parseStaffAuditLog,
   staffExceptionActionConfig,
+  staffOrderItemEditEligibility,
   staffOrderOperationalState,
   type StaffAuditEntry,
   type StaffConsentMethod,
@@ -86,11 +87,32 @@ export type StaffExceptionOrderSearchInput = {
 
 export type StaffExceptionOrderItem = {
   id: string
+  productId?: string
+  variantId?: string
   title: string
   subtitle?: string
   sku?: string
+  qbdListId?: string
   quantity: number
+  fulfilledQuantity: number
+  unitPrice: number
   total: number
+}
+
+export type StaffExceptionOrderItemQuantityChange = {
+  itemId: string
+  quantity: number
+}
+
+export type StaffExceptionOrderItemAddition = {
+  variantId: string
+  quantity: number
+  title: string
+  sku?: string
+  productId?: string
+  qbdListId?: string
+  unitPrice?: number
+  pricingMode?: string
 }
 
 export type StaffExceptionPayment = StaffOrderPayment
@@ -161,6 +183,8 @@ export type StaffExceptionActionInput = {
   shippingRequestedDate?: string
   shippingZip?: string
   shippingMethodName?: string
+  itemQuantityChanges?: StaffExceptionOrderItemQuantityChange[]
+  itemAdditions?: StaffExceptionOrderItemAddition[]
   notifyCustomer?: boolean
   typedConfirmation?: string
 }
@@ -194,7 +218,7 @@ const ORDER_LIST_FIELDS =
   "id,display_id,email,status,fulfillment_status,payment_status,total,currency_code,created_at,updated_at,+metadata,*customer,*items"
 
 const ORDER_DETAIL_FIELDS =
-  "id,display_id,email,status,fulfillment_status,payment_status,total,subtotal,shipping_total,tax_total,discount_total,currency_code,created_at,updated_at,canceled_at,+metadata,*customer,*items,*items.variant,*items.product,*shipping_address,*billing_address,*shipping_methods,*fulfillments,*payment_collections,*payment_collections.payments,*payment_collections.payments.captures,*payment_collections.payments.refunds"
+  "id,display_id,email,status,fulfillment_status,payment_status,total,subtotal,shipping_total,tax_total,discount_total,currency_code,created_at,updated_at,canceled_at,+metadata,*customer,*items,*items.detail,*items.variant,*items.product,*shipping_address,*billing_address,*shipping_methods,*fulfillments,*payment_collections,*payment_collections.payments,*payment_collections.payments.captures,*payment_collections.payments.refunds"
 
 function amount(value: unknown): number {
   const number = Number(value)
@@ -424,6 +448,8 @@ function detailLegacyOrder(order: AnyRecord): StaffExceptionOrderDetail {
           : line.medusa_variant_title,
       sku: line.sku || undefined,
       quantity: amount(line.quantity),
+      fulfilledQuantity: amount(line.fulfilled_quantity),
+      unitPrice: staffCurrencyAmount(line.unit_price),
       total: staffCurrencyAmount(line.line_total),
     })),
     payments: [],
@@ -478,6 +504,21 @@ function firstText(...values: unknown[]): string {
     if (text) return text
   }
   return ""
+}
+
+function qbdListIdFromOrderItem(item: AnyRecord): string | undefined {
+  const metadata = item.metadata || {}
+  const variantMetadata = item.variant?.metadata || {}
+  const productMetadata = item.product?.metadata || item.variant?.product?.metadata || {}
+  const value =
+    metadata.qbd_list_id ||
+    metadata.quickbooks_list_id ||
+    variantMetadata.qbd_list_id ||
+    variantMetadata.quickbooks_list_id ||
+    productMetadata.qbd_list_id ||
+    productMetadata.quickbooks_list_id
+
+  return value ? String(value) : undefined
 }
 
 function normalizeFulfillmentType(value: unknown): StaffFulfillmentType | null {
@@ -648,6 +689,210 @@ function shippingOverrideSummary(
   return parts.join(" ")
 }
 
+type NormalizedOrderItemQuantityChange = {
+  itemId: string
+  title: string
+  fromQuantity: number
+  quantity: number
+  fulfilledQuantity: number
+}
+
+type NormalizedOrderItemAddition = {
+  variantId: string
+  quantity: number
+  title: string
+  sku?: string
+  productId?: string
+  qbdListId?: string
+  unitPrice?: number
+  pricingMode?: string
+}
+
+type NormalizedOrderItemEditPlan = {
+  quantityChanges: NormalizedOrderItemQuantityChange[]
+  additions: NormalizedOrderItemAddition[]
+  summary: string
+  qbdPlan: AnyRecord
+}
+
+function wholeQuantity(value: unknown, label: string): number {
+  const quantity = Number(value)
+  if (!Number.isFinite(quantity) || !Number.isInteger(quantity) || quantity < 0) {
+    throw new Error(`${label} must be a whole number of 0 or more.`)
+  }
+  return quantity
+}
+
+function positiveWholeQuantity(value: unknown, label: string): number {
+  const quantity = wholeQuantity(value, label)
+  if (quantity <= 0) {
+    throw new Error(`${label} must be greater than 0.`)
+  }
+  return quantity
+}
+
+function orderItemTitle(item: AnyRecord): string {
+  return (
+    item.title ||
+    item.product_title ||
+    item.variant?.product?.title ||
+    item.variant_title ||
+    item.variant?.title ||
+    item.id ||
+    "Item"
+  )
+}
+
+function normalizeOrderItemEditPlan(
+  input: StaffExceptionActionInput,
+  order: AnyRecord
+): NormalizedOrderItemEditPlan {
+  const eligibility = staffOrderItemEditEligibility(order)
+  if (!eligibility.canEdit) {
+    throw new Error(eligibility.reason)
+  }
+
+  const orderItems = Array.isArray(order.items) ? order.items : []
+  const itemsById = new Map(
+    orderItems
+      .filter((item: AnyRecord) => item?.id)
+      .map((item: AnyRecord) => [String(item.id), item])
+  )
+  const quantityByItemId = new Map<string, number>()
+
+  ;(input.itemQuantityChanges || []).forEach((change) => {
+    if (!change?.itemId) return
+    quantityByItemId.set(
+      String(change.itemId),
+      wholeQuantity(change.quantity, "Line quantity")
+    )
+  })
+
+  const quantityChanges: NormalizedOrderItemQuantityChange[] = []
+  quantityByItemId.forEach((quantity, itemId) => {
+    const item = itemsById.get(itemId)
+    if (!item) {
+      throw new Error("One of the selected order lines no longer exists.")
+    }
+    const currentQuantity = wholeQuantity(item.quantity, "Current line quantity")
+    const fulfilledQuantity = wholeQuantity(
+      item.detail?.fulfilled_quantity || 0,
+      "Fulfilled quantity"
+    )
+    if (quantity < fulfilledQuantity) {
+      throw new Error(
+        `${orderItemTitle(
+          item
+        )} already has fulfilled quantity and cannot be reduced below ${fulfilledQuantity}.`
+      )
+    }
+    if (quantity !== currentQuantity) {
+      quantityChanges.push({
+        itemId,
+        title: orderItemTitle(item),
+        fromQuantity: currentQuantity,
+        quantity,
+        fulfilledQuantity,
+      })
+    }
+  })
+
+  const additions: NormalizedOrderItemAddition[] = (input.itemAdditions || [])
+    .map((addition) => {
+      const variantId = textValue(addition?.variantId)
+      const title = textValue(addition?.title) || "Added item"
+      if (!variantId) {
+        throw new Error("Choose a catalog item to add.")
+      }
+      const qbdListId = textValue(addition?.qbdListId)
+      if (!qbdListId) {
+        throw new Error(
+          `${title} is missing its QuickBooks ListID. Choose a mapped catalog item before editing this order.`
+        )
+      }
+      return {
+        variantId,
+        quantity: positiveWholeQuantity(addition.quantity, "Added quantity"),
+        title,
+        sku: textValue(addition?.sku) || undefined,
+        productId: textValue(addition?.productId) || undefined,
+        qbdListId,
+        unitPrice:
+          addition?.unitPrice !== undefined && addition?.unitPrice !== null
+            ? staffCurrencyAmount(addition.unitPrice)
+            : undefined,
+        pricingMode: textValue(addition?.pricingMode) || undefined,
+      }
+    })
+    .filter((addition) => addition.quantity > 0)
+
+  const nextExistingQuantity = orderItems.reduce((sum, item: AnyRecord) => {
+    const override = quantityByItemId.get(String(item.id))
+    return sum + (override ?? amount(item.quantity))
+  }, 0)
+  const addedQuantity = additions.reduce(
+    (sum, addition) => sum + addition.quantity,
+    0
+  )
+  if (!quantityChanges.length && !additions.length) {
+    throw new Error("Change a quantity, remove a line, or add an item first.")
+  }
+  if (nextExistingQuantity + addedQuantity <= 0) {
+    throw new Error(
+      "Order item edits cannot leave the order with zero items. Cancel the order instead."
+    )
+  }
+
+  const changedLineCopy = quantityChanges.map((change) => {
+    if (change.quantity === 0) {
+      return `remove ${change.title}`
+    }
+    return `${change.title}: ${change.fromQuantity} to ${change.quantity}`
+  })
+  const addedLineCopy = additions.map(
+    (addition) => `add ${addition.quantity} x ${addition.title}`
+  )
+  const summary = [...changedLineCopy, ...addedLineCopy].join("; ")
+
+  return {
+    quantityChanges,
+    additions,
+    summary,
+    qbdPlan: {
+      source: "staff_order_support",
+      action: "edit_order_items",
+      quantity_changes: quantityChanges.map((change) => ({
+        line_item_id: change.itemId,
+        title: change.title,
+        from_quantity: change.fromQuantity,
+        to_quantity: change.quantity,
+      })),
+      additions: additions.map((addition) => ({
+        variant_id: addition.variantId,
+        product_id: addition.productId,
+        title: addition.title,
+        sku: addition.sku,
+        qbd_list_id: addition.qbdListId,
+        quantity: addition.quantity,
+        unit_price: addition.unitPrice,
+        pricing_mode: addition.pricingMode,
+      })),
+    },
+  }
+}
+
+function orderItemEditFingerprint(plan: NormalizedOrderItemEditPlan): string {
+  return stableRequestKey([
+    ...plan.quantityChanges.map(
+      (change) => `${change.itemId}:${change.fromQuantity}:${change.quantity}`
+    ),
+    ...plan.additions.map(
+      (addition) =>
+        `${addition.variantId}:${addition.quantity}:${addition.qbdListId || ""}`
+    ),
+  ])
+}
+
 const collectPayments = collectStaffOrderPayments
 
 function staffTimeline(
@@ -719,14 +964,19 @@ function detailOrder(order: AnyRecord): StaffExceptionOrderDetail {
     discountTotal: staffCurrencyAmount(order.discount_total),
     items: items.map((item: AnyRecord) => ({
       id: item.id,
+      productId: item.product_id || item.product?.id || undefined,
+      variantId: item.variant_id || item.variant?.id || undefined,
       title:
         item.title ||
         item.product_title ||
         item.variant?.product?.title ||
         "Item",
       subtitle: item.subtitle || item.variant_title || item.variant?.title,
-      sku: item.variant?.sku || item.sku,
+      sku: item.variant_sku || item.variant?.sku || item.sku,
+      qbdListId: qbdListIdFromOrderItem(item),
       quantity: amount(item.quantity),
+      fulfilledQuantity: amount(item.detail?.fulfilled_quantity),
+      unitPrice: staffCurrencyAmount(item.unit_price),
       total: staffCurrencyAmount(item.total),
     })),
     payments: collectPayments(order),
@@ -865,6 +1115,8 @@ function quickBooksAction(
       return "card_refund_accounting_record"
     case "capture_payment":
       return "payment_capture_accounting_record"
+    case "edit_order_items":
+      return "update_sales_order_items"
     case "cancel_order":
       return "close_sales_order"
     default:
@@ -944,6 +1196,8 @@ function previewSummary(input: StaffExceptionActionInput): string {
       return "This records an offline payment and leaves a required QuickBooks posting task. It will not charge a card."
     case "shipping_override":
       return "This records the current fulfillment state, the requested replacement date or mode, and marks mode changes for checkout-style reprice/review."
+    case "edit_order_items":
+      return "This edits order items before picking starts, refreshes the catch-weight picking snapshot, and leaves a required QuickBooks SalesOrder update task."
     case "credit_memo":
       return "This records an account credit request and leaves a required QuickBooks credit memo/accounting task. It will not refund a card."
     case "record_check_refund":
@@ -978,6 +1232,15 @@ function previewWarnings(
   } else {
     warnings.push(
       "External action: this can change Medusa order/payment state after final confirmation."
+    )
+  }
+
+  if (input.action === "edit_order_items") {
+    const eligibility = staffOrderItemEditEligibility(order)
+    warnings.push(
+      eligibility.canEdit
+        ? "Item edits are allowed only because the order is not actively claimed by a picker."
+        : eligibility.reason
     )
   }
 
@@ -1103,6 +1366,10 @@ function validateAction(input: StaffExceptionActionInput, order: AnyRecord) {
       throw new Error("Choose the requested delivery, pickup, or arrival date.")
     }
   }
+
+  if (input.action === "edit_order_items") {
+    normalizeOrderItemEditPlan(input, order)
+  }
 }
 
 function validateTypedConfirmation(input: StaffExceptionActionInput) {
@@ -1164,6 +1431,116 @@ function capturablePayment(
   }
 
   return selected
+}
+
+async function applyMedusaOrderItemEdit({
+  order,
+  input,
+  plan,
+  requestKey,
+}: {
+  order: AnyRecord
+  input: StaffExceptionActionInput
+  plan: NormalizedOrderItemEditPlan
+  requestKey: string
+}): Promise<string> {
+  let orderChangeId = ""
+
+  try {
+    const createResponse = await adminFetch<{
+      order_change?: AnyRecord
+      order_edit?: AnyRecord
+      orderEdit?: AnyRecord
+    }>("/admin/order-edits", {
+      method: "POST",
+      headers: { "Idempotency-Key": requestKey },
+      body: JSON.stringify({
+        order_id: order.id,
+        description: "Staff Order Support item edit before picking",
+        internal_note: input.staffNote.trim(),
+        metadata: {
+          source: "staff_order_support",
+          action: "edit_order_items",
+          request_key: requestKey,
+        },
+      }),
+    })
+    orderChangeId =
+      createResponse.order_change?.id ||
+      createResponse.order_edit?.id ||
+      createResponse.orderEdit?.id ||
+      ""
+    if (!orderChangeId) {
+      throw new Error("Medusa did not return an order edit ID.")
+    }
+
+    for (const change of plan.quantityChanges) {
+      await adminFetch(
+        `/admin/order-edits/${orderChangeId}/items/item/${change.itemId}`,
+        {
+          method: "POST",
+          headers: {
+            "Idempotency-Key": `${requestKey}-item-${change.itemId}`,
+          },
+          body: JSON.stringify({
+            quantity: change.quantity,
+            internal_note: input.staffNote.trim(),
+          }),
+        }
+      )
+    }
+
+    if (plan.additions.length) {
+      await adminFetch(`/admin/order-edits/${orderChangeId}/items`, {
+        method: "POST",
+        headers: { "Idempotency-Key": `${requestKey}-add-items` },
+        body: JSON.stringify({
+          items: plan.additions.map((addition) => ({
+            variant_id: addition.variantId,
+            quantity: addition.quantity,
+            internal_note: input.staffNote.trim(),
+            metadata: {
+              source: "staff_order_support",
+              customer_title: addition.title,
+              sku: addition.sku,
+              product_id: addition.productId,
+              qbd_list_id: addition.qbdListId,
+              pricing_mode: addition.pricingMode,
+              staff_added_before_pick: true,
+            },
+          })),
+        }),
+      })
+    }
+
+    await adminFetch(`/admin/order-edits/${orderChangeId}/request`, {
+      method: "POST",
+      headers: { "Idempotency-Key": `${requestKey}-request` },
+    })
+    await adminFetch(`/admin/order-edits/${orderChangeId}/confirm`, {
+      method: "POST",
+      headers: { "Idempotency-Key": `${requestKey}-confirm` },
+    })
+
+    try {
+      await adminFetch(`/admin/grillers/orders/${order.id}/finalization`)
+    } catch (err) {
+      console.error(
+        "[staff-order-support] finalization refresh after item edit failed",
+        err
+      )
+    }
+
+    return orderChangeId
+  } catch (err) {
+    if (orderChangeId) {
+      await adminFetch(`/admin/order-edits/${orderChangeId}`, {
+        method: "DELETE",
+        headers: { "Idempotency-Key": `${requestKey}-cancel` },
+      }).catch(() => undefined)
+    }
+    throw err
+  }
 }
 
 export async function searchStaffExceptionOrders(
@@ -1558,6 +1935,98 @@ export async function applyStaffOrderException(
             shipping_override_summary: summary,
             shipping_override_mode_changed: override.modeChanged,
             shipping_override_reprice_required: override.modeChanged,
+          }
+        )
+        break
+      }
+      case "edit_order_items": {
+        const plan = normalizeOrderItemEditPlan(input, order)
+        const requestKey = downstreamRequestKey(
+          input,
+          order,
+          0,
+          orderItemEditFingerprint(plan)
+        )
+        const qbdFields = qbdPendingFields(input, 0, {
+          qbd_posting_request_key: requestKey,
+          qbd_order_edit_summary: plan.summary,
+          qbd_order_edit_plan: JSON.stringify(plan.qbdPlan),
+        })
+        await appendOrderAudit(
+          order.id,
+          {
+            ...baseEntry,
+            ...qbdFields,
+            order_item_edit_summary: plan.summary,
+            order_item_edit_plan: plan.qbdPlan,
+            downstream_request_key: requestKey,
+          },
+          {
+            staff_exception_status: "order_item_edit_requested",
+            ...qbdFields,
+            order_item_edit_summary: plan.summary,
+            downstream_request_key: requestKey,
+          }
+        )
+
+        let orderChangeId = ""
+        try {
+          orderChangeId = await applyMedusaOrderItemEdit({
+            order,
+            input,
+            plan,
+            requestKey,
+          })
+        } catch (err) {
+          await appendOrderAudit(
+            order.id,
+            {
+              ...baseAuditEntry({ staff, input, order, status: "failed" }),
+              ...qbdFields,
+              qbd_posting_required: false,
+              order_item_edit_summary: plan.summary,
+              order_item_edit_plan: plan.qbdPlan,
+              order_item_edit_status: "failed",
+              medusa_order_edit_id: orderChangeId || undefined,
+              downstream_request_key: requestKey,
+              downstream_error:
+                err instanceof Error ? err.message : String(err),
+            },
+            {
+              staff_exception_status: "order_item_edit_failed",
+              ...qbdFields,
+              qbd_posting_required: false,
+              qbd_posting_status: "blocked_by_order_edit_failure",
+              order_item_edit_status: "failed",
+              medusa_order_edit_id: orderChangeId || undefined,
+              downstream_request_key: requestKey,
+            }
+          )
+          throw err
+        }
+
+        await appendOrderAudit(
+          order.id,
+          {
+            ...baseAuditEntry({
+              staff,
+              input,
+              order,
+              status: "pending_manual",
+            }),
+            ...qbdFields,
+            order_item_edit_summary: plan.summary,
+            order_item_edit_plan: plan.qbdPlan,
+            order_item_edit_status: "completed",
+            medusa_order_edit_id: orderChangeId,
+            downstream_request_key: requestKey,
+          },
+          {
+            staff_exception_status: "order_item_edit_qbd_pending",
+            ...qbdFields,
+            order_item_edit_status: "completed",
+            medusa_order_edit_id: orderChangeId,
+            downstream_request_key: requestKey,
           }
         )
         break

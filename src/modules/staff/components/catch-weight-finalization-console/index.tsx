@@ -11,6 +11,7 @@ import {
   getCatchWeightFinalizationDetail,
   listCatchWeightFinalizationQueue,
   markCatchWeightReadyForPacking,
+  returnCatchWeightOrderToPacking,
   returnCatchWeightOrderToPicking,
   startCatchWeightFinalization,
   unclaimCatchWeightPick,
@@ -1876,10 +1877,12 @@ function packageSignature(packages: ReturnType<typeof packageDrafts>) {
 function PackageCapture({
   orderId,
   detail,
+  canEdit,
   onSaved,
 }: {
   orderId: string
   detail: StaffCatchWeightFinalizationDetail
+  canEdit: boolean
   onSaved: () => void
 }) {
   const [packages, setPackages] = useState(() => packageDrafts(detail.packages))
@@ -1906,6 +1909,7 @@ function PackageCapture({
     key: keyof (typeof packages)[number],
     value: string
   ) {
+    if (!canEdit) return
     setPackages((current) =>
       current.map((pkg, rowIndex) =>
         rowIndex === index ? { ...pkg, [key]: value } : pkg
@@ -1914,6 +1918,7 @@ function PackageCapture({
   }
 
   function selectShipper(index: number, value: string) {
+    if (!canEdit) return
     const option = shipperOptions.find((item) => item.value === value)
     setPackages((current) =>
       current.map((pkg, rowIndex) =>
@@ -1929,6 +1934,7 @@ function PackageCapture({
   }
 
   function addRow() {
+    if (!canEdit) return
     setPackages((current) => [
       ...current,
       {
@@ -1944,9 +1950,10 @@ function PackageCapture({
   }
 
   function removeRow(index: number) {
+    if (!canEdit) return
     setPackages((current) =>
-      current.length === 1
-        ? packageDrafts([])
+      current.length <= 1
+        ? current
         : current.filter((_, rowIndex) => rowIndex !== index)
     )
   }
@@ -1992,6 +1999,7 @@ function PackageCapture({
   useEffect(() => {
     const signature = packageSignature(packages)
     latestPackageSignature.current = signature
+    if (!canEdit) return
     if (signature === lastSavedSignature.current) return
 
     setSaveState("idle")
@@ -2004,7 +2012,7 @@ function PackageCapture({
     return () => window.clearTimeout(timer)
     // Package save is intentionally debounced from the current draft only.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [packages, orderId])
+  }, [packages, orderId, canEdit])
 
   return (
     <div className="border-b border-gray-200 bg-SilverPlate/20 p-4 sm:p-5">
@@ -2030,26 +2038,29 @@ function PackageCapture({
               ? "Package details saved."
               : "Changes save automatically"}
           </span>
-          <Button
-            className={secondaryButtonClass}
-            onClick={addRow}
-            type="button"
-          >
-            Add Package
-          </Button>
+          {canEdit && (
+            <Button
+              className={secondaryButtonClass}
+              onClick={addRow}
+              type="button"
+            >
+              Add Package
+            </Button>
+          )}
         </div>
       </div>
 
       <div className="mt-4 space-y-3">
         {packages.map((pkg, index) => (
           <div
-            className="grid gap-3 rounded-md border border-gray-200 bg-white p-3 md:grid-cols-[minmax(220px,1.2fr)_120px_120px_minmax(0,1fr)_auto]"
+            className="grid gap-3 rounded-md border border-gray-200 bg-white p-3 md:grid-cols-[minmax(220px,1.2fr)_120px_120px_minmax(0,1fr)_116px] md:items-start"
             key={`${pkg.id || "new"}-${index}`}
           >
             <label className="flex min-w-0 flex-col gap-1">
               <span className={labelClass}>Package</span>
               <select
                 className={fieldClass}
+                disabled={!canEdit}
                 value={pkg.package_type}
                 onChange={(event) => selectShipper(index, event.target.value)}
               >
@@ -2068,6 +2079,7 @@ function PackageCapture({
               {pkg.package_type === "Other" && (
                 <input
                   className={fieldClass}
+                  disabled={!canEdit}
                   placeholder="Describe package or cooler"
                   value={pkg.note}
                   onChange={(event) =>
@@ -2080,6 +2092,7 @@ function PackageCapture({
               <span className={labelClass}>Full packed lb</span>
               <input
                 className={fieldClass}
+                disabled={!canEdit}
                 inputMode="decimal"
                 placeholder="Box + product + dry ice"
                 value={pkg.packed_weight_lb}
@@ -2092,6 +2105,7 @@ function PackageCapture({
               <span className={labelClass}>Dry ice lb</span>
               <input
                 className={fieldClass}
+                disabled={!canEdit}
                 inputMode="decimal"
                 placeholder="Dry ice only"
                 value={pkg.dry_ice_lb}
@@ -2104,13 +2118,24 @@ function PackageCapture({
               <span className={labelClass}>Note</span>
               <input
                 className={fieldClass}
+                disabled={!canEdit}
                 value={pkg.note}
                 onChange={(event) => update(index, "note", event.target.value)}
               />
             </label>
             <button
-              className="min-h-[42px] self-end rounded-md border border-gray-200 px-3 text-xs font-maison-neue-mono uppercase text-Charcoal/60"
+              className={`mt-[22px] min-h-[42px] rounded-md border px-3 text-xs font-maison-neue-mono uppercase ${
+                canEdit && packages.length > 1
+                  ? "border-gray-200 text-Charcoal/60 hover:border-Gold/60"
+                  : "cursor-not-allowed border-gray-100 bg-gray-50 text-Charcoal/30"
+              }`}
+              disabled={!canEdit || packages.length <= 1}
               onClick={() => removeRow(index)}
+              title={
+                packages.length <= 1
+                  ? "Every order needs at least one package row."
+                  : undefined
+              }
               type="button"
             >
               Remove
@@ -2301,16 +2326,31 @@ export default function StaffCatchWeightFinalizationConsole({
     })
   }
 
-  function sendBackToPicking() {
+  function sendBackToPicking(
+    defaultReason = "Packer found a mismatch during packing."
+  ) {
     if (!selectedOrderId || pendingAction) return
     const reason =
       window.prompt(
         "Why is this order going back to picking?",
-        "Packer found a mismatch during packing."
+        defaultReason
       ) || ""
     if (!reason.trim()) return
     runAction("return-picking", "Order sent back to picking.", (orderId) =>
       returnCatchWeightOrderToPicking({ orderId, reason: reason.trim() })
+    )
+  }
+
+  function sendBackToPacking() {
+    if (!selectedOrderId || pendingAction) return
+    const reason =
+      window.prompt(
+        "What should packing correct before this order is charged?",
+        "Front office requested packing correction before charge."
+      ) || ""
+    if (!reason.trim()) return
+    runAction("return-packing", "Order sent back to packing.", (orderId) =>
+      returnCatchWeightOrderToPacking({ orderId, reason: reason.trim() })
     )
   }
 
@@ -2343,36 +2383,47 @@ export default function StaffCatchWeightFinalizationConsole({
   const totals = detail?.totals || detail?.finalization || {}
   const currentStatus = detail?.finalization?.status || ""
   const pickingStatuses = new Set(["pending_pick", "picking", "pending_pack"])
-  const packingStatuses = new Set([
-    "packing",
-    "packed_pending_review",
+  const packingWorkStatuses = new Set(["packing", "packed_pending_review"])
+  const chargeReviewStatuses = new Set([
     "packed_pending_charge",
     "charge_failed_hold",
+  ])
+  const fulfillmentReadyStatuses = new Set([
     "charged_ready_to_ship",
     "released_to_fulfillment",
   ])
   const inPickingPhase = pickingStatuses.has(currentStatus)
   const pickClaimed = currentStatus === "picking"
   const waitingForPacker = currentStatus === "ready_for_packing"
-  const inPackingPhase = waitingForPacker || packingStatuses.has(currentStatus)
-  const editorPhase: FinalizationPhase = inPackingPhase ? "packing" : "picking"
+  const inPackingPhase =
+    waitingForPacker || packingWorkStatuses.has(currentStatus)
+  const inChargeReviewPhase = chargeReviewStatuses.has(currentStatus)
+  const inFulfillmentReadyPhase = fulfillmentReadyStatuses.has(currentStatus)
+  const packWorkClaimed = packingWorkStatuses.has(currentStatus)
+  const canEditPackingLines = packWorkClaimed && canPackOrders
+  const showPackingDetail =
+    (inPackingPhase && !waitingForPacker) ||
+    inChargeReviewPhase ||
+    inFulfillmentReadyPhase
+  const editorPhase: FinalizationPhase = inPickingPhase ? "picking" : "packing"
   const canEditLines = inPickingPhase
     ? canPickOrders && pickClaimed
-    : inPackingPhase && !waitingForPacker
-    ? canPackOrders
-    : false
+    : canEditPackingLines
   const readyForFulfillment = catchWeightReadyForFulfillment(detail)
   const fulfilled = hasActiveFulfillment(detail?.order)
   const permissionChargeDisabledReason = !canChargeFinalOrders
-    ? "This staff account can pack orders but is not allowed to charge saved cards."
-    : !canPackOrders
-    ? "This staff account is not allowed to pack and release orders."
+    ? "This staff account is not allowed to charge saved cards."
     : null
   const chargeDisabledReason =
     permissionChargeDisabledReason ||
     (blockingErrorCount > 0
       ? "Resolve the listed packing issues before charging."
       : null)
+  const packingReadyDisabledReason = !canPackOrders
+    ? "This staff account is not allowed to pack orders."
+    : blockingErrorCount > 0
+    ? "Resolve the listed packing issues before marking this order ready for charge."
+    : null
   const readyForPackingDisabledReason = !canPickOrders
     ? "This staff account is not allowed to pick orders."
     : !pickClaimed
@@ -2401,17 +2452,14 @@ export default function StaffCatchWeightFinalizationConsole({
           <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 sm:flex-wrap sm:overflow-visible">
             {[
               ["Picking", "pending_pick,picking,pending_pack"],
-              ["Ready for packing", "ready_for_packing"],
-              ["Packing", "packing,packed_pending_review"],
+              ["Packing", "ready_for_packing,packing,packed_pending_review"],
               ["Ready to charge", "packed_pending_charge"],
               ["Charge holds", "charge_failed_hold"],
               ["Ready ship", "charged_ready_to_ship,released_to_fulfillment"],
             ]
               .filter(([label]) => {
                 if (label === "Picking") return canPickOrders
-                if (label === "Ready for packing" || label === "Packing") {
-                  return canPackOrders || canPickOrders
-                }
+                if (label === "Packing") return canPackOrders || canPickOrders
                 return canPackOrders || canChargeFinalOrders
               })
               .map(([label, value]) => (
@@ -2753,24 +2801,27 @@ export default function StaffCatchWeightFinalizationConsole({
                       Claim Pack
                     </Button>
                   )}
-                  {inPackingPhase && !waitingForPacker && (
+                  {packWorkClaimed && (
                     <Button
                       className={`${secondaryButtonClass} w-full sm:w-auto`}
                       disabled={!canPackOrders || Boolean(pendingAction)}
                       isLoading={pendingAction === "return-picking"}
-                      onClick={sendBackToPicking}
+                      onClick={() =>
+                        sendBackToPicking(
+                          "Packer found missing, short, or wrong items during packing."
+                        )
+                      }
                       type="button"
                     >
                       Send Back To Picking
                     </Button>
                   )}
-                  {inPackingPhase && !waitingForPacker && (
+                  {packWorkClaimed && (
                     <Button
                       className={`${primaryButtonClass} w-full sm:w-auto`}
                       disabled={
-                        !canPackOrders ||
                         Boolean(pendingAction) ||
-                        blockingErrorCount > 0
+                        Boolean(packingReadyDisabledReason)
                       }
                       isLoading={pendingAction === "approve"}
                       onClick={() =>
@@ -2785,7 +2836,33 @@ export default function StaffCatchWeightFinalizationConsole({
                       Mark Ready For Charge
                     </Button>
                   )}
-                  {inPackingPhase && !waitingForPacker && (
+                  {inChargeReviewPhase && (
+                    <Button
+                      className={`${secondaryButtonClass} w-full sm:w-auto`}
+                      disabled={Boolean(pendingAction)}
+                      isLoading={pendingAction === "return-picking"}
+                      onClick={() =>
+                        sendBackToPicking(
+                          "Front office found missing, short, or wrong items before charge."
+                        )
+                      }
+                      type="button"
+                    >
+                      Send Back To Picking
+                    </Button>
+                  )}
+                  {inChargeReviewPhase && (
+                    <Button
+                      className={`${secondaryButtonClass} w-full sm:w-auto`}
+                      disabled={Boolean(pendingAction)}
+                      isLoading={pendingAction === "return-packing"}
+                      onClick={sendBackToPacking}
+                      type="button"
+                    >
+                      Send Back To Packing
+                    </Button>
+                  )}
+                  {inChargeReviewPhase && (
                     <Button
                       className="min-h-[42px] w-full rounded-md bg-Gold px-4 text-xs font-rexton font-bold uppercase text-Charcoal sm:w-auto"
                       disabled={
@@ -2881,9 +2958,25 @@ export default function StaffCatchWeightFinalizationConsole({
                       )}
                     </div>
                   )}
-                {inPackingPhase &&
-                  !waitingForPacker &&
-                  chargeDisabledReason && (
+                {packWorkClaimed && packingReadyDisabledReason && (
+                  <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                    {blockingIssues.length ? (
+                      <>
+                        <p className="font-maison-neue font-semibold">
+                          Resolve these before marking ready for charge:
+                        </p>
+                        <ul className="mt-2 list-disc space-y-1 pl-5">
+                          {blockingIssues.map((issue) => (
+                            <li key={issue}>{issue}</li>
+                          ))}
+                        </ul>
+                      </>
+                    ) : (
+                      packingReadyDisabledReason
+                    )}
+                  </div>
+                )}
+                {inChargeReviewPhase && chargeDisabledReason && (
                     <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
                       {blockingIssues.length ? (
                         <>
@@ -2914,10 +3007,11 @@ export default function StaffCatchWeightFinalizationConsole({
                 />
               )}
 
-              {!waitingForPacker && inPackingPhase && (
+              {showPackingDetail && (
                 <PackageCapture
                   orderId={detail.order.id}
                   detail={detail}
+                  canEdit={canEditPackingLines}
                   onSaved={() => loadDetail(detail.order.id)}
                 />
               )}

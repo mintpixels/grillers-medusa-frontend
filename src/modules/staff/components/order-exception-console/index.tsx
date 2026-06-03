@@ -13,17 +13,24 @@ import {
   CreditCard,
   FileText,
   History,
+  ListPlus,
+  Minus,
   NotebookText,
   PackageCheck,
   RefreshCw,
   Search,
   ShieldCheck,
+  ShoppingBasket,
   Truck,
   WalletCards,
   XCircle,
 } from "lucide-react"
 
 import { ATLANTA_DELIVERY_ZIP_DAYS } from "@lib/data/strapi/checkout"
+import {
+  searchStaffProducts,
+  type StaffProductSearchResult,
+} from "@lib/data/staff/order-entry"
 import {
   applyStaffOrderException,
   getStaffExceptionOrderDetail,
@@ -32,6 +39,7 @@ import {
   type StaffExceptionActionInput,
   type StaffExceptionActionPreview,
   type StaffExceptionFulfillmentFilter,
+  type StaffExceptionOrderItemAddition,
   type StaffExceptionOrderDetail,
   type StaffExceptionOrderQueueFilter,
   type StaffExceptionOrderSummary,
@@ -46,6 +54,7 @@ import {
   actionMovesMoney,
   actionMutatesMedusa,
   actionRequiresCustomerConsent,
+  staffOrderItemEditEligibility,
   type StaffConsentMethod,
   type StaffExceptionActionType,
   type StaffExceptionReasonCode,
@@ -86,6 +95,12 @@ const ACTION_META: Record<
     shortLabel: "Shipping override",
     description: "Change requested date or mode with current state preserved.",
     icon: Truck,
+    group: "support",
+  },
+  edit_order_items: {
+    shortLabel: "Edit items",
+    description: "Add, remove, or change quantities before a picker claims it.",
+    icon: ListPlus,
     group: "support",
   },
   refund_payment: {
@@ -267,6 +282,11 @@ function actionUnavailableReason(
     return "QuickBooks retry is available only after a failed QBD posting."
   }
 
+  if (action === "edit_order_items") {
+    const eligibility = staffOrderItemEditEligibility(order)
+    return eligibility.canEdit ? "" : eligibility.reason
+  }
+
   return ""
 }
 
@@ -291,6 +311,8 @@ function emptyAction(
     shippingRequestedDate: plan?.dateLabel || "",
     shippingZip: plan?.zip || "",
     shippingMethodName: plan?.shippingMethodName || "",
+    itemQuantityChanges: [],
+    itemAdditions: [],
     notifyCustomer: false,
   }
 }
@@ -452,6 +474,398 @@ function OrderList({
   )
 }
 
+function hasOrderItemEditDraft(draft: StaffExceptionActionInput) {
+  return Boolean(
+    draft.itemQuantityChanges?.length || draft.itemAdditions?.length
+  )
+}
+
+function orderItemChangeTone(
+  itemId: string,
+  order: StaffExceptionOrderDetail,
+  draft: StaffExceptionActionInput
+) {
+  const item = order.items.find((candidate) => candidate.id === itemId)
+  const change = draft.itemQuantityChanges?.find(
+    (candidate) => candidate.itemId === itemId
+  )
+  if (!item || !change) return null
+  if (change.quantity === 0) return statusChip("remove", "red")
+  if (change.quantity > item.quantity) return statusChip("increase", "gold")
+  return statusChip("reduce", "gold")
+}
+
+function OrderItemEditPanel({
+  order,
+  draft,
+  onChange,
+}: {
+  order: StaffExceptionOrderDetail
+  draft: StaffExceptionActionInput
+  onChange: (patch: Partial<StaffExceptionActionInput>) => void
+}) {
+  const eligibility = staffOrderItemEditEligibility(order)
+  const [quantities, setQuantities] = useState<Record<string, string>>({})
+  const [additions, setAdditions] = useState<StaffExceptionOrderItemAddition[]>(
+    []
+  )
+  const [query, setQuery] = useState("")
+  const [results, setResults] = useState<StaffProductSearchResult[]>([])
+  const [isSearching, setIsSearching] = useState(false)
+  const [searchError, setSearchError] = useState<string | null>(null)
+
+  useEffect(() => {
+    setQuantities(
+      Object.fromEntries(
+        order.items.map((item) => [item.id, String(item.quantity)])
+      )
+    )
+    setAdditions([])
+    onChange({
+      itemQuantityChanges: [],
+      itemAdditions: [],
+    })
+    // Reset only when a different order is selected.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [order.id])
+
+  useEffect(() => {
+    const q = query.trim()
+    setSearchError(null)
+    if (q.length < 2) {
+      setResults([])
+      setIsSearching(false)
+      return
+    }
+    let cancelled = false
+    setIsSearching(true)
+    const timer = window.setTimeout(async () => {
+      try {
+        const nextResults = await searchStaffProducts(q, "us", {
+          fulfillmentType: order.fulfillmentPlan.fulfillmentType,
+          scheduledDate:
+            order.fulfillmentPlan.requestedFulfillmentDate ||
+            order.fulfillmentPlan.dateLabel,
+        })
+        if (!cancelled) setResults(nextResults)
+      } catch (err) {
+        if (!cancelled) {
+          setSearchError(err instanceof Error ? err.message : String(err))
+          setResults([])
+        }
+      } finally {
+        if (!cancelled) setIsSearching(false)
+      }
+    }, 250)
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [
+    order.fulfillmentPlan.dateLabel,
+    order.fulfillmentPlan.fulfillmentType,
+    order.fulfillmentPlan.requestedFulfillmentDate,
+    query,
+  ])
+
+  function syncDraft(
+    nextQuantities: Record<string, string>,
+    nextAdditions: StaffExceptionOrderItemAddition[]
+  ) {
+    const itemQuantityChanges = order.items
+      .map((item) => {
+        const raw = nextQuantities[item.id]
+        const quantity = raw === "" ? item.quantity : Number(raw)
+        if (
+          !Number.isFinite(quantity) ||
+          !Number.isInteger(quantity) ||
+          quantity < 0 ||
+          quantity === item.quantity
+        ) {
+          return null
+        }
+        return {
+          itemId: item.id,
+          quantity,
+        }
+      })
+      .filter(Boolean) as StaffExceptionActionInput["itemQuantityChanges"]
+
+    onChange({
+      itemQuantityChanges,
+      itemAdditions: nextAdditions,
+    })
+  }
+
+  function setLineQuantity(itemId: string, quantity: string) {
+    const next = { ...quantities, [itemId]: quantity }
+    setQuantities(next)
+    syncDraft(next, additions)
+  }
+
+  function setAddedQuantity(index: number, quantity: string) {
+    const numeric = Number(quantity)
+    const next = additions
+      .map((addition, additionIndex) =>
+        additionIndex === index
+          ? {
+              ...addition,
+              quantity:
+                Number.isFinite(numeric) && numeric > 0
+                  ? Math.floor(numeric)
+                  : addition.quantity,
+            }
+          : addition
+      )
+      .filter((addition) => addition.quantity > 0)
+    setAdditions(next)
+    syncDraft(quantities, next)
+  }
+
+  function addProduct(product: StaffProductSearchResult) {
+    if (!product.qbdListId) return
+    const next = [
+      ...additions,
+      {
+        variantId: product.variantId,
+        quantity: 1,
+        title: product.title,
+        sku: product.sku,
+        productId: product.productId,
+        qbdListId: product.qbdListId,
+        unitPrice: product.calculatedAmount,
+        pricingMode: product.pricingMode,
+      },
+    ]
+    setAdditions(next)
+    setQuery("")
+    setResults([])
+    syncDraft(quantities, next)
+  }
+
+  function removeAddedLine(index: number) {
+    const next = additions.filter((_, additionIndex) => additionIndex !== index)
+    setAdditions(next)
+    syncDraft(quantities, next)
+  }
+
+  if (!eligibility.canEdit) {
+    return (
+      <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm font-maison-neue text-amber-900">
+        <p className="font-semibold">Order items are locked.</p>
+        <p className="mt-1">{eligibility.reason}</p>
+        <p className="mt-2 text-xs uppercase tracking-[0.08em] text-amber-800">
+          Pick status: {eligibility.label}
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-4 rounded-md border border-gray-100 p-4">
+      <div className="flex flex-col gap-2 small:flex-row small:items-start small:justify-between">
+        <div>
+          <p className={labelClass()}>Before picking starts</p>
+          <h4 className="mt-1 text-base font-maison-neue font-semibold text-Charcoal">
+            Edit order items
+          </h4>
+          <p className="mt-1 text-sm font-maison-neue text-Charcoal/60">
+            Change quantities, zero a line, or add a mapped catalog item. This
+            does not charge the customer.
+          </p>
+        </div>
+        {statusChip(eligibility.label, "green")}
+      </div>
+
+      <div className="space-y-3">
+        <p className={labelClass()}>Current lines</p>
+        {order.items.map((item) => {
+          const currentDraftQuantity = quantities[item.id] ?? String(item.quantity)
+          const canRemove = item.fulfilledQuantity <= 0
+          return (
+            <div
+              className="rounded-md border border-gray-200 p-3"
+              key={item.id}
+            >
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-sm font-maison-neue font-semibold text-Charcoal">
+                      {item.title}
+                    </p>
+                    {orderItemChangeTone(item.id, order, draft)}
+                  </div>
+                  <p className="mt-1 text-xs font-maison-neue text-Charcoal/55">
+                    {[item.subtitle, item.sku].filter(Boolean).join(" | ")}
+                  </p>
+                  <p className="mt-1 text-xs font-maison-neue text-Charcoal/55">
+                    Current {item.quantity}
+                    {item.fulfilledQuantity
+                      ? ` | Fulfilled ${item.fulfilledQuantity}`
+                      : ""}
+                    {" | "}
+                    {formatMoney(item.total, order.currencyCode)}
+                  </p>
+                </div>
+
+                <div className="grid gap-2 small:grid-cols-[132px_104px]">
+                  <label className="flex flex-col gap-1">
+                    <span className={labelClass()}>New quantity</span>
+                    <input
+                      className={fieldClass()}
+                      min={item.fulfilledQuantity}
+                      step="1"
+                      type="number"
+                      inputMode="numeric"
+                      value={currentDraftQuantity}
+                      onChange={(event) =>
+                        setLineQuantity(item.id, event.target.value)
+                      }
+                    />
+                  </label>
+                  <Button
+                    className="mt-5 inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md border border-Charcoal bg-white px-3 text-sm font-maison-neue font-semibold text-Charcoal disabled:cursor-not-allowed disabled:border-gray-200 disabled:text-Charcoal/35"
+                    disabled={!canRemove}
+                    onClick={() => setLineQuantity(item.id, "0")}
+                    type="button"
+                  >
+                    <Minus className="h-4 w-4" aria-hidden />
+                    Zero
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      <div className="space-y-3 rounded-md border border-gray-200 bg-SilverPlate/25 p-3">
+        <div className="flex items-center gap-2">
+          <ShoppingBasket className="h-4 w-4 text-Charcoal/55" aria-hidden />
+          <p className={labelClass()}>Add catalog item</p>
+        </div>
+        <input
+          className={fieldClass()}
+          placeholder="Search by product name or SKU"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          type="search"
+        />
+        {searchError && (
+          <p className="text-sm font-maison-neue text-red-700">
+            {searchError}
+          </p>
+        )}
+        {isSearching && (
+          <p className="text-sm font-maison-neue text-Charcoal/55">
+            Searching catalog...
+          </p>
+        )}
+        {results.length > 0 && (
+          <div className="max-h-[320px] overflow-auto rounded-md border border-gray-200 bg-white">
+            {results.map((product) => {
+              const disabled = !product.qbdListId
+              return (
+                <button
+                  className={`flex w-full items-start justify-between gap-3 border-b border-gray-100 px-3 py-3 text-left transition last:border-b-0 ${
+                    disabled
+                      ? "cursor-not-allowed bg-SilverPlate/30 text-Charcoal/35"
+                      : "hover:bg-Gold/10"
+                  }`}
+                  disabled={disabled}
+                  key={`${product.productId}-${product.variantId}`}
+                  onClick={() => addProduct(product)}
+                  type="button"
+                >
+                  <span className="min-w-0">
+                    <span className="block text-sm font-maison-neue font-semibold text-Charcoal">
+                      {product.title}
+                    </span>
+                    <span className="mt-1 block text-xs font-maison-neue text-Charcoal/55">
+                      {[product.variantTitle, product.sku, product.pricingMode]
+                        .filter(Boolean)
+                        .join(" | ")}
+                    </span>
+                    {disabled && (
+                      <span className="mt-1 block text-xs font-maison-neue text-red-700">
+                        Missing QuickBooks ListID
+                      </span>
+                    )}
+                  </span>
+                  <span className="shrink-0 text-sm font-maison-neue font-semibold text-Charcoal">
+                    {product.calculatedAmount !== undefined
+                      ? formatMoney(
+                          product.calculatedAmount,
+                          product.currencyCode || order.currencyCode
+                        )
+                      : "Add"}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        )}
+
+        {additions.length > 0 && (
+          <div className="space-y-2">
+            <p className={labelClass()}>Added lines</p>
+            {additions.map((addition, index) => (
+              <div
+                className="grid gap-2 rounded-md border border-gray-200 bg-white p-3 small:grid-cols-[minmax(0,1fr)_112px_44px] small:items-center"
+                key={`${addition.variantId}-${index}`}
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-maison-neue font-semibold text-Charcoal">
+                    {addition.title}
+                  </p>
+                  <p className="mt-1 text-xs font-maison-neue text-Charcoal/55">
+                    {[addition.sku, addition.pricingMode]
+                      .filter(Boolean)
+                      .join(" | ")}
+                  </p>
+                </div>
+                <label className="flex flex-col gap-1">
+                  <span className={labelClass()}>Qty</span>
+                  <input
+                    className={fieldClass()}
+                    min="1"
+                    step="1"
+                    type="number"
+                    inputMode="numeric"
+                    value={addition.quantity}
+                    onChange={(event) =>
+                      setAddedQuantity(index, event.target.value)
+                    }
+                  />
+                </label>
+                <Button
+                  aria-label={`Remove ${addition.title}`}
+                  className="min-h-[44px] rounded-md border border-Charcoal bg-white px-3 text-sm font-maison-neue font-semibold text-Charcoal"
+                  onClick={() => removeAddedLine(index)}
+                  type="button"
+                >
+                  <Minus className="h-4 w-4" aria-hidden />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {hasOrderItemEditDraft(draft) ? (
+        <div className="rounded-md border border-Gold/35 bg-Gold/10 p-3 text-sm font-maison-neue text-Charcoal/70">
+          Review will confirm the item edit and queue the QuickBooks SalesOrder
+          update before Apply is enabled.
+        </div>
+      ) : (
+        <div className="rounded-md border border-gray-200 bg-white p-3 text-sm font-maison-neue text-Charcoal/55">
+          No item changes staged yet.
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function StaffOrderExceptionConsole() {
   const [query, setQuery] = useState("")
   const [queueFilter, setQueueFilter] =
@@ -528,6 +942,12 @@ export default function StaffOrderExceptionConsole() {
       selectedAction === "shipping_override" &&
       (!actionDraft.shippingFulfillmentType ||
         !actionDraft.shippingRequestedDate?.trim())
+    ) {
+      return false
+    }
+    if (
+      selectedAction === "edit_order_items" &&
+      !hasOrderItemEditDraft(actionDraft)
     ) {
       return false
     }
@@ -628,7 +1048,7 @@ export default function StaffOrderExceptionConsole() {
 
   function chooseAction(action: StaffExceptionActionType) {
     if (!selectedOrder) return
-    const nextDraft = {
+    const nextDraft: StaffExceptionActionInput = {
       ...emptyAction(selectedOrder.id, selectedOrder),
       action,
       customerConsentMethod: actionRequiresCustomerConsent(action)
@@ -1152,6 +1572,14 @@ export default function StaffOrderExceptionConsole() {
                       )}
                     </div>
 
+                    {selectedAction === "edit_order_items" && (
+                      <OrderItemEditPanel
+                        order={selectedOrder}
+                        draft={actionDraft}
+                        onChange={updateActionDraft}
+                      />
+                    )}
+
                     {needsAmount && (
                       <label className="flex flex-col gap-1">
                         <span className={labelClass()}>Amount</span>
@@ -1390,8 +1818,11 @@ export default function StaffOrderExceptionConsole() {
                     {actionMutatesMedusa(selectedAction) && (
                       <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm font-maison-neue text-red-700">
                         This action can change Medusa order or payment state.
-                        Review it first, then type the confirmation word before
-                        applying it.
+                        Review it first
+                        {destructiveConfirmation
+                          ? ", then type the confirmation word"
+                          : ""}
+                        {" "}before applying it.
                       </div>
                     )}
 
