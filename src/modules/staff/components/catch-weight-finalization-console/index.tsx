@@ -133,6 +133,13 @@ const shipperOptions = [
 ]
 
 type FinalizationPhase = "picking" | "packing"
+type QueueSortKey =
+  | "ship_date_asc"
+  | "ship_date_desc"
+  | "order_newest"
+  | "order_oldest"
+  | "total_desc"
+  | "total_asc"
 
 function money(value?: number | string | null, currencyCode = "usd") {
   const amount = Number(value)
@@ -175,6 +182,149 @@ function shortDateLabel(value?: string | null) {
     month: "short",
     day: "numeric",
   })
+}
+
+function queueDateKey(item: StaffCatchWeightFinalizationSummary) {
+  if (item.fulfillment_date_key) return item.fulfillment_date_key
+  const raw = item.fulfillment_date || ""
+  const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  const us = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`
+  if (us) return `${us[3]}-${us[1].padStart(2, "0")}-${us[2].padStart(2, "0")}`
+  const date = new Date(raw)
+  return Number.isNaN(date.getTime()) ? "" : date.toISOString().slice(0, 10)
+}
+
+function longDateLabel(value?: string | null) {
+  if (!value) return "No ship / pickup date"
+  const iso = value.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  const date = iso
+    ? new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]))
+    : new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return date.toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  })
+}
+
+function queueDateSortValue(item: StaffCatchWeightFinalizationSummary) {
+  const key = queueDateKey(item)
+  if (!key) return Number.POSITIVE_INFINITY
+  const date = new Date(`${key}T00:00:00`)
+  return Number.isNaN(date.getTime()) ? Number.POSITIVE_INFINITY : date.getTime()
+}
+
+function queueDisplayIdValue(item: StaffCatchWeightFinalizationSummary) {
+  const displayId = Number(item.display_id)
+  if (Number.isFinite(displayId)) return displayId
+  const fallback = Number(item.order_id?.match(/\d+$/)?.[0])
+  return Number.isFinite(fallback) ? fallback : 0
+}
+
+function queueTotalValue(item: StaffCatchWeightFinalizationSummary) {
+  const total = Number(item.final_order_total ?? item.estimated_order_total)
+  return Number.isFinite(total) ? total : 0
+}
+
+function compareQueueDates(
+  a: StaffCatchWeightFinalizationSummary,
+  b: StaffCatchWeightFinalizationSummary,
+  direction: "asc" | "desc" = "asc"
+) {
+  const keyA = queueDateKey(a)
+  const keyB = queueDateKey(b)
+  if (!keyA && !keyB) return 0
+  if (!keyA) return 1
+  if (!keyB) return -1
+  const diff = queueDateSortValue(a) - queueDateSortValue(b)
+  return direction === "desc" ? -diff : diff
+}
+
+function compareQueueOrders(
+  a: StaffCatchWeightFinalizationSummary,
+  b: StaffCatchWeightFinalizationSummary,
+  sortKey: QueueSortKey
+) {
+  const orderA = queueDisplayIdValue(a)
+  const orderB = queueDisplayIdValue(b)
+  const totalA = queueTotalValue(a)
+  const totalB = queueTotalValue(b)
+
+  switch (sortKey) {
+    case "ship_date_desc": {
+      const dateCompare = compareQueueDates(a, b, "desc")
+      if (dateCompare) return dateCompare
+      return orderA - orderB
+    }
+    case "order_newest":
+      return orderB - orderA
+    case "order_oldest":
+      return orderA - orderB
+    case "total_desc":
+      if (totalA !== totalB) return totalB - totalA
+      return compareQueueDates(a, b)
+    case "total_asc":
+      if (totalA !== totalB) return totalA - totalB
+      return compareQueueDates(a, b)
+    case "ship_date_asc":
+    default: {
+      const dateCompare = compareQueueDates(a, b)
+      if (dateCompare) return dateCompare
+      return orderA - orderB
+    }
+  }
+}
+
+function dateKeySortValue(key: string) {
+  if (!key || key === "unscheduled") return Number.POSITIVE_INFINITY
+  const date = new Date(`${key}T00:00:00`)
+  return Number.isNaN(date.getTime()) ? Number.POSITIVE_INFINITY : date.getTime()
+}
+
+function compareGroupDates(
+  a: { key: string },
+  b: { key: string },
+  direction: "asc" | "desc" = "asc"
+) {
+  const valueA = dateKeySortValue(a.key)
+  const valueB = dateKeySortValue(b.key)
+  if (valueA === valueB) return 0
+  if (!Number.isFinite(valueA)) return 1
+  if (!Number.isFinite(valueB)) return -1
+  return direction === "desc" ? valueB - valueA : valueA - valueB
+}
+
+function groupQueueByShipDate(
+  items: StaffCatchWeightFinalizationSummary[],
+  direction: "asc" | "desc" = "asc"
+) {
+  const groups: Array<{
+    key: string
+    label: string
+    items: StaffCatchWeightFinalizationSummary[]
+  }> = []
+  const groupMap = new Map<string, (typeof groups)[number]>()
+
+  for (const item of items) {
+    const key = queueDateKey(item) || "unscheduled"
+    const label =
+      key === "unscheduled"
+        ? "No ship / pickup date"
+        : longDateLabel(item.fulfillment_date || key)
+    const group =
+      groupMap.get(key) ||
+      (() => {
+        const nextGroup = { key, label, items: [] }
+        groupMap.set(key, nextGroup)
+        groups.push(nextGroup)
+        return nextGroup
+      })()
+    group.items.push(item)
+  }
+
+  return groups.sort((a, b) => compareGroupDates(a, b, direction))
 }
 
 function statusBadge(status?: string) {
@@ -2055,6 +2205,8 @@ export default function StaffCatchWeightFinalizationConsole({
   const [fulfillmentTypeFilter, setFulfillmentTypeFilter] = useState("")
   const [dateFromFilter, setDateFromFilter] = useState("")
   const [dateToFilter, setDateToFilter] = useState("")
+  const [queueSort, setQueueSort] = useState<QueueSortKey>("ship_date_asc")
+  const [groupByShipDate, setGroupByShipDate] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [status, setStatus] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -2077,6 +2229,20 @@ export default function StaffCatchWeightFinalizationConsole({
   const pickerReadiness = useMemo(
     () => finalizationPickerReadiness(detail),
     [detail]
+  )
+  const sortedQueue = useMemo(
+    () => [...queue].sort((a, b) => compareQueueOrders(a, b, queueSort)),
+    [queue, queueSort]
+  )
+  const queueGroups = useMemo(
+    () =>
+      groupByShipDate
+        ? groupQueueByShipDate(
+            sortedQueue,
+            queueSort === "ship_date_desc" ? "desc" : "asc"
+          )
+        : [{ key: "all", label: "", items: sortedQueue }],
+    [groupByShipDate, queueSort, sortedQueue]
   )
 
   function loadQueue(
@@ -2375,6 +2541,36 @@ export default function StaffCatchWeightFinalizationConsole({
                   />
                 </label>
               </div>
+              <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+                <label className="flex min-w-0 flex-col gap-1">
+                  <span className={labelClass}>Sort orders</span>
+                  <select
+                    className={fieldClass}
+                    value={queueSort}
+                    onChange={(event) =>
+                      setQueueSort(event.target.value as QueueSortKey)
+                    }
+                  >
+                    <option value="ship_date_asc">Ship date, earliest</option>
+                    <option value="ship_date_desc">Ship date, latest</option>
+                    <option value="order_newest">Order #, newest</option>
+                    <option value="order_oldest">Order #, oldest</option>
+                    <option value="total_desc">Total, high to low</option>
+                    <option value="total_asc">Total, low to high</option>
+                  </select>
+                </label>
+                <label className="flex min-h-[42px] items-center gap-2 rounded-md border border-gray-200 bg-white px-3 text-sm font-maison-neue text-Charcoal">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-gray-300 text-Gold focus:ring-Gold/30"
+                    checked={groupByShipDate}
+                    onChange={(event) =>
+                      setGroupByShipDate(event.target.checked)
+                    }
+                  />
+                  Group by date
+                </label>
+              </div>
               <div className="flex items-center justify-between gap-3">
                 <p className="text-xs font-maison-neue text-Charcoal/45">
                   {isPending
@@ -2402,62 +2598,77 @@ export default function StaffCatchWeightFinalizationConsole({
             <span className="text-right">Total</span>
           </div>
           <div className="max-h-[360px] overflow-auto lg:max-h-[620px]">
-            {queue.map((item) => {
-              const selected = item.order_id === selectedOrderId
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => loadDetail(item.order_id)}
-                  className={`grid w-full grid-cols-[72px_minmax(0,1fr)_84px] gap-2 border-b border-gray-100 px-4 py-3 text-left transition sm:grid-cols-[84px_minmax(0,1fr)_96px] ${
-                    selected ? "bg-Gold/10" : "hover:bg-SilverPlate/30"
-                  }`}
-                >
-                  <span>
-                    <span className="block font-maison-neue-mono text-sm text-Charcoal">
-                      {item.display_id
-                        ? `#${item.display_id}`
-                        : item.order_id.slice(-6)}
+            {queueGroups.map((group) => (
+              <div key={group.key}>
+                {groupByShipDate && (
+                  <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-200 bg-SilverPlate px-4 py-2 text-[11px] font-maison-neue-mono uppercase text-Charcoal/55">
+                    <span>{group.label}</span>
+                    <span>
+                      {group.items.length} order
+                      {group.items.length === 1 ? "" : "s"}
                     </span>
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block truncate text-sm font-maison-neue text-Charcoal">
-                      {item.order_email || item.customer_email || "Customer"}
-                    </span>
-                    {(item.fulfillment_type || item.fulfillment_date) && (
-                      <span className="mt-1 block truncate text-xs font-maison-neue text-Charcoal/50">
-                        {[
-                          fulfillmentTypeLabel(item.fulfillment_type),
-                          shortDateLabel(item.fulfillment_date),
-                        ]
-                          .filter(Boolean)
-                          .join(" | ")}
+                  </div>
+                )}
+                {group.items.map((item) => {
+                  const selected = item.order_id === selectedOrderId
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => loadDetail(item.order_id)}
+                      className={`grid w-full grid-cols-[72px_minmax(0,1fr)_84px] gap-2 border-b border-gray-100 px-4 py-3 text-left transition sm:grid-cols-[84px_minmax(0,1fr)_96px] ${
+                        selected ? "bg-Gold/10" : "hover:bg-SilverPlate/30"
+                      }`}
+                    >
+                      <span>
+                        <span className="block font-maison-neue-mono text-sm text-Charcoal">
+                          {item.display_id
+                            ? `#${item.display_id}`
+                            : item.order_id.slice(-6)}
+                        </span>
                       </span>
-                    )}
-                    <span className="mt-1 block">
-                      {statusBadge(item.status)}
-                    </span>
-                    {item.blocked_reason && (
-                      <span className="mt-1 block truncate text-xs text-red-700">
-                        {item.blocked_reason.replace(/_/g, " ")}
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-maison-neue text-Charcoal">
+                          {item.order_email ||
+                            item.customer_email ||
+                            "Customer"}
+                        </span>
+                        {(item.fulfillment_type || item.fulfillment_date) && (
+                          <span className="mt-1 block truncate text-xs font-maison-neue text-Charcoal/50">
+                            {[
+                              fulfillmentTypeLabel(item.fulfillment_type),
+                              shortDateLabel(item.fulfillment_date),
+                            ]
+                              .filter(Boolean)
+                              .join(" | ")}
+                          </span>
+                        )}
+                        <span className="mt-1 block">
+                          {statusBadge(item.status)}
+                        </span>
+                        {item.blocked_reason && (
+                          <span className="mt-1 block truncate text-xs text-red-700">
+                            {item.blocked_reason.replace(/_/g, " ")}
+                          </span>
+                        )}
                       </span>
-                    )}
-                  </span>
-                  <span className="text-right text-sm font-maison-neue text-Charcoal">
-                    {money(
-                      item.final_order_total ?? item.estimated_order_total,
-                      item.currency_code
-                    )}
-                    {item.delta_total !== null &&
-                    item.delta_total !== undefined ? (
-                      <span className="block text-xs text-Charcoal/50">
-                        {money(item.delta_total, item.currency_code)}
+                      <span className="text-right text-sm font-maison-neue text-Charcoal">
+                        {money(
+                          item.final_order_total ?? item.estimated_order_total,
+                          item.currency_code
+                        )}
+                        {item.delta_total !== null &&
+                        item.delta_total !== undefined ? (
+                          <span className="block text-xs text-Charcoal/50">
+                            {money(item.delta_total, item.currency_code)}
+                          </span>
+                        ) : null}
                       </span>
-                    ) : null}
-                  </span>
-                </button>
-              )
-            })}
+                    </button>
+                  )
+                })}
+              </div>
+            ))}
             {!queue.length && (
               <p className="px-4 py-8 text-sm font-maison-neue text-Charcoal/55">
                 {activeQueueFilters
