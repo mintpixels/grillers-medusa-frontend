@@ -8,6 +8,7 @@ import {
   actionRequiresCustomerConsent,
   parseStaffAuditLog,
   staffOrderOperationalState,
+  VISIBLE_STAFF_EXCEPTION_ACTIONS,
 } from "@lib/data/staff/exception-types"
 
 describe("staff exception helpers", () => {
@@ -72,7 +73,16 @@ describe("staff exception helpers", () => {
     expect(actionRequiresQuickBooksPosting("credit_memo")).toBe(true)
     expect(actionRequiresQuickBooksPosting("record_check_refund")).toBe(true)
     expect(actionRequiresQuickBooksPosting("cancel_order")).toBe(true)
-    expect(actionRequiresQuickBooksPosting("record_note")).toBe(false)
+    expect(actionRequiresQuickBooksPosting("record_note")).toBe(true)
+  })
+
+  it("hides pending check refund from the order-support action picker", () => {
+    const visible = VISIBLE_STAFF_EXCEPTION_ACTIONS.map(
+      (action) => action.value
+    )
+    expect(visible).toContain("record_offline_payment")
+    expect(visible).toContain("credit_memo")
+    expect(visible).not.toContain("record_check_refund")
   })
 
   it("requires typed confirmation for destructive actions only", () => {

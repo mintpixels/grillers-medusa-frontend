@@ -109,6 +109,26 @@ export type StaffExceptionAddress = {
   phone?: string
 }
 
+export type StaffFulfillmentType =
+  | "plant_pickup"
+  | "atlanta_delivery"
+  | "ups_shipping"
+  | "southeast_pickup"
+
+export type StaffExceptionFulfillmentPlan = {
+  fulfillmentType: StaffFulfillmentType
+  fulfillmentLabel: string
+  dateLabel: string
+  scheduledDate?: string
+  requestedDeliveryDate?: string
+  requestedFulfillmentDate?: string
+  timeWindow?: string
+  pickupLocationId?: string
+  zip?: string
+  shippingMethodName?: string
+  addressSummary?: string
+}
+
 export type StaffExceptionOrderDetail = StaffExceptionOrderSummary & {
   subtotal: number
   shippingTotal: number
@@ -117,6 +137,7 @@ export type StaffExceptionOrderDetail = StaffExceptionOrderSummary & {
   items: StaffExceptionOrderItem[]
   payments: StaffExceptionPayment[]
   shippingMethods: string[]
+  fulfillmentPlan: StaffExceptionFulfillmentPlan
   fulfillments: {
     id: string
     status?: string
@@ -141,6 +162,10 @@ export type StaffExceptionActionInput = {
   offlinePaymentMethod?: string
   offlinePaymentReference?: string
   shippingChangeSummary?: string
+  shippingFulfillmentType?: StaffFulfillmentType
+  shippingRequestedDate?: string
+  shippingZip?: string
+  shippingMethodName?: string
   notifyCustomer?: boolean
   typedConfirmation?: string
 }
@@ -408,6 +433,11 @@ function detailLegacyOrder(order: AnyRecord): StaffExceptionOrderDetail {
     })),
     payments: [],
     shippingMethods: [],
+    fulfillmentPlan: {
+      fulfillmentType: "ups_shipping",
+      fulfillmentLabel: "Historical QuickBooks",
+      dateLabel: "",
+    },
     fulfillments: [],
     metadata: {
       legacy_order_id: order.id,
@@ -439,6 +469,188 @@ function toAddress(
     cityLine,
     phone: address.phone || "",
   }
+}
+
+function textValue(value: unknown): string {
+  if (typeof value === "string") return value.trim()
+  if (typeof value === "number" && Number.isFinite(value)) return String(value)
+  return ""
+}
+
+function firstText(...values: unknown[]): string {
+  for (const value of values) {
+    const text = textValue(value)
+    if (text) return text
+  }
+  return ""
+}
+
+function normalizeFulfillmentType(value: unknown): StaffFulfillmentType | null {
+  const text = textValue(value).toLowerCase()
+  if (
+    text === "plant_pickup" ||
+    text === "atlanta_delivery" ||
+    text === "ups_shipping" ||
+    text === "southeast_pickup"
+  ) {
+    return text
+  }
+  return null
+}
+
+function fulfillmentLabel(type: StaffFulfillmentType): string {
+  switch (type) {
+    case "plant_pickup":
+      return "Plant pickup"
+    case "atlanta_delivery":
+      return "Atlanta delivery"
+    case "southeast_pickup":
+      return "Southeast pickup"
+    case "ups_shipping":
+      return "UPS shipping"
+  }
+}
+
+function shippingMethodName(order: AnyRecord): string {
+  const methods = Array.isArray(order.shipping_methods)
+    ? order.shipping_methods
+    : []
+  const latest = methods[methods.length - 1] || {}
+  return firstText(latest.name, latest.shipping_option?.name)
+}
+
+function inferFulfillmentType(order: AnyRecord): StaffFulfillmentType {
+  const metadata = order.metadata || {}
+  const direct = normalizeFulfillmentType(
+    firstText(metadata.fulfillmentType, metadata.fulfillment_type)
+  )
+  if (direct) return direct
+
+  const method = shippingMethodName(order).toLowerCase()
+  if (method.includes("delivery") && !method.includes("ups")) {
+    return "atlanta_delivery"
+  }
+  if (method.includes("pickup") && method.includes("southeast")) {
+    return "southeast_pickup"
+  }
+  if (method.includes("pickup")) {
+    return "plant_pickup"
+  }
+  return "ups_shipping"
+}
+
+function addressSummary(address: AnyRecord | null | undefined): string {
+  if (!address) return ""
+  return [
+    [address.first_name, address.last_name].filter(Boolean).join(" "),
+    address.address_1,
+    address.address_2,
+    [
+      address.city,
+      address.province,
+      address.postal_code,
+      address.country_code?.toUpperCase?.(),
+    ]
+      .filter(Boolean)
+      .join(", "),
+  ]
+    .filter(Boolean)
+    .join(", ")
+}
+
+function orderFulfillmentPlan(order: AnyRecord): StaffExceptionFulfillmentPlan {
+  const metadata = order.metadata || {}
+  const fulfillmentType = inferFulfillmentType(order)
+  const scheduledDate = firstText(
+    metadata.scheduledDate,
+    metadata.scheduled_date,
+    fulfillmentType !== "ups_shipping"
+      ? metadata.requested_fulfillment_date
+      : ""
+  )
+  const requestedDeliveryDate = firstText(
+    metadata.requestedDeliveryDate,
+    metadata.requested_delivery_date,
+    fulfillmentType === "ups_shipping"
+      ? metadata.requested_fulfillment_date
+      : ""
+  )
+  const requestedFulfillmentDate = firstText(
+    metadata.requested_fulfillment_date,
+    requestedDeliveryDate,
+    scheduledDate
+  )
+  const zip = firstText(
+    metadata.fulfillmentZip,
+    metadata.fulfillment_zip,
+    order.shipping_address?.postal_code
+  )
+  const method = shippingMethodName(order)
+
+  return {
+    fulfillmentType,
+    fulfillmentLabel: fulfillmentLabel(fulfillmentType),
+    dateLabel:
+      fulfillmentType === "ups_shipping"
+        ? requestedDeliveryDate || requestedFulfillmentDate
+        : scheduledDate || requestedFulfillmentDate,
+    scheduledDate: scheduledDate || undefined,
+    requestedDeliveryDate: requestedDeliveryDate || undefined,
+    requestedFulfillmentDate: requestedFulfillmentDate || undefined,
+    timeWindow:
+      firstText(metadata.scheduledTimeWindow, metadata.scheduled_time_window) ||
+      undefined,
+    pickupLocationId:
+      firstText(metadata.pickupLocationId, metadata.pickup_location_id) ||
+      undefined,
+    zip: zip || undefined,
+    shippingMethodName: method || undefined,
+    addressSummary: addressSummary(order.shipping_address) || undefined,
+  }
+}
+
+function shippingOverridePlan(input: StaffExceptionActionInput, order: AnyRecord) {
+  const current = orderFulfillmentPlan(order)
+  const requestedType =
+    input.shippingFulfillmentType || current.fulfillmentType
+  const requestedDate = textValue(input.shippingRequestedDate)
+  const requestedZip = textValue(input.shippingZip) || current.zip || ""
+  const requestedMethod =
+    textValue(input.shippingMethodName) || current.shippingMethodName || ""
+
+  return {
+    current,
+    requested: {
+      fulfillmentType: requestedType,
+      fulfillmentLabel: fulfillmentLabel(requestedType),
+      dateLabel: requestedDate,
+      zip: requestedZip || undefined,
+      shippingMethodName: requestedMethod || undefined,
+    },
+    modeChanged: requestedType !== current.fulfillmentType,
+    dateChanged: Boolean(requestedDate && requestedDate !== current.dateLabel),
+  }
+}
+
+function shippingOverrideSummary(
+  input: StaffExceptionActionInput,
+  order: AnyRecord
+): string {
+  const plan = shippingOverridePlan(input, order)
+  const parts = [
+    `${plan.current.fulfillmentLabel || "Current"} ${
+      plan.current.dateLabel || "no date"
+    }`,
+    "to",
+    `${plan.requested.fulfillmentLabel || "Requested"} ${
+      plan.requested.dateLabel || "no date"
+    }`,
+  ]
+  if (plan.requested.zip) parts.push(`ZIP ${plan.requested.zip}`)
+  if (input.shippingChangeSummary?.trim()) {
+    parts.push(input.shippingChangeSummary.trim())
+  }
+  return parts.join(" ")
 }
 
 function collectPayments(order: AnyRecord): StaffExceptionPayment[] {
@@ -570,6 +782,7 @@ function detailOrder(order: AnyRecord): StaffExceptionOrderDetail {
     })),
     payments: collectPayments(order),
     shippingMethods,
+    fulfillmentPlan: orderFulfillmentPlan(order),
     fulfillments,
     shippingAddress: toAddress(order.shipping_address),
     billingAddress: toAddress(order.billing_address),
@@ -691,6 +904,8 @@ function quickBooksAction(
   action: StaffExceptionActionType
 ): string | undefined {
   switch (action) {
+    case "record_note":
+      return "append_order_note"
     case "record_offline_payment":
       return "record_offline_payment"
     case "credit_memo":
@@ -722,6 +937,9 @@ function qbdPendingFields(
     qbd_posting_action: action,
     qbd_posting_amount: amountMinor,
     qbd_posting_requested_at: new Date().toISOString(),
+    qbd_posting_note: input.staffNote.trim(),
+    qbd_posting_reason_code: input.reasonCode,
+    qbd_customer_visible_note: input.customerVisibleNote?.trim() || undefined,
     ...extra,
   }
 }
@@ -764,10 +982,6 @@ function isStripeProvider(providerId?: string) {
     .includes("stripe")
 }
 
-function offlineMoneyActionsEnabled() {
-  return process.env.STAFF_ALLOW_OFFLINE_MONEY_ACTIONS === "true"
-}
-
 function latestRefundFromPayment(payment: AnyRecord | null | undefined) {
   const refunds = Array.isArray(payment?.refunds) ? payment.refunds : []
   return refunds[refunds.length - 1] || null
@@ -776,11 +990,11 @@ function latestRefundFromPayment(payment: AnyRecord | null | undefined) {
 function previewSummary(input: StaffExceptionActionInput): string {
   switch (input.action) {
     case "record_note":
-      return "This will append an internal staff note to the order audit trail."
+      return "This will append an internal staff note to the order audit trail and queue the note for QuickBooks."
     case "record_offline_payment":
       return "This records an offline payment and leaves a required QuickBooks posting task. It will not charge a card."
     case "shipping_override":
-      return "This will record a shipping-change request for operations review. It will not silently change a shipment."
+      return "This records the current fulfillment state, the requested replacement date or mode, and marks mode changes for checkout-style reprice/review."
     case "credit_memo":
       return "This records an account credit request and leaves a required QuickBooks credit memo/accounting task. It will not refund a card."
     case "record_check_refund":
@@ -857,12 +1071,11 @@ function validateAction(input: StaffExceptionActionInput, order: AnyRecord) {
   if (!input.staffNote?.trim()) throw new Error("Add an internal staff note.")
 
   if (
-    !offlineMoneyActionsEnabled() &&
-    (input.action === "record_offline_payment" ||
-      input.action === "record_check_refund")
+    input.action === "record_check_refund" &&
+    process.env.STAFF_ALLOW_OFFLINE_MONEY_ACTIONS !== "true"
   ) {
     throw new Error(
-      "Offline payments and check refunds are disabled for launch. Use Stripe card capture/refund or record an internal note for accounting follow-up."
+      "Pending check refunds are disabled in this console. Use Stripe card refund, account credit, offline payment, or an internal note for accounting follow-up."
     )
   }
 
@@ -907,6 +1120,25 @@ function validateAction(input: StaffExceptionActionInput, order: AnyRecord) {
     }
   }
 
+  if (input.action === "capture_payment") {
+    const selected = capturablePayment(order, input.paymentId)
+    const captureAmount = staffPositiveCurrencyAmount(input.amount)
+    const remaining = Math.max(0, selected.amount - selected.capturedAmount)
+    if (!isStripeProvider(selected.providerId)) {
+      throw new Error("Payment capture is available only for Stripe payments.")
+    }
+    if (remaining <= 0) {
+      throw new Error("This payment does not have an authorized balance to capture.")
+    }
+    if (captureAmount > remaining) {
+      throw new Error(
+        `Capture amount exceeds the remaining authorized balance of ${remaining.toFixed(
+          2
+        )}.`
+      )
+    }
+  }
+
   if (input.action === "retry_qbd_posting") {
     if (order.metadata?.qbd_posting_status !== "failed") {
       throw new Error(
@@ -920,11 +1152,13 @@ function validateAction(input: StaffExceptionActionInput, order: AnyRecord) {
     }
   }
 
-  if (
-    input.action === "shipping_override" &&
-    !input.shippingChangeSummary?.trim()
-  ) {
-    throw new Error("Summarize the shipping change.")
+  if (input.action === "shipping_override") {
+    if (!input.shippingFulfillmentType) {
+      throw new Error("Choose the requested fulfillment mode.")
+    }
+    if (!input.shippingRequestedDate?.trim()) {
+      throw new Error("Choose the requested delivery, pickup, or arrival date.")
+    }
   }
 }
 
@@ -978,6 +1212,12 @@ function capturablePayment(
 
   if (!selected) {
     throw new Error("No payment was found for this order.")
+  }
+  if (!isStripeProvider(selected.providerId)) {
+    throw new Error("Payment capture is available only for Stripe payments.")
+  }
+  if (selected.amount <= selected.capturedAmount) {
+    throw new Error("No remaining authorized balance was found for this payment.")
   }
 
   return selected
@@ -1283,9 +1523,26 @@ export async function applyStaffOrderException(
 
     switch (input.action) {
       case "record_note": {
-        await appendOrderAudit(order.id, baseEntry, {
-          staff_exception_status: "note_recorded",
+        const requestKey = downstreamRequestKey(input, order, 0, "note")
+        const qbdFields = qbdPendingFields(input, 0, {
+          qbd_posting_request_key: requestKey,
+          qbd_note_append_text: input.staffNote.trim(),
+          qbd_note_source: "staff_order_support",
         })
+        await appendOrderAudit(
+          order.id,
+          {
+            ...baseEntry,
+            ...qbdFields,
+            downstream_request_key: requestKey,
+          },
+          {
+            staff_exception_status: "note_qbd_pending",
+            staff_internal_note_latest: input.staffNote.trim(),
+            ...qbdFields,
+            downstream_request_key: requestKey,
+          }
+        )
         break
       }
       case "record_offline_payment": {
@@ -1300,6 +1557,9 @@ export async function applyStaffOrderException(
         )
         const qbdFields = qbdPendingFields(input, qbdAmountMinor, {
           qbd_posting_request_key: requestKey,
+          qbd_offline_payment_method: input.offlinePaymentMethod?.trim(),
+          qbd_offline_payment_reference:
+            input.offlinePaymentReference?.trim() || undefined,
         })
         await appendOrderAudit(
           order.id,
@@ -1319,17 +1579,42 @@ export async function applyStaffOrderException(
         break
       }
       case "shipping_override": {
+        const override = shippingOverridePlan(input, order)
+        const summary = shippingOverrideSummary(input, order)
         await appendOrderAudit(
           order.id,
           {
             ...baseEntry,
-            shipping_change_summary: input.shippingChangeSummary?.trim(),
+            shipping_change_summary: summary,
+            shipping_override_current: override.current,
+            shipping_override_requested: override.requested,
+            shipping_mode_changed: override.modeChanged,
+            shipping_date_changed: override.dateChanged,
           },
           {
-            staff_exception_status:
-              staffOrderOperationalState(order) === "confirmed"
-                ? "shipping_override_recorded"
-                : "shipping_override_needs_ops_review",
+            staff_exception_status: override.modeChanged
+              ? "shipping_override_needs_checkout_reprice"
+              : staffOrderOperationalState(order) === "confirmed"
+              ? "shipping_override_recorded"
+              : "shipping_override_needs_ops_review",
+            fulfillmentType: override.requested.fulfillmentType,
+            fulfillment_type: override.requested.fulfillmentType,
+            fulfillmentZip: override.requested.zip || "",
+            fulfillment_zip: override.requested.zip || "",
+            scheduledDate:
+              override.requested.fulfillmentType === "ups_shipping"
+                ? ""
+                : override.requested.dateLabel,
+            requestedDeliveryDate:
+              override.requested.fulfillmentType === "ups_shipping"
+                ? override.requested.dateLabel
+                : "",
+            requested_fulfillment_date: override.requested.dateLabel,
+            shipping_override_current: JSON.stringify(override.current),
+            shipping_override_requested: JSON.stringify(override.requested),
+            shipping_override_summary: summary,
+            shipping_override_mode_changed: override.modeChanged,
+            shipping_override_reprice_required: override.modeChanged,
           }
         )
         break
@@ -1340,6 +1625,18 @@ export async function applyStaffOrderException(
         const requestKey = downstreamRequestKey(input, order, qbdAmountMinor)
         const qbdFields = qbdPendingFields(input, qbdAmountMinor, {
           qbd_posting_request_key: requestKey,
+          qbd_account_credit_plan: JSON.stringify([
+            {
+              entry_type: "credit_memo",
+              purpose: "Create future customer account credit",
+              amount_minor: qbdAmountMinor,
+            },
+            {
+              entry_type: "customer_account_balance",
+              purpose: "Leave unapplied credit available for a future order",
+              amount_minor: qbdAmountMinor,
+            },
+          ]),
         })
         await appendOrderAudit(
           order.id,
@@ -1403,6 +1700,8 @@ export async function applyStaffOrderException(
         const requestKey = downstreamRequestKey(input, order, 0, "cancel")
         const qbdFields = qbdPendingFields(input, 0, {
           qbd_posting_request_key: requestKey,
+          qbd_sales_order_close_required: true,
+          qbd_sales_order_closed_flag: true,
         })
         await appendOrderAudit(
           order.id,

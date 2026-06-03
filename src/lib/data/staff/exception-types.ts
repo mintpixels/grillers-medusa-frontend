@@ -6,59 +6,71 @@ export const STAFF_EXCEPTION_ACTIONS = [
     label: "Add internal note",
     moneyMovement: false,
     requiresConsent: false,
+    visibleInOrderSupport: true,
   },
   {
     value: "refund_payment",
     label: "Refund card through Stripe",
     moneyMovement: true,
     requiresConsent: true,
+    visibleInOrderSupport: true,
   },
   {
     value: "capture_payment",
     label: "Capture authorized payment",
     moneyMovement: true,
     requiresConsent: true,
+    visibleInOrderSupport: true,
   },
   {
     value: "record_offline_payment",
     label: "Record offline payment",
     moneyMovement: true,
     requiresConsent: true,
+    visibleInOrderSupport: true,
   },
   {
     value: "shipping_override",
     label: "Shipping override",
     moneyMovement: false,
     requiresConsent: true,
+    visibleInOrderSupport: true,
   },
   {
     value: "credit_memo",
     label: "Issue account credit",
     moneyMovement: true,
     requiresConsent: true,
+    visibleInOrderSupport: true,
   },
   {
     value: "record_check_refund",
     label: "Record pending check refund",
     moneyMovement: true,
     requiresConsent: true,
+    visibleInOrderSupport: false,
   },
   {
     value: "retry_qbd_posting",
     label: "Retry QuickBooks posting",
     moneyMovement: false,
     requiresConsent: false,
+    visibleInOrderSupport: true,
   },
   {
     value: "cancel_order",
     label: "Cancel order",
     moneyMovement: false,
     requiresConsent: true,
+    visibleInOrderSupport: true,
   },
 ] as const
 
 export type StaffExceptionActionType =
   (typeof STAFF_EXCEPTION_ACTIONS)[number]["value"]
+
+export const VISIBLE_STAFF_EXCEPTION_ACTIONS =
+  STAFF_EXCEPTION_ACTIONS.filter((action) => action.visibleInOrderSupport)
 
 export const STAFF_EXCEPTION_REASON_CODES = [
   { value: "customer_request", label: "Customer request" },
@@ -212,6 +224,7 @@ export function actionRequiresQuickBooksPosting(
   action: StaffExceptionActionType
 ): boolean {
   return (
+    action === "record_note" ||
     action === "cancel_order" ||
     action === "record_offline_payment" ||
     action === "credit_memo" ||
