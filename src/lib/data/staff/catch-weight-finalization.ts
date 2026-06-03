@@ -193,6 +193,7 @@ export async function updateCatchWeightFinalizationLine(input: {
   replacement_reason?: string
   short_reason?: string
   note?: string
+  metadata?: AnyRecord
 }) {
   const staff = await requireStaffOperator()
   const result = await adminFetch<{ line: StaffCatchWeightLine }>(
@@ -211,12 +212,32 @@ export async function updateCatchWeightFinalizationLine(input: {
         replacement_reason: input.replacement_reason || null,
         short_reason: input.short_reason || null,
         note: input.note || null,
+        metadata: input.metadata || null,
         ...staffAuditPayload(staff),
       }),
     }
   )
   revalidateStaffOrders()
   return result.line
+}
+
+export async function returnCatchWeightOrderToPicking(input: {
+  orderId: string
+  reason?: string
+}) {
+  const staff = await requireStaffOperator()
+  const result = await adminFetch<StaffCatchWeightFinalizationDetail>(
+    `/admin/grillers/orders/${input.orderId}/finalization/return-to-picking`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        reason: input.reason || null,
+        ...staffAuditPayload(staff),
+      }),
+    }
+  )
+  revalidateStaffOrders()
+  return result
 }
 
 export async function addCatchWeightFinalizationLine(input: {

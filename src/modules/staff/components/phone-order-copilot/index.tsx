@@ -824,7 +824,7 @@ export default function PhoneOrderCopilot({
             eyebrow: canUsePackQueue ? "Pick and pack" : "Picking",
             title: canUsePackQueue ? "Pick, pack & finalize" : "Pick orders",
             body: canUsePackQueue
-              ? "Pick handoffs, fulfilled quantities, per-item weights, substitutions, shipping boxes, and final release."
+              ? "Pick handoffs, packed counts, per-item weights, substitutions, boxes, coolers, and final release."
               : "Pick order lines, record shortages or substitutions, and hand ready orders to packing.",
             icon: PackageCheck,
             onClick: () => setActiveWorkspace("finalization"),

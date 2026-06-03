@@ -52,7 +52,7 @@ export const STAFF_ROLE_OPTIONS: Array<{
     value: "packer",
     label: "Packer",
     description:
-      "Can enter fulfilled quantities, per-item weights, package details, and mark packed orders ready.",
+      "Can confirm packed counts, enter per-item weights, record package details, and mark packed orders ready.",
     confirmation: "PACKER",
   },
   {

@@ -10,6 +10,7 @@ import {
   getCatchWeightFinalizationDetail,
   listCatchWeightFinalizationQueue,
   markCatchWeightReadyForPacking,
+  returnCatchWeightOrderToPicking,
   startCatchWeightFinalization,
   updateCatchWeightFinalizationLine,
   updateCatchWeightFinalizationPackages,
@@ -84,6 +85,9 @@ const secondaryButtonClass =
 const primaryButtonClass =
   "min-h-[42px] rounded-md bg-Charcoal px-4 text-xs font-rexton font-bold uppercase text-white"
 
+const OUT_OF_STOCK_REASON = "out_of_stock"
+const OUT_OF_STOCK_LABEL = "Out of stock"
+
 const shipperOptions = [
   {
     value: "Shipper-Micro",
@@ -108,6 +112,18 @@ const shipperOptions = [
     label: "360 Extra large",
     detail: "24x21x17 OD",
     qbdListId: "8000085D-1415899521",
+  },
+  {
+    value: "Cooler-Igloo",
+    label: "Cooler / igloo",
+    detail: "Pickup or delivery cooler",
+    qbdListId: "",
+  },
+  {
+    value: "Other",
+    label: "Other",
+    detail: "Describe packaging",
+    qbdListId: "",
   },
 ]
 
@@ -209,6 +225,30 @@ function positiveDraftQuantity(value: string) {
   return Number.isFinite(amount) && amount > 0 ? amount : 0
 }
 
+function orderedQuantity(line: StaffCatchWeightLine) {
+  const amount = Number(line.ordered_quantity)
+  return Number.isFinite(amount) && amount > 0 ? amount : 0
+}
+
+function pickedQuantity(line: StaffCatchWeightLine) {
+  const amount = Number(line.metadata?.picked_quantity ?? line.actual_quantity)
+  return Number.isFinite(amount) && amount > 0 ? amount : 0
+}
+
+function actualQuantityValue(draft: ReturnType<typeof draftFromLine>) {
+  const amount = Number(draft.actual_quantity)
+  return Number.isFinite(amount) && amount >= 0 ? amount : 0
+}
+
+function lineHasShortage(
+  line: StaffCatchWeightLine,
+  draft: ReturnType<typeof draftFromLine>
+) {
+  const ordered = orderedQuantity(line)
+  const actual = actualQuantityValue(draft)
+  return ordered > 0 && actual >= 0 && actual < ordered
+}
+
 function positiveWholeQuantity(value: unknown) {
   const amount = Number(value)
   return Number.isFinite(amount) && amount > 0 ? Math.ceil(amount) : 0
@@ -219,7 +259,10 @@ function expectedUnitWeightCount(
   draft: ReturnType<typeof draftFromLine>
 ) {
   return (
-    positiveWholeQuantity(draft.actual_quantity) ||
+    Math.max(
+      positiveWholeQuantity(draft.actual_quantity),
+      positiveWholeQuantity(line.metadata?.picked_quantity)
+    ) ||
     positiveWholeQuantity(line.actual_quantity) ||
     positiveWholeQuantity(line.actual_piece_count)
   )
@@ -264,16 +307,56 @@ function withDerivedLineStatus(
   draft: ReturnType<typeof draftFromLine>,
   requiresActualWeight: boolean,
   packingPhase: boolean,
-  expectedWeightCount = 0
+  expectedWeightCount = 0,
+  line?: StaffCatchWeightLine
 ) {
+  if (draft.status === "substituted") return draft
+
+  if (draft.status === "removed") {
+    return {
+      ...draft,
+      short_reason: draft.short_reason || OUT_OF_STOCK_REASON,
+    }
+  }
+
+  const derivedStatus = deriveLineStatus(
+    draft,
+    requiresActualWeight,
+    packingPhase,
+    expectedWeightCount
+  )
+
+  if (line && lineHasShortage(line, draft)) {
+    const actual = actualQuantityValue(draft)
+    const picked = pickedQuantity(line)
+    if (packingPhase && picked > 0 && actual < picked) {
+      return {
+        ...draft,
+        status: requiresActualWeight ? "needs_weight" : "needs_pick",
+      }
+    }
+    return {
+      ...draft,
+      short_reason: draft.short_reason || OUT_OF_STOCK_REASON,
+      status:
+        actual > 0
+          ? derivedStatus === "needs_weight"
+            ? "needs_weight"
+            : "ready"
+          : packingPhase
+          ? derivedStatus
+          : "removed",
+    }
+  }
+
+  const nextDraft =
+    draft.short_reason === OUT_OF_STOCK_REASON
+      ? { ...draft, short_reason: "" }
+      : draft
+
   return {
-    ...draft,
-    status: deriveLineStatus(
-      draft,
-      requiresActualWeight,
-      packingPhase,
-      expectedWeightCount
-    ),
+    ...nextDraft,
+    status: derivedStatus,
   }
 }
 
@@ -400,6 +483,8 @@ function LineEditor({
   const requiresActualWeight = lineRequiresActualWeight(line, title)
   const fixedPriceLine = lineIsFixedPrice(line, title)
   const packingPhase = phase === "packing"
+  const pickedCount = pickedQuantity(line)
+  const quantityInputLabel = packingPhase ? "Packed" : "Picked"
   const effectiveUnitWeightTotal = weightTotal(draft.actual_unit_weights)
   const expectedWeights = expectedUnitWeightCount(line, draft)
   const enteredWeightCount = positiveWeightCount(draft.actual_unit_weights)
@@ -439,7 +524,8 @@ function LineEditor({
         nextDraft,
         requiresActualWeight,
         packingPhase,
-        expectedUnitWeightCount(line, nextDraft)
+        expectedUnitWeightCount(line, nextDraft),
+        line
       )
     })
   }
@@ -459,6 +545,8 @@ function LineEditor({
       const nextDraft = {
         ...current,
         actual_unit_weights: actualUnitWeights,
+        actual_quantity: numberText(positiveWeightCount(actualUnitWeights)),
+        actual_piece_count: numberText(positiveWeightCount(actualUnitWeights)),
         actual_weight_total: numberText(weightTotal(actualUnitWeights)),
       }
       return {
@@ -500,6 +588,8 @@ function LineEditor({
       const nextDraft = {
         ...current,
         actual_unit_weights: actualUnitWeights,
+        actual_quantity: numberText(positiveWeightCount(actualUnitWeights)),
+        actual_piece_count: numberText(positiveWeightCount(actualUnitWeights)),
         actual_weight_total: numberText(weightTotal(actualUnitWeights)),
       }
       return {
@@ -568,7 +658,8 @@ function LineEditor({
       draftToSave,
       requiresActualWeight,
       packingPhase,
-      expectedUnitWeightCount(line, draftToSave)
+      expectedUnitWeightCount(line, draftToSave),
+      line
     )
     const signature = draftSignature(normalizedDraft)
     const actualWeight = requiresActualWeight
@@ -646,6 +737,10 @@ function LineEditor({
         actual_unit_weights: requiresActualWeight
           ? normalizedDraft.actual_unit_weights
           : [],
+        short_reason:
+          normalizedDraft.short_reason ||
+          (lineHasShortage(line, normalizedDraft) ? OUT_OF_STOCK_REASON : ""),
+        metadata: packingPhase ? { packing_phase: true } : undefined,
       })
       lastSavedSignature.current = signature
       if (latestDraftSignature.current === signature) {
@@ -671,6 +766,7 @@ function LineEditor({
     setDraft((current) => ({
       ...current,
       status: "removed",
+      short_reason: current.short_reason || OUT_OF_STOCK_REASON,
     }))
   }
 
@@ -694,7 +790,8 @@ function LineEditor({
         },
         requiresActualWeight,
         packingPhase,
-        expectedUnitWeightCount(line, current)
+        expectedUnitWeightCount(line, current),
+        line
       )
     )
   }
@@ -731,8 +828,11 @@ function LineEditor({
             </p>
             <p className="mt-2 text-sm font-maison-neue text-Charcoal/60">
               Ordered {numberText(line.ordered_quantity) || "0"} |{" "}
-              {requiresActualWeight ? "Picked" : "Fulfilled"}{" "}
+              {quantityInputLabel}{" "}
               {effectiveActualQuantity || "0"}
+              {packingPhase && pickedCount > 0
+                ? ` | picked ${numberText(pickedCount)}`
+                : ""}
               {requiresActualWeight && packingPhase
                 ? ` | weighed ${enteredWeightCount}/${expectedWeights || "?"}`
                 : ""}
@@ -853,7 +953,7 @@ function LineEditor({
           </div>
 
           <label className="flex min-w-0 flex-col gap-1">
-            <span className={labelClass}>Fulfilled</span>
+            <span className={labelClass}>{quantityInputLabel}</span>
             <input
               className={fieldClass}
               inputMode="decimal"
@@ -911,16 +1011,23 @@ function LineEditor({
         )}
 
         {isRemoved && (
-          <label className="mt-4 flex flex-col gap-1">
-            <span className={labelClass}>Removal reason</span>
-            <input
-              className={fieldClass}
-              value={draft.short_reason}
-              disabled={!canEdit}
-              onChange={(event) => update("short_reason", event.target.value)}
-            />
-          </label>
+          <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-maison-neue text-amber-900">
+            Reason:{" "}
+            {draft.short_reason === OUT_OF_STOCK_REASON
+              ? OUT_OF_STOCK_LABEL
+              : draft.short_reason || OUT_OF_STOCK_LABEL}
+          </div>
         )}
+
+        {!isRemoved &&
+          !isSubstituted &&
+          lineHasShortage(line, draft) &&
+          (draft.short_reason === OUT_OF_STOCK_REASON ||
+            actualQuantityValue(draft) > 0) && (
+            <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-maison-neue text-amber-900">
+              Shortage reason: {OUT_OF_STOCK_LABEL}
+            </div>
+          )}
 
         {isSubstituted && (
           <div className="mt-4 rounded-md border border-blue-100 bg-blue-50/40 p-3">
@@ -1378,14 +1485,15 @@ function PackageCapture({
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <p className="text-xs font-maison-neue-mono uppercase text-Gold">
-            Shipping boxes
+            Boxes and coolers
           </p>
           <h4 className="mt-1 text-base font-maison-neue font-semibold text-Charcoal">
-            Package capture
+            Packing complete details
           </h4>
           <p className="mt-1 max-w-2xl text-sm font-maison-neue text-Charcoal/60">
-            Enter each shipper size, count, and packed weight before the card is
-            charged.
+            {detail.package_capture_required
+              ? "Enter each shipper size, count, dry ice, and packed weight before the card is charged."
+              : "Record the coolers, igloos, or other packaging used before marking the pack ready."}
           </p>
         </div>
         <div className="flex gap-2">
@@ -1394,7 +1502,7 @@ function PackageCapture({
             onClick={addRow}
             type="button"
           >
-            Add Box
+            Add Package
           </Button>
           <Button
             className={primaryButtonClass}
@@ -1402,7 +1510,7 @@ function PackageCapture({
             onClick={save}
             type="button"
           >
-            Save Boxes
+            Save Packages
           </Button>
         </div>
       </div>
@@ -1414,7 +1522,7 @@ function PackageCapture({
             key={`${pkg.id || "new"}-${index}`}
           >
             <label className="flex min-w-0 flex-col gap-1">
-              <span className={labelClass}>Shipper</span>
+              <span className={labelClass}>Package</span>
               <select
                 className={fieldClass}
                 value={pkg.package_type}
@@ -1422,13 +1530,12 @@ function PackageCapture({
                   selectShipper(index, event.target.value)
                 }
               >
-                <option value="">Choose shipper</option>
+                <option value="">Choose package</option>
                 {shipperOptions.map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.label} - {option.detail}
                   </option>
                 ))}
-                <option value="Other">Other</option>
               </select>
               {pkg.shipper_qbd_list_id && (
                 <span className="truncate text-[11px] font-maison-neue text-Charcoal/45">
@@ -1438,7 +1545,7 @@ function PackageCapture({
               {pkg.package_type === "Other" && (
                 <input
                   className={fieldClass}
-                  placeholder="Describe box or packaging"
+                  placeholder="Describe package or cooler"
                   value={pkg.note}
                   onChange={(event) => update(index, "note", event.target.value)}
                 />
@@ -1608,6 +1715,19 @@ export default function StaffCatchWeightFinalizationConsole({
         setPendingAction(null)
       }
     })
+  }
+
+  function sendBackToPicking() {
+    if (!selectedOrderId || pendingAction) return
+    const reason =
+      window.prompt(
+        "Why is this order going back to picking?",
+        "Packer found a mismatch during packing."
+      ) || ""
+    if (!reason.trim()) return
+    runAction("return-picking", "Order sent back to picking.", (orderId) =>
+      returnCatchWeightOrderToPicking({ orderId, reason: reason.trim() })
+    )
   }
 
   useEffect(() => {
@@ -1874,6 +1994,17 @@ export default function StaffCatchWeightFinalizationConsole({
                   )}
                   {inPackingPhase && !waitingForPacker && (
                     <Button
+                      className={`${secondaryButtonClass} w-full sm:w-auto`}
+                      disabled={!canPackOrders || Boolean(pendingAction)}
+                      isLoading={pendingAction === "return-picking"}
+                      onClick={sendBackToPicking}
+                      type="button"
+                    >
+                      Send Back To Picking
+                    </Button>
+                  )}
+                  {inPackingPhase && !waitingForPacker && (
+                    <Button
                       className={`${primaryButtonClass} w-full sm:w-auto`}
                       disabled={
                         !canPackOrders ||
@@ -1953,10 +2084,7 @@ export default function StaffCatchWeightFinalizationConsole({
                 />
               )}
 
-              {!waitingForPacker &&
-                inPackingPhase &&
-                (detail.package_capture_required ||
-                  (detail.packages && detail.packages.length > 0)) && (
+              {!waitingForPacker && inPackingPhase && (
                 <PackageCapture
                   orderId={detail.order.id}
                   detail={detail}
