@@ -10,6 +10,7 @@ import {
 } from "@lib/util/catch-weight-fulfillment"
 import {
   canChargeFinalOrders,
+  isSuperAdminCustomer,
   isStaffCustomer,
   staffDisplayName,
 } from "@lib/util/staff-access"
@@ -114,6 +115,24 @@ function staffAuditPayload(staff: StaffAuditCustomer) {
   }
 }
 
+function detailForStaff(
+  detail: StaffCatchWeightFinalizationDetail,
+  staff: StaffAuditCustomer
+) {
+  if (isSuperAdminCustomer(staff)) return detail
+
+  const metadata = { ...(detail.order?.metadata || {}) }
+  delete metadata.staff_audit_log
+
+  return {
+    ...detail,
+    order: {
+      ...detail.order,
+      metadata,
+    },
+  }
+}
+
 async function updateOrderMetadata(orderId: string, metadata: AnyRecord) {
   try {
     await adminFetch<{ order: AnyRecord }>(`/admin/orders/${orderId}`, {
@@ -160,10 +179,12 @@ export async function listCatchWeightFinalizationQueue(input?: {
 }
 
 export async function getCatchWeightFinalizationDetail(orderId: string) {
-  return adminFetch<StaffCatchWeightFinalizationDetail>(
+  const staff = await requireStaffOperator()
+  const detail = await adminFetch<StaffCatchWeightFinalizationDetail>(
     `/admin/grillers/orders/${orderId}/finalization`,
     { method: "GET" }
   )
+  return detailForStaff(detail, staff)
 }
 
 export async function startCatchWeightFinalization(
@@ -179,7 +200,7 @@ export async function startCatchWeightFinalization(
     }
   )
   revalidateStaffOrders()
-  return result
+  return detailForStaff(result, staff)
 }
 
 export async function markCatchWeightReadyForPacking(orderId: string) {
@@ -189,7 +210,7 @@ export async function markCatchWeightReadyForPacking(orderId: string) {
     { method: "POST", body: JSON.stringify(staffAuditPayload(staff)) }
   )
   revalidateStaffOrders()
-  return result
+  return detailForStaff(result, staff)
 }
 
 export async function unclaimCatchWeightPick(input: {
@@ -208,7 +229,7 @@ export async function unclaimCatchWeightPick(input: {
     }
   )
   revalidateStaffOrders()
-  return result
+  return detailForStaff(result, staff)
 }
 
 export async function updateCatchWeightFinalizationLine(input: {
@@ -269,7 +290,7 @@ export async function returnCatchWeightOrderToPicking(input: {
     }
   )
   revalidateStaffOrders()
-  return result
+  return detailForStaff(result, staff)
 }
 
 export async function addCatchWeightFinalizationLine(input: {
@@ -331,18 +352,19 @@ export async function updateCatchWeightFinalizationPackages(input: {
     }
   )
   revalidateStaffOrders()
-  return result
+  return detailForStaff(result, staff)
 }
 
 export async function previewCatchWeightFinalization(orderId: string) {
   const staff = await requireStaffOperator()
-  return adminFetch<StaffCatchWeightFinalizationDetail>(
+  const detail = await adminFetch<StaffCatchWeightFinalizationDetail>(
     `/admin/grillers/orders/${orderId}/finalization/preview`,
     {
       method: "POST",
       body: JSON.stringify({ persist: true, ...staffAuditPayload(staff) }),
     }
   )
+  return detailForStaff(detail, staff)
 }
 
 export async function approveCatchWeightFinalization(orderId: string) {
@@ -352,7 +374,7 @@ export async function approveCatchWeightFinalization(orderId: string) {
     { method: "POST", body: JSON.stringify(staffAuditPayload(staff)) }
   )
   revalidateStaffOrders()
-  return result
+  return detailForStaff(result, staff)
 }
 
 export async function chargeAndReleaseCatchWeightOrder(orderId: string) {
@@ -372,7 +394,7 @@ export async function chargeAndReleaseCatchWeightOrder(orderId: string) {
     }
   )
   revalidateStaffOrders()
-  return result
+  return detailForStaff(result, staff)
 }
 
 export async function fulfillReleasedCatchWeightOrder(orderId: string) {

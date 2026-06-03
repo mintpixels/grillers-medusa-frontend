@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react"
+import { ChevronDown } from "lucide-react"
 import Button from "@modules/common/components/button"
 import {
   addCatchWeightFinalizationLine,
@@ -538,22 +539,26 @@ function OrderAuditTrail({ order }: { order: Record<string, any> }) {
   const recent = auditLog.slice(-8).reverse()
 
   return (
-    <div className="border-b border-gray-200 bg-white p-4 sm:p-5">
-      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="text-xs font-maison-neue-mono uppercase text-Gold">
+    <details className="group border-b border-gray-200 bg-white px-4 py-3 sm:px-5">
+      <summary className="flex min-h-[40px] cursor-pointer list-none items-center justify-between gap-4 rounded-md text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold/30 [&::-webkit-details-marker]:hidden">
+        <span>
+          <span className="block text-xs font-maison-neue-mono uppercase text-Gold">
+            Super admin
+          </span>
+          <span className="mt-0.5 block text-sm font-maison-neue font-semibold text-Charcoal">
             Audit trail
-          </p>
-          <h4 className="mt-1 text-base font-maison-neue font-semibold text-Charcoal">
-            Staff timeline
-          </h4>
-        </div>
-        <p className="text-xs font-maison-neue text-Charcoal/45">
+          </span>
+        </span>
+        <span className="flex items-center gap-3 text-xs font-maison-neue text-Charcoal/45">
           {auditLog.length
             ? `${auditLog.length} recorded actions`
             : "No actions yet"}
-        </p>
-      </div>
+          <ChevronDown
+            aria-hidden="true"
+            className="h-4 w-4 text-Charcoal/45 transition group-open:rotate-180"
+          />
+        </span>
+      </summary>
 
       {recent.length ? (
         <div className="mt-3 grid gap-3 lg:grid-cols-2">
@@ -601,7 +606,7 @@ function OrderAuditTrail({ order }: { order: Record<string, any> }) {
           This order has no recorded staff actions yet.
         </p>
       )}
-    </div>
+    </details>
   )
 }
 
@@ -1853,10 +1858,12 @@ export default function StaffCatchWeightFinalizationConsole({
   canChargeFinalOrders = false,
   canPickOrders = true,
   canPackOrders = true,
+  canViewAuditTrail = false,
 }: {
   canChargeFinalOrders?: boolean
   canPickOrders?: boolean
   canPackOrders?: boolean
+  canViewAuditTrail?: boolean
 }) {
   const [queue, setQueue] = useState<StaffCatchWeightFinalizationSummary[]>([])
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null)
@@ -2553,7 +2560,7 @@ export default function StaffCatchWeightFinalizationConsole({
                   )}
               </div>
 
-              <OrderAuditTrail order={detail.order} />
+              {canViewAuditTrail && <OrderAuditTrail order={detail.order} />}
 
               {canEditLines && (
                 <AddFinalizationItem

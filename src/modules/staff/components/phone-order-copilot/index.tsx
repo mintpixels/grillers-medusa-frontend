@@ -1084,6 +1084,7 @@ export default function PhoneOrderCopilot({
           canChargeFinalOrders={canChargeFinalizedOrders}
           canPickOrders={canUsePickQueue}
           canPackOrders={canUsePackQueue}
+          canViewAuditTrail={canManageTeamAccess}
         />
       ) : isCustomerWorkspace ? (
         <>
@@ -1498,9 +1499,7 @@ export default function PhoneOrderCopilot({
 
                   {!draftCustomer.id && (
                     <>
-                      <div className="mt-4">
-                        {renderStaffSmsOptInControl()}
-                      </div>
+                      <div className="mt-4">{renderStaffSmsOptInControl()}</div>
                       <Button
                         className="mt-4 min-h-[44px] rounded-md border border-Charcoal px-4 text-sm font-rexton font-bold uppercase text-Charcoal"
                         isLoading={isPending}
