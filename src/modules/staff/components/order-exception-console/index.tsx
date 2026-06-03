@@ -1,6 +1,12 @@
 "use client"
 
-import { useEffect, useMemo, useState, useTransition } from "react"
+import {
+  type FormEvent,
+  useEffect,
+  useMemo,
+  useState,
+  useTransition,
+} from "react"
 import {
   CalendarDays,
   ClipboardList,
@@ -467,6 +473,8 @@ export default function StaffOrderExceptionConsole() {
   const [acknowledged, setAcknowledged] = useState(false)
   const [status, setStatus] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [isReviewing, setIsReviewing] = useState(false)
+  const [isApplying, setIsApplying] = useState(false)
   const [isPending, startTransition] = useTransition()
 
   const selectedAction = actionDraft.action
@@ -640,13 +648,14 @@ export default function StaffOrderExceptionConsole() {
     setActionDraft(nextDraft)
   }
 
-  function reviewAction() {
-    if (!selectedOrder) return
+  async function reviewAction() {
+    if (!selectedOrder || isReviewing || isApplying) return
     setError(null)
     setStatus(null)
     setAcknowledged(false)
     setTypedConfirmation("")
-    startTransition(async () => {
+    setIsReviewing(true)
+    try {
       const result = await previewStaffOrderException({
         ...actionDraft,
         orderId: selectedOrder.id,
@@ -657,14 +666,20 @@ export default function StaffOrderExceptionConsole() {
       } else {
         setStatus("Review complete. Confirm the action before applying it.")
       }
-    })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setIsReviewing(false)
+    }
   }
 
-  function applyAction() {
-    if (!selectedOrder) return
+  async function applyAction(event?: FormEvent<HTMLFormElement>) {
+    event?.preventDefault()
+    if (!selectedOrder || !canSubmit || isApplying) return
     setError(null)
-    setStatus(null)
-    startTransition(async () => {
+    setStatus("Applying audited staff action.")
+    setIsApplying(true)
+    try {
       const result = await applyStaffOrderException({
         ...actionDraft,
         orderId: selectedOrder.id,
@@ -679,9 +694,13 @@ export default function StaffOrderExceptionConsole() {
       setAcknowledged(false)
       setPreview(null)
       setTypedConfirmation("")
-      setStatus("Staff action recorded and audited.")
       runOrderSearch()
-    })
+      setStatus("Staff action recorded and audited.")
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setIsApplying(false)
+    }
   }
 
   const actionGroups = [
@@ -1072,7 +1091,7 @@ export default function StaffOrderExceptionConsole() {
                     })}
                   </div>
 
-                  <div className="space-y-4">
+                  <form className="space-y-4" onSubmit={applyAction}>
                     <div className="rounded-md border border-gray-100 p-4">
                       <div className="flex items-start gap-3">
                         <SelectedActionIcon className="mt-1 h-5 w-5 text-Charcoal/55" />
@@ -1471,8 +1490,8 @@ export default function StaffOrderExceptionConsole() {
                     <div className="grid gap-2 small:grid-cols-2">
                       <Button
                         className="min-h-[48px] rounded-md border border-Charcoal bg-white px-4 text-sm font-rexton font-bold uppercase text-Charcoal"
-                        disabled={!selectedOrder}
-                        isLoading={isPending}
+                        disabled={!selectedOrder || isApplying}
+                        isLoading={isReviewing}
                         onClick={reviewAction}
                         type="button"
                       >
@@ -1481,15 +1500,14 @@ export default function StaffOrderExceptionConsole() {
 
                       <Button
                         className="min-h-[48px] rounded-md bg-Gold px-4 text-sm font-rexton font-bold uppercase text-Charcoal"
-                        disabled={!canSubmit}
-                        isLoading={isPending}
-                        onClick={applyAction}
-                        type="button"
+                        disabled={!canSubmit || isReviewing}
+                        isLoading={isApplying}
+                        type="submit"
                       >
                         Apply
                       </Button>
                     </div>
-                  </div>
+                  </form>
                 </div>
               </div>
 
