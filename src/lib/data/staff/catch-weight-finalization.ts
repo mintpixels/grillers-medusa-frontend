@@ -180,6 +180,25 @@ export async function markCatchWeightReadyForPacking(orderId: string) {
   return result
 }
 
+export async function unclaimCatchWeightPick(input: {
+  orderId: string
+  reason?: string
+}) {
+  const staff = await requireStaffOperator()
+  const result = await adminFetch<StaffCatchWeightFinalizationDetail>(
+    `/admin/grillers/orders/${input.orderId}/finalization/unclaim-pick`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        reason: input.reason || null,
+        ...staffAuditPayload(staff),
+      }),
+    }
+  )
+  revalidateStaffOrders()
+  return result
+}
+
 export async function updateCatchWeightFinalizationLine(input: {
   orderId: string
   lineItemId: string

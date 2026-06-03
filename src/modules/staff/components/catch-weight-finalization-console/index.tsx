@@ -12,6 +12,7 @@ import {
   markCatchWeightReadyForPacking,
   returnCatchWeightOrderToPicking,
   startCatchWeightFinalization,
+  unclaimCatchWeightPick,
   updateCatchWeightFinalizationLine,
   updateCatchWeightFinalizationPackages,
   type StaffCatchWeightFinalizationDetail,
@@ -84,6 +85,9 @@ const secondaryButtonClass =
 
 const primaryButtonClass =
   "min-h-[42px] rounded-md bg-Charcoal px-4 text-xs font-rexton font-bold uppercase text-white"
+
+const disabledButtonClass =
+  "min-h-[42px] cursor-not-allowed rounded-md border border-gray-200 bg-gray-50 px-4 text-xs font-rexton font-bold uppercase text-Charcoal/35 shadow-none"
 
 const OUT_OF_STOCK_REASON = "out_of_stock"
 const OUT_OF_STOCK_LABEL = "Out of stock"
@@ -601,8 +605,19 @@ function LineEditor({
   const requiresActualWeight = lineRequiresActualWeight(line, title)
   const fixedPriceLine = lineIsFixedPrice(line, title)
   const packingPhase = phase === "packing"
-  const removeActionLabel = packingPhase ? "Remove" : "Out of Stock"
   const pickedCount = pickedQuantity(line)
+  const orderedCount = orderedQuantity(line)
+  const actualCount = actualQuantityValue(draft)
+  const lineHasFullQuantity = orderedCount > 0 && actualCount >= orderedCount
+  const lineHasPartialShortage =
+    orderedCount > 0 && actualCount > 0 && actualCount < orderedCount
+  const stockExceptionDisabled =
+    !canEdit || (!packingPhase && (orderedCount <= 0 || lineHasFullQuantity))
+  const removeActionLabel = packingPhase
+    ? "Remove"
+    : lineHasPartialShortage
+    ? "Some Out Of Stock"
+    : "Out Of Stock"
   const quantityInputLabel = packingPhase ? "Packed" : "Picked"
   const effectiveUnitWeightTotal = weightTotal(draft.actual_unit_weights)
   const expectedWeights = expectedUnitWeightCount(line, draft)
@@ -889,6 +904,22 @@ function LineEditor({
     }))
   }
 
+  function markPartialOutOfStock() {
+    setDraft((current) =>
+      withDerivedLineStatus(
+        {
+          ...current,
+          status: "ready",
+          short_reason: current.short_reason || OUT_OF_STOCK_REASON,
+        },
+        requiresActualWeight,
+        packingPhase,
+        expectedUnitWeightCount(line, current),
+        line
+      )
+    )
+  }
+
   function markSubstituted() {
     setDraft((current) => ({
       ...current,
@@ -1101,9 +1132,22 @@ function LineEditor({
               ) : (
                 <>
                   <button
-                    className={`${secondaryButtonClass} w-full min-w-0 px-3 text-center`}
-                    disabled={!canEdit}
-                    onClick={markRemoved}
+                    className={`w-full min-w-0 px-3 text-center ${
+                      stockExceptionDisabled
+                        ? disabledButtonClass
+                        : secondaryButtonClass
+                    }`}
+                    disabled={stockExceptionDisabled}
+                    onClick={
+                      !packingPhase && lineHasPartialShortage
+                        ? markPartialOutOfStock
+                        : markRemoved
+                    }
+                    title={
+                      !packingPhase && lineHasFullQuantity
+                        ? "Picked already matches ordered quantity."
+                        : undefined
+                    }
                     type="button"
                   >
                     {removeActionLabel}
@@ -1878,6 +1922,23 @@ export default function StaffCatchWeightFinalizationConsole({
     )
   }
 
+  function unclaimPick() {
+    if (!selectedOrderId || pendingAction) return
+    if (
+      !window.confirm(
+        "Release this pick so another picker can claim it? Saved line work stays on the order."
+      )
+    ) {
+      return
+    }
+    runAction("unclaim-pick", "Pick released.", (orderId) =>
+      unclaimCatchWeightPick({
+        orderId,
+        reason: "Picker released the claimed pick.",
+      })
+    )
+  }
+
   useEffect(() => {
     loadQueue()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1923,6 +1984,8 @@ export default function StaffCatchWeightFinalizationConsole({
     : pickerReadiness.blockers.length
     ? "Resolve the listed pick issues before handing this order to packing."
     : null
+  const readyForPackingBlocked = Boolean(readyForPackingDisabledReason)
+  const readyForPackingBlockerId = "ready-for-packing-blockers"
 
   return (
     <section className="overflow-hidden rounded-lg border border-gray-200 bg-white">
@@ -2119,11 +2182,31 @@ export default function StaffCatchWeightFinalizationConsole({
                   {pickClaimed && (
                     <Button
                       className={`${secondaryButtonClass} w-full sm:w-auto`}
+                      disabled={Boolean(pendingAction)}
+                      isLoading={pendingAction === "unclaim-pick"}
+                      onClick={unclaimPick}
+                      type="button"
+                    >
+                      Unclaim Pick
+                    </Button>
+                  )}
+                  {pickClaimed && (
+                    <Button
+                      className={`w-full sm:w-auto ${
+                        readyForPackingBlocked
+                          ? disabledButtonClass
+                          : secondaryButtonClass
+                      }`}
                       disabled={
-                        Boolean(pendingAction) ||
-                        Boolean(readyForPackingDisabledReason)
+                        Boolean(pendingAction) || readyForPackingBlocked
                       }
                       isLoading={pendingAction === "ready-pack"}
+                      aria-describedby={
+                        readyForPackingBlocked
+                          ? readyForPackingBlockerId
+                          : undefined
+                      }
+                      aria-disabled={readyForPackingBlocked || undefined}
                       onClick={() =>
                         runAction(
                           "ready-pack",
@@ -2131,6 +2214,7 @@ export default function StaffCatchWeightFinalizationConsole({
                           markCatchWeightReadyForPacking
                         )
                       }
+                      title={readyForPackingDisabledReason || undefined}
                       type="button"
                     >
                       Ready For Packing
@@ -2242,11 +2326,18 @@ export default function StaffCatchWeightFinalizationConsole({
                 {pickClaimed &&
                   (pickerReadiness.blockers.length > 0 ||
                     pickerReadiness.warnings.length > 0) && (
-                    <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                    <div
+                      aria-live="polite"
+                      className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900"
+                      id={readyForPackingBlockerId}
+                    >
                       {pickerReadiness.blockers.length > 0 && (
                         <>
                           <p className="font-maison-neue font-semibold">
-                            Finish these before handing to packing:
+                            Ready For Packing is blocked.
+                          </p>
+                          <p className="mt-1 font-maison-neue text-amber-900/75">
+                            Clear these items before the handoff button unlocks.
                           </p>
                           <ul className="mt-2 list-disc space-y-1 pl-5">
                             {pickerReadiness.blockers.map((issue) => (
