@@ -148,6 +148,34 @@ function numberText(value?: number | string | null) {
   return String(amount)
 }
 
+const fulfillmentTypeLabels: Record<string, string> = {
+  plant_pickup: "Plant pickup",
+  atlanta_delivery: "Atlanta delivery",
+  ups_shipping: "UPS shipping",
+  southeast_pickup: "Southeast pickup",
+}
+
+function fulfillmentTypeLabel(value?: string | null) {
+  if (!value) return ""
+  return fulfillmentTypeLabels[value] || value.replace(/_/g, " ")
+}
+
+function shortDateLabel(value?: string | null) {
+  if (!value) return ""
+  const iso = value.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  const us = value.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+  const date = iso
+    ? new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]))
+    : us
+    ? new Date(Number(us[3]), Number(us[1]) - 1, Number(us[2]))
+    : new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  })
+}
+
 function statusBadge(status?: string) {
   const safe = status || "pending_pack"
   return (
@@ -258,7 +286,9 @@ function finalizationPickerReadiness(
 
     if (picked <= 0) {
       blockers.push(
-        `${title}: picked is 0 of ${ordered || 0}. Enter a picked count, or use Out of Stock/Substitute if it is out of stock.`
+        `${title}: picked is 0 of ${
+          ordered || 0
+        }. Enter a picked count, or use Out of Stock/Substitute if it is out of stock.`
       )
       continue
     }
@@ -519,7 +549,9 @@ function OrderAuditTrail({ order }: { order: Record<string, any> }) {
           </h4>
         </div>
         <p className="text-xs font-maison-neue text-Charcoal/45">
-          {auditLog.length ? `${auditLog.length} recorded actions` : "No actions yet"}
+          {auditLog.length
+            ? `${auditLog.length} recorded actions`
+            : "No actions yet"}
         </p>
       </div>
 
@@ -553,7 +585,9 @@ function OrderAuditTrail({ order }: { order: Record<string, any> }) {
                   {[
                     entry.sku ? `SKU ${entry.sku}` : "",
                     entry.line_item_id ? `Line ${entry.line_item_id}` : "",
-                    entry.charge_attempt_id ? `Charge ${entry.charge_attempt_id}` : "",
+                    entry.charge_attempt_id
+                      ? `Charge ${entry.charge_attempt_id}`
+                      : "",
                   ]
                     .filter(Boolean)
                     .join(" | ")}
@@ -800,7 +834,9 @@ function LineEditor({
       ? weightTotal(normalizedDraft.actual_unit_weights)
       : Number(normalizedDraft.actual_weight_total)
     const expectedWeightRows = expectedUnitWeightCount(line, normalizedDraft)
-    const enteredWeights = positiveWeightCount(normalizedDraft.actual_unit_weights)
+    const enteredWeights = positiveWeightCount(
+      normalizedDraft.actual_unit_weights
+    )
 
     if (
       options.validate &&
@@ -809,7 +845,9 @@ function LineEditor({
       packingPhase &&
       (!Number.isFinite(actualWeight) || actualWeight <= 0)
     ) {
-      setError("Enter each packed item's weight before marking this line ready.")
+      setError(
+        "Enter each packed item's weight before marking this line ready."
+      )
       return
     }
     if (
@@ -978,8 +1016,7 @@ function LineEditor({
             </p>
             <p className="mt-2 text-sm font-maison-neue text-Charcoal/60">
               Ordered {numberText(line.ordered_quantity) || "0"} |{" "}
-              {quantityInputLabel}{" "}
-              {effectiveActualQuantity || "0"}
+              {quantityInputLabel} {effectiveActualQuantity || "0"}
               {packingPhase && pickedCount > 0
                 ? ` | picked ${numberText(pickedCount)}`
                 : ""}
@@ -1563,7 +1600,9 @@ function PackageCapture({
 }) {
   const [packages, setPackages] = useState(() => packageDrafts(detail.packages))
   const [error, setError] = useState<string | null>(null)
-  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle")
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">(
+    "idle"
+  )
   const [isPending, startTransition] = useTransition()
   const lastSavedSignature = useRef(packageSignature(packages))
   const latestPackageSignature = useRef(packageSignature(packages))
@@ -1578,7 +1617,11 @@ function PackageCapture({
     setSaveState("idle")
   }, [detail.packages])
 
-  function update(index: number, key: keyof (typeof packages)[number], value: string) {
+  function update(
+    index: number,
+    key: keyof (typeof packages)[number],
+    value: string
+  ) {
     setPackages((current) =>
       current.map((pkg, rowIndex) =>
         rowIndex === index ? { ...pkg, [key]: value } : pkg
@@ -1637,7 +1680,9 @@ function PackageCapture({
     })
     if (overweightRow >= 0) {
       setError(
-        `Package ${overweightRow + 1} is over 50 lb including dry ice and packaging.`
+        `Package ${
+          overweightRow + 1
+        } is over 50 lb including dry ice and packaging.`
       )
       return
     }
@@ -1722,9 +1767,7 @@ function PackageCapture({
               <select
                 className={fieldClass}
                 value={pkg.package_type}
-                onChange={(event) =>
-                  selectShipper(index, event.target.value)
-                }
+                onChange={(event) => selectShipper(index, event.target.value)}
               >
                 <option value="">Choose package</option>
                 {shipperOptions.map((option) => (
@@ -1743,7 +1786,9 @@ function PackageCapture({
                   className={fieldClass}
                   placeholder="Describe package or cooler"
                   value={pkg.note}
-                  onChange={(event) => update(index, "note", event.target.value)}
+                  onChange={(event) =>
+                    update(index, "note", event.target.value)
+                  }
                 />
               )}
             </label>
@@ -1822,6 +1867,10 @@ export default function StaffCatchWeightFinalizationConsole({
       ? "pending_pick,picking,pending_pack"
       : "ready_for_packing,packing,packed_pending_review"
   )
+  const [queueQuery, setQueueQuery] = useState("")
+  const [fulfillmentTypeFilter, setFulfillmentTypeFilter] = useState("")
+  const [dateFromFilter, setDateFromFilter] = useState("")
+  const [dateToFilter, setDateToFilter] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [status, setStatus] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -1851,6 +1900,10 @@ export default function StaffCatchWeightFinalizationConsole({
         const rows = await listCatchWeightFinalizationQueue({
           status: filter,
           limit: 100,
+          query: queueQuery,
+          fulfillmentType: fulfillmentTypeFilter,
+          dateFrom: dateFromFilter,
+          dateTo: dateToFilter,
         })
         setQueue(rows)
         const requestedId = nextSelectedOrderId ?? selectedOrderId
@@ -1868,6 +1921,35 @@ export default function StaffCatchWeightFinalizationConsole({
         setError(err.message || "Could not load finalization queue.")
       }
     })
+  }
+
+  function clearQueueFilters() {
+    setQueueQuery("")
+    setFulfillmentTypeFilter("")
+    setDateFromFilter("")
+    setDateToFilter("")
+    startTransition(async () => {
+      try {
+        const rows = await listCatchWeightFinalizationQueue({
+          status: filter,
+          limit: 100,
+        })
+        setQueue(rows)
+        setSelectedOrderId(null)
+        setDetail(null)
+      } catch (err: any) {
+        setError(err.message || "Could not load finalization queue.")
+      }
+    })
+  }
+
+  function submitQueueFiltersOnEnter(event: {
+    key: string
+    preventDefault: () => void
+  }) {
+    if (event.key !== "Enter") return
+    event.preventDefault()
+    loadQueue()
   }
 
   function loadDetail(orderId: string) {
@@ -1986,6 +2068,9 @@ export default function StaffCatchWeightFinalizationConsole({
     : null
   const readyForPackingBlocked = Boolean(readyForPackingDisabledReason)
   const readyForPackingBlockerId = "ready-for-packing-blockers"
+  const activeQueueFilters = Boolean(
+    queueQuery || fulfillmentTypeFilter || dateFromFilter || dateToFilter
+  )
 
   return (
     <section className="overflow-hidden rounded-lg border border-gray-200 bg-white">
@@ -2001,10 +2086,7 @@ export default function StaffCatchWeightFinalizationConsole({
           </div>
           <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 sm:flex-wrap sm:overflow-visible">
             {[
-              [
-                "Picking",
-                "pending_pick,picking,pending_pack",
-              ],
+              ["Picking", "pending_pick,picking,pending_pack"],
               ["Ready for packing", "ready_for_packing"],
               ["Packing", "packing,packed_pending_review"],
               ["Ready to charge", "packed_pending_charge"],
@@ -2019,19 +2101,19 @@ export default function StaffCatchWeightFinalizationConsole({
                 return canPackOrders || canChargeFinalOrders
               })
               .map(([label, value]) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setFilter(value)}
-                className={`min-h-[36px] shrink-0 rounded-md border px-3 text-xs font-maison-neue-mono uppercase ${
-                  filter === value
-                    ? "border-Charcoal bg-Charcoal text-white"
-                    : "border-gray-200 bg-white text-Charcoal hover:border-Gold/60"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setFilter(value)}
+                  className={`min-h-[36px] shrink-0 rounded-md border px-3 text-xs font-maison-neue-mono uppercase ${
+                    filter === value
+                      ? "border-Charcoal bg-Charcoal text-white"
+                      : "border-gray-200 bg-white text-Charcoal hover:border-Gold/60"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
           </div>
         </div>
       </div>
@@ -2050,6 +2132,76 @@ export default function StaffCatchWeightFinalizationConsole({
 
       <div className="grid min-h-[620px] lg:grid-cols-[minmax(260px,340px)_minmax(0,1fr)] xl:grid-cols-[360px_minmax(0,1fr)]">
         <div className="border-b border-gray-200 lg:border-b-0 lg:border-r">
+          <div className="border-b border-gray-200 bg-SilverPlate/20 p-3">
+            <div className="grid gap-2">
+              <label className="flex min-w-0 flex-col gap-1">
+                <span className={labelClass}>Search queue</span>
+                <input
+                  className={fieldClass}
+                  placeholder="Order, email, name, ZIP"
+                  value={queueQuery}
+                  onChange={(event) => setQueueQuery(event.target.value)}
+                  onKeyDown={submitQueueFiltersOnEnter}
+                />
+              </label>
+              <label className="flex min-w-0 flex-col gap-1">
+                <span className={labelClass}>Fulfillment</span>
+                <select
+                  className={fieldClass}
+                  value={fulfillmentTypeFilter}
+                  onChange={(event) =>
+                    setFulfillmentTypeFilter(event.target.value)
+                  }
+                >
+                  <option value="">All methods</option>
+                  <option value="plant_pickup">Plant pickup</option>
+                  <option value="atlanta_delivery">Atlanta delivery</option>
+                  <option value="ups_shipping">UPS shipping</option>
+                  <option value="southeast_pickup">Southeast pickup</option>
+                </select>
+              </label>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <label className="flex min-w-0 flex-col gap-1">
+                  <span className={labelClass}>Ship / pickup from</span>
+                  <input
+                    className={fieldClass}
+                    type="date"
+                    value={dateFromFilter}
+                    onChange={(event) => setDateFromFilter(event.target.value)}
+                    onKeyDown={submitQueueFiltersOnEnter}
+                  />
+                </label>
+                <label className="flex min-w-0 flex-col gap-1">
+                  <span className={labelClass}>Through</span>
+                  <input
+                    className={fieldClass}
+                    type="date"
+                    value={dateToFilter}
+                    onChange={(event) => setDateToFilter(event.target.value)}
+                    onKeyDown={submitQueueFiltersOnEnter}
+                  />
+                </label>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  className={`${secondaryButtonClass} w-full`}
+                  disabled={!activeQueueFilters || isPending}
+                  onClick={clearQueueFilters}
+                  type="button"
+                >
+                  Clear
+                </Button>
+                <Button
+                  className={`${primaryButtonClass} w-full`}
+                  isLoading={isPending}
+                  onClick={() => loadQueue()}
+                  type="button"
+                >
+                  Apply
+                </Button>
+              </div>
+            </div>
+          </div>
           <div className="grid grid-cols-[72px_minmax(0,1fr)_84px] border-b border-gray-200 px-4 py-3 text-[11px] font-maison-neue-mono uppercase text-Charcoal/45 sm:grid-cols-[84px_minmax(0,1fr)_96px]">
             <span>Order</span>
             <span>Customer</span>
@@ -2076,8 +2228,18 @@ export default function StaffCatchWeightFinalizationConsole({
                   </span>
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-maison-neue text-Charcoal">
-                      {item.customer_email || "Customer"}
+                      {item.order_email || item.customer_email || "Customer"}
                     </span>
+                    {(item.fulfillment_type || item.fulfillment_date) && (
+                      <span className="mt-1 block truncate text-xs font-maison-neue text-Charcoal/50">
+                        {[
+                          fulfillmentTypeLabel(item.fulfillment_type),
+                          shortDateLabel(item.fulfillment_date),
+                        ]
+                          .filter(Boolean)
+                          .join(" | ")}
+                      </span>
+                    )}
                     <span className="mt-1 block">
                       {statusBadge(item.status)}
                     </span>
@@ -2104,7 +2266,9 @@ export default function StaffCatchWeightFinalizationConsole({
             })}
             {!queue.length && (
               <p className="px-4 py-8 text-sm font-maison-neue text-Charcoal/55">
-                No submitted orders are waiting for catch-weight finalization.
+                {activeQueueFilters
+                  ? "No orders match these filters."
+                  : "No submitted orders are waiting for catch-weight finalization."}
               </p>
             )}
           </div>
@@ -2167,11 +2331,8 @@ export default function StaffCatchWeightFinalizationConsole({
                       disabled={!canPickOrders || Boolean(pendingAction)}
                       isLoading={pendingAction === "start-pick"}
                       onClick={() =>
-                        runAction(
-                          "start-pick",
-                          "Picking claimed.",
-                          (orderId) =>
-                            startCatchWeightFinalization(orderId, "pick")
+                        runAction("start-pick", "Picking claimed.", (orderId) =>
+                          startCatchWeightFinalization(orderId, "pick")
                         )
                       }
                       type="button"
@@ -2226,11 +2387,8 @@ export default function StaffCatchWeightFinalizationConsole({
                       disabled={!canPackOrders || Boolean(pendingAction)}
                       isLoading={pendingAction === "start-pack"}
                       onClick={() =>
-                        runAction(
-                          "start-pack",
-                          "Packing claimed.",
-                          (orderId) =>
-                            startCatchWeightFinalization(orderId, "pack")
+                        runAction("start-pack", "Packing claimed.", (orderId) =>
+                          startCatchWeightFinalization(orderId, "pack")
                         )
                       }
                       type="button"
@@ -2274,8 +2432,7 @@ export default function StaffCatchWeightFinalizationConsole({
                     <Button
                       className="min-h-[42px] w-full rounded-md bg-Gold px-4 text-xs font-rexton font-bold uppercase text-Charcoal sm:w-auto"
                       disabled={
-                        Boolean(pendingAction) ||
-                        Boolean(chargeDisabledReason)
+                        Boolean(pendingAction) || Boolean(chargeDisabledReason)
                       }
                       isLoading={pendingAction === "charge"}
                       onClick={() =>
@@ -2350,9 +2507,7 @@ export default function StaffCatchWeightFinalizationConsole({
                         <>
                           <p
                             className={`font-maison-neue font-semibold ${
-                              pickerReadiness.blockers.length > 0
-                                ? "mt-3"
-                                : ""
+                              pickerReadiness.blockers.length > 0 ? "mt-3" : ""
                             }`}
                           >
                             Review intentional exceptions:
@@ -2366,24 +2521,26 @@ export default function StaffCatchWeightFinalizationConsole({
                       )}
                     </div>
                   )}
-                {inPackingPhase && !waitingForPacker && chargeDisabledReason && (
-                  <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-                    {blockingIssues.length ? (
-                      <>
-                        <p className="font-maison-neue font-semibold">
-                          Resolve these before charging:
-                        </p>
-                        <ul className="mt-2 list-disc space-y-1 pl-5">
-                          {blockingIssues.map((issue) => (
-                            <li key={issue}>{issue}</li>
-                          ))}
-                        </ul>
-                      </>
-                    ) : (
-                      chargeDisabledReason
-                    )}
-                  </div>
-                )}
+                {inPackingPhase &&
+                  !waitingForPacker &&
+                  chargeDisabledReason && (
+                    <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                      {blockingIssues.length ? (
+                        <>
+                          <p className="font-maison-neue font-semibold">
+                            Resolve these before charging:
+                          </p>
+                          <ul className="mt-2 list-disc space-y-1 pl-5">
+                            {blockingIssues.map((issue) => (
+                              <li key={issue}>{issue}</li>
+                            ))}
+                          </ul>
+                        </>
+                      ) : (
+                        chargeDisabledReason
+                      )}
+                    </div>
+                  )}
               </div>
 
               <OrderAuditTrail order={detail.order} />

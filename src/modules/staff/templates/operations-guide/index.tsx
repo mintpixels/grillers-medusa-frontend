@@ -387,6 +387,7 @@ const sections: GuideSection[] = [
     ],
     howTo: [
       "Open Staff Console and choose Pack & Finalize.",
+      "Use the queue filters to find orders by order number, customer email/name, ZIP, fulfillment method, or Ship / pickup date range. Date filters use the scheduled pickup/delivery date or the UPS requested delivery date.",
       "Use the Staff timeline on the order to review recent staff actions before charging, releasing, or fulfilling. It records who changed the order, what changed, and when it happened.",
       "Pickers use the Picking tab. Claim the pick and enter the actual Picked quantity for each line. If the wrong picker claimed the order or needs to step away, use Unclaim Pick; saved line work stays on the order and the release is recorded in the timeline.",
       "If Picked is 0, use Out Of Stock or leave Picked at 0 and save. If Picked is lower than Ordered but not 0, use Some Out Of Stock or save the partial picked count. The system records the shortage reason as Out of stock. Use Substitute only when replacing the item with another product. New lines start with Picked at 0.",

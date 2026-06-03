@@ -24,9 +24,13 @@ export type StaffCatchWeightFinalizationSummary = {
   order_id: string
   display_id?: string | null
   customer_email?: string | null
+  order_email?: string | null
   customer_id?: string | null
   currency_code: string
   status: string
+  fulfillment_type?: string | null
+  fulfillment_date?: string | null
+  fulfillment_date_key?: string | null
   estimated_order_total?: number | string | null
   final_order_total?: number | string | null
   delta_total?: number | string | null
@@ -132,6 +136,10 @@ async function updateOrderMetadata(orderId: string, metadata: AnyRecord) {
 export async function listCatchWeightFinalizationQueue(input?: {
   status?: string
   limit?: number
+  query?: string
+  fulfillmentType?: string
+  dateFrom?: string
+  dateTo?: string
 }) {
   const data = await adminFetch<{
     finalizations: StaffCatchWeightFinalizationSummary[]
@@ -141,6 +149,10 @@ export async function listCatchWeightFinalizationQueue(input?: {
     query: {
       status: input?.status,
       limit: input?.limit || 75,
+      q: input?.query || undefined,
+      fulfillment_type: input?.fulfillmentType || undefined,
+      date_from: input?.dateFrom || undefined,
+      date_to: input?.dateTo || undefined,
     },
   })
 
