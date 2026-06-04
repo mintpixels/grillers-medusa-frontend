@@ -26,6 +26,9 @@ const WAYS_TO_SHOP_MENU_MISSION_BY_ID = new Map(
   WAYS_TO_SHOP_MISSIONS.map((mission) => [mission.id, mission])
 )
 
+const GIFT_CERTIFICATE_PRODUCT_PATH =
+  "/products/gift-certificate-voucher-each-unit-is-the-equivalent-of-one-dollar-please-specify-how-many-units-you-would-like-valid-for-180-calendar-days-from-date-of-issue"
+
 function waysToShopMissionHref(
   id: (typeof WAYS_TO_SHOP_MISSIONS)[number]["id"],
   hrefType: "shopHref" | "cookHref" | "learnHref"
@@ -43,6 +46,7 @@ const WAYS_TO_SHOP_NAV_SECTIONS: NavSection[] = [
         Url: waysToShopMissionHref("first-order", "shopHref"),
       },
       { Text: "Bestsellers", Url: "/store" },
+      { Text: "Gift certificates", Url: GIFT_CERTIFICATE_PRODUCT_PATH },
       {
         Text: "Build a freezer box",
         Url: waysToShopMissionHref("freezer-stock-up", "shopHref"),
@@ -281,6 +285,28 @@ function addPrimaryShopSections(sections: NavSection[]) {
   return next
 }
 
+function addWaysToShopSections(sections: NavSection[]) {
+  const next = sections.map(normalizeSection)
+
+  for (const required of WAYS_TO_SHOP_NAV_SECTIONS) {
+    const index = next.findIndex(
+      (section) => slugify(section.title) === slugify(required.title)
+    )
+
+    if (index >= 0) {
+      next[index] = {
+        ...next[index],
+        Url: next[index].Url || required.Url,
+        items: mergeItems(next[index].items || [], required.items),
+      }
+    } else {
+      next.push(required)
+    }
+  }
+
+  return next
+}
+
 function featuredImageFallback(link: HeaderNavLink) {
   return (
     FALLBACK_FEATURED_IMAGES[link.slug] ||
@@ -325,10 +351,11 @@ export function augmentHeaderNav(navLinks: HeaderNavLink[]) {
   const primaryIndex = Math.max(0, detectedPrimaryIndex)
 
   const augmented = source.map((link, index) => {
-    const sections =
-      index === primaryIndex && !isWaysToShopLink(link)
-        ? addPrimaryShopSections(link.sections || [])
-        : (link.sections || []).map(normalizeSection)
+    const sections = isWaysToShopLink(link)
+      ? addWaysToShopSections(link.sections || [])
+      : index === primaryIndex
+      ? addPrimaryShopSections(link.sections || [])
+      : (link.sections || []).map(normalizeSection)
 
     return {
       ...link,

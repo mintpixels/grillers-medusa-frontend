@@ -26,6 +26,7 @@ import {
   setCartId,
   setStaffImpersonationCartId,
 } from "./cookies"
+import { getPaymentContextHeaders } from "./payment"
 import { findShippingOptionByType } from "./fulfillment"
 import { getRegion } from "./regions"
 import { medusaProductHasInternalRawMaterialSku } from "@lib/util/internal-products"
@@ -208,7 +209,9 @@ export async function getOrSetCart(countryCode: string) {
     cart = null
   }
 
-  const headers = await cartHeadersForStaffContext(active)
+  const headers = active
+    ? await getPaymentContextHeaders()
+    : await cartHeadersForStaffContext(active)
 
   if (!cart) {
     const cartResp = await sdk.store.cart.create(
@@ -1182,6 +1185,7 @@ export async function placeOrderWithSavedPaymentMethod({
   }
 
   const headers = await cartHeadersForStaffContext(active)
+  const checkoutHeaders = active ? await getPaymentContextHeaders() : headers
 
   await verifyCartInventoryForCheckout(id)
 
@@ -1204,7 +1208,7 @@ export async function placeOrderWithSavedPaymentMethod({
       error?: { message?: string }
     }>("/store/grillers/checkout/place-order", {
       method: "POST",
-      headers,
+      headers: checkoutHeaders,
       body: {
         cart_id: id,
         payment_method_id: paymentMethodId,
@@ -1219,7 +1223,16 @@ export async function placeOrderWithSavedPaymentMethod({
       return result
     })
     .catch((err) => {
-      throw medusaError(err)
+      const error = medusaError(err) as unknown
+      return {
+        type: "cart" as const,
+        error: {
+          message:
+            error instanceof Error
+              ? error.message
+              : "Could not place the order. Please try again.",
+        },
+      }
     })
 
   if (cartRes?.type === "order" && cartRes.order) {
@@ -1235,10 +1248,37 @@ export async function placeOrderWithSavedPaymentMethod({
   }
 
   if (cartRes?.error?.message) {
-    throw new Error(cartRes.error.message)
+    return { error: cartRes.error.message }
   }
 
-  return cartRes.cart
+  return "cart" in cartRes ? cartRes.cart : null
+}
+
+export async function submitOrderWithSavedPaymentMethod(
+  input: Parameters<typeof placeOrderWithSavedPaymentMethod>[0]
+) {
+  try {
+    const result = await placeOrderWithSavedPaymentMethod(input)
+    if (
+      result &&
+      typeof result === "object" &&
+      "error" in result &&
+      typeof result.error === "string"
+    ) {
+      return { error: result.error }
+    }
+    return { error: null }
+  } catch (err: any) {
+    if (err?.digest?.startsWith?.("NEXT_REDIRECT")) {
+      throw err
+    }
+
+    return {
+      error:
+        err?.message ||
+        "Could not place the order. Please verify your payment details and try again.",
+    }
+  }
 }
 
 /**

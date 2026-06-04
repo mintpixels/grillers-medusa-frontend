@@ -51,6 +51,7 @@ describe("header nav augmentation", () => {
     ).toEqual([
       "/collections?mission=first-order#collections-results",
       "/store",
+      "/products/gift-certificate-voucher-each-unit-is-the-equivalent-of-one-dollar-please-specify-how-many-units-you-would-like-valid-for-180-calendar-days-from-date-of-issue",
       "/collections?mission=freezer-stock-up#collections-results",
       "/store",
       "/contact",
@@ -72,6 +73,7 @@ describe("header nav augmentation", () => {
     ).toEqual([
       "First-order favorites",
       "Bestsellers",
+      "Gift certificates",
       "Build a freezer box",
       "Shop by counter",
       "Need help choosing?",
@@ -138,5 +140,10 @@ describe("header nav augmentation", () => {
       "Ways to Shop",
       "Butcher Counter",
     ])
+    expect(
+      navLinks[0].sections
+        .flatMap((section) => section.items)
+        .map((item) => item.Text)
+    ).toContain("Gift certificates")
   })
 })

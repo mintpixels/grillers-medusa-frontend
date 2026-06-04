@@ -225,7 +225,7 @@ export type StrapiCollectionProduct = {
   MedusaProduct?: {
     ProductId: string
     Handle: string
-    Description?: string
+    Description?: string | null
     ShortDescription?: string | null
     PricingMode?: "per_lb" | "fixed_price" | null
     Variants?: Array<{
@@ -255,12 +255,6 @@ export const GetProductsByTagQuery = gql`
       }
       GalleryImages {
         url
-      }
-      IngredientDisclosures {
-        Sku
-        Ingredients
-        Contains
-        ReviewStatus
       }
       Metadata {
         AvgPackSize
@@ -345,6 +339,7 @@ export const GetProductsByTagQuery = gql`
       MedusaProduct {
         ProductId
         Handle
+        Description
         ShortDescription
         Variants {
           VariantId
@@ -376,12 +371,6 @@ export const GetProductsByCollectionSlugQuery = gql`
       GalleryImages {
         url
       }
-      IngredientDisclosures {
-        Sku
-        Ingredients
-        Contains
-        ReviewStatus
-      }
       Metadata {
         AvgPackSize
         AvgPackWeight
@@ -465,6 +454,7 @@ export const GetProductsByCollectionSlugQuery = gql`
       MedusaProduct {
         ProductId
         Handle
+        Description
         ShortDescription
         Variants {
           VariantId
@@ -492,23 +482,58 @@ const LegacyGetProductsByCollectionSlugQuery = legacyProductQuery(
   GetProductsByCollectionSlugQuery
 )
 
+function wait(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+async function requestStrapiProductsWithRetry(
+  client: any,
+  query: string,
+  variables: Record<string, unknown>,
+  attempts = 3
+): Promise<StrapiCollectionProduct[]> {
+  let lastError: unknown
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      const result = await client.request(query, variables)
+      if (!Array.isArray(result?.products)) {
+        throw new Error("Strapi products response was not an array.")
+      }
+      return result.products
+    } catch (error) {
+      lastError = error
+      if (attempt < attempts) {
+        await wait(150 * attempt)
+      }
+    }
+  }
+
+  throw lastError
+}
+
 async function fetchPaginatedProducts(
   client: any,
   query: string,
   variables: Record<string, unknown>,
-  pageSize = 100
+  pageSize = 100,
+  retryAttempts = 3
 ): Promise<StrapiCollectionProduct[]> {
   let allProducts: StrapiCollectionProduct[] = []
   let start = 0
 
   while (true) {
-    const result = await client.request(query, {
-      ...variables,
-      limit: pageSize,
-      start,
-    })
+    const products = await requestStrapiProductsWithRetry(
+      client,
+      query,
+      {
+        ...variables,
+        limit: pageSize,
+        start,
+      },
+      retryAttempts
+    )
 
-    const products = result.products || []
     allProducts = allProducts.concat(products)
 
     if (products.length < pageSize) break
@@ -695,6 +720,7 @@ export const GetProductsByMedusaIdsQuery = gql`
       MedusaProduct {
         ProductId
         Handle
+        Description
         ShortDescription
         Variants {
           VariantId
@@ -805,6 +831,7 @@ export const GetProductsByHandlesQuery = gql`
       MedusaProduct {
         ProductId
         Handle
+        Description
         ShortDescription
         Variants {
           VariantId
@@ -877,12 +904,6 @@ export const GetProductsWithImagesQuery = gql`
       }
       GalleryImages {
         url
-      }
-      IngredientDisclosures {
-        Sku
-        Ingredients
-        Contains
-        ReviewStatus
       }
       Metadata {
         AvgPackSize
@@ -967,6 +988,7 @@ export const GetProductsWithImagesQuery = gql`
       MedusaProduct {
         ProductId
         Handle
+        Description
         ShortDescription
         Variants {
           VariantId
@@ -985,6 +1007,108 @@ export const GetProductsWithImagesQuery = gql`
 const LegacyGetProductsWithImagesQuery = legacyProductQuery(
   GetProductsWithImagesQuery
 )
+
+export const GetStoreProductsQuery = gql`
+  query GetStoreProducts($limit: Int, $start: Int) {
+    products(pagination: { limit: $limit, start: $start }) {
+      documentId
+      Title
+      FeaturedImage {
+        url
+      }
+      Metadata {
+        AvgPackWeight
+        Uncooked
+        Cooked
+        HeatAndServe
+        GlutenFree
+        MSG
+        KosherForPassover
+        GrassFed
+      }
+      MedusaProduct {
+        ProductId
+        Handle
+        Description
+        ShortDescription
+        PricingMode
+        Variants {
+          VariantId
+          Sku
+          Price {
+            CalculatedPriceNumber
+          }
+        }
+      }
+    }
+  }
+`
+
+const LegacyGetStoreProductsQuery = legacyProductQuery(GetStoreProductsQuery)
+
+export async function getStoreProducts(
+  client: any
+): Promise<StrapiCollectionProduct[]> {
+  try {
+    const products = await fetchPaginatedProducts(
+      client,
+      GetStoreProductsQuery,
+      {},
+      1000,
+      1
+    )
+
+    return compactCollectionProducts(products)
+  } catch (error) {
+    console.error("Error fetching store products from Strapi:", error)
+  }
+
+  try {
+    const products = await fetchPaginatedProducts(
+      client,
+      LegacyGetStoreProductsQuery,
+      {},
+      1000,
+      1
+    )
+
+    return compactCollectionProducts(products)
+  } catch (error) {
+    console.error("Error fetching legacy store products from Strapi:", error)
+    return []
+  }
+}
+
+export async function getAllProductsWithImages(
+  client: any
+): Promise<StrapiCollectionProduct[]> {
+  try {
+    const products = await fetchPaginatedProducts(
+      client,
+      GetProductsWithImagesQuery,
+      {},
+      100
+    )
+
+    return compactCollectionProducts(products)
+  } catch (error) {
+    console.error("Error fetching all products from Strapi:", error)
+  }
+
+  try {
+    const products = await fetchPaginatedProducts(
+      client,
+      LegacyGetProductsWithImagesQuery,
+      {},
+      100
+    )
+
+    return compactCollectionProducts(products)
+  } catch (error) {
+    console.error("Error fetching legacy all products from Strapi:", error)
+    return []
+  }
+}
 
 function normalizeLookupSku(value?: string | null) {
   return value?.trim().toLowerCase() || ""

@@ -1,7 +1,7 @@
 "use client"
 
 import {
-  placeOrderWithSavedPaymentMethod,
+  submitOrderWithSavedPaymentMethod,
   verifyCartInventoryForCheckout,
 } from "@lib/data/cart"
 import { jitsuTrack } from "@lib/jitsu"
@@ -108,14 +108,16 @@ async function verifyAndPlaceOrder({
 }) {
   await verifyCartInventoryForCheckout(cart.id)
 
-  await placeOrderWithSavedPaymentMethod({
+  const result = await submitOrderWithSavedPaymentMethod({
     paymentMethodId,
     setupIntentId,
     consentVersion: FINAL_CHARGE_CONSENT_VERSION,
     consentText: FINAL_CHARGE_CONSENT_TEXT,
-  }).catch((err) => {
-    setErrorMessage(err.message)
   })
+
+  if (result?.error) {
+    setErrorMessage(result.error)
+  }
 }
 
 const SavedPaymentMethodButton = ({
@@ -156,7 +158,7 @@ const SavedPaymentMethodButton = ({
     <>
       {errorMessage && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200/80 rounded-lg text-sm text-red-700">
-          {errorMessage}. Please verify your payment details and try again.
+          {errorMessage}
         </div>
       )}
       <GoldButton
@@ -267,26 +269,26 @@ const NewCardSetupPaymentButton = ({
       return
     }
 
-    await placeOrderWithSavedPaymentMethod({
+    const orderResult = await submitOrderWithSavedPaymentMethod({
       paymentMethodId,
       setupIntentId: setupIntent.id,
       consentVersion: FINAL_CHARGE_CONSENT_VERSION,
       consentText: FINAL_CHARGE_CONSENT_TEXT,
     })
-      .catch((err) => {
-        setErrorMessage(err.message)
-      })
-      .finally(() => {
-        submittingRef.current = false
-        setSubmitting(false)
-      })
+
+    if (orderResult?.error) {
+      setErrorMessage(orderResult.error)
+    }
+
+    submittingRef.current = false
+    setSubmitting(false)
   }
 
   return (
     <>
       {errorMessage && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200/80 rounded-lg text-sm text-red-700">
-          {errorMessage}. Please verify your payment details and try again.
+          {errorMessage}
         </div>
       )}
       <GoldButton

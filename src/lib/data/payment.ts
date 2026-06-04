@@ -2,6 +2,7 @@
 
 import { sdk } from "@lib/config"
 import { getAuthHeaders, getCacheOptions } from "./cookies"
+import { getActiveStaffImpersonation } from "./customer"
 import { HttpTypes } from "@medusajs/types"
 
 export type SavedPaymentMethod = {
@@ -18,10 +19,22 @@ export type SavedPaymentMethod = {
   }
 }
 
+export async function getPaymentContextHeaders() {
+  const headers = { ...(await getAuthHeaders()) } as Record<string, string>
+  const active = await getActiveStaffImpersonation().catch(() => null)
+
+  if (active) {
+    headers["x-gp-staff-target-customer-id"] = active.session.targetCustomerId
+    headers["x-gp-staff-actor-customer-id"] = active.session.staffCustomerId
+  }
+
+  return headers
+}
+
 export async function getSavedPaymentMethods(): Promise<SavedPaymentMethod[]> {
   try {
-    const headers = await getAuthHeaders()
-    if (!headers) return []
+    const headers = await getPaymentContextHeaders()
+    if (!headers.authorization) return []
 
     const { payment_methods } = await sdk.client.fetch<{
       payment_methods: SavedPaymentMethod[]
@@ -43,13 +56,18 @@ export async function getSavedPaymentMethods(): Promise<SavedPaymentMethod[]> {
  * Backend route required: POST /store/payment-methods/setup-intent
  *   body: {} → { client_secret: string, account_holder_id: string }
  */
-export async function createPaymentMethodSetupIntent(): Promise<{
-  client_secret: string
-  account_holder_id: string
-} | { error: string }> {
+export async function createPaymentMethodSetupIntent(): Promise<
+  | {
+      client_secret: string
+      account_holder_id: string
+    }
+  | { error: string }
+> {
   try {
-    const headers = await getAuthHeaders()
-    if (!headers) return { error: "You must be signed in to add a card." }
+    const headers = await getPaymentContextHeaders()
+    if (!headers.authorization) {
+      return { error: "You must be signed in to add a card." }
+    }
 
     const result = await sdk.client.fetch<{
       client_secret: string
@@ -83,8 +101,9 @@ export async function setDefaultPaymentMethod(
   paymentMethodId: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const headers = await getAuthHeaders()
-    if (!headers) return { success: false, error: "Not signed in" }
+    const headers = await getPaymentContextHeaders()
+    if (!headers.authorization)
+      return { success: false, error: "Not signed in" }
 
     await sdk.client.fetch(
       `/store/payment-methods/${paymentMethodId}/default`,
@@ -111,8 +130,8 @@ export async function deleteSavedPaymentMethod(
   paymentMethodId: string
 ): Promise<{ success: boolean }> {
   try {
-    const headers = await getAuthHeaders()
-    if (!headers) return { success: false }
+    const headers = await getPaymentContextHeaders()
+    if (!headers.authorization) return { success: false }
 
     await sdk.client.fetch(`/store/payment-methods/${paymentMethodId}`, {
       method: "DELETE",

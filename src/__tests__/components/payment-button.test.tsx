@@ -3,12 +3,12 @@ import userEvent from "@testing-library/user-event"
 
 import PaymentButton from "@modules/checkout/components/payment-button"
 import {
-  placeOrderWithSavedPaymentMethod,
+  submitOrderWithSavedPaymentMethod,
   verifyCartInventoryForCheckout,
 } from "@lib/data/cart"
 
 jest.mock("@lib/data/cart", () => ({
-  placeOrderWithSavedPaymentMethod: jest.fn(),
+  submitOrderWithSavedPaymentMethod: jest.fn(),
   verifyCartInventoryForCheckout: jest.fn(),
 }))
 
@@ -16,8 +16,8 @@ jest.mock("@lib/jitsu", () => ({
   jitsuTrack: jest.fn(),
 }))
 
-const mockPlaceOrder = placeOrderWithSavedPaymentMethod as jest.MockedFunction<
-  typeof placeOrderWithSavedPaymentMethod
+const mockPlaceOrder = submitOrderWithSavedPaymentMethod as jest.MockedFunction<
+  typeof submitOrderWithSavedPaymentMethod
 >
 const mockVerifyInventory =
   verifyCartInventoryForCheckout as jest.MockedFunction<

@@ -166,6 +166,7 @@ export function compactCollectionProduct(
       ? {
           ProductId: medusaProduct.ProductId || medusaProduct.Id || "",
           Handle: medusaProduct.Handle || "",
+          Description: medusaProduct.Description || null,
           ShortDescription: medusaProduct.ShortDescription || null,
           PricingMode: medusaProduct.PricingMode || null,
           Variants: variants,
@@ -196,6 +197,7 @@ export const ALGOLIA_COLLECTION_PRODUCT_ATTRIBUTES = [
   "MedusaProduct.ProductId",
   "MedusaProduct.Id",
   "MedusaProduct.Handle",
+  "MedusaProduct.Description",
   "MedusaProduct.ShortDescription",
   "MedusaProduct.PricingMode",
   "MedusaProduct.Variants.VariantId",
