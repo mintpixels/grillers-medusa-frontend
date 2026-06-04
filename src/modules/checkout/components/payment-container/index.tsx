@@ -11,7 +11,7 @@ import React, {
 import Radio from "@modules/common/components/radio"
 
 import SkeletonCardDetails from "@modules/skeletons/components/skeleton-card-details"
-import { CardElement } from "@stripe/react-stripe-js"
+import { CardElement, useElements, useStripe } from "@stripe/react-stripe-js"
 import { StripeCardElementOptions } from "@stripe/stripe-js"
 import { StripeContext } from "../payment-wrapper/stripe-wrapper"
 
@@ -71,22 +71,45 @@ export const StripeCardContainer = ({
   setCardBrand,
   setError,
   setCardComplete,
+  setupIntentClientSecret,
+  isPreparingSetupIntent = false,
 }: Omit<PaymentContainerProps, "children"> & {
   setCardBrand: (brand: string) => void
   setError: (error: string | null) => void
   setCardComplete: (complete: boolean) => void
+  setupIntentClientSecret?: string | null
+  isPreparingSetupIntent?: boolean
 }) => {
-  const stripeReady = useContext(StripeContext)
+  const stripeProviderMounted = useContext(StripeContext)
   const [stripeTimedOut, setStripeTimedOut] = useState(false)
 
   useEffect(() => {
-    if (stripeReady || selectedPaymentOptionId !== paymentProviderId) return
+    if (
+      stripeProviderMounted ||
+      selectedPaymentOptionId !== paymentProviderId
+    ) {
+      return
+    }
+
     setStripeTimedOut(false)
     const timer = setTimeout(() => {
-      if (!stripeReady) setStripeTimedOut(true)
+      if (!stripeProviderMounted) setStripeTimedOut(true)
     }, STRIPE_LOAD_TIMEOUT_MS)
+
     return () => clearTimeout(timer)
-  }, [stripeReady, selectedPaymentOptionId, paymentProviderId])
+  }, [stripeProviderMounted, selectedPaymentOptionId, paymentProviderId])
+
+  useEffect(() => {
+    if (selectedPaymentOptionId !== paymentProviderId) return
+    if (!setupIntentClientSecret) {
+      setCardComplete(false)
+    }
+  }, [
+    selectedPaymentOptionId,
+    paymentProviderId,
+    setupIntentClientSecret,
+    setCardComplete,
+  ])
 
   const useOptions: StripeCardElementOptions = useMemo(() => {
     return {
@@ -113,43 +136,180 @@ export const StripeCardContainer = ({
       disabled={disabled}
     >
       {selectedPaymentOptionId === paymentProviderId &&
-        (stripeReady ? (
-          <div className="my-4 transition-all duration-150 ease-in-out">
-            <Text className="txt-medium-plus text-ui-fg-base mb-1">
-              Enter your card details:
-            </Text>
-            <CardElement
-              options={useOptions as StripeCardElementOptions}
-              onChange={(e) => {
-                setCardBrand(
-                  e.brand && e.brand.charAt(0).toUpperCase() + e.brand.slice(1)
-                )
-                setError(e.error?.message || null)
-                setCardComplete(e.complete)
-              }}
-            />
-          </div>
-        ) : stripeTimedOut ? (
-          <div className="my-4 p-4 bg-red-50 border border-red-200/80 rounded-lg">
-            <p className="text-sm text-red-700 font-medium mb-1">
-              Unable to load payment form
-            </p>
-            <p className="text-xs text-red-600 leading-relaxed">
-              Please check your internet connection or disable any ad blockers,
-              then{" "}
-              <button
-                type="button"
-                onClick={() => window.location.reload()}
-                className="underline font-semibold hover:text-red-800"
-              >
-                reload the page
-              </button>
-              .
-            </p>
-          </div>
-        ) : (
-          <SkeletonCardDetails />
-        ))}
+        renderStripeCardState({
+          stripeProviderMounted,
+          stripeTimedOut,
+          setupIntentClientSecret,
+          isPreparingSetupIntent,
+          options: useOptions,
+          setCardBrand,
+          setError,
+          setCardComplete,
+        })}
     </PaymentContainer>
+  )
+}
+
+const renderStripeCardState = ({
+  stripeProviderMounted,
+  stripeTimedOut,
+  setupIntentClientSecret,
+  isPreparingSetupIntent,
+  options,
+  setCardBrand,
+  setError,
+  setCardComplete,
+}: {
+  stripeProviderMounted: boolean
+  stripeTimedOut: boolean
+  setupIntentClientSecret?: string | null
+  isPreparingSetupIntent: boolean
+  options: StripeCardElementOptions
+  setCardBrand: (brand: string) => void
+  setError: (error: string | null) => void
+  setCardComplete: (complete: boolean) => void
+}) => {
+  if (!stripeProviderMounted) {
+    return stripeTimedOut ? <StripeLoadError /> : <SkeletonCardDetails />
+  }
+
+  if (!setupIntentClientSecret) {
+    return (
+      <CardSetupLoading
+        message={
+          isPreparingSetupIntent
+            ? "Preparing secure card setup..."
+            : "Starting secure card setup..."
+        }
+      />
+    )
+  }
+
+  return (
+    <StripeCardElementField
+      options={options}
+      setupIntentClientSecret={setupIntentClientSecret}
+      setCardBrand={setCardBrand}
+      setError={setError}
+      setCardComplete={setCardComplete}
+    />
+  )
+}
+
+const CardSetupLoading = ({ message }: { message: string }) => (
+  <div
+    className="my-4 rounded-lg border border-gray-200 bg-gray-50 p-4"
+    aria-busy="true"
+    aria-live="polite"
+  >
+    <p className="text-sm font-medium text-gray-700">{message}</p>
+    <div className="mt-3">
+      <SkeletonCardDetails />
+    </div>
+  </div>
+)
+
+const CardFieldSkeleton = () => (
+  <div className="pt-3 pb-1 block w-full h-11 px-4 mt-0 bg-ui-bg-field border rounded-md appearance-none border-ui-border-base animate-pulse" />
+)
+
+const StripeLoadError = () => (
+  <div className="my-4 p-4 bg-red-50 border border-red-200/80 rounded-lg">
+    <p className="text-sm text-red-700 font-medium mb-1">
+      Unable to load payment form
+    </p>
+    <p className="text-xs text-red-600 leading-relaxed">
+      Please check your internet connection or disable any ad blockers, then{" "}
+      <button
+        type="button"
+        onClick={() => window.location.reload()}
+        className="underline font-semibold hover:text-red-800"
+      >
+        reload the page
+      </button>
+      .
+    </p>
+  </div>
+)
+
+const StripeCardElementField = ({
+  options,
+  setupIntentClientSecret,
+  setCardBrand,
+  setError,
+  setCardComplete,
+}: {
+  options: StripeCardElementOptions
+  setupIntentClientSecret: string
+  setCardBrand: (brand: string) => void
+  setError: (error: string | null) => void
+  setCardComplete: (complete: boolean) => void
+}) => {
+  const stripe = useStripe()
+  const elements = useElements()
+  const [elementReady, setElementReady] = useState(false)
+  const [elementTimedOut, setElementTimedOut] = useState(false)
+
+  useEffect(() => {
+    setElementReady(false)
+    setElementTimedOut(false)
+    setCardComplete(false)
+    setError(null)
+  }, [setupIntentClientSecret, setCardComplete, setError])
+
+  useEffect(() => {
+    if (elementReady) return
+
+    const timer = setTimeout(() => {
+      setElementTimedOut(true)
+    }, STRIPE_LOAD_TIMEOUT_MS)
+
+    return () => clearTimeout(timer)
+  }, [elementReady, setupIntentClientSecret])
+
+  if ((!stripe || !elements) && elementTimedOut) {
+    return <StripeLoadError />
+  }
+
+  if (!stripe || !elements) {
+    return <SkeletonCardDetails />
+  }
+
+  if (elementTimedOut && !elementReady) {
+    return <StripeLoadError />
+  }
+
+  return (
+    <div className="my-4 transition-all duration-150 ease-in-out">
+      <Text className="txt-medium-plus text-ui-fg-base mb-1">
+        Enter your card details:
+      </Text>
+      <div className="relative min-h-[44px]" aria-busy={!elementReady}>
+        {!elementReady && (
+          <div className="absolute inset-0 z-10 pointer-events-none">
+            <CardFieldSkeleton />
+          </div>
+        )}
+        <div
+          className={clx("transition-opacity", {
+            "opacity-0": !elementReady,
+            "opacity-100": elementReady,
+          })}
+        >
+          <CardElement
+            options={options}
+            onReady={() => setElementReady(true)}
+            onChange={(e) => {
+              const brand = e.brand
+                ? e.brand.charAt(0).toUpperCase() + e.brand.slice(1)
+                : ""
+              setCardBrand(brand)
+              setError(e.error?.message || null)
+              setCardComplete(e.complete)
+            }}
+          />
+        </div>
+      </div>
+    </div>
   )
 }

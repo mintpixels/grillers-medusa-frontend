@@ -410,6 +410,8 @@ const Payment = ({
                         setCardBrand={setCardBrand}
                         setError={setError}
                         setCardComplete={setCardComplete}
+                        setupIntentClientSecret={setupIntentClientSecret}
+                        isPreparingSetupIntent={isLoading}
                       />
                     </div>
                   )

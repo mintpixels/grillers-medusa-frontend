@@ -4,7 +4,6 @@ import { loadStripe } from "@stripe/stripe-js"
 import React from "react"
 import StripeWrapper from "./stripe-wrapper"
 import { HttpTypes } from "@medusajs/types"
-import { isStripe } from "@lib/constants"
 import {
   getStripePublishableKey,
   getStripeKeyMismatchWarning,
@@ -27,22 +26,10 @@ if (stripeMismatchWarning && typeof window !== "undefined") {
   console.warn(stripeMismatchWarning)
 }
 
-const PaymentWrapper: React.FC<PaymentWrapperProps> = ({ cart, children }) => {
-  const paymentSession = cart.payment_collection?.payment_sessions?.find(
-    (s) => s.status === "pending"
-  )
-  const stripePaymentSession =
-    isStripe(paymentSession?.provider_id) && paymentSession
-      ? paymentSession
-      : undefined
-
+const PaymentWrapper: React.FC<PaymentWrapperProps> = ({ children }) => {
   if (stripePromise) {
     return (
-      <StripeWrapper
-        paymentSession={stripePaymentSession}
-        stripeKey={stripeKey}
-        stripePromise={stripePromise}
-      >
+      <StripeWrapper stripeKey={stripeKey} stripePromise={stripePromise}>
         {children}
       </StripeWrapper>
     )
