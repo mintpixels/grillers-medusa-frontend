@@ -8,8 +8,8 @@ import {
   type ProductCollectionData,
   getProductTagBySlug,
   extractTagValue,
-  getProductsByTag,
-  getProductsByCollectionSlug,
+  getProductsByTagStrict,
+  getProductsByCollectionSlugStrict,
   type StrapiCollectionProduct,
 } from "@lib/data/strapi/collections"
 import { enrichStrapiProductsWithMedusaPrices } from "@lib/data/products"
@@ -54,11 +54,11 @@ const getProductTagForPage = cache((handle: string) =>
 )
 
 const getCollectionProductsForPage = cache((handle: string) =>
-  getProductsByCollectionSlug(handle, strapiClient)
+  getProductsByCollectionSlugStrict(handle, strapiClient)
 )
 
 const getTagProductsForPage = cache((tagName: string) =>
-  getProductsByTag(tagName, strapiClient)
+  getProductsByTagStrict(tagName, strapiClient)
 )
 
 export async function generateMetadata(props: Props): Promise<Metadata> {
@@ -96,13 +96,13 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
               },
             ]
           : curated.HeroImage?.url
-            ? [
-                {
-                  url: curated.HeroImage.url,
-                  alt: curated.HeroImageAlt || curated.Name,
-                },
-              ]
-            : undefined,
+          ? [
+              {
+                url: curated.HeroImage.url,
+                alt: curated.HeroImageAlt || curated.Name,
+              },
+            ]
+          : undefined,
       },
       twitter: {
         card: (socialMeta?.twitterCard as any) || "summary_large_image",
@@ -111,8 +111,8 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
         images: socialMeta?.twitterImage?.url
           ? [socialMeta.twitterImage.url]
           : curated.HeroImage?.url
-            ? [curated.HeroImage.url]
-            : undefined,
+          ? [curated.HeroImage.url]
+          : undefined,
         site: socialMeta?.twitterSite,
         creator: socialMeta?.twitterCreator,
       },
@@ -135,7 +135,8 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
       collection = {
         Name: `Kosher ${tagValue}`,
         Slug: handle,
-        Description: tag.Description || `Browse our Kosher ${tagValue} products`,
+        Description:
+          tag.Description || `Browse our Kosher ${tagValue} products`,
       } as ProductCollectionData
     } else {
       return {
@@ -178,7 +179,7 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
               alt: socialMeta.ogImageAlt || collection.Name,
             },
           ]
-          : undefined,
+        : undefined,
     },
     twitter: {
       card: (socialMeta?.twitterCard as any) || "summary_large_image",
@@ -333,12 +334,7 @@ export default async function CollectionPage(props: Props) {
 
   if (collection) {
     // Fetch products assigned to this collection
-    products = await withTimeout(
-      getCollectionProductsForPage(handle),
-      3000,
-      [],
-      `collection products for ${handle}`
-    )
+    products = await getCollectionProductsForPage(handle)
   } else {
     // Check if it's a product tag
     const tag = await withTimeout(
@@ -351,17 +347,13 @@ export default async function CollectionPage(props: Props) {
     if (tag) {
       const tagValue = extractTagValue(tag.Name)
 
-      products = await withTimeout(
-        getTagProductsForPage(tag.Name),
-        3000,
-        [],
-        `tag products for ${handle}`
-      )
+      products = await getTagProductsForPage(tag.Name)
 
       collection = {
         Name: `Kosher ${tagValue}`,
         Slug: handle,
-        Description: tag.Description || `Browse our Kosher ${tagValue} products`,
+        Description:
+          tag.Description || `Browse our Kosher ${tagValue} products`,
       } as ProductCollectionData
     } else {
       return notFound()

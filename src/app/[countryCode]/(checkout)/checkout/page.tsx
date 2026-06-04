@@ -2,6 +2,7 @@ import { retrieveCart } from "@lib/data/cart"
 import { retrieveCustomer } from "@lib/data/customer"
 import { getAvailableFulfillmentTypes } from "@lib/data/fulfillment"
 import { buildCartProductDetailsMap } from "@lib/util/cart-product-details"
+import { getAddressBookDeliveryZip } from "@lib/util/delivery-zip"
 import { withTimeout } from "@lib/util/promise-timeout"
 import strapiClient from "@lib/strapi"
 import {
@@ -292,6 +293,9 @@ export default async function Checkout({ params, searchParams }: PageProps) {
   }
 
   const customer = await retrieveCustomer()
+  const deliveryZip =
+    cart.shipping_address?.postal_code ||
+    getAddressBookDeliveryZip(customer?.addresses)
   const [
     fulfillmentConfig,
     pickupCreditConfig,
@@ -342,6 +346,7 @@ export default async function Checkout({ params, searchParams }: PageProps) {
             cart={cart}
             atlantaZipConfig={fulfillmentConfig.AtlantaDeliveryZipDays}
             productDetailsMap={productDetailsMap}
+            deliveryZip={deliveryZip}
           />
         </div>
       </div>

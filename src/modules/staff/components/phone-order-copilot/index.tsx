@@ -59,6 +59,7 @@ import {
   stopStaffImpersonation,
 } from "@lib/data/staff/impersonation"
 import type { StaffImpersonationSession } from "@lib/data/staff/impersonation-types"
+import { dispatchStorefrontSessionUpdated } from "@lib/util/storefront-session-events"
 import StaffOrderExceptionConsole from "@modules/staff/components/order-exception-console"
 import StaffTeamAccessConsole from "@modules/staff/components/team-access-console"
 import StaffCatchWeightFinalizationConsole from "@modules/staff/components/catch-weight-finalization-console"
@@ -559,6 +560,9 @@ export default function PhoneOrderCopilot({
           return
         }
         setImpersonation(contextResult.session)
+        dispatchStorefrontSessionUpdated({
+          reason: "staff-impersonation-started",
+        })
         setStatus(
           customer.accountClaimStatus === "reset_sent"
             ? `Customer profile created, account claim email sent, and context is active for ${contextResult.session.targetName}.`
@@ -658,6 +662,9 @@ export default function PhoneOrderCopilot({
         return
       }
       setImpersonation(result.session)
+      dispatchStorefrontSessionUpdated({
+        reason: "staff-impersonation-started",
+      })
       setStatus(`Now acting as ${result.session.targetName}.`)
       router.refresh()
     })
@@ -667,6 +674,9 @@ export default function PhoneOrderCopilot({
     startTransition(async () => {
       await stopStaffImpersonation()
       setImpersonation(null)
+      dispatchStorefrontSessionUpdated({
+        reason: "staff-impersonation-stopped",
+      })
       setStatus("Exited customer context.")
       router.refresh()
     })

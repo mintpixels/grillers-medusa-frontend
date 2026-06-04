@@ -523,19 +523,31 @@ export async function getProductsByTag(
   tagName: string,
   client: any
 ): Promise<StrapiCollectionProduct[]> {
+  return getProductsByTagStrict(tagName, client).catch((error) => {
+    console.error("Error fetching legacy products by tag:", error)
+    return []
+  })
+}
+
+export async function getProductsByTagStrict(
+  tagName: string,
+  client: any
+): Promise<StrapiCollectionProduct[]> {
   try {
-    return fetchPaginatedProducts(client, GetProductsByTagQuery, { tagName })
+    return await fetchPaginatedProducts(client, GetProductsByTagQuery, {
+      tagName,
+    })
   } catch (error) {
     console.error("Error fetching products by tag:", error)
   }
 
   try {
-    return fetchPaginatedProducts(client, LegacyGetProductsByTagQuery, {
+    return await fetchPaginatedProducts(client, LegacyGetProductsByTagQuery, {
       tagName,
     })
   } catch (error) {
     console.error("Error fetching legacy products by tag:", error)
-    return []
+    throw error
   }
 }
 
@@ -544,23 +556,37 @@ export async function getProductsByCollectionSlug(
   slug: string,
   client: any
 ): Promise<StrapiCollectionProduct[]> {
+  return getProductsByCollectionSlugStrict(slug, client).catch((error) => {
+    console.error("Error fetching legacy products by collection slug:", error)
+    return []
+  })
+}
+
+export async function getProductsByCollectionSlugStrict(
+  slug: string,
+  client: any
+): Promise<StrapiCollectionProduct[]> {
   try {
-    return fetchPaginatedProducts(client, GetProductsByCollectionSlugQuery, {
-      slug,
-    })
+    return await fetchPaginatedProducts(
+      client,
+      GetProductsByCollectionSlugQuery,
+      {
+        slug,
+      }
+    )
   } catch (error) {
     console.error("Error fetching products by collection slug:", error)
   }
 
   try {
-    return fetchPaginatedProducts(
+    return await fetchPaginatedProducts(
       client,
       LegacyGetProductsByCollectionSlugQuery,
       { slug }
     )
   } catch (error) {
     console.error("Error fetching legacy products by collection slug:", error)
-    return []
+    throw error
   }
 }
 

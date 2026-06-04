@@ -4,6 +4,7 @@ import { useTransition } from "react"
 import { useParams, useRouter } from "next/navigation"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import { stopStaffImpersonation } from "@lib/data/staff/impersonation"
+import { dispatchStorefrontSessionUpdated } from "@lib/util/storefront-session-events"
 
 type StaffContextActionsProps = {
   compact?: boolean
@@ -19,6 +20,9 @@ export default function StaffContextActions({
   function exitContext() {
     startTransition(async () => {
       await stopStaffImpersonation()
+      dispatchStorefrontSessionUpdated({
+        reason: "staff-impersonation-stopped",
+      })
       router.push(`/${countryCode || "us"}/account/staff/orders`)
       router.refresh()
     })

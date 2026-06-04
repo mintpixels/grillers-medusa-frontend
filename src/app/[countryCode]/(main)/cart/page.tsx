@@ -12,6 +12,8 @@ import { generateAlternates } from "@lib/util/seo"
 import ExperimentExposure from "@lib/experiments/exposure"
 import { getExperimentAssignment } from "@lib/experiments/server"
 
+export const dynamic = "force-dynamic"
+
 type PageProps = {
   params: Promise<{ countryCode: string }>
 }

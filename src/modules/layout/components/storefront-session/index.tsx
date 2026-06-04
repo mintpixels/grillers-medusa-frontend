@@ -14,6 +14,10 @@ import {
   CART_UPDATED_EVENT,
   type CartUpdatedDetail,
 } from "@lib/util/cart-events"
+import {
+  STOREFRONT_SESSION_UPDATED_EVENT,
+  type StorefrontSessionUpdatedDetail,
+} from "@lib/util/storefront-session-events"
 import type { StorefrontSessionSnapshot, StorefrontSessionState } from "./types"
 
 const emptySnapshot: StorefrontSessionSnapshot = {
@@ -36,6 +40,7 @@ const StorefrontSessionContext =
 async function fetchSessionSnapshot() {
   const response = await fetch("/api/storefront/session", {
     credentials: "same-origin",
+    cache: "no-store",
     headers: {
       Accept: "application/json",
     },
@@ -96,6 +101,25 @@ export function StorefrontSessionProvider({
     window.addEventListener(CART_UPDATED_EVENT, handleCartUpdated)
     return () =>
       window.removeEventListener(CART_UPDATED_EVENT, handleCartUpdated)
+  }, [refreshSession])
+
+  useEffect(() => {
+    const handleSessionUpdated = (event: Event) => {
+      const detail = (event as CustomEvent<StorefrontSessionUpdatedDetail>)
+        .detail
+      if (!detail?.reason) return
+      void refreshSession()
+    }
+
+    window.addEventListener(
+      STOREFRONT_SESSION_UPDATED_EVENT,
+      handleSessionUpdated
+    )
+    return () =>
+      window.removeEventListener(
+        STOREFRONT_SESSION_UPDATED_EVENT,
+        handleSessionUpdated
+      )
   }, [refreshSession])
 
   const value = useMemo<StorefrontSessionContextValue>(

@@ -24,6 +24,7 @@ type CheckoutSummaryProps = {
   cart: HttpTypes.StoreCart
   atlantaZipConfig?: Record<string, AtlantaZipDayConfig>
   productDetailsMap?: CartProductDetailsMap
+  deliveryZip?: string | null
 }
 
 // Item component that fetches Strapi image and title
@@ -118,6 +119,7 @@ const CheckoutSummary = ({
   cart,
   atlantaZipConfig,
   productDetailsMap = {},
+  deliveryZip,
 }: CheckoutSummaryProps) => {
   const items = cart.items || []
   const totalItems = items.reduce((acc, item) => acc + item.quantity, 0)
@@ -196,7 +198,7 @@ const CheckoutSummary = ({
           excludedSubtotal={excludedSubtotal}
           currencyCode={cart.currency_code}
           shipState={cart.shipping_address?.province}
-          postalCode={cart.shipping_address?.postal_code}
+          postalCode={cart.shipping_address?.postal_code || deliveryZip}
           fulfillmentType={fulfillmentType}
           variant="dark"
           atlantaZipConfig={atlantaZipConfig}

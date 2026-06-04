@@ -7,6 +7,10 @@ import {
   CART_UPDATED_EVENT,
   type CartUpdatedDetail,
 } from "@lib/util/cart-events"
+import {
+  STOREFRONT_SESSION_UPDATED_EVENT,
+  type StorefrontSessionUpdatedDetail,
+} from "@lib/util/storefront-session-events"
 import type { CartProductDetailsMap } from "@lib/util/cart-product-details"
 import type { CartUpsellProduct } from "@modules/cart/components/cart-upsells/types"
 import { useCart } from "./cart-context"
@@ -51,6 +55,7 @@ export default function SideCartWrapper({
         )}`,
         {
           credentials: "same-origin",
+          cache: "no-store",
           headers: {
             Accept: "application/json",
           },
@@ -83,6 +88,29 @@ export default function SideCartWrapper({
     return () =>
       window.removeEventListener(CART_UPDATED_EVENT, handleCartUpdated)
   }, [refreshSideCart])
+
+  useEffect(() => {
+    const handleSessionUpdated = (event: Event) => {
+      const detail = (event as CustomEvent<StorefrontSessionUpdatedDetail>)
+        .detail
+      if (!detail?.reason) return
+
+      setPayload(emptyPayload(countryCode))
+      if (isOpen) {
+        void refreshSideCart()
+      }
+    }
+
+    window.addEventListener(
+      STOREFRONT_SESSION_UPDATED_EVENT,
+      handleSessionUpdated
+    )
+    return () =>
+      window.removeEventListener(
+        STOREFRONT_SESSION_UPDATED_EVENT,
+        handleSessionUpdated
+      )
+  }, [countryCode, isOpen, refreshSideCart])
 
   return <SideCart {...payload} isLoading={isLoading && isOpen} />
 }

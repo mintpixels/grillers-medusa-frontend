@@ -1,6 +1,6 @@
 import Image from "next/image"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
-import ChevronDown from "@modules/common/icons/chevron-down"
+import CheckoutBackToCartLink from "@modules/checkout/components/checkout-back-to-cart-link"
 
 export default function CheckoutLayout({
   children,
@@ -32,16 +32,7 @@ export default function CheckoutLayout({
           </LocalizedClientLink>
 
           {/* Back to cart — right side */}
-          <LocalizedClientLink
-            href="/cart"
-            className="min-h-[44px] min-w-[44px] flex items-center justify-center gap-x-2 text-sm text-ui-fg-subtle hover:text-ui-fg-base transition-colors"
-            data-testid="back-link"
-            aria-label="Back to cart"
-          >
-            <span className="hidden small:block">Back to cart</span>
-            <span className="block small:hidden">Back</span>
-            <ChevronDown className="-rotate-90" size={16} />
-          </LocalizedClientLink>
+          <CheckoutBackToCartLink />
         </nav>
       </div>
 
