@@ -816,6 +816,7 @@ export const addCustomerAddress = async (
  * address_1 + postal_code already exists, we skip the createAddress call.
  */
 export async function saveAddressToProfileAndCart(input: {
+  address_id?: string
   first_name: string
   last_name: string
   address_1: string
@@ -843,6 +844,11 @@ export async function saveAddressToProfileAndCart(input: {
   try {
     const active = await getActiveStaffImpersonation()
     if (active) {
+      const staffCartHeaders = {
+        ...(await getAuthHeaders()),
+        "x-gp-staff-target-customer-id": active.session.targetCustomerId,
+        "x-gp-staff-actor-customer-id": active.session.staffCustomerId,
+      }
       const current = await retrieveAdminCustomer(
         active.session.targetCustomerId
       )
@@ -856,7 +862,35 @@ export async function saveAddressToProfileAndCart(input: {
       )
       const customerHadNoAddresses = (current.addresses || []).length === 0
 
-      if (!alreadyOnFile) {
+      if (input.address_id) {
+        await adminFetch(
+          `/admin/customers/${active.session.targetCustomerId}/addresses/${input.address_id}`,
+          {
+            method: "POST",
+            body: JSON.stringify(addressPayload),
+          }
+        )
+
+        await adminFetch(
+          `/admin/customers/${active.session.targetCustomerId}`,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              metadata: {
+                ...appendStaffAuditLog(current.metadata, {
+                  type: "staff_checkout_address_update",
+                  staffCustomerId: active.session.staffCustomerId,
+                  staffEmail: active.session.staffEmail,
+                  targetCustomerId: active.session.targetCustomerId,
+                  addressId: input.address_id,
+                }),
+                ...staffAuditFields(active.session, "checkout_address_update"),
+              },
+            }),
+          }
+        )
+        revalidateTag(await getCacheTag("customers"))
+      } else if (!alreadyOnFile) {
         await adminFetch(
           `/admin/customers/${active.session.targetCustomerId}/addresses`,
           {
@@ -902,7 +936,7 @@ export async function saveAddressToProfileAndCart(input: {
             ),
           },
           {},
-          {}
+          staffCartHeaders
         )
         revalidateTag(await getCacheTag("carts"))
         revalidateTag(await getCacheTag("fulfillment"))
@@ -920,7 +954,15 @@ export async function saveAddressToProfileAndCart(input: {
     )
     const customerHadNoAddresses = (me?.addresses || []).length === 0
 
-    if (!alreadyOnFile) {
+    if (input.address_id) {
+      await sdk.store.customer.updateAddress(
+        input.address_id,
+        addressPayload,
+        {},
+        headers
+      )
+      revalidateTag(await getCacheTag("customers"))
+    } else if (!alreadyOnFile) {
       await sdk.store.customer.createAddress(
         {
           ...addressPayload,

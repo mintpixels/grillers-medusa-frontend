@@ -31,6 +31,7 @@ type AddressFormProps = {
   // delivery address" flow.
   mode?: "atlanta" | "general"
   submitLabel?: string
+  intent?: "add" | "edit"
 }
 
 const FALLBACK_ATLANTA_ZIP_CODES = Object.keys(ATLANTA_DELIVERY_ZIP_DAYS)
@@ -188,8 +189,10 @@ export default function AddressForm({
   isSubmitting = false,
   mode = "atlanta",
   submitLabel,
+  intent = "add",
 }: AddressFormProps) {
   const isGeneral = mode === "general"
+  const isEditing = intent === "edit"
   const stateOptions = isGeneral ? ALL_US_STATES : ATLANTA_DELIVERY_STATES
   const [address, setAddress] = useState<DeliveryAddress>({
     firstName: initialAddress?.firstName || "",
@@ -370,11 +373,17 @@ export default function AddressForm({
       </button>
 
       <h2 className="text-2xl font-bold mb-2">
-        {isGeneral ? "Add your delivery address" : "Where should we deliver?"}
+        {isGeneral
+          ? isEditing
+            ? "Edit your delivery address"
+            : "Add your delivery address"
+          : "Where should we deliver?"}
       </h2>
       <p className="text-gray-600 mb-6">
         {isGeneral
-          ? "We'll save it to your profile and use it to check what local delivery and pickup options are available."
+          ? isEditing
+            ? "We'll update your saved address and use it to check what local delivery and pickup options are available."
+            : "We'll save it to your profile and use it to check what local delivery and pickup options are available."
           : "Enter your delivery address. Delivery is available only for eligible Atlanta-area ZIP codes."}
       </p>
 
@@ -736,7 +745,12 @@ export default function AddressForm({
           disabled={!isValid || isSubmitting}
           isLoading={isSubmitting}
         >
-          {submitLabel || (isGeneral ? "Save Address" : "Continue to Schedule")}
+          {submitLabel ||
+            (isGeneral
+              ? isEditing
+                ? "Update Address"
+                : "Save Address"
+              : "Continue to Schedule")}
         </Button>
       </form>
     </div>

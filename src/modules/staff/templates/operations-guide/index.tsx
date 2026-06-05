@@ -329,6 +329,7 @@ const sections: GuideSection[] = [
       "Use Customer Context, then search by name, email, phone, or order number.",
       "Select the correct customer and review the account detail shown on the right.",
       "Click Enter Account Context. The banner tells you when you are acting as that customer.",
+      "In checkout, use the address step to select an existing address, edit the current saved address, or add a new address; the cart should stay in that customer context.",
       "Use Exit Context when done so you do not keep shopping as the customer by mistake.",
     ],
     watch: [
