@@ -40,7 +40,15 @@ async function getCartStaffContext(): Promise<ActiveStaffContext> {
 }
 
 async function cartHeadersForStaffContext(active: ActiveStaffContext) {
-  return active ? {} : { ...(await getAuthHeaders()) }
+  const headers = { ...(await getAuthHeaders()) } as Record<string, string>
+
+  if (!active) return headers
+
+  return {
+    ...headers,
+    "x-gp-staff-target-customer-id": active.session.targetCustomerId,
+    "x-gp-staff-actor-customer-id": active.session.staffCustomerId,
+  }
 }
 
 async function assertPublicVariantCanBeAddedToCart(
@@ -209,9 +217,7 @@ export async function getOrSetCart(countryCode: string) {
     cart = null
   }
 
-  const headers = active
-    ? await getPaymentContextHeaders()
-    : await cartHeadersForStaffContext(active)
+  const headers = await cartHeadersForStaffContext(active)
 
   if (!cart) {
     const cartResp = await sdk.store.cart.create(

@@ -1,10 +1,7 @@
 "use client"
 
-import { useTransition } from "react"
-import { useParams, useRouter } from "next/navigation"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
-import { stopStaffImpersonation } from "@lib/data/staff/impersonation"
-import { dispatchStorefrontSessionUpdated } from "@lib/util/storefront-session-events"
+import { useExitStaffContext } from "@modules/staff/hooks/use-exit-staff-context"
 
 type StaffContextActionsProps = {
   compact?: boolean
@@ -13,20 +10,7 @@ type StaffContextActionsProps = {
 export default function StaffContextActions({
   compact = false,
 }: StaffContextActionsProps) {
-  const router = useRouter()
-  const { countryCode } = useParams() as { countryCode?: string }
-  const [isPending, startTransition] = useTransition()
-
-  function exitContext() {
-    startTransition(async () => {
-      await stopStaffImpersonation()
-      dispatchStorefrontSessionUpdated({
-        reason: "staff-impersonation-stopped",
-      })
-      router.push(`/${countryCode || "us"}/account/staff/orders`)
-      router.refresh()
-    })
-  }
+  const { exitContext, isExiting } = useExitStaffContext()
 
   return (
     <div
@@ -45,10 +29,10 @@ export default function StaffContextActions({
       <button
         type="button"
         onClick={exitContext}
-        disabled={isPending}
+        disabled={isExiting}
         className="inline-flex min-h-[36px] items-center justify-center rounded-md bg-Charcoal px-3 text-xs font-rexton font-bold uppercase text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {isPending ? "Exiting" : "Exit context"}
+        {isExiting ? "Exiting" : "Exit context"}
       </button>
     </div>
   )

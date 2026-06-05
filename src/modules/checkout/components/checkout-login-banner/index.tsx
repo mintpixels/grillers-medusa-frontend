@@ -2,18 +2,36 @@
 
 import React, { useState } from "react"
 import { useRouter } from "next/navigation"
-import { loginWithCredentials, signupWithCredentials, signoutKeepCart, requestPasswordReset } from "@lib/data/customer"
+import {
+  loginWithCredentials,
+  signupWithCredentials,
+  signoutKeepCart,
+  requestPasswordReset,
+} from "@lib/data/customer"
 import { formatPhone } from "@lib/util/format-phone"
 import {
   SMS_MARKETING_DISCLOSURE,
   SMS_MARKETING_OPT_IN_LABEL,
 } from "@lib/util/sms-consent"
 import { HttpTypes } from "@medusajs/types"
+import { useStorefrontSession } from "@modules/layout/components/storefront-session"
+import { useExitStaffContext } from "@modules/staff/hooks/use-exit-staff-context"
 
 const SmallSpinner = () => (
   <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+    <circle
+      className="opacity-25"
+      cx="12"
+      cy="12"
+      r="10"
+      stroke="currentColor"
+      strokeWidth="4"
+    />
+    <path
+      className="opacity-75"
+      fill="currentColor"
+      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+    />
   </svg>
 )
 
@@ -32,8 +50,8 @@ const WhyAccountInline: React.FC<{ open: boolean }> = ({ open }) => {
     >
       <p>
         We hand-cut your meat to order, then weigh and charge for the actual
-        weight. That requires a payment method we can adjust the charge
-        against — and that needs an account.
+        weight. That requires a payment method we can adjust the charge against
+        — and that needs an account.
       </p>
     </div>
   )
@@ -41,7 +59,11 @@ const WhyAccountInline: React.FC<{ open: boolean }> = ({ open }) => {
 
 const CheckoutLoginBanner: React.FC<Props> = ({ customer }) => {
   const router = useRouter()
-  const [mode, setMode] = useState<"prompt" | "signin" | "signup" | "forgot">("prompt")
+  const { staffImpersonation } = useStorefrontSession()
+  const { exitContext, isExiting } = useExitStaffContext()
+  const [mode, setMode] = useState<"prompt" | "signin" | "signup" | "forgot">(
+    "prompt"
+  )
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [firstName, setFirstName] = useState("")
@@ -56,6 +78,11 @@ const CheckoutLoginBanner: React.FC<Props> = ({ customer }) => {
   const [loggingOut, setLoggingOut] = useState(false)
 
   const handleLogout = async () => {
+    if (staffImpersonation) {
+      exitContext()
+      return
+    }
+
     setLoggingOut(true)
     try {
       await signoutKeepCart()
@@ -68,14 +95,25 @@ const CheckoutLoginBanner: React.FC<Props> = ({ customer }) => {
   }
 
   if (customer) {
+    const isBusy = loggingOut || isExiting
+    const accountLabel = staffImpersonation ? "Acting as" : "Signed in as"
+
     return (
       <div className="flex items-center justify-between p-4 bg-Scroll/30 border border-Gold/20 rounded-lg">
         <div className="flex items-center gap-2">
-          <svg className="w-4 h-4 text-Gold shrink-0" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+          <svg
+            className="w-4 h-4 text-Gold shrink-0"
+            fill="currentColor"
+            viewBox="0 0 20 20"
+          >
+            <path
+              fillRule="evenodd"
+              d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
+              clipRule="evenodd"
+            />
           </svg>
           <p className="text-sm text-Charcoal">
-            Signed in as{" "}
+            {accountLabel}{" "}
             <span className="font-semibold">
               {customer.first_name} {customer.last_name}
             </span>
@@ -84,10 +122,19 @@ const CheckoutLoginBanner: React.FC<Props> = ({ customer }) => {
         <button
           type="button"
           onClick={handleLogout}
-          disabled={loggingOut}
+          disabled={isBusy}
           className="text-xs text-Charcoal/50 hover:text-Charcoal/80 font-medium transition-colors disabled:opacity-50"
         >
-          {loggingOut ? <span className="flex items-center gap-1.5"><SmallSpinner /> Logging out...</span> : "Log out"}
+          {isBusy ? (
+            <span className="flex items-center gap-1.5">
+              <SmallSpinner />{" "}
+              {staffImpersonation ? "Exiting..." : "Logging out..."}
+            </span>
+          ) : staffImpersonation ? (
+            "Exit context"
+          ) : (
+            "Log out"
+          )}
         </button>
       </div>
     )
@@ -170,8 +217,16 @@ const CheckoutLoginBanner: React.FC<Props> = ({ customer }) => {
           <div className="p-5 sm:p-6">
             <div className="flex items-center gap-3 mb-3">
               <div className="flex items-center justify-center w-8 h-8 rounded-full bg-Gold/10">
-                <svg className="w-4 h-4 text-Gold" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                <svg
+                  className="w-4 h-4 text-Gold"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
+                    clipRule="evenodd"
+                  />
                 </svg>
               </div>
               <h3 className="text-base font-semibold text-Charcoal">
@@ -179,7 +234,11 @@ const CheckoutLoginBanner: React.FC<Props> = ({ customer }) => {
               </h3>
             </div>
 
-            <p className={`text-sm text-Charcoal/60 ml-11 ${showWhy ? "mb-1" : "mb-5"}`}>
+            <p
+              className={`text-sm text-Charcoal/60 ml-11 ${
+                showWhy ? "mb-1" : "mb-5"
+              }`}
+            >
               An account is required to complete your order.{" "}
               <button
                 type="button"
@@ -197,14 +256,20 @@ const CheckoutLoginBanner: React.FC<Props> = ({ customer }) => {
             <div className="flex flex-col sm:flex-row gap-3 ml-11">
               <button
                 type="button"
-                onClick={() => { resetForm(); setMode("signin") }}
+                onClick={() => {
+                  resetForm()
+                  setMode("signin")
+                }}
                 className="flex-1 h-11 text-sm font-semibold text-white bg-Gold rounded-lg hover:bg-Gold/90 transition-colors"
               >
                 I already have an account
               </button>
               <button
                 type="button"
-                onClick={() => { resetForm(); setMode("signup") }}
+                onClick={() => {
+                  resetForm()
+                  setMode("signup")
+                }}
                 className="flex-1 h-11 text-sm font-semibold text-Charcoal bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
               >
                 Create an account
@@ -223,10 +288,15 @@ const CheckoutLoginBanner: React.FC<Props> = ({ customer }) => {
         <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
           <div className="p-5 sm:p-6">
             <div className="flex items-center justify-between mb-5">
-              <h3 className="text-base font-semibold text-Charcoal">Sign in to your account</h3>
+              <h3 className="text-base font-semibold text-Charcoal">
+                Sign in to your account
+              </h3>
               <button
                 type="button"
-                onClick={() => { resetForm(); setMode("signup") }}
+                onClick={() => {
+                  resetForm()
+                  setMode("signup")
+                }}
                 className="text-xs text-Gold hover:text-Gold/80 font-medium"
               >
                 Create account instead
@@ -257,7 +327,13 @@ const CheckoutLoginBanner: React.FC<Props> = ({ customer }) => {
                 disabled={isSubmitting || !email || !password}
                 className="w-full h-11 text-sm font-semibold text-white bg-Gold rounded-lg hover:bg-Gold/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                {isSubmitting ? <span className="flex items-center justify-center gap-2"><SmallSpinner /> Signing in...</span> : "Sign In"}
+                {isSubmitting ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <SmallSpinner /> Signing in...
+                  </span>
+                ) : (
+                  "Sign In"
+                )}
               </button>
             </form>
 
@@ -266,7 +342,12 @@ const CheckoutLoginBanner: React.FC<Props> = ({ customer }) => {
             <div className="mt-3 text-right">
               <button
                 type="button"
-                onClick={() => { setError(null); setPassword(""); setForgotSent(false); setMode("forgot") }}
+                onClick={() => {
+                  setError(null)
+                  setPassword("")
+                  setForgotSent(false)
+                  setMode("forgot")
+                }}
                 className="text-xs text-Gold hover:text-Gold/80 font-medium transition-colors"
               >
                 Forgot password?
@@ -276,7 +357,10 @@ const CheckoutLoginBanner: React.FC<Props> = ({ customer }) => {
             <div className="mt-4 pt-4 border-t border-gray-100 text-center">
               <button
                 type="button"
-                onClick={() => { resetForm(); setMode("prompt") }}
+                onClick={() => {
+                  resetForm()
+                  setMode("prompt")
+                }}
                 className="text-xs text-Charcoal/50 hover:text-Charcoal/80 transition-colors"
               >
                 Back to options
@@ -297,13 +381,20 @@ const CheckoutLoginBanner: React.FC<Props> = ({ customer }) => {
       return (
         <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
           <div className="p-5 sm:p-6 text-center">
-            <h3 className="text-base font-semibold text-Charcoal mb-2">Check your email</h3>
+            <h3 className="text-base font-semibold text-Charcoal mb-2">
+              Check your email
+            </h3>
             <p className="text-sm text-Charcoal/70 mb-5">
-              If an account exists for <span className="font-semibold">{email}</span>, we've sent a link to reset your password.
+              If an account exists for{" "}
+              <span className="font-semibold">{email}</span>, we've sent a link
+              to reset your password.
             </p>
             <button
               type="button"
-              onClick={() => { setForgotSent(false); setMode("signin") }}
+              onClick={() => {
+                setForgotSent(false)
+                setMode("signin")
+              }}
               className="text-xs text-Gold hover:text-Gold/80 font-medium transition-colors"
             >
               Back to sign in
@@ -316,10 +407,15 @@ const CheckoutLoginBanner: React.FC<Props> = ({ customer }) => {
       <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
         <div className="p-5 sm:p-6">
           <div className="flex items-center justify-between mb-5">
-            <h3 className="text-base font-semibold text-Charcoal">Reset your password</h3>
+            <h3 className="text-base font-semibold text-Charcoal">
+              Reset your password
+            </h3>
             <button
               type="button"
-              onClick={() => { setError(null); setMode("signin") }}
+              onClick={() => {
+                setError(null)
+                setMode("signin")
+              }}
               className="text-xs text-Gold hover:text-Gold/80 font-medium"
             >
               Back to sign in
@@ -345,7 +441,13 @@ const CheckoutLoginBanner: React.FC<Props> = ({ customer }) => {
               disabled={isSubmitting || !email}
               className="w-full h-11 text-sm font-semibold text-white bg-Gold rounded-lg hover:bg-Gold/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              {isSubmitting ? <span className="flex items-center justify-center gap-2"><SmallSpinner /> Sending...</span> : "Send reset link"}
+              {isSubmitting ? (
+                <span className="flex items-center justify-center gap-2">
+                  <SmallSpinner /> Sending...
+                </span>
+              ) : (
+                "Send reset link"
+              )}
             </button>
           </form>
 
@@ -361,10 +463,15 @@ const CheckoutLoginBanner: React.FC<Props> = ({ customer }) => {
       <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
         <div className="p-5 sm:p-6">
           <div className="flex items-center justify-between mb-5">
-            <h3 className="text-base font-semibold text-Charcoal">Create your account</h3>
+            <h3 className="text-base font-semibold text-Charcoal">
+              Create your account
+            </h3>
             <button
               type="button"
-              onClick={() => { resetForm(); setMode("signin") }}
+              onClick={() => {
+                resetForm()
+                setMode("signin")
+              }}
               className="text-xs text-Gold hover:text-Gold/80 font-medium"
             >
               Sign in instead
@@ -434,10 +541,18 @@ const CheckoutLoginBanner: React.FC<Props> = ({ customer }) => {
             />
             <button
               type="submit"
-              disabled={isSubmitting || !email || !password || !firstName || !lastName}
+              disabled={
+                isSubmitting || !email || !password || !firstName || !lastName
+              }
               className="w-full h-11 text-sm font-semibold text-white bg-Gold rounded-lg hover:bg-Gold/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              {isSubmitting ? <span className="flex items-center justify-center gap-2"><SmallSpinner /> Creating account...</span> : "Create Account & Continue"}
+              {isSubmitting ? (
+                <span className="flex items-center justify-center gap-2">
+                  <SmallSpinner /> Creating account...
+                </span>
+              ) : (
+                "Create Account & Continue"
+              )}
             </button>
           </form>
 
@@ -460,7 +575,10 @@ const CheckoutLoginBanner: React.FC<Props> = ({ customer }) => {
           <div className="mt-3 pt-3 border-t border-gray-100 text-center">
             <button
               type="button"
-              onClick={() => { resetForm(); setMode("prompt") }}
+              onClick={() => {
+                resetForm()
+                setMode("prompt")
+              }}
               className="text-xs text-Charcoal/50 hover:text-Charcoal/80 transition-colors"
             >
               Back to options

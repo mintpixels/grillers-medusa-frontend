@@ -8,6 +8,7 @@ import { signout } from "@lib/data/customer"
 import { isStaffCustomer } from "@lib/util/staff-access"
 import type { StaffImpersonationSession } from "@lib/data/staff/impersonation-types"
 import StaffContextActions from "@modules/staff/components/staff-context-actions"
+import { useExitStaffContext } from "@modules/staff/hooks/use-exit-staff-context"
 
 const navItems = [
   {
@@ -148,6 +149,7 @@ const AccountNav = ({
 }) => {
   const route = usePathname()
   const { countryCode } = useParams() as { countryCode: string }
+  const { exitContext, isExiting } = useExitStaffContext()
   const canUseStaffTools =
     !staffImpersonation && isStaffCustomer(staffCustomer || customer)
   const staffItem = {
@@ -175,8 +177,14 @@ const AccountNav = ({
     : navItems
 
   const handleLogout = async () => {
+    if (staffImpersonation) {
+      exitContext()
+      return
+    }
+
     await signout(countryCode)
   }
+  const logoutLabel = staffImpersonation ? "Exit context" : "Log out"
 
   const isActive = (href: string) => {
     const path = route.split(countryCode)[1]
@@ -211,6 +219,7 @@ const AccountNav = ({
           <button
             type="button"
             onClick={handleLogout}
+            disabled={staffImpersonation ? isExiting : false}
             className="flex items-center gap-1.5 px-3 py-3 text-sm font-maison-neue whitespace-nowrap border-b-2 border-transparent text-Charcoal/40 hover:text-VibrantRed transition-colors"
             data-testid="logout-button"
           >
@@ -227,7 +236,7 @@ const AccountNav = ({
                 d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9"
               />
             </svg>
-            <span>Log out</span>
+            <span>{isExiting ? "Exiting" : logoutLabel}</span>
           </button>
         </nav>
       </div>
@@ -297,6 +306,7 @@ const AccountNav = ({
               <button
                 type="button"
                 onClick={handleLogout}
+                disabled={staffImpersonation ? isExiting : false}
                 className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-maison-neue text-Charcoal/40 hover:text-VibrantRed hover:bg-red-50/50 transition-all duration-150 w-full"
                 data-testid="logout-button"
               >
@@ -313,7 +323,7 @@ const AccountNav = ({
                     d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9"
                   />
                 </svg>
-                Log out
+                {isExiting ? "Exiting" : logoutLabel}
               </button>
             </div>
           </nav>
