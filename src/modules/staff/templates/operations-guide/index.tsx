@@ -248,7 +248,7 @@ const sections: GuideSection[] = [
       "Letting customers sign in, save addresses, manage saved cards, use wishlist, reorder from current or legacy history, and view order details.",
     ],
     howTo: [
-      "Use /us/store for the full catalog. It is powered by Algolia for fast browsing, then enriched with Medusa prices and Strapi product details.",
+      "Use /us/store for the full catalog. It is powered directly by Strapi product records so customer-safe names, descriptions, images, and merchandising stay current.",
       "Use /us/search when a customer is looking for a product by name or SKU. Search is live and should surface customer-safe titles.",
       "Use /us/collections for curated shopping paths. Individual collection pages may be Strapi product collections, product tags, or curated collections.",
       "Use a product page when confirming exact packaging, price mode, ingredient disclosure, kosher status, shipping eligibility, and whether a waitlist is offered.",
