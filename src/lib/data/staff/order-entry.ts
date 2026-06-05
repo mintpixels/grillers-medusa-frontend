@@ -15,11 +15,23 @@ import {
   inventoryLineMessage,
   type InventoryAvailabilityLine,
 } from "@lib/data/inventory-allocation"
-import { resolvePricingMode, type PriceDisplayMode } from "@lib/util/price-display"
+import {
+  resolvePricingMode,
+  type PriceDisplayMode,
+} from "@lib/util/price-display"
 import type { HttpTypes } from "@medusajs/types"
 import { randomBytes } from "crypto"
 import { revalidateTag } from "next/cache"
 import { getCacheTag } from "../cookies"
+import {
+  parseStaffCustomerAccountCredits,
+  parseStaffCustomerAccountNotes,
+  staffCustomerAccountCreditBalance,
+  staffCustomerAccountCreditBalanceMinor,
+  type StaffCustomerAccountCredit,
+  type StaffCustomerAccountNote,
+  type StaffCustomerAccountReasonCode,
+} from "./customer-account-ledger"
 import { signStaffCartHandoff } from "./order-token"
 
 type AnyRecord = Record<string, any>
@@ -90,6 +102,10 @@ export type StaffLegacyOrder = {
 export type StaffCustomerContext = StaffCustomerSummary & {
   recentOrders: StaffRecentOrder[]
   legacyOrders: StaffLegacyOrder[]
+  accountCredits: StaffCustomerAccountCredit[]
+  accountNotes: StaffCustomerAccountNote[]
+  accountCreditBalance: number
+  accountCreditBalanceMinor: number
 }
 
 export type StaffProductSearchResult = {
@@ -1228,6 +1244,8 @@ export async function getStaffCustomerContext(
     })
   )
 
+  const metadata = customer.metadata || {}
+
   return {
     ...customerSummary(customer, "customer"),
     recentOrders: (orders || []).map((order) => ({
@@ -1246,6 +1264,10 @@ export async function getStaffCustomerContext(
       })),
     })),
     legacyOrders: legacyOrders.map(legacyOrderSummary),
+    accountCredits: parseStaffCustomerAccountCredits(metadata),
+    accountNotes: parseStaffCustomerAccountNotes(metadata),
+    accountCreditBalance: staffCustomerAccountCreditBalance(metadata),
+    accountCreditBalanceMinor: staffCustomerAccountCreditBalanceMinor(metadata),
   }
 }
 
@@ -1271,6 +1293,10 @@ export async function getStaffLegacyOrderContext(
     ...summary,
     recentOrders: [],
     legacyOrders: [legacyOrderSummary(order)],
+    accountCredits: [],
+    accountNotes: [],
+    accountCreditBalance: 0,
+    accountCreditBalanceMinor: 0,
   }
 }
 
@@ -1373,6 +1399,155 @@ export async function saveStaffCustomerAddress(input: {
     return {
       ok: false,
       error: err?.message || "Could not save customer address.",
+    }
+  }
+}
+
+export async function applyStaffCustomerAccountAction(input: {
+  customerId: string
+  action: "customer_note" | "customer_credit"
+  amount?: number
+  reasonCode?: StaffCustomerAccountReasonCode
+  staffNote: string
+  customerVisibleNote?: string
+  relatedOrderId?: string
+  relatedOrderDisplayId?: string
+}): Promise<{ ok: boolean; customer?: StaffCustomerContext; error?: string }> {
+  try {
+    const staff = await requireStaff()
+    const customerId = String(input.customerId || "").trim()
+    if (!customerId) throw new Error("Missing customer ID.")
+
+    const staffNote = metadataText(input.staffNote)
+    if (!staffNote) throw new Error("Staff note is required.")
+
+    const reasonCode = input.reasonCode || "other"
+    const now = new Date().toISOString()
+    const staffName = staffDisplayName(staff)
+
+    const current = await adminFetch<{ customer: AnyRecord }>(
+      `/admin/customers/${customerId}`,
+      { query: { fields: "id,email,first_name,last_name,metadata" } }
+    )
+
+    const metadata = current.customer?.metadata || {}
+    const relatedOrderId = metadataText(input.relatedOrderId)
+    const relatedOrderDisplayId = metadataText(input.relatedOrderDisplayId)
+    let nextMetadata: AnyRecord
+
+    if (input.action === "customer_credit") {
+      const amount = Number(input.amount)
+      if (!Number.isFinite(amount) || amount <= 0) {
+        throw new Error("Credit amount must be greater than zero.")
+      }
+
+      const amountMinor = Math.round(amount * 100)
+      const creditId = `custcred_${Date.now()}_${randomBytes(4).toString(
+        "hex"
+      )}`
+      const requestKey = `customer-credit:${customerId}:${creditId}`
+      const existingCredits = parseStaffCustomerAccountCredits(metadata)
+      const credit: StaffCustomerAccountCredit = {
+        id: creditId,
+        amount: Math.round(amountMinor) / 100,
+        amountMinor,
+        currencyCode: "usd",
+        reasonCode,
+        staffNote,
+        customerVisibleNote: metadataText(input.customerVisibleNote),
+        relatedOrderId,
+        relatedOrderDisplayId,
+        status: "pending_qbd",
+        qbdPostingStatus: "pending_manual",
+        qbdPostingAction: "customer_account_credit_memo",
+        qbdPostingRequestKey: requestKey,
+        createdAt: now,
+        createdByStaffCustomerId: staff.id,
+        createdByStaffEmail: staff.email,
+        createdByStaffName: staffName,
+      }
+      const accountCredits = [...existingCredits, credit].slice(-50)
+      const balanceMinor = accountCredits.reduce((sum, entry) => {
+        if (entry.status === "void") return sum
+        return sum + entry.amountMinor
+      }, 0)
+
+      nextMetadata = appendAuditLog(
+        {
+          ...metadata,
+          customer_account_credits: JSON.stringify(accountCredits),
+          customer_account_credit_balance_minor: balanceMinor,
+          customer_account_credit_latest_at: now,
+          qbd_customer_posting_required: true,
+          qbd_customer_posting_status: "pending_manual",
+          qbd_customer_posting_action: "customer_account_credit_memo",
+          qbd_customer_posting_request_key: requestKey,
+          qbd_customer_posting_amount_minor: amountMinor,
+          qbd_customer_posting_requested_at: now,
+        },
+        {
+          type: "staff_customer_account_credit_create",
+          staffCustomerId: staff.id,
+          staffEmail: staff.email,
+          targetCustomerId: customerId,
+          customerEmail: current.customer?.email || "",
+          amountMinor,
+          reasonCode,
+          relatedOrderId: relatedOrderId || null,
+          relatedOrderDisplayId: relatedOrderDisplayId || null,
+          qbdPostingRequestKey: requestKey,
+        }
+      )
+    } else {
+      const noteId = `custnote_${Date.now()}_${randomBytes(4).toString("hex")}`
+      const existingNotes = parseStaffCustomerAccountNotes(metadata)
+      const note: StaffCustomerAccountNote = {
+        id: noteId,
+        note: staffNote,
+        reasonCode,
+        relatedOrderId,
+        relatedOrderDisplayId,
+        createdAt: now,
+        createdByStaffCustomerId: staff.id,
+        createdByStaffEmail: staff.email,
+        createdByStaffName: staffName,
+      }
+      const accountNotes = [...existingNotes, note].slice(-50)
+
+      nextMetadata = appendAuditLog(
+        {
+          ...metadata,
+          customer_account_notes: JSON.stringify(accountNotes),
+          customer_account_note_latest_at: now,
+        },
+        {
+          type: "staff_customer_note_create",
+          staffCustomerId: staff.id,
+          staffEmail: staff.email,
+          targetCustomerId: customerId,
+          customerEmail: current.customer?.email || "",
+          reasonCode,
+          relatedOrderId: relatedOrderId || null,
+          relatedOrderDisplayId: relatedOrderDisplayId || null,
+        }
+      )
+    }
+
+    await adminFetch(`/admin/customers/${customerId}`, {
+      method: "POST",
+      body: JSON.stringify({
+        metadata: nextMetadata,
+      }),
+    })
+
+    return {
+      ok: true,
+      customer: await getStaffCustomerContext(customerId),
+    }
+  } catch (err: any) {
+    return {
+      ok: false,
+      error: err?.message || "Could not record customer account action.",
     }
   }
 }

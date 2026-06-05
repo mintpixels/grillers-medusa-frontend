@@ -55,9 +55,11 @@ import {
   actionMutatesMedusa,
   actionRequiresCustomerConsent,
   staffOrderItemEditEligibility,
+  staffOrderSupportActionAvailability,
   type StaffConsentMethod,
   type StaffExceptionActionType,
   type StaffExceptionReasonCode,
+  type StaffOrderSupportRole,
 } from "@lib/data/staff/exception-types"
 import {
   computeEligibleArrivalDates,
@@ -251,9 +253,15 @@ function remainingCaptureAmount(
 
 function actionUnavailableReason(
   action: StaffExceptionActionType,
-  order: StaffExceptionOrderDetail | null
+  order: StaffExceptionOrderDetail | null,
+  staffRole?: StaffOrderSupportRole
 ): string {
   if (!order || order.source === "legacy") return ""
+
+  const availability = staffOrderSupportActionAvailability(action, order, {
+    staffRole,
+  })
+  if (!availability.available) return availability.reason
 
   if (action === "refund_payment") {
     const refundable = order.payments.some(
@@ -288,6 +296,17 @@ function actionUnavailableReason(
   }
 
   return ""
+}
+
+function actionPhaseAvailable(
+  action: StaffExceptionActionType,
+  order: StaffExceptionOrderDetail | null,
+  staffRole?: StaffOrderSupportRole
+) {
+  if (!order || order.source === "legacy") return true
+  return staffOrderSupportActionAvailability(action, order, {
+    staffRole,
+  }).available
 }
 
 function emptyAction(
@@ -866,7 +885,11 @@ function OrderItemEditPanel({
   )
 }
 
-export default function StaffOrderExceptionConsole() {
+export default function StaffOrderExceptionConsole({
+  staffRole = "staff",
+}: {
+  staffRole?: StaffOrderSupportRole
+}) {
   const [query, setQuery] = useState("")
   const [queueFilter, setQueueFilter] =
     useState<StaffExceptionOrderQueueFilter>("open")
@@ -907,15 +930,42 @@ export default function StaffOrderExceptionConsole() {
 
   const visibleActions = useMemo(() => {
     return VISIBLE_STAFF_EXCEPTION_ACTIONS.filter((action) => {
-      if (action.value === "retry_qbd_posting") {
-        return selectedOrder?.metadata?.qbd_posting_status === "failed"
+      if (!selectedOrder || selectedOrder.source === "legacy") {
+        return action.value !== "retry_qbd_posting"
       }
-      return true
+      return actionPhaseAvailable(action.value, selectedOrder, staffRole)
     })
-  }, [selectedOrder?.metadata?.qbd_posting_status])
+  }, [
+    selectedOrder,
+    selectedOrder?.metadata?.qbd_posting_status,
+    selectedOrder?.metadata?.finalization_status,
+    selectedOrder?.metadata?.catch_weight_status,
+    selectedOrder?.metadata?.pick_pack_status,
+    selectedOrder?.metadata?.payment_workflow,
+    staffRole,
+  ])
 
   const selectedActionMeta = ACTION_META[selectedAction]
   const SelectedActionIcon = selectedActionMeta.icon
+
+  useEffect(() => {
+    if (!selectedOrder || selectedIsLegacy) return
+    if (actionPhaseAvailable(selectedAction, selectedOrder, staffRole)) return
+
+    setAcknowledged(false)
+    setPreview(null)
+    setTypedConfirmation("")
+    setActionDraft(emptyAction(selectedOrder.id, selectedOrder))
+  }, [
+    selectedAction,
+    selectedIsLegacy,
+    selectedOrder,
+    selectedOrder?.metadata?.finalization_status,
+    selectedOrder?.metadata?.catch_weight_status,
+    selectedOrder?.metadata?.pick_pack_status,
+    selectedOrder?.metadata?.payment_workflow,
+    staffRole,
+  ])
 
   const canSubmit = useMemo(() => {
     if (selectedIsLegacy) return false
@@ -1467,7 +1517,8 @@ export default function StaffOrderExceptionConsole() {
                               const Icon = meta.icon
                               const unavailable = actionUnavailableReason(
                                 action.value,
-                                selectedOrder
+                                selectedOrder,
+                                staffRole
                               )
                               const active = selectedAction === action.value
                               return (

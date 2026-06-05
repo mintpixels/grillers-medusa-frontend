@@ -27,7 +27,7 @@ export const STAFF_EXCEPTION_ACTIONS = [
     label: "Record offline payment",
     moneyMovement: true,
     requiresConsent: true,
-    visibleInOrderSupport: true,
+    visibleInOrderSupport: false,
   },
   {
     value: "shipping_override",
@@ -48,7 +48,7 @@ export const STAFF_EXCEPTION_ACTIONS = [
     label: "Issue account credit",
     moneyMovement: true,
     requiresConsent: true,
-    visibleInOrderSupport: true,
+    visibleInOrderSupport: false,
   },
   {
     value: "record_check_refund",
@@ -105,6 +105,34 @@ export type StaffOrderOperationalState =
   | "fulfillment_locked"
   | "confirmed"
   | "open"
+
+export type StaffOrderPickPackPhase =
+  | "canceled"
+  | "fulfilled"
+  | "fulfillment_locked"
+  | "pre_pick"
+  | "picking"
+  | "packing"
+  | "ready_to_charge"
+  | "charge_hold"
+  | "ready_to_ship"
+  | "released_to_fulfillment"
+
+export type StaffOrderSupportRole =
+  | "customer"
+  | "staff"
+  | "office"
+  | "picker"
+  | "packer"
+  | "manager"
+  | "super_admin"
+  | string
+
+export type StaffOrderSupportActionAvailability = {
+  available: boolean
+  phase: StaffOrderPickPackPhase
+  reason: string
+}
 
 export type StaffOrderItemEditEligibility = {
   canEdit: boolean
@@ -211,6 +239,50 @@ export function staffOrderPickPackStatus(
     .toLowerCase()
 }
 
+export function staffOrderUsesCatchWeightFinalCharge(
+  order: AnyRecord | null | undefined
+): boolean {
+  const metadata = order?.metadata || {}
+  const status = staffOrderPickPackStatus(order)
+
+  return Boolean(
+    status ||
+      metadata.finalization_id ||
+      metadata.catch_weight_status ||
+      metadata.pick_pack_status ||
+      metadata.payment_workflow === "setup_then_final_charge"
+  )
+}
+
+export function staffOrderPickPackPhase(
+  order: AnyRecord | null | undefined
+): StaffOrderPickPackPhase {
+  const operationalState = staffOrderOperationalState(order)
+
+  if (operationalState === "canceled") return "canceled"
+  if (operationalState === "completed_or_shipped") return "fulfilled"
+  if (operationalState === "fulfillment_locked") return "fulfillment_locked"
+
+  const status = staffOrderPickPackStatus(order)
+  if (!status || status === "pending_pick" || status === "pending_pack") {
+    return "pre_pick"
+  }
+  if (status === "picking") return "picking"
+  if (
+    status === "ready_for_packing" ||
+    status === "packing" ||
+    status === "packed_pending_review"
+  ) {
+    return "packing"
+  }
+  if (status === "packed_pending_charge") return "ready_to_charge"
+  if (status === "charge_failed_hold") return "charge_hold"
+  if (status === "charged_ready_to_ship") return "ready_to_ship"
+  if (status === "released_to_fulfillment") return "released_to_fulfillment"
+
+  return "pre_pick"
+}
+
 export function staffOrderItemEditEligibility(
   order: AnyRecord | null | undefined
 ): StaffOrderItemEditEligibility {
@@ -275,6 +347,141 @@ export function staffOrderItemEditEligibility(
   }
 }
 
+const managerEscalationRoles = new Set(["manager", "super_admin"])
+
+function canEscalateAfterPick(role: StaffOrderSupportRole | undefined): boolean {
+  return managerEscalationRoles.has(String(role || "").trim().toLowerCase())
+}
+
+export function staffOrderSupportActionAvailability(
+  action: StaffExceptionActionType,
+  order: AnyRecord | null | undefined,
+  options: {
+    staffRole?: StaffOrderSupportRole
+    offlineMoneyActionsEnabled?: boolean
+  } = {}
+): StaffOrderSupportActionAvailability {
+  const phase = staffOrderPickPackPhase(order)
+  const role = options.staffRole
+
+  if (action === "record_note") {
+    return { available: true, phase, reason: "" }
+  }
+
+  if (action === "retry_qbd_posting") {
+    return order?.metadata?.qbd_posting_status === "failed"
+      ? { available: true, phase, reason: "" }
+      : {
+          available: false,
+          phase,
+          reason:
+            "QuickBooks retry is available only after a failed QBD posting.",
+        }
+  }
+
+  if (phase === "canceled") {
+    return action === "refund_payment" || action === "credit_memo"
+      ? { available: true, phase, reason: "" }
+      : {
+          available: false,
+          phase,
+          reason:
+            "Canceled orders only allow notes, payment follow-up, credits, or QBD retry.",
+        }
+  }
+
+  if (action === "record_check_refund") {
+    return {
+      available: false,
+      phase,
+      reason: "Pending check refunds are hidden from Order Support for launch.",
+    }
+  }
+
+  if (action === "record_offline_payment") {
+    if (!options.offlineMoneyActionsEnabled) {
+      return {
+        available: false,
+        phase,
+        reason:
+          "Offline payments are disabled for launch. Use Stripe card flows or record an internal note.",
+      }
+    }
+    return canEscalateAfterPick(role)
+      ? { available: true, phase, reason: "" }
+      : {
+          available: false,
+          phase,
+          reason: "Offline payment recording is limited to manager escalation.",
+        }
+  }
+
+  if (action === "capture_payment" && staffOrderUsesCatchWeightFinalCharge(order)) {
+    return {
+      available: false,
+      phase,
+      reason:
+        "Catch-weight orders must be charged from Pack & Finalize after final weights are reviewed.",
+    }
+  }
+
+  if (action === "edit_order_items") {
+    const eligibility = staffOrderItemEditEligibility(order)
+    return eligibility.canEdit
+      ? { available: true, phase, reason: "" }
+      : { available: false, phase, reason: eligibility.reason }
+  }
+
+  if (action === "shipping_override") {
+    return phase === "pre_pick"
+      ? { available: true, phase, reason: "" }
+      : {
+          available: false,
+          phase,
+          reason:
+            "Shipping or date changes must happen before picking starts. Put the pick back or send the order back through Pack & Finalize first.",
+        }
+  }
+
+  if (action === "cancel_order") {
+    if (phase === "pre_pick") {
+      return { available: true, phase, reason: "" }
+    }
+    if (phase === "ready_to_ship" || phase === "released_to_fulfillment") {
+      return {
+        available: false,
+        phase,
+        reason:
+          "This order has already been charged for release. Use refund, credit, fulfillment, or QBD follow-up instead.",
+      }
+    }
+    return canEscalateAfterPick(role)
+      ? { available: true, phase, reason: "" }
+      : {
+          available: false,
+          phase,
+          reason:
+            "Picking or packing has started. Cancellation now requires manager escalation.",
+        }
+  }
+
+  if (action === "credit_memo") {
+    return phase === "ready_to_ship" ||
+      phase === "released_to_fulfillment" ||
+      phase === "fulfilled" ||
+      phase === "fulfillment_locked"
+      ? { available: true, phase, reason: "" }
+      : {
+          available: false,
+          phase,
+          reason:
+            "Account credits are post-charge customer-service exceptions. Use notes, item edits, or Pack & Finalize before charge.",
+        }
+  }
+
+  return { available: true, phase, reason: "" }
+}
+
 export function staffExceptionActionConfig(action: StaffExceptionActionType) {
   return STAFF_EXCEPTION_ACTIONS.find((item) => item.value === action)
 }
@@ -337,19 +544,32 @@ export function actionIsBlockedByOperationalState(
   state: StaffOrderOperationalState
 ): boolean {
   if (state === "canceled") {
-    return action !== "record_note"
+    return ![
+      "record_note",
+      "refund_payment",
+      "credit_memo",
+      "retry_qbd_posting",
+    ].includes(action)
   }
 
   if (state === "completed_or_shipped") {
     return (
       action === "cancel_order" ||
       action === "capture_payment" ||
-      action === "edit_order_items"
+      action === "edit_order_items" ||
+      action === "shipping_override" ||
+      action === "record_offline_payment"
     )
   }
 
   if (state === "fulfillment_locked") {
-    return action === "edit_order_items"
+    return (
+      action === "cancel_order" ||
+      action === "capture_payment" ||
+      action === "edit_order_items" ||
+      action === "shipping_override" ||
+      action === "record_offline_payment"
+    )
   }
 
   return false

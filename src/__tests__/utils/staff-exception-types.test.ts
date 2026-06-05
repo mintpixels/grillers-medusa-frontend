@@ -9,6 +9,8 @@ import {
   parseStaffAuditLog,
   staffOrderItemEditEligibility,
   staffOrderOperationalState,
+  staffOrderPickPackPhase,
+  staffOrderSupportActionAvailability,
   VISIBLE_STAFF_EXCEPTION_ACTIONS,
 } from "@lib/data/staff/exception-types"
 
@@ -79,13 +81,13 @@ describe("staff exception helpers", () => {
     expect(actionRequiresQuickBooksPosting("record_note")).toBe(true)
   })
 
-  it("hides pending check refund from the order-support action picker", () => {
+  it("hides launch-disabled and customer-level actions from the order-support picker", () => {
     const visible = VISIBLE_STAFF_EXCEPTION_ACTIONS.map(
       (action) => action.value
     )
-    expect(visible).toContain("record_offline_payment")
+    expect(visible).not.toContain("record_offline_payment")
     expect(visible).toContain("edit_order_items")
-    expect(visible).toContain("credit_memo")
+    expect(visible).not.toContain("credit_memo")
     expect(visible).not.toContain("record_check_refund")
   })
 
@@ -124,10 +126,19 @@ describe("staff exception helpers", () => {
     ).toBe(true)
     expect(
       actionIsBlockedByOperationalState("refund_payment", "canceled")
-    ).toBe(true)
+    ).toBe(false)
+    expect(
+      actionIsBlockedByOperationalState("retry_qbd_posting", "canceled")
+    ).toBe(false)
     expect(actionIsBlockedByOperationalState("record_note", "canceled")).toBe(
       false
     )
+    expect(
+      actionIsBlockedByOperationalState(
+        "shipping_override",
+        "fulfillment_locked"
+      )
+    ).toBe(true)
   })
 
   it("allows order item edits only before a pick is claimed", () => {
@@ -151,6 +162,99 @@ describe("staff exception helpers", () => {
       staffOrderItemEditEligibility({
         metadata: { finalization_status: "ready_for_packing" },
       }).canEdit
+    ).toBe(false)
+  })
+
+  it("classifies pick, pack, charge, and fulfillment phases", () => {
+    expect(staffOrderPickPackPhase({ metadata: {} })).toBe("pre_pick")
+    expect(
+      staffOrderPickPackPhase({
+        metadata: { finalization_status: "picking" },
+      })
+    ).toBe("picking")
+    expect(
+      staffOrderPickPackPhase({
+        metadata: { finalization_status: "ready_for_packing" },
+      })
+    ).toBe("packing")
+    expect(
+      staffOrderPickPackPhase({
+        metadata: { finalization_status: "packed_pending_charge" },
+      })
+    ).toBe("ready_to_charge")
+    expect(
+      staffOrderPickPackPhase({
+        metadata: { finalization_status: "charge_failed_hold" },
+      })
+    ).toBe("charge_hold")
+    expect(
+      staffOrderPickPackPhase({
+        metadata: { finalization_status: "charged_ready_to_ship" },
+      })
+    ).toBe("ready_to_ship")
+  })
+
+  it("gates order support actions by pick-pack phase and staff role", () => {
+    const prePickOrder = { metadata: { finalization_status: "pending_pick" } }
+    const pickingOrder = { metadata: { finalization_status: "picking" } }
+    const readyShipOrder = {
+      metadata: { finalization_status: "charged_ready_to_ship" },
+    }
+    const failedQbdOrder = {
+      metadata: {
+        finalization_status: "picking",
+        qbd_posting_status: "failed",
+      },
+    }
+
+    expect(
+      staffOrderSupportActionAvailability("edit_order_items", prePickOrder, {
+        staffRole: "office",
+      }).available
+    ).toBe(true)
+    expect(
+      staffOrderSupportActionAvailability("shipping_override", pickingOrder, {
+        staffRole: "office",
+      }).available
+    ).toBe(false)
+    expect(
+      staffOrderSupportActionAvailability("cancel_order", pickingOrder, {
+        staffRole: "office",
+      }).available
+    ).toBe(false)
+    expect(
+      staffOrderSupportActionAvailability("cancel_order", pickingOrder, {
+        staffRole: "manager",
+      }).available
+    ).toBe(true)
+    expect(
+      staffOrderSupportActionAvailability("capture_payment", pickingOrder, {
+        staffRole: "manager",
+      }).available
+    ).toBe(false)
+    expect(
+      staffOrderSupportActionAvailability("credit_memo", prePickOrder, {
+        staffRole: "office",
+      }).available
+    ).toBe(false)
+    expect(
+      staffOrderSupportActionAvailability("credit_memo", readyShipOrder, {
+        staffRole: "office",
+      }).available
+    ).toBe(true)
+    expect(
+      staffOrderSupportActionAvailability("retry_qbd_posting", failedQbdOrder, {
+        staffRole: "office",
+      }).available
+    ).toBe(true)
+    expect(
+      staffOrderSupportActionAvailability(
+        "record_offline_payment",
+        prePickOrder,
+        {
+          staffRole: "manager",
+        }
+      ).available
     ).toBe(false)
   })
 })

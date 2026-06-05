@@ -3,7 +3,11 @@
 import "server-only"
 
 import { retrieveAuthenticatedCustomerForStaffAccess } from "@lib/data/customer"
-import { isStaffCustomer, staffDisplayName } from "@lib/util/staff-access"
+import {
+  isStaffCustomer,
+  staffAccessRole,
+  staffDisplayName,
+} from "@lib/util/staff-access"
 import { adminFetch, appendStaffAuditLog } from "./admin"
 import {
   actionIsBlockedByOperationalState,
@@ -17,11 +21,13 @@ import {
   staffExceptionActionConfig,
   staffOrderItemEditEligibility,
   staffOrderOperationalState,
+  staffOrderSupportActionAvailability,
   type StaffAuditEntry,
   type StaffConsentMethod,
   type StaffExceptionActionType,
   type StaffExceptionReasonCode,
   type StaffOrderOperationalState,
+  type StaffOrderSupportRole,
 } from "./exception-types"
 import {
   staffCurrencyAmount,
@@ -1277,10 +1283,23 @@ function previewAmount(input: StaffExceptionActionInput): number | undefined {
   }
 }
 
-function validateAction(input: StaffExceptionActionInput, order: AnyRecord) {
+function validateAction(
+  input: StaffExceptionActionInput,
+  order: AnyRecord,
+  staffRole?: StaffOrderSupportRole
+) {
   if (!input.orderId) throw new Error("Choose an order first.")
   if (!input.reasonCode) throw new Error("Choose a reason code.")
   if (!input.staffNote?.trim()) throw new Error("Add an internal staff note.")
+
+  const availability = staffOrderSupportActionAvailability(input.action, order, {
+    staffRole,
+    offlineMoneyActionsEnabled:
+      process.env.STAFF_ALLOW_OFFLINE_MONEY_ACTIONS === "true",
+  })
+  if (!availability.available) {
+    throw new Error(availability.reason)
+  }
 
   if (
     input.action === "record_check_refund" &&
@@ -1314,6 +1333,11 @@ function validateAction(input: StaffExceptionActionInput, order: AnyRecord) {
   }
 
   if (input.action === "record_offline_payment") {
+    if (process.env.STAFF_ALLOW_OFFLINE_MONEY_ACTIONS !== "true") {
+      throw new Error(
+        "Offline payments are disabled in this console. Use Stripe card flows or record an internal note for accounting follow-up."
+      )
+    }
     staffPositiveCurrencyAmount(input.amount)
     if (!input.offlinePaymentMethod?.trim()) {
       throw new Error("Choose or enter an offline payment method.")
@@ -1736,7 +1760,8 @@ export async function previewStaffOrderException(
   const fallbackAction = input.action || "record_note"
 
   try {
-    await requireStaffOperator()
+    const staff = await requireStaffOperator()
+    const role = staffAccessRole(staff)
     if (input.orderId.startsWith("lgord_")) {
       return {
         ok: false,
@@ -1765,7 +1790,7 @@ export async function previewStaffOrderException(
     const blockingReasons: string[] = []
 
     try {
-      validateAction(input, order)
+      validateAction(input, order, role)
     } catch (err) {
       blockingReasons.push(err instanceof Error ? err.message : String(err))
     }
@@ -1823,7 +1848,7 @@ export async function applyStaffOrderException(
     }
 
     const order = await retrieveOrder(input.orderId)
-    validateAction(input, order)
+    validateAction(input, order, staffAccessRole(staff))
     validateTypedConfirmation(input)
 
     const baseEntry = baseAuditEntry({

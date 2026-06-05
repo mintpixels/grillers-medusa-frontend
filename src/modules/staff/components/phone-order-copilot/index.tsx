@@ -4,9 +4,11 @@ import { useCallback, useEffect, useMemo, useState, useTransition } from "react"
 import type { HttpTypes } from "@medusajs/types"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import {
+  BadgeDollarSign,
   BookOpenText,
   ClipboardList,
   MessageSquare,
+  NotebookPen,
   PackageCheck,
   ShieldCheck,
   UserPlus,
@@ -24,6 +26,7 @@ import {
 import { loadStripe } from "@stripe/stripe-js"
 import { getStripePublishableKey } from "@lib/util/stripe-key"
 import {
+  applyStaffCustomerAccountAction,
   completeStaffPhoneOrder,
   createStaffCustomer,
   getStaffCustomerContext,
@@ -43,12 +46,18 @@ import {
   type StaffProductSearchResult,
 } from "@lib/data/staff/order-entry"
 import {
+  STAFF_CUSTOMER_ACCOUNT_REASON_OPTIONS,
+  staffCustomerAccountReasonLabel,
+  type StaffCustomerAccountReasonCode,
+} from "@lib/data/staff/customer-account-ledger"
+import {
   canChargeFinalOrders,
   canManageOrderSupport,
   canPackCatchWeightOrders,
   canPickCatchWeightOrders,
   canUseOfficeConsole,
   isSuperAdminCustomer,
+  staffAccessRole,
 } from "@lib/util/staff-access"
 import {
   SMS_MARKETING_DISCLOSURE,
@@ -99,6 +108,8 @@ type DraftCustomer = {
   phone: string
   company: string
 }
+
+type CustomerAccountActionKind = "customer_note" | "customer_credit"
 
 const emptyAddress: StaffAddressInput = {
   firstName: "",
@@ -366,6 +377,16 @@ export default function PhoneOrderCopilot({
   const [isPending, startTransition] = useTransition()
   const [activeWorkspace, setActiveWorkspace] =
     useState<StaffWorkspace>(initialWorkspace)
+  const [customerAccountAction, setCustomerAccountAction] =
+    useState<CustomerAccountActionKind>("customer_note")
+  const [customerAccountAmount, setCustomerAccountAmount] = useState("")
+  const [customerAccountReason, setCustomerAccountReason] =
+    useState<StaffCustomerAccountReasonCode>("goodwill")
+  const [customerAccountRelatedOrder, setCustomerAccountRelatedOrder] =
+    useState("")
+  const [customerAccountStaffNote, setCustomerAccountStaffNote] = useState("")
+  const [customerAccountVisibleNote, setCustomerAccountVisibleNote] =
+    useState("")
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const selectWorkspace = useCallback(
@@ -381,6 +402,7 @@ export default function PhoneOrderCopilot({
     [pathname, router, searchParams]
   )
   const canManageTeamAccess = isSuperAdminCustomer(staffCustomer)
+  const staffRole = staffAccessRole(staffCustomer)
   const canChargeFinalizedOrders = canChargeFinalOrders(staffCustomer)
   const canUseOffice = canUseOfficeConsole(staffCustomer)
   const canUseOrderSupport = canManageOrderSupport(staffCustomer)
@@ -403,6 +425,12 @@ export default function PhoneOrderCopilot({
     !customerVerified ||
     hasUnresolvedStaffBlocks ||
     (paymentMode === "collect_card_now" && !paymentConsent)
+  const customerAccountActionDisabled =
+    !draftCustomer.id ||
+    !customerAccountStaffNote.trim() ||
+    (customerAccountAction === "customer_credit" &&
+      (!Number.isFinite(Number(customerAccountAmount)) ||
+        Number(customerAccountAmount) <= 0))
 
   const staffName = useMemo(
     () =>
@@ -411,6 +439,26 @@ export default function PhoneOrderCopilot({
         .join(" ") || staffCustomer.email,
     [staffCustomer]
   )
+
+  const customerAccountOrderOptions = useMemo(() => {
+    if (!selectedContext) return []
+
+    const medusaOrders = (selectedContext.recentOrders || []).map((order) => ({
+      value: `medusa:${order.id}`,
+      id: order.id,
+      displayId: order.displayId,
+      label: `${order.displayId} | ${formatDate(order.createdAt)}`,
+    }))
+
+    const legacyOrders = (selectedContext.legacyOrders || []).map((order) => ({
+      value: `legacy:${order.id}`,
+      id: order.id,
+      displayId: order.displayId,
+      label: `${order.displayId} | ${formatDate(order.placedAt)}`,
+    }))
+
+    return [...medusaOrders, ...legacyOrders]
+  }, [selectedContext])
 
   function updateDraftCustomer(patch: Partial<DraftCustomer>) {
     setDraftCustomer((current) => ({ ...current, ...patch }))
@@ -436,6 +484,15 @@ export default function PhoneOrderCopilot({
     setCheckoutUrl(null)
     setPrepareResult(null)
     setCompleteResult(null)
+  }
+
+  function resetCustomerAccountAction() {
+    setCustomerAccountAction("customer_note")
+    setCustomerAccountAmount("")
+    setCustomerAccountReason("goodwill")
+    setCustomerAccountRelatedOrder("")
+    setCustomerAccountStaffNote("")
+    setCustomerAccountVisibleNote("")
   }
 
   async function activateCustomerContext(target: {
@@ -483,6 +540,7 @@ export default function PhoneOrderCopilot({
     selectWorkspace("phone_order")
     setShowNewCustomerForm(false)
     setCheckoutUrl(null)
+    resetCustomerAccountAction()
     setDraftCustomer(draftFromCustomer(customer))
     setShippingAddress(addressFromCustomer(customer))
     setCustomerVerified(false)
@@ -594,6 +652,7 @@ export default function PhoneOrderCopilot({
     setCustomerVerified(false)
     setSendAccountInvite(true)
     setSmsMarketingOptIn(false)
+    resetCustomerAccountAction()
     resetOrderDraft()
     setShowNewCustomerForm(true)
   }
@@ -649,6 +708,44 @@ export default function PhoneOrderCopilot({
       setSelectedContext(result.customer)
       setShippingAddress(addressFromCustomer(result.customer))
       setStatus("Customer address saved with staff audit metadata.")
+    })
+  }
+
+  function recordCustomerAccountAction() {
+    if (!draftCustomer.id) return
+    const action = customerAccountAction
+    const relatedOrder = customerAccountOrderOptions.find(
+      (option) => option.value === customerAccountRelatedOrder
+    )
+    setError(null)
+    startTransition(async () => {
+      const result = await applyStaffCustomerAccountAction({
+        customerId: draftCustomer.id!,
+        action,
+        amount:
+          action === "customer_credit"
+            ? Number(customerAccountAmount)
+            : undefined,
+        reasonCode: customerAccountReason,
+        staffNote: customerAccountStaffNote,
+        customerVisibleNote:
+          action === "customer_credit" ? customerAccountVisibleNote : undefined,
+        relatedOrderId: relatedOrder?.id,
+        relatedOrderDisplayId: relatedOrder?.displayId,
+      })
+
+      if (!result.ok || !result.customer) {
+        setError(result.error || "Could not record customer account action.")
+        return
+      }
+
+      setSelectedContext(result.customer)
+      resetCustomerAccountAction()
+      setStatus(
+        action === "customer_credit"
+          ? "Customer credit recorded and queued for QuickBooks follow-up."
+          : "Customer note recorded with staff audit metadata."
+      )
     })
   }
 
@@ -2155,6 +2252,237 @@ export default function PhoneOrderCopilot({
                   )}
                 </section>
 
+                {draftCustomer.id && selectedContext?.source === "customer" ? (
+                  <section className="rounded-lg border border-gray-200 bg-white p-5">
+                    <div className="mb-4 flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-maison-neue-mono uppercase text-Gold">
+                          Customer account
+                        </p>
+                        <h2 className="text-xl font-gyst font-bold text-Charcoal">
+                          Account actions
+                        </h2>
+                      </div>
+                      <span className="rounded-full border border-Gold/35 bg-Gold/10 px-3 py-1 text-xs font-maison-neue-mono uppercase text-Charcoal">
+                        {formatPrice(
+                          selectedContext.accountCreditBalance,
+                          "usd"
+                        )}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        className={`flex min-h-[44px] items-center justify-center gap-2 rounded-md border px-3 text-xs font-rexton font-bold uppercase tracking-normal ${
+                          customerAccountAction === "customer_note"
+                            ? "border-Charcoal bg-Charcoal text-white"
+                            : "border-gray-200 bg-white text-Charcoal"
+                        }`}
+                        onClick={() =>
+                          setCustomerAccountAction("customer_note")
+                        }
+                        type="button"
+                      >
+                        <NotebookPen size={16} aria-hidden="true" />
+                        Note
+                      </button>
+                      <button
+                        className={`flex min-h-[44px] items-center justify-center gap-2 rounded-md border px-3 text-xs font-rexton font-bold uppercase tracking-normal ${
+                          customerAccountAction === "customer_credit"
+                            ? "border-Charcoal bg-Charcoal text-white"
+                            : "border-gray-200 bg-white text-Charcoal"
+                        }`}
+                        onClick={() =>
+                          setCustomerAccountAction("customer_credit")
+                        }
+                        type="button"
+                      >
+                        <BadgeDollarSign size={16} aria-hidden="true" />
+                        Credit
+                      </button>
+                    </div>
+
+                    <div className="mt-4 space-y-3">
+                      {customerAccountAction === "customer_credit" && (
+                        <label className="flex flex-col gap-1">
+                          <span className={labelClass()}>Credit amount</span>
+                          <input
+                            className={fieldClass()}
+                            min="0"
+                            step="0.01"
+                            type="number"
+                            value={customerAccountAmount}
+                            onChange={(event) =>
+                              setCustomerAccountAmount(event.target.value)
+                            }
+                          />
+                        </label>
+                      )}
+
+                      <label className="flex flex-col gap-1">
+                        <span className={labelClass()}>Reason</span>
+                        <select
+                          className={fieldClass()}
+                          value={customerAccountReason}
+                          onChange={(event) =>
+                            setCustomerAccountReason(
+                              event.target
+                                .value as StaffCustomerAccountReasonCode
+                            )
+                          }
+                        >
+                          {STAFF_CUSTOMER_ACCOUNT_REASON_OPTIONS.map(
+                            (option) => (
+                              <option value={option.value} key={option.value}>
+                                {option.label}
+                              </option>
+                            )
+                          )}
+                        </select>
+                      </label>
+
+                      <label className="flex flex-col gap-1">
+                        <span className={labelClass()}>Related order</span>
+                        <select
+                          className={fieldClass()}
+                          value={customerAccountRelatedOrder}
+                          onChange={(event) =>
+                            setCustomerAccountRelatedOrder(event.target.value)
+                          }
+                        >
+                          <option value="">None</option>
+                          {customerAccountOrderOptions.map((order) => (
+                            <option value={order.value} key={order.value}>
+                              {order.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+
+                      <label className="flex flex-col gap-1">
+                        <span className={labelClass()}>Staff note</span>
+                        <textarea
+                          className={`${fieldClass()} min-h-[92px]`}
+                          value={customerAccountStaffNote}
+                          onChange={(event) =>
+                            setCustomerAccountStaffNote(event.target.value)
+                          }
+                        />
+                      </label>
+
+                      {customerAccountAction === "customer_credit" && (
+                        <label className="flex flex-col gap-1">
+                          <span className={labelClass()}>Customer note</span>
+                          <textarea
+                            className={`${fieldClass()} min-h-[72px]`}
+                            value={customerAccountVisibleNote}
+                            onChange={(event) =>
+                              setCustomerAccountVisibleNote(event.target.value)
+                            }
+                          />
+                        </label>
+                      )}
+
+                      <Button
+                        className="min-h-[44px] w-full rounded-md bg-Charcoal px-4 text-sm font-rexton font-bold uppercase text-white disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-Charcoal/40"
+                        disabled={customerAccountActionDisabled}
+                        isLoading={isPending}
+                        onClick={recordCustomerAccountAction}
+                        type="button"
+                      >
+                        {customerAccountAction === "customer_credit"
+                          ? "Issue Credit"
+                          : "Record Note"}
+                      </Button>
+                    </div>
+
+                    {selectedContext.accountCredits.length ||
+                    selectedContext.accountNotes.length ? (
+                      <div className="mt-5 space-y-4 border-t border-gray-100 pt-4">
+                        {selectedContext.accountCredits.length ? (
+                          <div>
+                            <p className={labelClass()}>Credits</p>
+                            <div className="mt-2 space-y-2">
+                              {[...selectedContext.accountCredits]
+                                .reverse()
+                                .slice(0, 3)
+                                .map((credit) => (
+                                  <div
+                                    className="rounded-md border border-Gold/25 bg-Gold/10 p-3"
+                                    key={credit.id}
+                                  >
+                                    <div className="flex items-start justify-between gap-3">
+                                      <p className="text-sm font-maison-neue font-semibold text-Charcoal">
+                                        {formatPrice(
+                                          credit.amount,
+                                          credit.currencyCode
+                                        )}
+                                      </p>
+                                      <span className="rounded-full border border-Gold/35 bg-white px-2 py-0.5 text-[11px] font-maison-neue-mono uppercase text-Charcoal/70">
+                                        {credit.qbdPostingStatus ||
+                                          credit.status}
+                                      </span>
+                                    </div>
+                                    <p className="mt-1 text-xs font-maison-neue text-Charcoal/60">
+                                      {staffCustomerAccountReasonLabel(
+                                        credit.reasonCode
+                                      )}{" "}
+                                      | {formatDate(credit.createdAt)}
+                                    </p>
+                                    <p className="mt-2 text-sm font-maison-neue text-Charcoal/80">
+                                      {credit.staffNote}
+                                    </p>
+                                    {credit.relatedOrderDisplayId && (
+                                      <p className="mt-2 text-xs font-maison-neue-mono uppercase text-Charcoal/45">
+                                        {credit.relatedOrderDisplayId}
+                                      </p>
+                                    )}
+                                  </div>
+                                ))}
+                            </div>
+                          </div>
+                        ) : null}
+
+                        {selectedContext.accountNotes.length ? (
+                          <div>
+                            <p className={labelClass()}>Notes</p>
+                            <div className="mt-2 space-y-2">
+                              {[...selectedContext.accountNotes]
+                                .reverse()
+                                .slice(0, 3)
+                                .map((note) => (
+                                  <div
+                                    className="rounded-md border border-gray-100 p-3"
+                                    key={note.id}
+                                  >
+                                    <p className="text-sm font-maison-neue text-Charcoal">
+                                      {note.note}
+                                    </p>
+                                    <p className="mt-2 text-xs font-maison-neue text-Charcoal/55">
+                                      {staffCustomerAccountReasonLabel(
+                                        note.reasonCode
+                                      )}{" "}
+                                      | {formatDate(note.createdAt)}
+                                    </p>
+                                    {note.relatedOrderDisplayId && (
+                                      <p className="mt-2 text-xs font-maison-neue-mono uppercase text-Charcoal/45">
+                                        {note.relatedOrderDisplayId}
+                                      </p>
+                                    )}
+                                  </div>
+                                ))}
+                            </div>
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <p className="mt-4 rounded-md border border-gray-100 bg-SilverPlate/30 px-3 py-3 text-sm font-maison-neue text-Charcoal/55">
+                        No account actions recorded.
+                      </p>
+                    )}
+                  </section>
+                ) : null}
+
                 {selectedContext?.recentOrders?.length ? (
                   <section className="rounded-lg border border-gray-200 bg-white p-5">
                     <h2 className="mb-4 text-xl font-gyst font-bold text-Charcoal">
@@ -2279,7 +2607,7 @@ export default function PhoneOrderCopilot({
           </div>
         </>
       ) : (
-        <StaffOrderExceptionConsole />
+        <StaffOrderExceptionConsole staffRole={staffRole} />
       )}
     </div>
   )

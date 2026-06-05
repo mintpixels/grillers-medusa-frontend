@@ -322,6 +322,7 @@ const sections: GuideSection[] = [
       "Helping a customer shop while on the phone.",
       "Checking what a customer sees in their account.",
       "Editing a saved address after customer verification.",
+      "Recording customer-level notes and account credits that are not direct card refunds.",
       "Starting from recent Medusa orders or imported QuickBooks history.",
     ],
     howTo: [
@@ -329,12 +330,14 @@ const sections: GuideSection[] = [
       "Use Customer Context, then search by name, email, phone, or order number.",
       "Select the correct customer and review the account detail shown on the right.",
       "Click Enter Account Context. The banner tells you when you are acting as that customer.",
+      "Use Customer Account actions for account-level notes or credits. A credit can reference a recent order, but it belongs to the customer account and queues a QuickBooks customer credit memo follow-up.",
       "In checkout, use the address step to select an existing address, edit the current saved address, or add a new address; the cart should stay in that customer context.",
       "Use Exit Context when done so you do not keep shopping as the customer by mistake.",
     ],
     watch: [
       "Legacy QuickBooks-only records are useful for lookup but may not be impersonatable unless they are linked to a storefront customer.",
       "Creating a storefront account does not create a QuickBooks customer. QuickBooks customer records are created or linked when the first accounting-ready order posts.",
+      "Customer credits are not Stripe refunds. Use card refund in Order Support when money should go back to the card.",
       "Staff context actions are audited to the staff member.",
       "Always verify identity before entering account context or saving address/profile changes.",
     ],
@@ -429,7 +432,7 @@ const sections: GuideSection[] = [
   {
     id: "order-support",
     eyebrow: "Order support",
-    title: "Refunds, cancellations, notes, credits, and QBD retries",
+    title: "Refunds, cancellations, notes, and QBD retries",
     summary:
       "Order Support is an order lookup and exception workspace, not the fulfillment queue. It can search current Medusa orders and imported legacy QuickBooks history, then apply audited actions to live Medusa orders.",
     useFor: [
@@ -439,7 +442,6 @@ const sections: GuideSection[] = [
       "Capturing a rare non-catch-weight authorized payment. Catch-weight launch orders charge from Pack & Finalize after final weights are known.",
       "Recording a shipping override only before the picker claims the pick, or after the pick has been put back.",
       "Adding, removing, or changing order item quantities before a picker claims the pick, or after the picker has put the order back.",
-      "Recording an account credit follow-up after a final charge or customer-service adjustment.",
       "Canceling a pre-pick order, or handling a manager-level cancellation escalation before final charge.",
       "Retrying a failed QuickBooks posting.",
     ],
@@ -452,15 +454,15 @@ const sections: GuideSection[] = [
       "Use Edit items only before the order is actively picked. The screen shows current lines, new quantities, zero-line controls, and catalog search for added mapped items.",
       "Use Shipping override only before the order is picked. If staff need to change date, mode, or address after picking starts, send the order back or hold it from Pack & Finalize before changing the customer promise.",
       "For an item edit, Review first. Apply creates the Medusa order edit, refreshes Pack & Finalize line snapshots, writes the staff audit trail, and queues the QuickBooks SalesOrder item update.",
-      "For refund, capture, or cancellation, review first and type the required confirmation word. After picking starts, normal office cancellation is blocked; manager or super-admin escalation is required before final charge, and charged orders should use refund, credit, fulfillment, or QBD follow-up instead.",
+      "For refund, capture, or cancellation, review first and type the required confirmation word. After picking starts, normal office cancellation is blocked; manager or super-admin escalation is required before final charge, and charged orders should use refund, customer account credit, fulfillment, or QBD follow-up instead.",
       "Apply the action only after reading the warning panel. The audit timeline records the result.",
       "For legacy QuickBooks history, use the view for context only. Live money and cancellation actions are read-only there.",
     ],
     watch: [
       "Stripe card refunds send a refund email from the payment.refunded event and queue a QuickBooks accounting posting task.",
-      "Offline payments and check refunds are disabled for launch. Use Stripe card capture/refund or record an internal note for accounting follow-up.",
+      "Offline payments, check refunds, and customer credits are disabled in Order Support for launch. Use Stripe card capture/refund, Customer Account actions for account credit, or record an internal note for accounting follow-up.",
       "Canceling before QuickBooks posting is skipped in QBD; canceling after QuickBooks posting queues a sales-order close task for Web Connector.",
-      "Cancellation can be blocked once picking, packing, final charge, or fulfillment has started. Record a note, send the order back in Pack & Finalize, or use a refund/credit follow-up when the order is locked.",
+      "Cancellation can be blocked once picking, packing, final charge, or fulfillment has started. Record a note, send the order back in Pack & Finalize, or use a refund/customer-credit follow-up when the order is locked.",
       "Item edits are blocked once a picker claims the pick. Ask the picker to Unclaim Pick or send the order back before changing the customer order in Order Support.",
       "Shipping overrides are blocked once a picker claims the pick. Changing the date or mode after physical work starts can invalidate packing, dry ice, route, UPS, and customer-promise assumptions.",
       "Added items must have a QuickBooks ListID. If a catalog search result is missing one, do not add it from Order Support.",
