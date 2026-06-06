@@ -363,6 +363,185 @@ function DetailRow({ label, value }: { label: string; value?: string }) {
   )
 }
 
+function formatOptionalDate(value?: string) {
+  return formatOrderDate(value) || undefined
+}
+
+function formatLegacySource(value?: string) {
+  if (!value) return undefined
+  return value.replace(/[_-]/g, " ")
+}
+
+function legacyDocumentLabel(order: StaffExceptionOrderDetail) {
+  const ref =
+    order.legacy?.refNumber || order.displayId.replace(/^Legacy\s+/i, "")
+  return ref ? `Invoice ${ref}` : "QuickBooks invoice"
+}
+
+function LegacyOrderReadOnlyPanel({
+  order,
+}: {
+  order: StaffExceptionOrderDetail
+}) {
+  const legacy = order.legacy
+  const hasItems = order.items.length > 0
+
+  return (
+    <div className="grid gap-5 p-5">
+      <div className="rounded-md border border-Gold/35 bg-Gold/10 p-4 text-sm font-maison-neue text-Charcoal/75">
+        This is imported QuickBooks history. It is read-only in Order Support:
+        use it to answer customer questions, then handle any adjustment in
+        QuickBooks or the operations workflow.
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(260px,0.9fr)]">
+        <section className="rounded-md border border-gray-100 p-4">
+          <div className="flex items-center gap-2">
+            <FileText className="h-4 w-4 text-Charcoal/55" />
+            <h3 className="text-sm font-maison-neue font-semibold text-Charcoal">
+              QuickBooks document
+            </h3>
+          </div>
+          <dl className="mt-4 grid gap-3 small:grid-cols-2">
+            <DetailRow label="Document" value={legacyDocumentLabel(order)} />
+            <DetailRow
+              label="Source"
+              value={formatLegacySource(legacy?.source)}
+            />
+            <DetailRow label="Ref number" value={legacy?.refNumber} />
+            <DetailRow label="Txn ID" value={legacy?.qbdTxnId} />
+            <DetailRow
+              label="Placed"
+              value={formatOptionalDate(legacy?.placedAt || order.createdAt)}
+            />
+            <DetailRow
+              label="Ship date"
+              value={formatOptionalDate(legacy?.shipDate)}
+            />
+            <DetailRow
+              label="Imported"
+              value={formatOptionalDate(legacy?.importedAt)}
+            />
+            <DetailRow label="Source order" value={legacy?.sourceOrderId} />
+            <DetailRow label="Legacy order" value={legacy?.legacyOrderId} />
+          </dl>
+        </section>
+
+        <section className="rounded-md border border-gray-100 p-4">
+          <div className="flex items-center gap-2">
+            <CreditCard className="h-4 w-4 text-Charcoal/55" />
+            <h3 className="text-sm font-maison-neue font-semibold text-Charcoal">
+              Totals and customer
+            </h3>
+          </div>
+          <dl className="mt-4 grid gap-3 small:grid-cols-2">
+            <DetailRow label="Customer" value={order.customerName} />
+            <DetailRow label="Email" value={order.email} />
+            <DetailRow label="QBD customer" value={legacy?.qbdCustomerListId} />
+            <DetailRow
+              label="Legacy customer"
+              value={legacy?.legacyCustomerId}
+            />
+            <DetailRow
+              label="Linked Medusa customer"
+              value={legacy?.medusaCustomerId}
+            />
+            <DetailRow
+              label="Subtotal"
+              value={formatMoney(order.subtotal, order.currencyCode)}
+            />
+            <DetailRow
+              label="Discount"
+              value={formatMoney(order.discountTotal, order.currencyCode)}
+            />
+            <DetailRow
+              label="Shipping"
+              value={formatMoney(order.shippingTotal, order.currencyCode)}
+            />
+            <DetailRow
+              label="Tax"
+              value={formatMoney(order.taxTotal, order.currencyCode)}
+            />
+            <DetailRow
+              label="Total"
+              value={formatMoney(order.total, order.currencyCode)}
+            />
+          </dl>
+        </section>
+      </div>
+
+      <section className="rounded-md border border-gray-100 p-4">
+        <div className="flex flex-col gap-2 small:flex-row small:items-center small:justify-between">
+          <div className="flex items-center gap-2">
+            <ShoppingBasket className="h-4 w-4 text-Charcoal/55" />
+            <h3 className="text-sm font-maison-neue font-semibold text-Charcoal">
+              Read-only invoice lines
+            </h3>
+          </div>
+          {statusChip(
+            `${order.itemCount} ${order.itemCount === 1 ? "line" : "lines"}`,
+            "gold"
+          )}
+        </div>
+
+        {hasItems ? (
+          <div className="mt-4 divide-y divide-gray-100">
+            {order.items.map((item) => (
+              <div
+                className="grid gap-3 py-4 lg:grid-cols-[minmax(0,1fr)_88px_108px_112px]"
+                key={item.id}
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-maison-neue font-semibold text-Charcoal">
+                    {item.title}
+                  </p>
+                  <p className="mt-1 text-xs font-maison-neue text-Charcoal/55">
+                    {[item.subtitle, item.sku ? `SKU ${item.sku}` : ""]
+                      .filter(Boolean)
+                      .join(" | ")}
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {item.qbdListId && statusChip(`QBD ${item.qbdListId}`)}
+                    {item.qbdTxnLineId && statusChip("Txn line")}
+                    {item.mappingStatus && statusChip(item.mappingStatus)}
+                    {item.lineKind && statusChip(item.lineKind)}
+                    {item.customerVisible === false &&
+                      statusChip("non customer line")}
+                  </div>
+                </div>
+                <div>
+                  <p className={labelClass()}>Qty</p>
+                  <p className="mt-1 text-sm font-maison-neue font-semibold text-Charcoal">
+                    {item.quantity}
+                  </p>
+                </div>
+                <div>
+                  <p className={labelClass()}>Unit</p>
+                  <p className="mt-1 text-sm font-maison-neue font-semibold text-Charcoal">
+                    {formatMoney(item.unitPrice, order.currencyCode)}
+                  </p>
+                </div>
+                <div className="lg:text-right">
+                  <p className={labelClass()}>Line total</p>
+                  <p className="mt-1 text-sm font-maison-neue font-semibold text-Charcoal">
+                    {formatMoney(item.total, order.currencyCode)}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="mt-4 rounded-md border border-gray-100 bg-SilverPlate/30 p-4">
+            <p className="text-sm font-maison-neue text-Charcoal/55">
+              No imported line detail is available for this QuickBooks record.
+            </p>
+          </div>
+        )}
+      </section>
+    </div>
+  )
+}
+
 function FulfillmentDatePicker({
   fulfillmentType,
   shippingMethodName,
@@ -771,7 +950,8 @@ function OrderItemEditPanel({
       <div className="space-y-3">
         <p className={labelClass()}>Current lines</p>
         {order.items.map((item) => {
-          const currentDraftQuantity = quantities[item.id] ?? String(item.quantity)
+          const currentDraftQuantity =
+            quantities[item.id] ?? String(item.quantity)
           const canRemove = item.fulfilledQuantity <= 0
           return (
             <div
@@ -843,9 +1023,7 @@ function OrderItemEditPanel({
           type="search"
         />
         {searchError && (
-          <p className="text-sm font-maison-neue text-red-700">
-            {searchError}
-          </p>
+          <p className="text-sm font-maison-neue text-red-700">{searchError}</p>
         )}
         {isSearching && (
           <p className="text-sm font-maison-neue text-Charcoal/55">
@@ -1616,10 +1794,7 @@ export default function StaffOrderExceptionConsole({
           </div>
 
           {selectedIsLegacy ? (
-            <div className="m-5 rounded-md border border-Gold/35 bg-Gold/10 p-4 text-sm font-maison-neue text-Charcoal/75">
-              This is imported QuickBooks history. Use it for context, but
-              handle adjustments in QuickBooks or the operations workflow.
-            </div>
+            <LegacyOrderReadOnlyPanel order={selectedOrder} />
           ) : (
             <div className="grid gap-6 p-5">
               <div className="grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(260px,0.9fr)]">
@@ -1699,10 +1874,7 @@ export default function StaffOrderExceptionConsole({
                           key={payment.id}
                         >
                           <p className="text-sm font-maison-neue font-semibold text-Charcoal">
-                            {formatMoney(
-                              payment.amount,
-                              payment.currencyCode
-                            )}
+                            {formatMoney(payment.amount, payment.currencyCode)}
                           </p>
                           <p className="text-xs font-maison-neue text-Charcoal/55">
                             Captured{" "}
@@ -1745,7 +1917,9 @@ export default function StaffOrderExceptionConsole({
                           {item.quantity} x {item.title}
                         </p>
                         <p className="mt-1 text-xs font-maison-neue text-Charcoal/55">
-                          {[item.subtitle, item.sku].filter(Boolean).join(" | ")}
+                          {[item.subtitle, item.sku]
+                            .filter(Boolean)
+                            .join(" | ")}
                         </p>
                       </div>
                       <p className="text-sm font-maison-neue font-semibold text-Charcoal">
@@ -1812,7 +1986,9 @@ export default function StaffOrderExceptionConsole({
                                     </span>
                                     <span
                                       className={`mt-1 block text-xs font-maison-neue ${
-                                        active ? "text-white/75" : "text-Charcoal/55"
+                                        active
+                                          ? "text-white/75"
+                                          : "text-Charcoal/55"
                                       }`}
                                     >
                                       {meta.description}
@@ -2012,7 +2188,9 @@ export default function StaffOrderExceptionConsole({
                           </div>
                           <div className="space-y-3">
                             <label className="flex flex-col gap-1">
-                              <span className={labelClass()}>Requested mode</span>
+                              <span className={labelClass()}>
+                                Requested mode
+                              </span>
                               <select
                                 className={fieldClass()}
                                 value={actionDraft.shippingFulfillmentType}
@@ -2125,9 +2303,9 @@ export default function StaffOrderExceptionConsole({
 
                     {actionIsAuditOnly(selectedAction) && (
                       <div className="rounded-md border border-gray-200 bg-SilverPlate/40 p-3 text-sm font-maison-neue text-Charcoal/70">
-                        This action records an audited staff decision. QuickBooks
-                        work remains pending until the accounting bridge posts
-                        it.
+                        This action records an audited staff decision.
+                        QuickBooks work remains pending until the accounting
+                        bridge posts it.
                       </div>
                     )}
 
@@ -2137,8 +2315,8 @@ export default function StaffOrderExceptionConsole({
                         Review it first
                         {destructiveConfirmation
                           ? ", then type the confirmation word"
-                          : ""}
-                        {" "}before applying it.
+                          : ""}{" "}
+                        before applying it.
                       </div>
                     )}
 
@@ -2158,9 +2336,7 @@ export default function StaffOrderExceptionConsole({
                             </h4>
                           </div>
                           {statusChip(
-                            preview.willMutateMedusa
-                              ? "external"
-                              : "audit",
+                            preview.willMutateMedusa ? "external" : "audit",
                             preview.willMutateMedusa ? "red" : "gold"
                           )}
                         </div>
@@ -2271,7 +2447,10 @@ export default function StaffOrderExceptionConsole({
                       .slice(-10)
                       .reverse()
                       .map((entry, index) => (
-                        <div className="grid gap-2 py-3" key={`${entry.at}-${index}`}>
+                        <div
+                          className="grid gap-2 py-3"
+                          key={`${entry.at}-${index}`}
+                        >
                           <div className="flex flex-wrap items-center justify-between gap-2">
                             <p className="text-sm font-maison-neue font-semibold text-Charcoal">
                               {(

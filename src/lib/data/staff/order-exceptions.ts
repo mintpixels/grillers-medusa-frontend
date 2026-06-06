@@ -130,6 +130,10 @@ export type StaffExceptionOrderItem = {
   subtitle?: string
   sku?: string
   qbdListId?: string
+  qbdTxnLineId?: string
+  mappingStatus?: string
+  lineKind?: string
+  customerVisible?: boolean
   quantity: number
   fulfilledQuantity: number
   unitPrice: number
@@ -183,6 +187,20 @@ export type StaffExceptionFulfillmentPlan = {
   addressSummary?: string
 }
 
+export type StaffExceptionLegacyDocument = {
+  source?: string
+  sourceOrderId?: string
+  refNumber?: string
+  qbdTxnId?: string
+  legacyOrderId?: string
+  legacyCustomerId?: string
+  qbdCustomerListId?: string
+  medusaCustomerId?: string
+  placedAt?: string
+  shipDate?: string
+  importedAt?: string
+}
+
 export type StaffExceptionOrderDetail = StaffExceptionOrderSummary & {
   subtotal: number
   shippingTotal: number
@@ -202,6 +220,7 @@ export type StaffExceptionOrderDetail = StaffExceptionOrderSummary & {
   billingAddress?: StaffExceptionAddress
   metadata: AnyRecord
   auditLog: StaffAuditEntry[]
+  legacy?: StaffExceptionLegacyDocument
 }
 
 export type StaffExceptionActionInput = {
@@ -636,6 +655,8 @@ function detailLegacyOrder(order: AnyRecord): StaffExceptionOrderDetail {
     discountTotal: staffCurrencyAmount(order.discount_total),
     items: lines.map((line: AnyRecord) => ({
       id: line.id,
+      productId: line.medusa_product_id || undefined,
+      variantId: line.medusa_variant_id || undefined,
       title:
         line.display_title ||
         line.medusa_variant_title ||
@@ -648,6 +669,14 @@ function detailLegacyOrder(order: AnyRecord): StaffExceptionOrderDetail {
           ? line.description
           : line.medusa_variant_title,
       sku: line.sku || undefined,
+      qbdListId: line.qbd_item_list_id || undefined,
+      qbdTxnLineId: line.qbd_txn_line_id || undefined,
+      mappingStatus: line.mapping_status || undefined,
+      lineKind: line.line_kind || line.metadata?.line_kind || undefined,
+      customerVisible:
+        typeof line.customer_visible === "boolean"
+          ? line.customer_visible
+          : undefined,
       quantity: amount(line.quantity),
       fulfilledQuantity: amount(line.fulfilled_quantity),
       unitPrice: staffCurrencyAmount(line.unit_price),
@@ -661,6 +690,19 @@ function detailLegacyOrder(order: AnyRecord): StaffExceptionOrderDetail {
       dateLabel: "",
     },
     fulfillments: [],
+    legacy: {
+      source: order.source || undefined,
+      sourceOrderId: order.source_order_id || undefined,
+      refNumber: order.ref_number || undefined,
+      qbdTxnId: order.qbd_txn_id || undefined,
+      legacyOrderId: order.legacy_order_id || undefined,
+      legacyCustomerId: order.legacy_customer_id || undefined,
+      qbdCustomerListId: order.qbd_customer_list_id || undefined,
+      medusaCustomerId: order.medusa_customer_id || undefined,
+      placedAt: order.placed_at || undefined,
+      shipDate: order.ship_date || undefined,
+      importedAt: order.imported_at || undefined,
+    },
     metadata: {
       legacy_order_id: order.id,
       legacy_ref_number: order.ref_number || "",
@@ -710,7 +752,8 @@ function firstText(...values: unknown[]): string {
 function qbdListIdFromOrderItem(item: AnyRecord): string | undefined {
   const metadata = item.metadata || {}
   const variantMetadata = item.variant?.metadata || {}
-  const productMetadata = item.product?.metadata || item.variant?.product?.metadata || {}
+  const productMetadata =
+    item.product?.metadata || item.variant?.product?.metadata || {}
   const value =
     metadata.qbd_list_id ||
     metadata.quickbooks_list_id ||
@@ -846,10 +889,12 @@ function orderFulfillmentPlan(order: AnyRecord): StaffExceptionFulfillmentPlan {
   }
 }
 
-function shippingOverridePlan(input: StaffExceptionActionInput, order: AnyRecord) {
+function shippingOverridePlan(
+  input: StaffExceptionActionInput,
+  order: AnyRecord
+) {
   const current = orderFulfillmentPlan(order)
-  const requestedType =
-    input.shippingFulfillmentType || current.fulfillmentType
+  const requestedType = input.shippingFulfillmentType || current.fulfillmentType
   const requestedDate = textValue(input.shippingRequestedDate)
   const requestedZip = textValue(input.shippingZip) || current.zip || ""
   const requestedMethod =
@@ -918,7 +963,11 @@ type NormalizedOrderItemEditPlan = {
 
 function wholeQuantity(value: unknown, label: string): number {
   const quantity = Number(value)
-  if (!Number.isFinite(quantity) || !Number.isInteger(quantity) || quantity < 0) {
+  if (
+    !Number.isFinite(quantity) ||
+    !Number.isInteger(quantity) ||
+    quantity < 0
+  ) {
     throw new Error(`${label} must be a whole number of 0 or more.`)
   }
   return quantity
@@ -975,7 +1024,10 @@ function normalizeOrderItemEditPlan(
     if (!item) {
       throw new Error("One of the selected order lines no longer exists.")
     }
-    const currentQuantity = wholeQuantity(item.quantity, "Current line quantity")
+    const currentQuantity = wholeQuantity(
+      item.quantity,
+      "Current line quantity"
+    )
     const fulfilledQuantity = wholeQuantity(
       item.detail?.fulfilled_quantity || 0,
       "Fulfilled quantity"
@@ -1487,11 +1539,15 @@ function validateAction(
   if (!input.reasonCode) throw new Error("Choose a reason code.")
   if (!input.staffNote?.trim()) throw new Error("Add an internal staff note.")
 
-  const availability = staffOrderSupportActionAvailability(input.action, order, {
-    staffRole,
-    offlineMoneyActionsEnabled:
-      process.env.STAFF_ALLOW_OFFLINE_MONEY_ACTIONS === "true",
-  })
+  const availability = staffOrderSupportActionAvailability(
+    input.action,
+    order,
+    {
+      staffRole,
+      offlineMoneyActionsEnabled:
+        process.env.STAFF_ALLOW_OFFLINE_MONEY_ACTIONS === "true",
+    }
+  )
   if (!availability.available) {
     throw new Error(availability.reason)
   }
@@ -1559,7 +1615,9 @@ function validateAction(
       throw new Error("Payment capture is available only for Stripe payments.")
     }
     if (remaining <= 0) {
-      throw new Error("This payment does not have an authorized balance to capture.")
+      throw new Error(
+        "This payment does not have an authorized balance to capture."
+      )
     }
     validateFullStripeCaptureAmount({ captureAmount, remaining })
   }
@@ -1646,7 +1704,9 @@ function capturablePayment(
     throw new Error("Payment capture is available only for Stripe payments.")
   }
   if (selected.amount <= selected.capturedAmount) {
-    throw new Error("No remaining authorized balance was found for this payment.")
+    throw new Error(
+      "No remaining authorized balance was found for this payment."
+    )
   }
 
   return selected
