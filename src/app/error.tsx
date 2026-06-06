@@ -3,40 +3,11 @@
 import { ArrowUpRightMini } from "@medusajs/icons"
 import { Text } from "@medusajs/ui"
 import Link from "next/link"
-import { useEffect } from "react"
-
-function isTransientNavigationError(error: Error & { digest?: string }) {
-  const message = `${error?.name || ""} ${error?.message || ""}`.toLowerCase()
-  return [
-    "connection closed",
-    "chunkloaderror",
-    "loading chunk",
-    "failed to fetch",
-    "networkerror",
-    "timeout",
-  ].some((needle) => message.includes(needle))
-}
-
-function reloadOnceForTransientError(error: Error & { digest?: string }) {
-  if (typeof window === "undefined" || !isTransientNavigationError(error)) {
-    return
-  }
-
-  const errorKey = [
-    "route-error-reload",
-    window.location.pathname,
-    error.digest || error.message || error.name || "unknown",
-  ].join(":")
-
-  try {
-    if (sessionStorage.getItem(errorKey) === "true") return
-    sessionStorage.setItem(errorKey, "true")
-  } catch {
-    return
-  }
-
-  window.location.reload()
-}
+import { useEffect, useState } from "react"
+import {
+  isTransientNavigationError,
+  shouldRetryTransientNavigationError,
+} from "@lib/util/transient-navigation-error"
 
 export default function Error({
   error,
@@ -45,11 +16,33 @@ export default function Error({
   error: Error & { digest?: string }
   reset: () => void
 }) {
+  const recoverable = isTransientNavigationError(error)
+  const [recoveryExhausted, setRecoveryExhausted] = useState(false)
+
   useEffect(() => {
     // Log the error to an error reporting service
     console.error("Application error:", error)
-    reloadOnceForTransientError(error)
-  }, [error])
+
+    if (!recoverable) return
+
+    if (!shouldRetryTransientNavigationError("route-error-reset", error)) {
+      setRecoveryExhausted(true)
+      return
+    }
+
+    const timer = window.setTimeout(() => reset(), 150)
+    return () => window.clearTimeout(timer)
+  }, [error, recoverable, reset])
+
+  if (recoverable && !recoveryExhausted) {
+    return (
+      <div className="flex min-h-[calc(100vh-64px)] items-center justify-center px-4">
+        <p className="rounded-md border border-Charcoal/10 bg-white px-4 py-3 text-p-sm text-Charcoal/70 shadow-sm">
+          Reconnecting...
+        </p>
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col gap-6 items-center justify-center min-h-[calc(100vh-64px)] px-4">
@@ -93,4 +86,3 @@ export default function Error({
     </div>
   )
 }
-
