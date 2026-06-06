@@ -35,7 +35,7 @@ import {
   applyStaffOrderException,
   getStaffExceptionOrderDetail,
   previewStaffOrderException,
-  searchStaffExceptionOrders,
+  searchStaffExceptionOrdersResult,
   type StaffExceptionActionInput,
   type StaffExceptionActionPreview,
   type StaffExceptionFulfillmentFilter,
@@ -1017,12 +1017,17 @@ export default function StaffOrderExceptionConsole({
   useEffect(() => {
     startTransition(async () => {
       try {
-        const results = await searchStaffExceptionOrders({
+        const result = await searchStaffExceptionOrdersResult({
           queue: "open",
           fulfillmentStatus: "all",
           paymentStatus: "all",
           limit: 100,
         })
+        if (!result.ok) {
+          setError(result.error || "Order lookup could not refresh.")
+          return
+        }
+        const results = result.orders
         setOrders(results)
         if (!results.length) {
           setStatus("No open orders found.")
@@ -1056,13 +1061,18 @@ export default function StaffOrderExceptionConsole({
     const nextPayment = overrides.paymentStatus ?? paymentFilter
     startTransition(async () => {
       try {
-        const results = await searchStaffExceptionOrders({
+        const result = await searchStaffExceptionOrdersResult({
           query: nextQuery,
           queue: nextQuery.trim() ? "all" : nextQueue,
           fulfillmentStatus: nextFulfillment,
           paymentStatus: nextPayment,
           limit: 100,
         })
+        if (!result.ok) {
+          setError(result.error || "Order lookup could not refresh.")
+          return
+        }
+        const results = result.orders
         setOrders(results)
         if (!results.length) {
           setStatus(

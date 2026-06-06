@@ -91,6 +91,12 @@ export type StaffExceptionOrderSearchInput = {
   limit?: number
 }
 
+export type StaffExceptionOrderSearchResult = {
+  ok: boolean
+  orders: StaffExceptionOrderSummary[]
+  error?: string
+}
+
 export type StaffExceptionOrderItem = {
   id: string
   productId?: string
@@ -1736,6 +1742,25 @@ export async function searchStaffExceptionOrders(
     ...searchInput,
     queue: searchInput.queue,
   })
+}
+
+export async function searchStaffExceptionOrdersResult(
+  input: string | StaffExceptionOrderSearchInput
+): Promise<StaffExceptionOrderSearchResult> {
+  try {
+    return {
+      ok: true,
+      orders: await searchStaffExceptionOrders(input),
+    }
+  } catch (err) {
+    console.error("[staff-order-support] order lookup action failed", err)
+    return {
+      ok: false,
+      orders: [],
+      error:
+        "Order lookup could not refresh. Try again, or search by order number, email, or customer name.",
+    }
+  }
 }
 
 export async function getStaffExceptionOrderDetail(
