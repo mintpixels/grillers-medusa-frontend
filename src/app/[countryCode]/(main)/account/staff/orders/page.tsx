@@ -40,6 +40,7 @@ export const metadata: Metadata = {
 const STAFF_WORKSPACES = new Set<StaffWorkspace>([
   "phone_order",
   "new_customer",
+  "customer_account",
   "finalization",
   "exceptions",
   "team_access",

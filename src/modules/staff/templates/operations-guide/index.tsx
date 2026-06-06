@@ -162,7 +162,7 @@ const publicSurfaces = [
     route: "/us/account/staff/orders",
     name: "Staff console",
     staffUse:
-      "Use for customer context, new customer creation, phone orders, Pack & Finalize, order support, refunds, cancellations, QBD retry, and team access.",
+      "Use for customer context, customer account actions, new customer creation, phone orders, Pack & Finalize, order support, refunds, cancellations, QBD retry, and team access.",
   },
   {
     route: "/us/account/staff/communications",
@@ -315,9 +315,9 @@ const sections: GuideSection[] = [
   {
     id: "staff-console",
     eyebrow: "Staff console",
-    title: "Entering customer context",
+    title: "Customer context and account actions",
     summary:
-      "Staff can search for a customer, enter that customer context, and use the storefront as the customer. This is the safest way to help with account, cart, reorder, address, and checkout questions.",
+      "Staff can search for a customer, enter that customer context, use the storefront as the customer, or record customer-level account notes and credits without impersonating the customer.",
     useFor: [
       "Helping a customer shop while on the phone.",
       "Checking what a customer sees in their account.",
@@ -327,10 +327,11 @@ const sections: GuideSection[] = [
     ],
     howTo: [
       "Go to Staff Console from the account nav.",
-      "Use Customer Context, then search by name, email, phone, or order number.",
-      "Select the correct customer and review the account detail shown on the right.",
-      "Click Enter Account Context. The banner tells you when you are acting as that customer.",
-      "Use Customer Account actions for account-level notes or credits. A credit can reference a recent order, but it belongs to the customer account and queues a QuickBooks customer credit memo follow-up.",
+      "Use Customer Account when staff need to record an account-level note or credit without entering the customer's storefront session.",
+      "Search by name, email, phone, or order number. Select the storefront customer, then choose Note or Credit.",
+      "For a customer credit, enter the amount, reason, staff note, optional customer-visible note, and optional related order. The credit belongs to the customer account and queues a QuickBooks customer credit memo follow-up.",
+      "Use Customer Context when staff need to impersonate the customer, then search by name, email, phone, or order number.",
+      "Click Enter Account Context only after selecting the correct customer. The banner tells you when you are acting as that customer.",
       "In checkout, use the address step to select an existing address, edit the current saved address, or add a new address; the cart should stay in that customer context.",
       "Use Exit Context when done so you do not keep shopping as the customer by mistake.",
     ],

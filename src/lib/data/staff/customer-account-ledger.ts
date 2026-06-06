@@ -124,7 +124,7 @@ export function parseStaffCustomerAccountCredits(
         createdByStaffName: String(
           entry.createdByStaffName || entry.created_by_staff_name || ""
         ).trim(),
-      } satisfies StaffCustomerAccountCredit
+      }
     })
     .filter(Boolean) as StaffCustomerAccountCredit[]
 }
@@ -160,7 +160,7 @@ export function parseStaffCustomerAccountNotes(
         createdByStaffName: String(
           entry.createdByStaffName || entry.created_by_staff_name || ""
         ).trim(),
-      } satisfies StaffCustomerAccountNote
+      }
     })
     .filter(Boolean) as StaffCustomerAccountNote[]
 }
