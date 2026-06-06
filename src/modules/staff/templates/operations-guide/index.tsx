@@ -447,7 +447,8 @@ const sections: GuideSection[] = [
     ],
     howTo: [
       "Open Staff Console and choose Order Support.",
-      "Search by order number, invoice, email, customer name, or phone, or filter unfulfilled orders when support needs a starting list.",
+      "Search by order number, invoice, email, customer name, phone, or ZIP. Use the queue, fulfillment state, payment state, fulfillment method, date, and sort filters when support needs a starting list.",
+      "Results update as filters change. Use pagination at the bottom of the list when the match set is larger than one page.",
       "Select the order and review item, payment, fulfillment, audit, and QBD status before choosing an action.",
       "Order Support actions change by order phase. Before picking starts, front office can edit items, change the requested date or mode, cancel, record notes, and handle QBD retries. Once a picker claims the order, item edits and shipping overrides disappear until the pick is put back or the order is sent back through Pack & Finalize.",
       "Pick the action. Add a reason, internal staff note, and customer consent method when required.",

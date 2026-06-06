@@ -68,6 +68,11 @@ export type StaffExceptionOrderSummary = {
   currencyCode: string
   itemCount: number
   operationalState: StaffOrderOperationalState
+  fulfillmentType?: StaffFulfillmentType
+  fulfillmentLabel?: string
+  fulfillmentDate?: string
+  fulfillmentZip?: string
+  shippingMethodName?: string
   latestStaffAction?: string
 }
 
@@ -83,17 +88,37 @@ export type StaffExceptionPaymentFilter =
   | "paid"
   | "refunded"
 
+export type StaffExceptionOrderSortKey =
+  | "created_desc"
+  | "created_asc"
+  | "fulfillment_date_asc"
+  | "fulfillment_date_desc"
+  | "order_newest"
+  | "order_oldest"
+  | "total_desc"
+  | "total_asc"
+
 export type StaffExceptionOrderSearchInput = {
   query?: string
   queue?: StaffExceptionOrderQueueFilter
   fulfillmentStatus?: StaffExceptionFulfillmentFilter
   paymentStatus?: StaffExceptionPaymentFilter
+  fulfillmentType?: StaffFulfillmentType | "all" | ""
+  dateFrom?: string
+  dateTo?: string
+  sort?: StaffExceptionOrderSortKey
+  page?: number
+  pageSize?: number
   limit?: number
 }
 
 export type StaffExceptionOrderSearchResult = {
   ok: boolean
   orders: StaffExceptionOrderSummary[]
+  total: number
+  page: number
+  pageSize: number
+  hasNextPage: boolean
   error?: string
 }
 
@@ -227,7 +252,7 @@ export type StaffExceptionActionPreview = {
 }
 
 const ORDER_LIST_FIELDS =
-  "id,display_id,email,status,fulfillment_status,payment_status,total,currency_code,created_at,updated_at,+metadata,*customer,*items"
+  "id,display_id,email,status,fulfillment_status,payment_status,total,currency_code,created_at,updated_at,+metadata,*customer,*items,*shipping_address,*shipping_methods"
 
 const ORDER_DETAIL_FIELDS =
   "id,display_id,email,status,fulfillment_status,payment_status,total,subtotal,shipping_total,tax_total,discount_total,currency_code,created_at,updated_at,canceled_at,+metadata,*customer,*items,*items.detail,*items.variant,*items.product,*shipping_address,*billing_address,*shipping_methods,*fulfillments,*payment_collections,*payment_collections.payments,*payment_collections.payments.captures,*payment_collections.payments.refunds"
@@ -266,6 +291,7 @@ function latestStaffAction(
 
 function summarizeOrder(order: AnyRecord): StaffExceptionOrderSummary {
   const items = Array.isArray(order.items) ? order.items : []
+  const fulfillmentPlan = orderFulfillmentPlan(order)
   return {
     id: order.id,
     source: "medusa",
@@ -283,6 +309,15 @@ function summarizeOrder(order: AnyRecord): StaffExceptionOrderSummary {
       return sum + amount(item.quantity)
     }, 0),
     operationalState: staffOrderOperationalState(order),
+    fulfillmentType: fulfillmentPlan.fulfillmentType,
+    fulfillmentLabel: fulfillmentPlan.fulfillmentLabel,
+    fulfillmentDate:
+      fulfillmentPlan.requestedFulfillmentDate ||
+      fulfillmentPlan.dateLabel ||
+      fulfillmentPlan.scheduledDate ||
+      fulfillmentPlan.requestedDeliveryDate,
+    fulfillmentZip: fulfillmentPlan.zip,
+    shippingMethodName: fulfillmentPlan.shippingMethodName,
     latestStaffAction: latestStaffAction(order.metadata),
   }
 }
@@ -318,26 +353,64 @@ function summarizeLegacyOrder(order: AnyRecord): StaffExceptionOrderSummary {
   }
 }
 
+type NormalizedStaffExceptionOrderSearchInput = {
+  query: string
+  queue: StaffExceptionOrderQueueFilter
+  fulfillmentStatus: StaffExceptionFulfillmentFilter
+  paymentStatus: StaffExceptionPaymentFilter
+  fulfillmentType: StaffFulfillmentType | ""
+  dateFrom: string
+  dateTo: string
+  sort: StaffExceptionOrderSortKey
+  page: number
+  pageSize: number
+}
+
+function normalizePositiveInteger(
+  value: unknown,
+  fallback: number,
+  max = 100
+): number {
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed) || parsed < 1) return fallback
+  return Math.min(Math.floor(parsed), max)
+}
+
 function normalizeSearchInput(
   input: string | StaffExceptionOrderSearchInput
-): Required<StaffExceptionOrderSearchInput> {
+): NormalizedStaffExceptionOrderSearchInput {
   if (typeof input === "string") {
     return {
       query: input,
       queue: input.trim() ? "all" : "open",
       fulfillmentStatus: "all",
       paymentStatus: "all",
-      limit: 30,
+      fulfillmentType: "",
+      dateFrom: "",
+      dateTo: "",
+      sort: "created_desc",
+      page: 1,
+      pageSize: 30,
     }
   }
 
   const query = input.query || ""
+  const fulfillmentType = normalizeFulfillmentType(input.fulfillmentType)
   return {
     query,
     queue: input.queue || (query.trim() ? "all" : "open"),
     fulfillmentStatus: input.fulfillmentStatus || "all",
     paymentStatus: input.paymentStatus || "all",
-    limit: input.limit || 30,
+    fulfillmentType: fulfillmentType || "",
+    dateFrom: textValue(input.dateFrom),
+    dateTo: textValue(input.dateTo),
+    sort: input.sort || "created_desc",
+    page: normalizePositiveInteger(input.page, 1, 500),
+    pageSize: normalizePositiveInteger(
+      input.pageSize ?? input.limit,
+      input.limit || 30,
+      100
+    ),
   }
 }
 
@@ -408,9 +481,89 @@ function orderMatchesPaymentFilter(
   return value.includes("refund")
 }
 
+function isoDateOnly(value: unknown): string {
+  const text = textValue(value)
+  if (!text) return ""
+  if (/^\d{4}-\d{2}-\d{2}/.test(text)) return text.slice(0, 10)
+  const parsed = Date.parse(text)
+  if (!Number.isFinite(parsed)) return ""
+  return new Date(parsed).toISOString().slice(0, 10)
+}
+
+function orderDisplayNumber(order: StaffExceptionOrderSummary): number {
+  const match = order.displayId.match(/\d+/)
+  return match ? Number(match[0]) : 0
+}
+
+function compareText(a: string | undefined, b: string | undefined): number {
+  return String(a || "").localeCompare(String(b || ""))
+}
+
+function compareOrderSearchResults(
+  a: StaffExceptionOrderSummary,
+  b: StaffExceptionOrderSummary,
+  sort: StaffExceptionOrderSortKey
+): number {
+  if (sort === "created_asc") {
+    return compareText(a.createdAt, b.createdAt) || compareText(a.id, b.id)
+  }
+  if (sort === "fulfillment_date_asc") {
+    return (
+      compareText(
+        isoDateOnly(a.fulfillmentDate),
+        isoDateOnly(b.fulfillmentDate)
+      ) || compareText(a.createdAt, b.createdAt)
+    )
+  }
+  if (sort === "fulfillment_date_desc") {
+    return (
+      compareText(
+        isoDateOnly(b.fulfillmentDate),
+        isoDateOnly(a.fulfillmentDate)
+      ) || compareText(b.createdAt, a.createdAt)
+    )
+  }
+  if (sort === "order_newest") {
+    return orderDisplayNumber(b) - orderDisplayNumber(a)
+  }
+  if (sort === "order_oldest") {
+    return orderDisplayNumber(a) - orderDisplayNumber(b)
+  }
+  if (sort === "total_desc") {
+    return b.total - a.total || compareText(b.createdAt, a.createdAt)
+  }
+  if (sort === "total_asc") {
+    return a.total - b.total || compareText(b.createdAt, a.createdAt)
+  }
+  return compareText(b.createdAt, a.createdAt) || compareText(b.id, a.id)
+}
+
+function orderMatchesFulfillmentTypeFilter(
+  order: StaffExceptionOrderSummary,
+  filter: StaffFulfillmentType | ""
+): boolean {
+  if (!filter) return true
+  return order.fulfillmentType === filter
+}
+
+function orderMatchesDateFilter(
+  order: StaffExceptionOrderSummary,
+  dateFrom: string,
+  dateTo: string
+): boolean {
+  if (!dateFrom && !dateTo) return true
+  const date = isoDateOnly(order.fulfillmentDate)
+  if (!date) return false
+  const from = isoDateOnly(dateFrom)
+  const to = isoDateOnly(dateTo)
+  if (from && date < from) return false
+  if (to && date > to) return false
+  return true
+}
+
 function applyOrderQueueFilters(
   orders: StaffExceptionOrderSummary[],
-  input: Required<StaffExceptionOrderSearchInput>
+  input: NormalizedStaffExceptionOrderSearchInput
 ): StaffExceptionOrderSummary[] {
   return orders
     .filter((order) => {
@@ -419,9 +572,35 @@ function applyOrderQueueFilters(
         return false
       }
       if (!orderMatchesPaymentFilter(order, input.paymentStatus)) return false
+      if (!orderMatchesFulfillmentTypeFilter(order, input.fulfillmentType)) {
+        return false
+      }
+      if (!orderMatchesDateFilter(order, input.dateFrom, input.dateTo)) {
+        return false
+      }
       return true
     })
-    .slice(0, input.limit)
+    .sort((a, b) => compareOrderSearchResults(a, b, input.sort))
+}
+
+function paginateOrderSearchResults(
+  orders: StaffExceptionOrderSummary[],
+  input: NormalizedStaffExceptionOrderSearchInput
+): Omit<StaffExceptionOrderSearchResult, "ok" | "error"> {
+  const filtered = applyOrderQueueFilters(orders, input)
+  const total = filtered.length
+  const totalPages = total ? Math.ceil(total / input.pageSize) : 1
+  const page = Math.min(input.page, totalPages)
+  const start = (page - 1) * input.pageSize
+  const pageOrders = filtered.slice(start, start + input.pageSize)
+
+  return {
+    orders: pageOrders,
+    total,
+    page,
+    pageSize: input.pageSize,
+    hasNextPage: start + input.pageSize < total,
+  }
 }
 
 function numericValue(value: unknown): number | null {
@@ -1573,9 +1752,9 @@ async function applyMedusaOrderItemEdit({
   }
 }
 
-export async function searchStaffExceptionOrders(
+async function searchStaffExceptionOrderPage(
   input: string | StaffExceptionOrderSearchInput
-): Promise<StaffExceptionOrderSummary[]> {
+): Promise<Omit<StaffExceptionOrderSearchResult, "ok" | "error">> {
   await requireStaffOperator()
   const searchInput = normalizeSearchInput(input)
   const trimmed = searchInput.query.trim()
@@ -1605,18 +1784,11 @@ export async function searchStaffExceptionOrders(
       total = numericValue(response.count)
       offset += pageSize
 
-      const filtered = applyOrderQueueFilters(
-        orders.map(summarizeOrder),
-        searchInput
-      )
-      if (filtered.length >= searchInput.limit) {
-        return filtered
-      }
       if (pageOrders.length < pageSize) break
       if (total !== null && offset >= total) break
     }
 
-    return applyOrderQueueFilters(orders.map(summarizeOrder), searchInput)
+    return paginateOrderSearchResults(orders.map(summarizeOrder), searchInput)
   }
 
   const seenOrders = new Set<string>()
@@ -1738,25 +1910,34 @@ export async function searchStaffExceptionOrders(
     ...legacyOrders.map(summarizeLegacyOrder),
   ]
 
-  return applyOrderQueueFilters(results, {
-    ...searchInput,
-    queue: searchInput.queue,
-  })
+  return paginateOrderSearchResults(results, searchInput)
+}
+
+export async function searchStaffExceptionOrders(
+  input: string | StaffExceptionOrderSearchInput
+): Promise<StaffExceptionOrderSummary[]> {
+  const result = await searchStaffExceptionOrderPage(input)
+  return result.orders
 }
 
 export async function searchStaffExceptionOrdersResult(
   input: string | StaffExceptionOrderSearchInput
 ): Promise<StaffExceptionOrderSearchResult> {
+  const fallback = normalizeSearchInput(input)
   try {
     return {
       ok: true,
-      orders: await searchStaffExceptionOrders(input),
+      ...(await searchStaffExceptionOrderPage(input)),
     }
   } catch (err) {
     console.error("[staff-order-support] order lookup action failed", err)
     return {
       ok: false,
       orders: [],
+      total: 0,
+      page: fallback.page,
+      pageSize: fallback.pageSize,
+      hasNextPage: false,
       error:
         "Order lookup could not refresh. Try again, or search by order number, email, or customer name.",
     }

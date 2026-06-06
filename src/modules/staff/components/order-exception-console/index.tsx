@@ -4,6 +4,7 @@ import {
   type FormEvent,
   useEffect,
   useMemo,
+  useRef,
   useState,
   useTransition,
 } from "react"
@@ -18,7 +19,6 @@ import {
   NotebookText,
   PackageCheck,
   RefreshCw,
-  Search,
   ShieldCheck,
   ShoppingBasket,
   Truck,
@@ -42,6 +42,7 @@ import {
   type StaffExceptionOrderItemAddition,
   type StaffExceptionOrderDetail,
   type StaffExceptionOrderQueueFilter,
+  type StaffExceptionOrderSortKey,
   type StaffExceptionOrderSummary,
   type StaffExceptionPaymentFilter,
   type StaffFulfillmentType,
@@ -76,6 +77,22 @@ const FULFILLMENT_OPTIONS: Array<{
   { value: "atlanta_delivery", label: "Atlanta delivery" },
   { value: "ups_shipping", label: "UPS shipping" },
   { value: "southeast_pickup", label: "Southeast pickup" },
+]
+
+const ORDER_SUPPORT_PAGE_SIZE_OPTIONS = [10, 25, 50]
+
+const ORDER_SUPPORT_SORT_OPTIONS: Array<{
+  value: StaffExceptionOrderSortKey
+  label: string
+}> = [
+  { value: "created_desc", label: "Created, newest" },
+  { value: "created_asc", label: "Created, oldest" },
+  { value: "fulfillment_date_asc", label: "Ship date, earliest" },
+  { value: "fulfillment_date_desc", label: "Ship date, latest" },
+  { value: "order_newest", label: "Order #, newest" },
+  { value: "order_oldest", label: "Order #, oldest" },
+  { value: "total_desc", label: "Total, high to low" },
+  { value: "total_asc", label: "Total, low to high" },
 ]
 
 const ACTION_META: Record<
@@ -441,23 +458,42 @@ function OrderList({
   orders,
   selectedOrderId,
   onSelect,
+  page,
+  pageSize,
+  total,
+  hasNextPage,
+  onPageChange,
 }: {
   orders: StaffExceptionOrderSummary[]
   selectedOrderId?: string
   onSelect: (orderId: string) => void
+  page: number
+  pageSize: number
+  total: number
+  hasNextPage: boolean
+  onPageChange: (page: number) => void
 }) {
-  if (!orders.length) return null
+  const start = total ? (page - 1) * pageSize + 1 : 0
+  const end = total ? Math.min(page * pageSize, total) : 0
+
+  if (!orders.length) {
+    return (
+      <div className="rounded-md border border-gray-200 bg-white px-4 py-8 text-center text-sm font-maison-neue text-Charcoal/55">
+        No orders match these filters.
+      </div>
+    )
+  }
 
   return (
     <div className="overflow-hidden rounded-md border border-gray-200 bg-white">
-      <div className="grid grid-cols-[88px_minmax(0,1fr)_80px] gap-3 bg-SilverPlate/40 px-3 py-2 text-[11px] font-maison-neue-mono uppercase text-Charcoal/45">
+      <div className="grid grid-cols-[76px_minmax(0,1fr)_76px] gap-2 bg-SilverPlate/40 px-3 py-2 text-[11px] font-maison-neue-mono uppercase text-Charcoal/45 sm:grid-cols-[88px_minmax(0,1fr)_84px]">
         <span>Order</span>
         <span>Customer</span>
         <span className="text-right">State</span>
       </div>
       {orders.map((order) => (
         <button
-          className={`grid w-full grid-cols-[88px_minmax(0,1fr)_80px] gap-3 border-t border-gray-100 px-3 py-3 text-left transition hover:bg-SilverPlate/35 ${
+          className={`grid w-full grid-cols-[76px_minmax(0,1fr)_76px] gap-2 border-t border-gray-100 px-3 py-3 text-left transition hover:bg-SilverPlate/35 sm:grid-cols-[88px_minmax(0,1fr)_84px] ${
             selectedOrderId === order.id
               ? "bg-Gold/10 shadow-[inset_0_0_0_1px_rgba(228,174,83,0.35)]"
               : ""
@@ -481,14 +517,50 @@ function OrderList({
             <span className="block truncate text-xs font-maison-neue text-Charcoal/55">
               {order.email || "No email"}
             </span>
+            {(order.fulfillmentLabel || order.fulfillmentDate) && (
+              <span className="mt-1 block truncate text-xs font-maison-neue text-Charcoal/45">
+                {[
+                  order.fulfillmentLabel,
+                  formatOrderDate(order.fulfillmentDate),
+                ]
+                  .filter(Boolean)
+                  .join(" | ")}
+              </span>
+            )}
           </span>
           <span className="flex flex-col items-end gap-1">
             {order.source === "legacy"
               ? statusChip("qbd", "gold")
               : statusChip(order.paymentStatus)}
+            <span className="text-xs font-maison-neue text-Charcoal/45">
+              {order.itemCount} item{order.itemCount === 1 ? "" : "s"}
+            </span>
           </span>
         </button>
       ))}
+      <div className="flex flex-col gap-3 border-t border-gray-100 bg-SilverPlate/20 px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-xs font-maison-neue text-Charcoal/55">
+          Showing {start}-{end} of {total}
+        </p>
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
+          <Button
+            className="min-h-[36px] rounded-md border border-gray-200 bg-white px-3 text-xs font-maison-neue font-semibold text-Charcoal disabled:cursor-not-allowed disabled:text-Charcoal/35"
+            disabled={page <= 1}
+            onClick={() => onPageChange(Math.max(1, page - 1))}
+            type="button"
+          >
+            Previous
+          </Button>
+          <Button
+            className="min-h-[36px] rounded-md border border-gray-200 bg-white px-3 text-xs font-maison-neue font-semibold text-Charcoal disabled:cursor-not-allowed disabled:text-Charcoal/35"
+            disabled={!hasNextPage}
+            onClick={() => onPageChange(page + 1)}
+            type="button"
+          >
+            Next
+          </Button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -897,6 +969,17 @@ export default function StaffOrderExceptionConsole({
     useState<StaffExceptionFulfillmentFilter>("all")
   const [paymentFilter, setPaymentFilter] =
     useState<StaffExceptionPaymentFilter>("all")
+  const [fulfillmentTypeFilter, setFulfillmentTypeFilter] = useState<
+    StaffFulfillmentType | ""
+  >("")
+  const [dateFromFilter, setDateFromFilter] = useState("")
+  const [dateToFilter, setDateToFilter] = useState("")
+  const [orderSort, setOrderSort] =
+    useState<StaffExceptionOrderSortKey>("created_desc")
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(25)
+  const [totalOrders, setTotalOrders] = useState(0)
+  const [hasNextPage, setHasNextPage] = useState(false)
   const [orders, setOrders] = useState<StaffExceptionOrderSummary[]>([])
   const [selectedOrder, setSelectedOrder] =
     useState<StaffExceptionOrderDetail | null>(null)
@@ -913,6 +996,7 @@ export default function StaffOrderExceptionConsole({
   const [isReviewing, setIsReviewing] = useState(false)
   const [isApplying, setIsApplying] = useState(false)
   const [isPending, startTransition] = useTransition()
+  const orderSearchRequestRef = useRef(0)
 
   const selectedAction = actionDraft.action
   const selectedIsLegacy = selectedOrder?.source === "legacy"
@@ -1014,29 +1098,38 @@ export default function StaffOrderExceptionConsole({
     typedConfirmationMatches,
   ])
 
+  const activeOrderFilters = Boolean(
+    query ||
+      queueFilter !== "open" ||
+      fulfillmentFilter !== "all" ||
+      paymentFilter !== "all" ||
+      fulfillmentTypeFilter ||
+      dateFromFilter ||
+      dateToFilter ||
+      orderSort !== "created_desc" ||
+      pageSize !== 25
+  )
+
   useEffect(() => {
-    startTransition(async () => {
-      try {
-        const result = await searchStaffExceptionOrdersResult({
-          queue: "open",
-          fulfillmentStatus: "all",
-          paymentStatus: "all",
-          limit: 100,
-        })
-        if (!result.ok) {
-          setError(result.error || "Order lookup could not refresh.")
-          return
-        }
-        const results = result.orders
-        setOrders(results)
-        if (!results.length) {
-          setStatus("No open orders found.")
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : String(err))
-      }
-    })
-  }, [])
+    const timer = window.setTimeout(() => {
+      runOrderSearch()
+    }, 250)
+
+    return () => window.clearTimeout(timer)
+    // Search filters intentionally drive the debounced server action.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    query,
+    queueFilter,
+    fulfillmentFilter,
+    paymentFilter,
+    fulfillmentTypeFilter,
+    dateFromFilter,
+    dateToFilter,
+    orderSort,
+    page,
+    pageSize,
+  ])
 
   function updateActionDraft(patch: Partial<StaffExceptionActionInput>) {
     setPreview(null)
@@ -1051,14 +1144,29 @@ export default function StaffOrderExceptionConsole({
       queue: StaffExceptionOrderQueueFilter
       fulfillmentStatus: StaffExceptionFulfillmentFilter
       paymentStatus: StaffExceptionPaymentFilter
+      fulfillmentType: StaffFulfillmentType | ""
+      dateFrom: string
+      dateTo: string
+      sort: StaffExceptionOrderSortKey
+      page: number
+      pageSize: number
     }> = {}
   ) {
+    const requestId = orderSearchRequestRef.current + 1
+    orderSearchRequestRef.current = requestId
     setError(null)
     setStatus(null)
     const nextQuery = overrides.query ?? query
     const nextQueue = overrides.queue ?? queueFilter
     const nextFulfillment = overrides.fulfillmentStatus ?? fulfillmentFilter
     const nextPayment = overrides.paymentStatus ?? paymentFilter
+    const nextFulfillmentType =
+      overrides.fulfillmentType ?? fulfillmentTypeFilter
+    const nextDateFrom = overrides.dateFrom ?? dateFromFilter
+    const nextDateTo = overrides.dateTo ?? dateToFilter
+    const nextSort = overrides.sort ?? orderSort
+    const nextPage = overrides.page ?? page
+    const nextPageSize = overrides.pageSize ?? pageSize
     startTransition(async () => {
       try {
         const result = await searchStaffExceptionOrdersResult({
@@ -1066,14 +1174,27 @@ export default function StaffOrderExceptionConsole({
           queue: nextQuery.trim() ? "all" : nextQueue,
           fulfillmentStatus: nextFulfillment,
           paymentStatus: nextPayment,
-          limit: 100,
+          fulfillmentType: nextFulfillmentType,
+          dateFrom: nextDateFrom,
+          dateTo: nextDateTo,
+          sort: nextSort,
+          page: nextPage,
+          pageSize: nextPageSize,
         })
+        if (requestId !== orderSearchRequestRef.current) return
         if (!result.ok) {
           setError(result.error || "Order lookup could not refresh.")
+          setOrders([])
+          setTotalOrders(0)
+          setHasNextPage(false)
           return
         }
         const results = result.orders
         setOrders(results)
+        setTotalOrders(result.total)
+        setHasNextPage(result.hasNextPage)
+        if (result.page !== nextPage) setPage(result.page)
+        if (result.pageSize !== nextPageSize) setPageSize(result.pageSize)
         if (!results.length) {
           setStatus(
             nextQuery.trim()
@@ -1084,9 +1205,28 @@ export default function StaffOrderExceptionConsole({
           )
         }
       } catch (err) {
+        if (requestId !== orderSearchRequestRef.current) return
         setError(err instanceof Error ? err.message : String(err))
+        setOrders([])
+        setTotalOrders(0)
+        setHasNextPage(false)
       }
     })
+  }
+
+  function clearOrderFilters() {
+    setQuery("")
+    setQueueFilter("open")
+    setFulfillmentFilter("all")
+    setPaymentFilter("all")
+    setFulfillmentTypeFilter("")
+    setDateFromFilter("")
+    setDateToFilter("")
+    setOrderSort("created_desc")
+    setPage(1)
+    setPageSize(25)
+    setError(null)
+    setStatus(null)
   }
 
   function selectOrder(orderId: string) {
@@ -1205,102 +1345,205 @@ export default function StaffOrderExceptionConsole({
         </div>
 
         <div className="space-y-4 px-4 py-4">
-          <label className="flex flex-col gap-1">
-            <span className={labelClass()}>Order, email, or customer</span>
-            <input
-              className={fieldClass()}
-              placeholder="Order #, invoice, email, name, or phone"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") runOrderSearch()
-              }}
-              type="search"
-            />
-          </label>
+          <div className="rounded-md border border-gray-200 bg-SilverPlate/20 p-3">
+            <div className="grid gap-2">
+              <label className="flex min-w-0 flex-col gap-1">
+                <span className={labelClass()}>Search orders</span>
+                <input
+                  className={fieldClass()}
+                  placeholder="Order, invoice, email, name, phone, ZIP"
+                  value={query}
+                  onChange={(event) => {
+                    setQuery(event.target.value)
+                    setPage(1)
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") runOrderSearch()
+                  }}
+                  type="search"
+                />
+              </label>
 
-          <div className="grid gap-3 small:grid-cols-3 xl:grid-cols-1">
-            <label className="flex flex-col gap-1">
-              <span className={labelClass()}>Queue</span>
-              <select
-                className={fieldClass()}
-                value={queueFilter}
-                onChange={(event) => {
-                  const value = event.target
-                    .value as StaffExceptionOrderQueueFilter
-                  setQueueFilter(value)
-                  runOrderSearch({ queue: value })
-                }}
-              >
-                <option value="open">Open only</option>
-                <option value="all">All current</option>
-              </select>
-            </label>
-            <label className="flex flex-col gap-1">
-              <span className={labelClass()}>Fulfillment</span>
-              <select
-                className={fieldClass()}
-                value={fulfillmentFilter}
-                onChange={(event) => {
-                  const value = event.target
-                    .value as StaffExceptionFulfillmentFilter
-                  setFulfillmentFilter(value)
-                  const nextQueue =
-                    value === "fulfilled" && queueFilter === "open"
-                      ? "all"
-                      : queueFilter
-                  if (nextQueue !== queueFilter) setQueueFilter(nextQueue)
-                  runOrderSearch({ queue: nextQueue, fulfillmentStatus: value })
-                }}
-              >
-                <option value="all">All fulfillment</option>
-                <option value="unfulfilled">Unfulfilled</option>
-                <option value="partially_fulfilled">Partially fulfilled</option>
-                <option value="fulfilled">Fulfilled</option>
-              </select>
-            </label>
-            <label className="flex flex-col gap-1">
-              <span className={labelClass()}>Payment</span>
-              <select
-                className={fieldClass()}
-                value={paymentFilter}
-                onChange={(event) => {
-                  const value = event.target
-                    .value as StaffExceptionPaymentFilter
-                  setPaymentFilter(value)
-                  runOrderSearch({ paymentStatus: value })
-                }}
-              >
-                <option value="all">All payment</option>
-                <option value="awaiting_payment">Awaiting</option>
-                <option value="paid">Paid</option>
-                <option value="refunded">Refunded</option>
-              </select>
-            </label>
-          </div>
+              <div className="grid gap-2 small:grid-cols-2">
+                <label className="flex min-w-0 flex-col gap-1">
+                  <span className={labelClass()}>Queue</span>
+                  <select
+                    className={fieldClass()}
+                    value={queueFilter}
+                    onChange={(event) => {
+                      setQueueFilter(
+                        event.target.value as StaffExceptionOrderQueueFilter
+                      )
+                      setPage(1)
+                    }}
+                  >
+                    <option value="open">Open only</option>
+                    <option value="all">All current</option>
+                  </select>
+                </label>
+                <label className="flex min-w-0 flex-col gap-1">
+                  <span className={labelClass()}>Fulfillment state</span>
+                  <select
+                    className={fieldClass()}
+                    value={fulfillmentFilter}
+                    onChange={(event) => {
+                      const value = event.target
+                        .value as StaffExceptionFulfillmentFilter
+                      setFulfillmentFilter(value)
+                      if (value === "fulfilled" && queueFilter === "open") {
+                        setQueueFilter("all")
+                      }
+                      setPage(1)
+                    }}
+                  >
+                    <option value="all">All fulfillment</option>
+                    <option value="unfulfilled">Unfulfilled</option>
+                    <option value="partially_fulfilled">
+                      Partially fulfilled
+                    </option>
+                    <option value="fulfilled">Fulfilled</option>
+                  </select>
+                </label>
+              </div>
 
-          <div className="grid gap-2 small:grid-cols-2">
-            <Button
-              className="inline-flex min-h-[42px] items-center justify-center gap-2 rounded-md border border-Charcoal bg-white px-3.5 text-sm font-maison-neue font-semibold text-Charcoal"
-              disabled={isPending}
-              onClick={() => {
-                setQuery("")
-                runOrderSearch({ query: "" })
-              }}
-              type="button"
-            >
-              <RefreshCw className="h-4 w-4" aria-hidden />
-              Refresh
-            </Button>
-            <Button
-              className="inline-flex min-h-[42px] items-center justify-center gap-2 rounded-md bg-Charcoal px-3.5 text-sm font-maison-neue font-semibold text-white"
-              isLoading={isPending}
-              onClick={() => runOrderSearch()}
-              type="button"
-            >
-              <Search className="h-4 w-4" aria-hidden />
-              Find
-            </Button>
+              <div className="grid gap-2 small:grid-cols-2">
+                <label className="flex min-w-0 flex-col gap-1">
+                  <span className={labelClass()}>Payment</span>
+                  <select
+                    className={fieldClass()}
+                    value={paymentFilter}
+                    onChange={(event) => {
+                      setPaymentFilter(
+                        event.target.value as StaffExceptionPaymentFilter
+                      )
+                      setPage(1)
+                    }}
+                  >
+                    <option value="all">All payment</option>
+                    <option value="awaiting_payment">Awaiting</option>
+                    <option value="paid">Paid</option>
+                    <option value="refunded">Refunded</option>
+                  </select>
+                </label>
+                <label className="flex min-w-0 flex-col gap-1">
+                  <span className={labelClass()}>Fulfillment method</span>
+                  <select
+                    className={fieldClass()}
+                    value={fulfillmentTypeFilter}
+                    onChange={(event) => {
+                      setFulfillmentTypeFilter(
+                        event.target.value as StaffFulfillmentType | ""
+                      )
+                      setPage(1)
+                    }}
+                  >
+                    <option value="">All methods</option>
+                    {FULFILLMENT_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              <div className="grid gap-2 small:grid-cols-2">
+                <label className="flex min-w-0 flex-col gap-1">
+                  <span className={labelClass()}>Ship / pickup from</span>
+                  <input
+                    className={fieldClass()}
+                    type="date"
+                    value={dateFromFilter}
+                    onChange={(event) => {
+                      setDateFromFilter(event.target.value)
+                      setPage(1)
+                    }}
+                  />
+                </label>
+                <label className="flex min-w-0 flex-col gap-1">
+                  <span className={labelClass()}>Through</span>
+                  <input
+                    className={fieldClass()}
+                    type="date"
+                    value={dateToFilter}
+                    onChange={(event) => {
+                      setDateToFilter(event.target.value)
+                      setPage(1)
+                    }}
+                  />
+                </label>
+              </div>
+
+              <div className="grid gap-2 small:grid-cols-[minmax(0,1fr)_112px]">
+                <label className="flex min-w-0 flex-col gap-1">
+                  <span className={labelClass()}>Sort orders</span>
+                  <select
+                    className={fieldClass()}
+                    value={orderSort}
+                    onChange={(event) => {
+                      setOrderSort(
+                        event.target.value as StaffExceptionOrderSortKey
+                      )
+                      setPage(1)
+                    }}
+                  >
+                    {ORDER_SUPPORT_SORT_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex min-w-0 flex-col gap-1">
+                  <span className={labelClass()}>Per page</span>
+                  <select
+                    className={fieldClass()}
+                    value={pageSize}
+                    onChange={(event) => {
+                      setPageSize(Number(event.target.value))
+                      setPage(1)
+                    }}
+                  >
+                    {ORDER_SUPPORT_PAGE_SIZE_OPTIONS.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              <div className="flex flex-col gap-2 small:flex-row small:items-center small:justify-between">
+                <p className="text-xs font-maison-neue text-Charcoal/45">
+                  {isPending
+                    ? "Updating orders..."
+                    : "Results update as you filter."}
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    className={`min-h-[40px] rounded-md border px-3 text-xs font-maison-neue font-semibold ${
+                      activeOrderFilters
+                        ? "border-Charcoal bg-white text-Charcoal hover:border-Gold/70"
+                        : "cursor-not-allowed border-gray-200 bg-gray-50 text-Charcoal/35"
+                    }`}
+                    disabled={!activeOrderFilters}
+                    onClick={clearOrderFilters}
+                    type="button"
+                  >
+                    Clear
+                  </Button>
+                  <Button
+                    className="inline-flex min-h-[40px] items-center justify-center gap-2 rounded-md border border-Charcoal bg-white px-3 text-xs font-maison-neue font-semibold text-Charcoal"
+                    disabled={isPending}
+                    onClick={() => runOrderSearch()}
+                    type="button"
+                  >
+                    <RefreshCw className="h-3.5 w-3.5" aria-hidden />
+                    Refresh
+                  </Button>
+                </div>
+              </div>
+            </div>
           </div>
 
           {(error || status) && (
@@ -1319,6 +1562,11 @@ export default function StaffOrderExceptionConsole({
             orders={orders}
             selectedOrderId={selectedOrder?.id}
             onSelect={selectOrder}
+            page={page}
+            pageSize={pageSize}
+            total={totalOrders}
+            hasNextPage={hasNextPage}
+            onPageChange={setPage}
           />
         </div>
       </section>
