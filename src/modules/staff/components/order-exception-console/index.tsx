@@ -993,6 +993,7 @@ export default function StaffOrderExceptionConsole({
   const [acknowledged, setAcknowledged] = useState(false)
   const [status, setStatus] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [isSearchingOrders, setIsSearchingOrders] = useState(false)
   const [isReviewing, setIsReviewing] = useState(false)
   const [isApplying, setIsApplying] = useState(false)
   const [isPending, startTransition] = useTransition()
@@ -1156,6 +1157,7 @@ export default function StaffOrderExceptionConsole({
     orderSearchRequestRef.current = requestId
     setError(null)
     setStatus(null)
+    setIsSearchingOrders(true)
     const nextQuery = overrides.query ?? query
     const nextQueue = overrides.queue ?? queueFilter
     const nextFulfillment = overrides.fulfillmentStatus ?? fulfillmentFilter
@@ -1210,6 +1212,10 @@ export default function StaffOrderExceptionConsole({
         setOrders([])
         setTotalOrders(0)
         setHasNextPage(false)
+      } finally {
+        if (requestId === orderSearchRequestRef.current) {
+          setIsSearchingOrders(false)
+        }
       }
     })
   }
@@ -1227,6 +1233,7 @@ export default function StaffOrderExceptionConsole({
     setPageSize(25)
     setError(null)
     setStatus(null)
+    setIsSearchingOrders(false)
   }
 
   function selectOrder(orderId: string) {
@@ -1515,7 +1522,7 @@ export default function StaffOrderExceptionConsole({
 
               <div className="flex flex-col gap-2 small:flex-row small:items-center small:justify-between">
                 <p className="text-xs font-maison-neue text-Charcoal/45">
-                  {isPending
+                  {isSearchingOrders
                     ? "Updating orders..."
                     : "Results update as you filter."}
                 </p>
@@ -1534,7 +1541,7 @@ export default function StaffOrderExceptionConsole({
                   </Button>
                   <Button
                     className="inline-flex min-h-[40px] items-center justify-center gap-2 rounded-md border border-Charcoal bg-white px-3 text-xs font-maison-neue font-semibold text-Charcoal"
-                    disabled={isPending}
+                    disabled={isSearchingOrders}
                     onClick={() => runOrderSearch()}
                     type="button"
                   >

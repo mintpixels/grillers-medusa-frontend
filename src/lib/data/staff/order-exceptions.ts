@@ -614,6 +614,16 @@ function numericValue(value: unknown): number | null {
   return null
 }
 
+function shouldSearchCustomersForOrderQuery(query: string): boolean {
+  const q = query.trim()
+  if (!q) return false
+  if (q.includes("@") || q.includes("+")) return true
+
+  // Customer searches fan out into order lookups. Avoid that expensive branch
+  // while staff are still typing broad one- or two-character fragments.
+  return q.replace(/^#/, "").length >= 3 && /[a-z]/i.test(q)
+}
+
 function detailLegacyOrder(order: AnyRecord): StaffExceptionOrderDetail {
   const summary = summarizeLegacyOrder(order)
   const lines = Array.isArray(order.lines) ? order.lines : []
@@ -1813,90 +1823,112 @@ async function searchStaffExceptionOrderPage(
   const q = trimmed.replace(/^#/, "")
   let lastError: unknown = null
 
-  try {
-    const direct = await adminFetch<{ orders: AnyRecord[] }>("/admin/orders", {
-      query: {
-        ...baseParams,
-        q,
-      },
-    })
-    addOrders(direct.orders)
-  } catch (err) {
-    lastError = err
-  }
-
-  try {
-    const legacy = await adminFetch<{ orders: AnyRecord[] }>(
-      "/admin/legacy-orders",
-      {
-        query: {
-          q,
-          limit: 20,
-        },
-      }
-    )
-    addLegacyOrders(legacy.orders)
-  } catch (err) {
-    lastError = err
-  }
-
-  const customerAttempts: Array<Record<string, string | number>> = [
-    { q, limit: 10 },
-  ]
-  if (q.includes("@")) customerAttempts.push({ email: q, limit: 10 })
-  if (q.includes("+")) customerAttempts.push({ q: q.split("+")[0], limit: 10 })
-
-  const seenCustomers = new Set<string>()
-  for (const attempt of customerAttempts) {
+  const directOrderSearch = (async () => {
     try {
-      const { customers } = await adminFetch<{ customers: AnyRecord[] }>(
-        "/admin/customers",
+      const direct = await adminFetch<{ orders: AnyRecord[] }>(
+        "/admin/orders",
         {
           query: {
-            ...attempt,
-            fields: "id,email,first_name,last_name,phone",
+            ...baseParams,
+            q,
           },
         }
       )
-
-      for (const customer of customers || []) {
-        if (!customer?.id || seenCustomers.has(customer.id)) continue
-        seenCustomers.add(customer.id)
-        try {
-          const byCustomer = await adminFetch<{ orders: AnyRecord[] }>(
-            "/admin/orders",
-            {
-              query: {
-                ...baseParams,
-                customer_id: customer.id,
-                limit: 10,
-              },
-            }
-          )
-          addOrders(byCustomer.orders)
-        } catch (err) {
-          lastError = err
-        }
-
-        try {
-          const legacyByCustomer = await adminFetch<{ orders: AnyRecord[] }>(
-            "/admin/legacy-orders",
-            {
-              query: {
-                customer_id: customer.id,
-                limit: 10,
-              },
-            }
-          )
-          addLegacyOrders(legacyByCustomer.orders)
-        } catch (err) {
-          lastError = err
-        }
-      }
+      addOrders(direct.orders)
     } catch (err) {
       lastError = err
     }
-  }
+  })()
+
+  const legacyOrderSearch = (async () => {
+    try {
+      const legacy = await adminFetch<{ orders: AnyRecord[] }>(
+        "/admin/legacy-orders",
+        {
+          query: {
+            q,
+            limit: 20,
+          },
+        }
+      )
+      addLegacyOrders(legacy.orders)
+    } catch (err) {
+      lastError = err
+    }
+  })()
+
+  const customerSearch = shouldSearchCustomersForOrderQuery(q)
+    ? (async () => {
+        const customerAttempts: Array<Record<string, string | number>> = [
+          { q, limit: 10 },
+        ]
+        if (q.includes("@")) customerAttempts.push({ email: q, limit: 10 })
+        if (q.includes("+")) {
+          customerAttempts.push({ q: q.split("+")[0], limit: 10 })
+        }
+
+        const seenCustomers = new Set<string>()
+        await Promise.all(
+          customerAttempts.map(async (attempt) => {
+            try {
+              const { customers } = await adminFetch<{
+                customers: AnyRecord[]
+              }>("/admin/customers", {
+                query: {
+                  ...attempt,
+                  fields: "id,email,first_name,last_name,phone",
+                },
+              })
+
+              await Promise.all(
+                (customers || []).map(async (customer) => {
+                  if (!customer?.id || seenCustomers.has(customer.id)) return
+                  seenCustomers.add(customer.id)
+
+                  await Promise.all([
+                    (async () => {
+                      try {
+                        const byCustomer = await adminFetch<{
+                          orders: AnyRecord[]
+                        }>("/admin/orders", {
+                          query: {
+                            ...baseParams,
+                            customer_id: customer.id,
+                            limit: 10,
+                          },
+                        })
+                        addOrders(byCustomer.orders)
+                      } catch (err) {
+                        lastError = err
+                      }
+                    })(),
+                    (async () => {
+                      try {
+                        const legacyByCustomer = await adminFetch<{
+                          orders: AnyRecord[]
+                        }>("/admin/legacy-orders", {
+                          query: {
+                            customer_id: customer.id,
+                            limit: 10,
+                          },
+                        })
+                        addLegacyOrders(legacyByCustomer.orders)
+                      } catch (err) {
+                        lastError = err
+                      }
+                    })(),
+                  ])
+                })
+              )
+            } catch (err) {
+              lastError = err
+            }
+          })
+        )
+      })()
+    : Promise.resolve()
+
+  await Promise.all([directOrderSearch, legacyOrderSearch, customerSearch])
 
   if (!orders.length && !legacyOrders.length && lastError) {
     console.error("[staff-order-support] order search failed", lastError)
