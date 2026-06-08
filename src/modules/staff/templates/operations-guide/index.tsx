@@ -63,6 +63,7 @@ const systemMap = [
 const dailyChecklist = [
   "Open the staff console and confirm you can see Order Support without being redirected.",
   "Check QuickBooks Web Connector. A green bar means the session ran; still open Last Result or the log if the status says it sent an error back to the application.",
+  "Open Synchronization Status when Peter cannot find a website order in QuickBooks. It shows waiting rows, stuck rows, recent Web Connector activity, and the recorded failure reason.",
   "Open Pack & Finalize first. Every submitted launch order should appear there before it can ship.",
   "Use Order Support as lookup, not as a second fulfillment queue, especially for customer questions, refunds, cancellations, QBD failed, or QBD pending/manual orders.",
   "Open Customer Communications when checking campaign drafts, lifecycle flow health, customer timelines, suppressions, or Postmark delivery status.",
@@ -162,7 +163,7 @@ const publicSurfaces = [
     route: "/us/account/staff/orders",
     name: "Staff console",
     staffUse:
-      "Use for customer context, customer account actions, new customer creation, phone orders, Pack & Finalize, order support, refunds, cancellations, QBD retry, and team access.",
+      "Use for customer context, customer account actions, new customer creation, phone orders, Pack & Finalize, order support, Synchronization Status, refunds, cancellations, QBD retry, and team access.",
   },
   {
     route: "/us/account/staff/communications",
@@ -680,6 +681,7 @@ const sections: GuideSection[] = [
       "Keep QuickBooks Web Connector auto-run enabled for the Griller's Pride application.",
       "Use Last Result or the log when Web Connector says it sent an error back to the application.",
       "If QBXML parse errors appear, check the generated request and the specific item or tax config causing the parse failure.",
+      "Use Staff Console > Synchronization Status to see orders waiting for QuickBooks, rows stuck with an error, skipped/canceled rows, recent Web Connector sessions, and recent sync logs.",
       "Use ListID for product matching. SKU is a fallback only.",
       "For taxed orders, QuickBooks should receive the native sales tax item for the destination address. Shipping and delivery lines should remain non-taxable.",
       "For sync health, use the sync service dashboard/logs or health command rather than relying only on the green Web Connector bars.",
@@ -688,6 +690,7 @@ const sections: GuideSection[] = [
       "Green progress bars mean the session completed, not necessarily that every order posted correctly.",
       "Tax uses its own QuickBooks item selected from the order address. Product ListIDs do not fix a missing or wrong tax item.",
       "If a taxed order is blocked before QuickBooks, check the order ZIP, county, tax rate, and whether the matching QuickBooks sales-tax item was imported.",
+      "A row can be waiting for Web Connector without being broken. A stuck or error row has a reason and should be fixed or deliberately requeued.",
       "Canceled before QuickBooks sync can be skipped; canceled after posting should create a Web Connector sales-order close task.",
       "Catch-weight orders should post to QuickBooks as estimated sales orders when placed. They should post as finalized invoices only after the final Stripe charge succeeds.",
       "Signup-only storefront accounts should not appear in QuickBooks. If one does, treat it as a sync policy bug.",
@@ -770,6 +773,19 @@ const playbooks: Playbook[] = [
     ],
   },
   {
+    title: "Peter cannot find a new order in QuickBooks",
+    steps: [
+      "Find the order in Medusa or Order Support first. If Medusa does not have the order, checkout did not complete.",
+      "If Medusa has the order, confirm it is a placed order and not only a cart or checkout attempt.",
+      "Open Staff Console > Synchronization Status and search by order number, customer email, ZIP, tax item, or error text.",
+      "If the row is waiting, run or wait for Web Connector. If the row is stuck or error, read the reason before changing anything.",
+      "If Synchronization Status does not show the order at all, the backend-to-sync handoff failed or is not configured.",
+      "If the order is blocked, check customer/address data, missing QBD ListIDs, native sales-tax item resolution for the destination ZIP, shipping item config, discount item config, or invalid line amounts.",
+      "Before final charge, expect a QuickBooks Sales Order, not an Invoice. After Charge Card & Release and the next writer run, expect the finalized Invoice.",
+      "If Stripe charged successfully but QuickBooks has no final Invoice, check the QBD writer job and Web Connector staff-action step before assuming the card charge failed.",
+    ],
+  },
+  {
     title: "A customer wants to cancel",
     steps: [
       "Open Order Support and check fulfillment state first.",
@@ -782,7 +798,8 @@ const playbooks: Playbook[] = [
     title: "QuickBooks Web Connector shows an error",
     steps: [
       "Open Last Result or the Web Connector log. Do not rely only on the green bar.",
-      "If the error says QuickBooks could not parse XML, inspect the generated QBXML request in sync logs.",
+      "Open Synchronization Status and filter to Stuck or Errors. Search the order number if Peter has a specific missing order.",
+      "If the error says QuickBooks could not parse XML, inspect the generated QBXML request in sync logs and compare it with the row's recorded failure reason.",
       "Check missing product mappings, missing tax item config, missing shipping/discount item config, and invalid line amounts.",
       "Requeue only the affected order or retry QBD posting only when you know the failure reason.",
       "After the next Web Connector run, confirm the order has a QuickBooks transaction id or a clear remaining error.",

@@ -43,6 +43,7 @@ const STAFF_WORKSPACES = new Set<StaffWorkspace>([
   "customer_account",
   "finalization",
   "exceptions",
+  "quickbooks_sync",
   "team_access",
 ])
 

@@ -7,6 +7,7 @@ import {
   BadgeDollarSign,
   BookOpenText,
   ClipboardList,
+  DatabaseZap,
   MessageSquare,
   NotebookPen,
   PackageCheck,
@@ -72,6 +73,7 @@ import { dispatchStorefrontSessionUpdated } from "@lib/util/storefront-session-e
 import StaffOrderExceptionConsole from "@modules/staff/components/order-exception-console"
 import StaffTeamAccessConsole from "@modules/staff/components/team-access-console"
 import StaffCatchWeightFinalizationConsole from "@modules/staff/components/catch-weight-finalization-console"
+import StaffQuickBooksSyncStatusConsole from "@modules/staff/components/quickbooks-sync-status-console"
 
 type Props = {
   countryCode: string
@@ -86,6 +88,7 @@ export type StaffWorkspace =
   | "customer_account"
   | "finalization"
   | "exceptions"
+  | "quickbooks_sync"
   | "team_access"
 
 type StaffWorkspaceAction = {
@@ -942,6 +945,14 @@ export default function PhoneOrderCopilot({
             icon: ClipboardList,
             onClick: () => selectWorkspace("exceptions"),
           },
+          {
+            id: "quickbooks_sync" as const,
+            eyebrow: "Admin tools",
+            title: "Synchronization status",
+            body: "See orders waiting for QuickBooks, stuck errors, Web Connector state, and recent sync logs.",
+            icon: DatabaseZap,
+            onClick: () => selectWorkspace("quickbooks_sync"),
+          },
         ]
       : []),
     ...(canUsePickQueue || canUsePackQueue
@@ -1549,6 +1560,8 @@ export default function PhoneOrderCopilot({
 
       {activeWorkspace === "team_access" && canManageTeamAccess ? (
         <StaffTeamAccessConsole />
+      ) : activeWorkspace === "quickbooks_sync" && canUseOrderSupport ? (
+        <StaffQuickBooksSyncStatusConsole />
       ) : activeWorkspace === "finalization" ? (
         <StaffCatchWeightFinalizationConsole
           canChargeFinalOrders={canChargeFinalizedOrders}
