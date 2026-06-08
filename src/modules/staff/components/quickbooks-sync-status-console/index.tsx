@@ -13,6 +13,7 @@ import {
 } from "lucide-react"
 import {
   getStaffQuickBooksSyncStatus,
+  requeueStaffQuickBooksSyncOrder,
   type StaffQuickBooksSyncOrder,
   type StaffQuickBooksSyncStatus,
   type StaffQuickBooksSyncStatusFilter,
@@ -139,7 +140,23 @@ function SummaryTile({
   )
 }
 
-function OrderRow({ order }: { order: StaffQuickBooksSyncOrder }) {
+function canRequeue(order: StaffQuickBooksSyncOrder) {
+  return Boolean(
+    !order.qb_synced_at &&
+      order.status !== "synced" &&
+      order.status !== "canceled_before_qb"
+  )
+}
+
+function OrderRow({
+  order,
+  isRequeueing,
+  onRequeue,
+}: {
+  order: StaffQuickBooksSyncOrder
+  isRequeueing: boolean
+  onRequeue: (order: StaffQuickBooksSyncOrder) => void
+}) {
   const Icon = statusIcon(order.status)
   const amount = formatMoney(order.total, order.currency_code || "usd")
 
@@ -183,6 +200,20 @@ function OrderRow({ order }: { order: StaffQuickBooksSyncOrder }) {
           <p className="mt-1 text-xs font-maison-neue text-Charcoal/55">
             Updated {formatDateTime(order.updated_at)}
           </p>
+          {canRequeue(order) && (
+            <button
+              className="mt-3 inline-flex min-h-[36px] w-full items-center justify-center gap-2 rounded-md border border-Charcoal px-3 text-xs font-maison-neue-mono uppercase text-Charcoal transition hover:bg-Charcoal hover:text-white disabled:cursor-wait disabled:opacity-50"
+              disabled={isRequeueing}
+              onClick={() => onRequeue(order)}
+              type="button"
+            >
+              <RefreshCw
+                className={`h-3.5 w-3.5 ${isRequeueing ? "animate-spin" : ""}`}
+                aria-hidden
+              />
+              Retry
+            </button>
+          )}
         </div>
       </div>
 
@@ -212,6 +243,8 @@ export default function StaffQuickBooksSyncStatusConsole() {
   const [page, setPage] = useState(1)
   const [data, setData] = useState<StaffQuickBooksSyncStatus | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [statusMessage, setStatusMessage] = useState<string | null>(null)
+  const [requeueingId, setRequeueingId] = useState<number | null>(null)
   const [isPending, startTransition] = useTransition()
   const requestIdRef = useRef(0)
   const perPage = 20
@@ -250,6 +283,28 @@ export default function StaffQuickBooksSyncStatusConsole() {
     load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter, debouncedQuery, page])
+
+  function requeue(order: StaffQuickBooksSyncOrder) {
+    if (requeueingId) return
+    setError(null)
+    setStatusMessage(null)
+    setRequeueingId(order.id)
+
+    startTransition(async () => {
+      try {
+        await requeueStaffQuickBooksSyncOrder(
+          order.id,
+          `Retry QuickBooks sync row ${orderTitle(order)} from staff console.`
+        )
+        setStatusMessage(`${orderTitle(order)} was requeued for Web Connector.`)
+        load()
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err))
+      } finally {
+        setRequeueingId(null)
+      }
+    })
+  }
 
   const orders = data?.orders.data || []
   const syncStatus = data?.sync_status
@@ -384,10 +439,22 @@ export default function StaffQuickBooksSyncStatusConsole() {
           {error}
         </div>
       )}
+      {statusMessage && !error && (
+        <div className="m-5 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-maison-neue text-emerald-800">
+          {statusMessage}
+        </div>
+      )}
 
       <div className="space-y-3 p-5">
         {orders.length ? (
-          orders.map((order) => <OrderRow key={order.id} order={order} />)
+          orders.map((order) => (
+            <OrderRow
+              isRequeueing={requeueingId === order.id}
+              key={order.id}
+              onRequeue={requeue}
+              order={order}
+            />
+          ))
         ) : (
           <div className="rounded-md border border-dashed border-gray-200 bg-SilverPlate/20 px-4 py-10 text-center">
             <DatabaseZap

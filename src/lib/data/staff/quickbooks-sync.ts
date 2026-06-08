@@ -2,6 +2,11 @@
 
 import "server-only"
 
+import { retrieveAuthenticatedCustomerForStaffAccess } from "@lib/data/customer"
+import {
+  isStaffCustomer,
+  staffDisplayName,
+} from "@lib/util/staff-access"
 import { adminFetch } from "./admin"
 
 export type StaffQuickBooksSyncStatusFilter =
@@ -103,6 +108,27 @@ export async function getStaffQuickBooksSyncStatus(input?: {
         page: input?.page || 1,
         per_page: input?.perPage || 25,
       },
+    }
+  )
+}
+
+export async function requeueStaffQuickBooksSyncOrder(
+  orderId: number,
+  reason = "Staff retry from Synchronization Status."
+) {
+  const staff = await retrieveAuthenticatedCustomerForStaffAccess()
+  if (!staff || !isStaffCustomer(staff)) {
+    throw new Error("Staff access required.")
+  }
+
+  const actor = `${staffDisplayName(staff)}${staff.email ? ` (${staff.email})` : ""}`
+  return adminFetch<{ order: StaffQuickBooksSyncOrder }>(
+    `/admin/grillers/quickbooks-sync/orders/${orderId}/requeue`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        reason: `${reason} Staff: ${actor}`,
+      }),
     }
   )
 }
