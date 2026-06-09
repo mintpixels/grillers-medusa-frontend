@@ -556,12 +556,19 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
     setError(null)
 
     try {
+      const location = config.SoutheastPickupLocations?.find(
+        (loc) => loc.id === pendingSELocationId
+      )
+
       await setFulfillmentDetails({
         cartId: cart.id,
         fulfillmentType: "southeast_pickup",
         fulfillmentZip: "00000",
         scheduledDate: pendingSEDate,
         pickupLocationId: pendingSELocationId,
+        pickupLocationName: location?.Name,
+        pickupLocationCity: location?.City,
+        pickupLocationState: location?.State,
       })
 
       await attachShippingMethod("southeast_pickup")

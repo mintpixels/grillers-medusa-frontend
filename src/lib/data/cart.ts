@@ -611,6 +611,9 @@ export async function setFulfillmentDetails({
   scheduledDate,
   scheduledTimeWindow,
   pickupLocationId,
+  pickupLocationName,
+  pickupLocationCity,
+  pickupLocationState,
 }: {
   cartId: string
   fulfillmentType: FulfillmentType
@@ -618,6 +621,9 @@ export async function setFulfillmentDetails({
   scheduledDate: string
   scheduledTimeWindow?: string
   pickupLocationId?: string
+  pickupLocationName?: string
+  pickupLocationCity?: string
+  pickupLocationState?: string
 }) {
   const active = await getCartStaffContext()
   const headers = await cartHeadersForStaffContext(active)
@@ -628,6 +634,9 @@ export async function setFulfillmentDetails({
     scheduledDate: fulfillmentType === "ups_shipping" ? "" : scheduledDate,
     scheduledTimeWindow: scheduledTimeWindow || "",
     pickupLocationId: pickupLocationId || "",
+    pickupLocationName: pickupLocationName || "",
+    pickupLocationCity: pickupLocationCity || "",
+    pickupLocationState: pickupLocationState || "",
   }
 
   return sdk.store.cart
