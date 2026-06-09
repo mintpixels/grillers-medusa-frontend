@@ -685,6 +685,7 @@ const sections: GuideSection[] = [
       "Use Retry only after the bad data, product mapping, tax mapping, or sync bug has been corrected. Retry clears the block and lets Web Connector attempt the order again.",
       "Use ListID for product matching. SKU is a fallback only.",
       "For taxed orders, QuickBooks should receive the native sales tax item for the destination address. Shipping and delivery lines should remain non-taxable.",
+      "New QuickBooks sales orders should be marked Print Later and should include the specific fulfillment service item: del-ZIP for Atlanta delivery, del - City for Southeast delivery, or the plant pickup/pickup-discount item.",
       "For sync health, use the sync service dashboard/logs or health command rather than relying only on the green Web Connector bars.",
     ],
     watch: [
