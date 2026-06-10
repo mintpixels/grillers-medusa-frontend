@@ -120,7 +120,12 @@ const Shipping: React.FC<ShippingProps> = ({
   const cartShippingMethodSelected = (cart.shipping_methods?.length ?? 0) > 0
 
   const fulfillmentType = cart.metadata?.fulfillmentType as string | undefined
-  const UPS_SERVICE_CODES = ["GROUND", "OVERNIGHT", "2ND_DAY_AIR"]
+  const UPS_SERVICE_CODES = [
+    "GROUND",
+    "3_DAY_SELECT",
+    "2ND_DAY_AIR",
+    "OVERNIGHT",
+  ]
   const destinationZip = (cart.shipping_address?.postal_code || "").trim()
 
   // A free-shipping promotion is "active" on the cart whenever Medusa has

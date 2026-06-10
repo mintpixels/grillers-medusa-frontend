@@ -113,6 +113,22 @@ function extractServiceCodeFromName(name: string | undefined): string | null {
   if (lowerName.includes("ground")) {
     return "GROUND"
   }
+  if (
+    lowerName.includes("3 day") ||
+    lowerName.includes("3-day") ||
+    lowerName.includes("3rd day") ||
+    lowerName.includes("third day") ||
+    lowerName.includes("three day")
+  ) {
+    return "3_DAY_SELECT"
+  }
+  if (
+    lowerName.includes("2nd day") ||
+    lowerName.includes("second day") ||
+    lowerName.includes("two day")
+  ) {
+    return "2ND_DAY_AIR"
+  }
   if (lowerName.includes("overnight")) {
     return "OVERNIGHT"
   }

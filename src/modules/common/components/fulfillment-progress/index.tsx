@@ -65,7 +65,7 @@ function fulfillmentNoun(
   if (kind === "atlanta_delivery") return "local delivery"
   if (kind === "southeast_pickup") return "regional pickup"
   if (kind === "plant_pickup") return "pickup"
-  if (kind === "national_ups") return "UPS Ground shipping"
+  if (kind === "national_ups") return "UPS cold-chain shipping"
   if (kind === "in_region_ups") return "the regional free-delivery threshold"
   return "shipping"
 }

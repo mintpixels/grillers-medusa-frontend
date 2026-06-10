@@ -749,7 +749,13 @@ function serviceCodesForFulfillment(
     case "southeast_pickup":
       return ["SCHEDULED_DELIVERY", "SOUTHEAST_PICKUP"]
     case "ups_shipping":
-      return ["GROUND", "UPS_GROUND", "2ND_DAY_AIR", "OVERNIGHT"]
+      return [
+        "GROUND",
+        "UPS_GROUND",
+        "3_DAY_SELECT",
+        "2ND_DAY_AIR",
+        "OVERNIGHT",
+      ]
   }
 }
 

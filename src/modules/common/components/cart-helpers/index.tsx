@@ -77,7 +77,7 @@ export const FreeShippingHelper: React.FC<FreeShippingHelperProps> = ({
     } else if (state.kind === "in_region_ups") {
       message = <>Your order qualifies for the regional free-delivery threshold.</>
     } else {
-      message = <>Your order qualifies for free UPS Ground shipping.</>
+      message = <>Your order qualifies for free UPS cold-chain shipping.</>
     }
   } else if (state.kind === "ambiguous") {
     message = (
@@ -89,7 +89,7 @@ export const FreeShippingHelper: React.FC<FreeShippingHelperProps> = ({
   } else {
     const label =
       state.kind === "national_ups" ? (
-        <strong>free UPS Ground shipping</strong>
+        <strong>free UPS cold-chain shipping</strong>
       ) : state.kind === "atlanta_delivery" ? (
         <strong>free local delivery</strong>
       ) : state.kind === "southeast_pickup" ? (

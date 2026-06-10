@@ -15,6 +15,12 @@ describe("UPS free-shipping service selection", () => {
     ).toBe(true)
     expect(
       isUpsServiceEligibleForFreeShipping({
+        serviceCode: "3_DAY_SELECT",
+        destinationZip: "23220",
+      })
+    ).toBe(false)
+    expect(
+      isUpsServiceEligibleForFreeShipping({
         serviceCode: "2ND_DAY_AIR",
         destinationZip: "23220",
       })
@@ -27,7 +33,7 @@ describe("UPS free-shipping service selection", () => {
     ).toBe(false)
   })
 
-  it("makes 2nd Day the free baseline when Ground is too slow", () => {
+  it("makes 3 Day Select the free baseline when Ground is too slow", () => {
     expect(
       isUpsServiceEligibleForFreeShipping({
         serviceCode: "GROUND",
@@ -36,10 +42,16 @@ describe("UPS free-shipping service selection", () => {
     ).toBe(false)
     expect(
       isUpsServiceEligibleForFreeShipping({
-        serviceCode: "2ND_DAY_AIR",
+        serviceCode: "3_DAY_SELECT",
         destinationZip: "90048",
       })
     ).toBe(true)
+    expect(
+      isUpsServiceEligibleForFreeShipping({
+        serviceCode: "2ND_DAY_AIR",
+        destinationZip: "90048",
+      })
+    ).toBe(false)
     expect(
       isUpsServiceEligibleForFreeShipping({
         serviceCode: "OVERNIGHT",
@@ -55,6 +67,16 @@ describe("UPS free-shipping service selection", () => {
         fulfillmentType: "ups_shipping",
         shipState: "VA",
         destinationZip: "23220",
+        selectedUpsServiceCode: "2ND_DAY_AIR",
+      })
+    ).toBeNull()
+
+    expect(
+      pickFreeShippingCode({
+        eligibleSubtotalDollars: 500,
+        fulfillmentType: "ups_shipping",
+        shipState: "CA",
+        destinationZip: "90048",
         selectedUpsServiceCode: "2ND_DAY_AIR",
       })
     ).toBeNull()
@@ -87,7 +109,7 @@ describe("UPS free-shipping service selection", () => {
         fulfillmentType: "ups_shipping",
         shipState: "CA",
         destinationZip: "90048",
-        selectedUpsServiceCode: "2ND_DAY_AIR",
+        selectedUpsServiceCode: "3_DAY_SELECT",
       })
     ).toBe(FREE_SHIP_NATIONAL_CODE)
   })

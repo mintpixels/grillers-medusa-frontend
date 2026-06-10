@@ -5,10 +5,11 @@
  *
  *   - **Plant Pickup (Doraville, GA)**: always free. Customer earns a
  *     $7.50 pickup credit on orders ≥ $150.
- *   - **Atlanta Delivery / Southeast Pickup / UPS Ground to in-region
+ *   - **Atlanta Delivery / Southeast Pickup / UPS shipping to in-region
  *     state**: free at $250+. The 7 in-region states are
  *     `GA, TN, TX, NC, FL, SC, AL`.
- *   - **UPS Ground to a national state**: free at $500+.
+ *   - **UPS shipping to a national state**: free at $500+. The checkout
+ *     service picker decides whether Ground or 3 Day Select is the baseline.
  *   - **UPS Overnight**: never free; charged at carrier rate.
  *
  * The threshold is determined by the **ship-to state** plus the
@@ -148,8 +149,8 @@ export function getFreeShippingState(input: {
     }
   }
 
-  // Atlanta delivery / Southeast pickup / in-region UPS Ground → $250.
-  // National UPS Ground → $500.
+  // Atlanta delivery / Southeast pickup / in-region UPS shipping → $250.
+  // National UPS shipping → $500.
   const inRegion =
     input.fulfillmentType === "atlanta_delivery" ||
     input.fulfillmentType === "southeast_pickup" ||
@@ -216,14 +217,14 @@ export function freeShippingPlainText(input: {
     if (s.kind === "atlanta_delivery") return "Your order qualifies for free local delivery."
     if (s.kind === "southeast_pickup") return "Your order qualifies for free regional pickup."
     if (s.kind === "in_region_ups") return "Your order qualifies for the regional free-delivery threshold."
-    return "Your order qualifies for free UPS Ground shipping."
+    return "Your order qualifies for free UPS cold-chain shipping."
   }
   if (s.kind === "ambiguous") {
     return "Enter your ZIP or choose fulfillment to see whether free local delivery, regional pickup, or UPS shipping applies."
   }
   const label =
     s.kind === "national_ups"
-      ? "free UPS Ground shipping"
+      ? "free UPS cold-chain shipping"
       : s.kind === "southeast_pickup"
         ? "free regional pickup"
         : s.kind === "atlanta_delivery"

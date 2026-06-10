@@ -102,6 +102,7 @@ describe("UPS Ground arrival eligibility — issue #72", () => {
   it("normalizes UPS service codes from backend/carrier labels", () => {
     expect(normalizeUpsServiceCode("Ground")).toBe("GROUND")
     expect(normalizeUpsServiceCode("UPS 2nd Day Air")).toBe("2ND_DAY_AIR")
+    expect(normalizeUpsServiceCode("UPS 3 Day Select")).toBe("3_DAY_SELECT")
     expect(normalizeUpsServiceCode("Next Day Air Overnight")).toBe("OVERNIGHT")
   })
 
@@ -117,6 +118,13 @@ describe("UPS Ground arrival eligibility — issue #72", () => {
       computeQuickBooksDueDateForArrival("5/5/2026", {
         method: "ups_2day",
         destinationZip: "30340",
+      })
+    ).toBe("2026-05-01")
+
+    expect(
+      computeQuickBooksDueDateForArrival("5/6/2026", {
+        method: "ups_3day",
+        destinationZip: "90048",
       })
     ).toBe("2026-05-01")
 

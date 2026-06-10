@@ -594,7 +594,7 @@ const sections: GuideSection[] = [
       "Plant pickup uses plant operating days plus same-day cutoffs: Monday-Thursday before 11am ET and Friday before 9am ET, with blackout and additional dates still respected.",
       "Atlanta delivery uses ZIP/day configuration and delivery windows.",
       "Southeast pickup uses Strapi pickup locations with available dates and cutoff days.",
-      "UPS shipping uses shipping settings, real-time rate toggle, origin ZIP, fallback amount, and the customer's requested arrival date. UPS Ground is offered only where the transit table is 3 business days or less; UPS arrival dates are Monday-Thursday.",
+      "UPS shipping uses shipping settings, real-time rate toggle, origin ZIP, fallback amount, and the customer's requested arrival date. Ground is offered only where the transit table is 3 business days or less; longer-distance ZIPs use 3 Day Select as the baseline with 2nd Day and Overnight as paid premium options. UPS arrival dates are Monday-Thursday.",
     ],
     watch: [
       "Changing fulfillment settings affects checkout immediately after deploy/cache refresh.",
@@ -724,7 +724,7 @@ const sections: GuideSection[] = [
       "Use ListID for product matching. SKU is a fallback only.",
       "For taxed orders, QuickBooks should receive the native sales tax item for the destination address. Shipping and delivery lines should remain non-taxable.",
       "New QuickBooks sales orders should be marked Print Later and should include the specific fulfillment service item: del-ZIP for Atlanta delivery, del - City for Southeast delivery, or the plant pickup/pickup-discount item.",
-      "New QuickBooks sales orders should use the Due Date as the ready-by date. The Memo starts with Peter's planning code: P/Up, L/D, Southeast pickup city, UPS/G, UPS 2Day, or UPS O/Night.",
+      "New QuickBooks sales orders should use the Due Date as the ready-by date. The Memo starts with Peter's planning code: P/Up, L/D, Southeast pickup city, UPS/G, UPS 3Day, UPS 2Day, or UPS O/Night.",
       "Customer checkout notes should appear on the description of the final QuickBooks Sales Order line item, not only in Medusa.",
       "For sync health, use the sync service dashboard/logs or health command rather than relying only on the green Web Connector bars.",
     ],

@@ -86,10 +86,10 @@ export function isUpsServiceEligibleForFreeShipping(input: {
     return serviceCode === "GROUND"
   }
 
-  // When Ground is not cold-chain-safe for the destination, the cheapest
-  // modeled expedited UPS option becomes the free-shipping baseline. Overnight
-  // remains a paid premium service everywhere.
-  return serviceCode === "2ND_DAY_AIR"
+  // When Ground is not cold-chain-safe for the destination, UPS 3 Day Select is
+  // the cheapest modeled expedited baseline. 2nd Day and Overnight remain paid
+  // premium services.
+  return serviceCode === "3_DAY_SELECT"
 }
 
 /**

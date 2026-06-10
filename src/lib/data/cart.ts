@@ -550,6 +550,8 @@ export async function setRequestedDeliveryDate({
         method = "ups_overnight"
       else if (normalizedShippingService === "2ND_DAY_AIR") {
         method = "ups_2day"
+      } else if (normalizedShippingService === "3_DAY_SELECT") {
+        method = "ups_3day"
       }
 
       // For southeast_pickup we don't have the date list here cheaply; skip server

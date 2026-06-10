@@ -2,7 +2,7 @@
  * Shared eligibility utility for the checkout "Arrival Date" calendar.
  *
  * Single source of truth used by:
- *   - src/modules/checkout/components/arrival-calendar (UPS Ground / Overnight / 2nd Day)
+ *   - src/modules/checkout/components/arrival-calendar (UPS Ground / 3 Day / 2nd Day / Overnight)
  *   - src/modules/checkout/components/fulfillment-selector/scheduling/atlanta-delivery
  *   - src/modules/checkout/components/fulfillment-selector/scheduling/southeast-pickup
  *
@@ -11,8 +11,8 @@
  * Eligibility formula:
  *   1. Start from today's date in America/New_York (server-side time, not client).
  *   2. Add production lead time — catch-weight pack-out adds 1 business day.
- *   3. For UPS methods, add zip-prefix-based transit days (Ground), 1 day (Overnight),
- *      or 2 business days (2nd Day Air).
+ *   3. For UPS methods, add zip-prefix-based transit days (Ground), 3 business
+ *      days (3 Day Select), 2 business days (2nd Day Air), or 1 day (Overnight).
  *   4. Skip weekends, observed UPS holidays, Shabbos (Fri sundown → Sat sundown), and
  *      major Yom Tov for both pack-out and arrival.
  *   5. For Atlanta Delivery / Southeast Pickup, only the route's specific weekdays
@@ -281,6 +281,7 @@ export type ArrivalMethod =
   | "southeast_pickup"
   | "plant_pickup"
   | "ups_ground"
+  | "ups_3day"
   | "ups_overnight"
   | "ups_2day"
 
@@ -442,7 +443,7 @@ export function isUpsGroundAvailableForZip(zip: string): boolean {
 
 export function normalizeUpsServiceCode(
   serviceCode?: string | null
-): "GROUND" | "OVERNIGHT" | "2ND_DAY_AIR" | string {
+): "GROUND" | "OVERNIGHT" | "2ND_DAY_AIR" | "3_DAY_SELECT" | string {
   const normalized = String(serviceCode || "")
     .trim()
     .toUpperCase()
@@ -466,6 +467,19 @@ export function normalizeUpsServiceCode(
     normalized.includes("2DAY")
   ) {
     return "2ND_DAY_AIR"
+  }
+  if (
+    normalized.includes("3_DAY") ||
+    normalized.includes("3 DAY") ||
+    normalized.includes("3RD_DAY") ||
+    normalized.includes("3RD DAY") ||
+    normalized.includes("THIRD_DAY") ||
+    normalized.includes("THIRD DAY") ||
+    normalized.includes("THREE_DAY") ||
+    normalized.includes("THREE DAY") ||
+    normalized.includes("3DAY")
+  ) {
+    return "3_DAY_SELECT"
   }
 
   return normalized
@@ -538,13 +552,20 @@ export function computeEligibleArrivalDates(
       ? addBusinessDays(packoutBase, packLeadTimeDays - 1, true)
       : packoutBase
 
-  if (method === "ups_ground" || method === "ups_overnight" || method === "ups_2day") {
+  if (
+    method === "ups_ground" ||
+    method === "ups_3day" ||
+    method === "ups_overnight" ||
+    method === "ups_2day"
+  ) {
     const transit =
       method === "ups_overnight"
         ? 1
         : method === "ups_2day"
           ? 2
-          : lookupUpsGroundDays(destinationZip)
+          : method === "ups_3day"
+            ? 3
+            : lookupUpsGroundDays(destinationZip)
 
     if (method === "ups_ground" && !isUpsGroundAvailableForZip(destinationZip)) {
       reason = destinationZip
@@ -576,7 +597,9 @@ export function computeEligibleArrivalDates(
         ? "UPS Overnight"
         : method === "ups_2day"
           ? "UPS 2nd Day Air"
-          : "UPS Ground"
+          : method === "ups_3day"
+            ? "UPS 3 Day Select"
+            : "UPS Ground"
     const zipNote = destinationZip ? ` to ${destinationZip}` : ""
     reason = `${methodLabel}${zipNote} needs ~${transit} business day${transit === 1 ? "" : "s"} of transit. We schedule frozen UPS arrivals Monday-Thursday.`
   } else if (method === "atlanta_delivery") {
@@ -691,6 +714,7 @@ export function computeQuickBooksDueDateForArrival(
 
   if (
     input.method !== "ups_ground" &&
+    input.method !== "ups_3day" &&
     input.method !== "ups_overnight" &&
     input.method !== "ups_2day"
   ) {
@@ -702,7 +726,9 @@ export function computeQuickBooksDueDateForArrival(
       ? 1
       : input.method === "ups_2day"
         ? 2
-        : lookupUpsGroundDays(input.destinationZip || "")
+        : input.method === "ups_3day"
+          ? 3
+          : lookupUpsGroundDays(input.destinationZip || "")
 
   if (input.method === "ups_ground" && transit > 3) {
     return null

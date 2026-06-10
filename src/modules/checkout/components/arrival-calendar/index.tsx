@@ -48,11 +48,21 @@ function deriveArrivalMethod(
 
   if (normalizedServiceCode === "OVERNIGHT") return "ups_overnight"
   if (normalizedServiceCode === "2ND_DAY_AIR") return "ups_2day"
+  if (normalizedServiceCode === "3_DAY_SELECT") return "ups_3day"
   if (normalizedServiceCode === "GROUND") return "ups_ground"
 
   const name = (selectedOption?.name || "").toLowerCase()
   if (name.includes("overnight")) return "ups_overnight"
   if (name.includes("2nd day") || name.includes("two day")) return "ups_2day"
+  if (
+    name.includes("3 day") ||
+    name.includes("3-day") ||
+    name.includes("3rd day") ||
+    name.includes("third day") ||
+    name.includes("three day")
+  ) {
+    return "ups_3day"
+  }
   return "ups_ground"
 }
 
