@@ -6,6 +6,7 @@ import type { StoreCart, StoreCartShippingOption } from "@medusajs/types"
 import { setRequestedDeliveryDate } from "@lib/data/cart"
 import {
   computeEligibleArrivalDates,
+  normalizeUpsServiceCode,
   toIsoDate,
   type ArrivalMethod,
   type AtlantaZipDayConfig,
@@ -43,9 +44,11 @@ function deriveArrivalMethod(
   if (fulfillmentType === "southeast_pickup") return "southeast_pickup"
   if (fulfillmentType === "plant_pickup") return "plant_pickup"
 
-  if (serviceCode === "OVERNIGHT") return "ups_overnight"
-  if (serviceCode === "2ND_DAY_AIR" || serviceCode === "TWO_DAY") return "ups_2day"
-  if (serviceCode === "GROUND") return "ups_ground"
+  const normalizedServiceCode = normalizeUpsServiceCode(serviceCode)
+
+  if (normalizedServiceCode === "OVERNIGHT") return "ups_overnight"
+  if (normalizedServiceCode === "2ND_DAY_AIR") return "ups_2day"
+  if (normalizedServiceCode === "GROUND") return "ups_ground"
 
   const name = (selectedOption?.name || "").toLowerCase()
   if (name.includes("overnight")) return "ups_overnight"

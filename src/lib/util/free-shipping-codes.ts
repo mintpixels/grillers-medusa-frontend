@@ -4,6 +4,10 @@ import {
   isInRegionState,
   type FulfillmentType,
 } from "@lib/util/free-shipping"
+import {
+  isUpsGroundAvailableForZip,
+  normalizeUpsServiceCode,
+} from "@lib/util/eligible-arrival-dates"
 
 /**
  * Promotion codes seeded by
@@ -67,6 +71,27 @@ export const ALL_AUTO_APPLIED_CODES = [
   SE_PICKUP_CREDIT_CODE,
 ]
 
+export function isUpsServiceEligibleForFreeShipping(input: {
+  serviceCode?: string | null
+  destinationZip?: string | null
+}): boolean {
+  const serviceCode = normalizeUpsServiceCode(input.serviceCode)
+  if (!serviceCode) return false
+  if (serviceCode === "OVERNIGHT") return false
+
+  const zip = (input.destinationZip || "").trim()
+  const groundAvailable = zip ? isUpsGroundAvailableForZip(zip) : true
+
+  if (groundAvailable) {
+    return serviceCode === "GROUND"
+  }
+
+  // When Ground is not cold-chain-safe for the destination, the cheapest
+  // modeled expedited UPS option becomes the free-shipping baseline. Overnight
+  // remains a paid premium service everywhere.
+  return serviceCode === "2ND_DAY_AIR"
+}
+
 /**
  * Pure decision: which (if any) free-shipping code should be on the cart
  * right now? Returns `null` when no qualifying free-shipping promo applies.
@@ -75,9 +100,16 @@ export function pickFreeShippingCode(input: {
   eligibleSubtotalDollars: number
   fulfillmentType?: FulfillmentType
   shipState?: string | null
+  destinationZip?: string | null
+  selectedUpsServiceCode?: string | null
 }): string | null {
   const sub = Math.max(0, input.eligibleSubtotalDollars || 0)
-  const { fulfillmentType, shipState } = input
+  const {
+    fulfillmentType,
+    shipState,
+    destinationZip,
+    selectedUpsServiceCode,
+  } = input
 
   // Plant Pickup is unconditionally free at the carrier level.
   if (fulfillmentType === "plant_pickup") {
@@ -98,6 +130,17 @@ export function pickFreeShippingCode(input: {
 
   // Overnight is never free.
   if (fulfillmentType === "ups_overnight") {
+    return null
+  }
+
+  if (
+    fulfillmentType === "ups_shipping" &&
+    selectedUpsServiceCode &&
+    !isUpsServiceEligibleForFreeShipping({
+      serviceCode: selectedUpsServiceCode,
+      destinationZip,
+    })
+  ) {
     return null
   }
 

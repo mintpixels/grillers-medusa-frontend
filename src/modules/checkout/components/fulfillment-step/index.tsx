@@ -15,6 +15,7 @@ import type { FulfillmentConfigData, PickupCreditConfig } from "@lib/data/strapi
 import { useFulfillmentEdit } from "@modules/checkout/context/fulfillment-edit-context"
 import PlantPickupScheduling from "@modules/checkout/components/fulfillment-selector/scheduling/plant-pickup"
 import SoutheastPickupScheduling from "@modules/checkout/components/fulfillment-selector/scheduling/southeast-pickup"
+import AtlantaDeliveryScheduling from "@modules/checkout/components/fulfillment-selector/scheduling/atlanta-delivery"
 import AddressForm, { type DeliveryAddress } from "@modules/checkout/components/fulfillment-selector/address-form"
 
 type FulfillmentStepProps = {
@@ -81,7 +82,13 @@ const fulfillmentLabels: Record<FulfillmentType, { label: string; description: s
   },
 }
 
-type SubStep = "select" | "plant_date" | "southeast_pickup" | "save_address" | "switch_address"
+type SubStep =
+  | "select"
+  | "atlanta_delivery"
+  | "plant_date"
+  | "southeast_pickup"
+  | "save_address"
+  | "switch_address"
 type AddressFormIntent = "add" | "edit"
 
 function getPreferredAddress(customer: HttpTypes.StoreCustomer | null) {
@@ -150,6 +157,8 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [subStep, setSubStep] = useState<SubStep>("select")
+  const [pendingAtlantaDate, setPendingAtlantaDate] = useState("")
+  const [pendingAtlantaTimeWindow, setPendingAtlantaTimeWindow] = useState("")
   const [pendingPickupDate, setPendingPickupDate] = useState("")
   const [pendingSELocationId, setPendingSELocationId] = useState("")
   const [pendingSEDate, setPendingSEDate] = useState("")
@@ -493,6 +502,13 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
       return
     }
 
+    if (option === "atlanta_delivery") {
+      setPendingAtlantaDate("")
+      setPendingAtlantaTimeWindow("")
+      setSubStep("atlanta_delivery")
+      return
+    }
+
     setIsSubmitting(true)
     setError(null)
 
@@ -538,6 +554,33 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
       })
 
       await attachShippingMethod("plant_pickup")
+
+      setIsEditing(false)
+      setSubStep("select")
+      router.refresh()
+    } catch (err: any) {
+      setError(friendlyFulfillmentError(err.message))
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleConfirmAtlantaDelivery = async () => {
+    if (isSubmitting || !pendingAtlantaDate || !pendingAtlantaTimeWindow) return
+
+    setIsSubmitting(true)
+    setError(null)
+
+    try {
+      await setFulfillmentDetails({
+        cartId: cart.id,
+        fulfillmentType: "atlanta_delivery",
+        fulfillmentZip: shipZip,
+        scheduledDate: pendingAtlantaDate,
+        scheduledTimeWindow: pendingAtlantaTimeWindow,
+      })
+
+      await attachShippingMethod("atlanta_delivery")
 
       setIsEditing(false)
       setSubStep("select")
@@ -910,6 +953,52 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
           {saveAddressError && (
             <div className="mt-3 p-3 bg-red-50 border border-red-200/80 rounded-xl text-red-700 text-sm">
               {saveAddressError}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Atlanta Delivery Date Selection */}
+      {showSelection && subStep === "atlanta_delivery" && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setSubStep("select")}
+              className="text-sm text-Gold hover:text-Gold/80 font-medium flex items-center gap-1 transition-colors"
+            >
+              <svg className="w-4 h-4 rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+              Back
+            </button>
+          </div>
+          <AtlantaDeliveryScheduling
+            config={config}
+            selectedDate={pendingAtlantaDate}
+            selectedTimeWindow={pendingAtlantaTimeWindow}
+            onDateChange={setPendingAtlantaDate}
+            onTimeWindowChange={setPendingAtlantaTimeWindow}
+            destinationZip={shipZip}
+            atlantaZipConfig={config.AtlantaDeliveryZipDays}
+          />
+          <button
+            type="button"
+            onClick={handleConfirmAtlantaDelivery}
+            disabled={!pendingAtlantaDate || !pendingAtlantaTimeWindow || isSubmitting}
+            className={`
+              w-full py-3.5 rounded-xl font-semibold text-sm transition-all duration-200
+              ${pendingAtlantaDate && pendingAtlantaTimeWindow && !isSubmitting
+                ? "bg-Gold text-white hover:bg-Gold/90 shadow-md hover:shadow-lg active:scale-[0.99]"
+                : "bg-gray-100 text-gray-400 cursor-not-allowed"
+              }
+            `}
+          >
+            {isSubmitting ? "Confirming..." : "Confirm Delivery Date"}
+          </button>
+          {error && (
+            <div className="mt-3 p-3 bg-red-50 border border-red-200/80 rounded-xl text-red-700 text-sm">
+              {error}
             </div>
           )}
         </div>

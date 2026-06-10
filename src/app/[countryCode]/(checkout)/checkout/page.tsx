@@ -139,7 +139,13 @@ const defaultFulfillmentConfig: FulfillmentConfigData["checkout"] = {
   PlantPickupZip: "30329",
   PlantPickupHours: "Mon-Thu 9am-4pm, Fri 9am-2pm",
   AtlantaDeliveryFee: 22.5,
-  PlantPickupAvailableDays: ["Tuesday", "Wednesday"],
+  PlantPickupAvailableDays: [
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+  ],
   PlantPickupAdditionalDates: [],
   PlantPickupBlackoutDates: [],
   PlantPickupPostOrderNote:

@@ -6,6 +6,7 @@ type PickupDateConfig = {
   blackoutDates: string[]
   cutoffHours: number
   lookAheadWeeks?: number
+  now?: Date
 }
 
 /**
@@ -35,7 +36,19 @@ function nowEST(): Date {
  * cutoffHours = 6  -> cutoff at 6:00 PM EST the day before
  * cutoffHours = 24 -> cutoff at midnight EST two days before
  */
-function isBeforeCutoff(pickupDate: Date, cutoffHours: number): boolean {
+function isSameCalendarDate(a: Date, b: Date): boolean {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  )
+}
+
+function isBeforeCutoff(
+  pickupDate: Date,
+  cutoffHours: number,
+  currentTime: Date
+): boolean {
   const deadlineMs =
     new Date(
       pickupDate.getFullYear(),
@@ -44,7 +57,34 @@ function isBeforeCutoff(pickupDate: Date, cutoffHours: number): boolean {
       0, 1, 0 // 12:01 AM of pickup day
     ).getTime() - cutoffHours * 60 * 60 * 1000
 
-  return nowEST().getTime() < deadlineMs
+  return currentTime.getTime() < deadlineMs
+}
+
+function isBeforeSameDayPlantPickupCutoff(
+  pickupDate: Date,
+  currentTime: Date
+): boolean {
+  if (!isSameCalendarDate(pickupDate, currentTime)) return false
+
+  const day = pickupDate.getDay()
+
+  // Peter's plant-pickup rules:
+  // - Monday-Thursday: same-day pickup is allowed for orders placed by 11:00 AM ET.
+  // - Friday: same-day pickup is allowed for orders placed by 9:00 AM ET.
+  // The actual pickup promise is operational copy; the customer selects a date.
+  const cutoffHour = day >= 1 && day <= 4 ? 11 : day === 5 ? 9 : null
+  if (cutoffHour === null) return false
+
+  const cutoff = new Date(
+    pickupDate.getFullYear(),
+    pickupDate.getMonth(),
+    pickupDate.getDate(),
+    cutoffHour,
+    0,
+    0
+  )
+
+  return currentTime.getTime() < cutoff.getTime()
 }
 
 /**
@@ -58,7 +98,14 @@ function isBeforeCutoff(pickupDate: Date, cutoffHours: number): boolean {
  * Returns sorted array of Date objects.
  */
 export function getAvailablePickupDates(config: PickupDateConfig): Date[] {
-  const { availableDays, additionalDates, blackoutDates, cutoffHours, lookAheadWeeks = 6 } = config
+  const {
+    availableDays,
+    additionalDates,
+    blackoutDates,
+    cutoffHours,
+    lookAheadWeeks = 6,
+    now,
+  } = config
 
   const dayIndices = new Set(
     availableDays
@@ -68,7 +115,7 @@ export function getAvailablePickupDates(config: PickupDateConfig): Date[] {
 
   const blackoutSet = new Set(blackoutDates.map((d) => d.split("T")[0]))
 
-  const est = nowEST()
+  const est = now ?? nowEST()
   const today = new Date(est.getFullYear(), est.getMonth(), est.getDate())
   const endDate = new Date(today)
   endDate.setDate(endDate.getDate() + lookAheadWeeks * 7)
@@ -102,7 +149,11 @@ export function getAvailablePickupDates(config: PickupDateConfig): Date[] {
 
   // Filter by cutoff and sort
   return Array.from(dateMap.values())
-    .filter((d) => isBeforeCutoff(d, cutoffHours))
+    .filter((d) =>
+      isSameCalendarDate(d, today)
+        ? isBeforeSameDayPlantPickupCutoff(d, est)
+        : isBeforeCutoff(d, cutoffHours, est)
+    )
     .sort((a, b) => a.getTime() - b.getTime())
 }
 

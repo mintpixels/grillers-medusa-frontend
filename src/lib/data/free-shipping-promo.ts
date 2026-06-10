@@ -11,6 +11,32 @@ import {
   pickSoutheastPickupCredit,
 } from "@lib/util/free-shipping-codes"
 import { getAuthHeaders } from "./cookies"
+import { normalizeUpsServiceCode } from "@lib/util/eligible-arrival-dates"
+
+function selectedUpsServiceCode(cart: HttpTypes.StoreCart): string | null {
+  const method = cart.shipping_methods?.at(-1) as
+    | (HttpTypes.StoreCartShippingMethod & {
+        data?: { service_code?: string }
+        service_code?: string
+        shipping_option?: {
+          name?: string
+          data?: { service_code?: string }
+          service_code?: string
+        }
+      })
+    | undefined
+
+  return (
+    normalizeUpsServiceCode(
+      method?.data?.service_code ||
+        method?.service_code ||
+        method?.shipping_option?.data?.service_code ||
+        method?.shipping_option?.service_code ||
+        method?.shipping_option?.name ||
+        method?.name
+    ) || null
+  )
+}
 
 /**
  * Compute the full set of auto-applied promotion codes that should be on
@@ -31,6 +57,8 @@ export async function syncFreeShippingPromotion(
   const fulfillmentType = (cart.metadata?.fulfillmentType ||
     undefined) as FulfillmentType
   const shipState = cart.shipping_address?.province
+  const destinationZip = cart.shipping_address?.postal_code
+  const selectedServiceCode = selectedUpsServiceCode(cart)
   // Medusa v2 store-API returns monetary fields as decimal dollars (e.g.
   // 1590.73), NOT cents. Do not divide by 100.
   const subtotalDollars = cart.subtotal ?? 0
@@ -43,6 +71,8 @@ export async function syncFreeShippingPromotion(
       eligibleSubtotalDollars: subtotalDollars,
       fulfillmentType,
       shipState,
+      destinationZip,
+      selectedUpsServiceCode: selectedServiceCode,
     }),
     pickPlantPickupCredit({
       eligibleSubtotalDollars: subtotalDollars,
@@ -112,7 +142,8 @@ export async function syncFreeShippingPromotionByCartId(cartId: string) {
   const { cart } = await sdk.store.cart.retrieve(
     cartId,
     {
-      fields: "*items, *shipping_address, *promotions, +subtotal, *metadata",
+      fields:
+        "*items, *shipping_address, *promotions, *shipping_methods, +subtotal, *metadata",
     },
     headers
   )

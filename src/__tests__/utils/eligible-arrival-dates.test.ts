@@ -4,8 +4,11 @@
 
 import {
   computeEligibleArrivalDates,
+  computeQuickBooksDueDateForArrival,
   isArrivalDateValid,
+  isUpsGroundAvailableForZip,
   lookupUpsGroundDays,
+  normalizeUpsServiceCode,
   toIsoDate,
   UPS_GROUND_TRANSIT_DAYS_BY_PREFIX,
 } from "@lib/util/eligible-arrival-dates"
@@ -18,6 +21,7 @@ describe("UPS Ground transit lookup", () => {
 
   it("returns 5 days for Los Angeles 90048 (issue #72 case)", () => {
     expect(lookupUpsGroundDays("90048")).toBe(5)
+    expect(isUpsGroundAvailableForZip("90048")).toBe(false)
   })
 
   it("returns 5 day fallback for unknown prefix", () => {
@@ -44,23 +48,18 @@ describe("UPS Ground arrival eligibility — issue #72", () => {
     })
     // Tomorrow = April 30 — must NOT be eligible
     expect(result.isoSet.has("2026-04-30")).toBe(false)
-    // Earliest should be at least 5 business days out from dispatch.
-    // Wed 4/29 14:35 ET (before 3PM cutoff) → packout Wed 4/29 → dispatch Wed 4/29 →
-    // 5 UPS biz days = Thu, Fri, Mon, Tue, Wed = Wed 2026-05-06.
-    // Per issue #72: "earliest legitimate selectable date is approximately Wed 5/6 — Thu 5/7."
-    const earliest = result.earliest!
-    expect(toIsoDate(earliest) >= "2026-05-06").toBe(true)
+    expect(result.earliest).toBeNull()
+    expect(result.reason).toContain("UPS Ground to 90048 takes ~5 business days")
   })
 
-  it("opens on the FIRST month containing a valid date", () => {
-    // For LA, the only valid dates are in May — earliest ought not be in April
+  it("does not offer Ground dates when transit is over 3 business days", () => {
     const now = new Date(2026, 3, 29, 14, 35)
     const result = computeEligibleArrivalDates({
       method: "ups_ground",
       destinationZip: "90048",
       now,
     })
-    expect(result.earliest!.getMonth()).toBe(4) // May (0-indexed)
+    expect(result.dates).toHaveLength(0)
   })
 
   it("UPS Overnight allows next business day arrival", () => {
@@ -82,9 +81,51 @@ describe("UPS Ground arrival eligibility — issue #72", () => {
       now,
     })
     // Pack-out Thu 4/30, dispatch Thu 4/30 (lead = 1 means same dispatch day),
-    // GA is 1-day transit so arrival Fri 5/1.
+    // GA is 1-day transit, but frozen UPS arrivals are Monday-Thursday only.
     // Today Wed 4/29 must NOT be valid.
     expect(result.isoSet.has("2026-04-29")).toBe(false)
+    expect(result.isoSet.has("2026-05-01")).toBe(false)
+    expect(result.isoSet.has("2026-05-04")).toBe(true)
+  })
+
+  it("does not offer Friday UPS arrivals", () => {
+    const now = new Date(2026, 3, 29, 16, 0)
+    const result = computeEligibleArrivalDates({
+      method: "ups_overnight",
+      destinationZip: "30340",
+      now,
+    })
+    expect(result.isoSet.has("2026-05-01")).toBe(false)
+    expect(result.earliest && toIsoDate(result.earliest)).toBe("2026-05-04")
+  })
+
+  it("normalizes UPS service codes from backend/carrier labels", () => {
+    expect(normalizeUpsServiceCode("Ground")).toBe("GROUND")
+    expect(normalizeUpsServiceCode("UPS 2nd Day Air")).toBe("2ND_DAY_AIR")
+    expect(normalizeUpsServiceCode("Next Day Air Overnight")).toBe("OVERNIGHT")
+  })
+
+  it("computes QuickBooks ready-by date from UPS arrival date", () => {
+    expect(
+      computeQuickBooksDueDateForArrival("4/30/2026", {
+        method: "ups_overnight",
+        destinationZip: "30340",
+      })
+    ).toBe("2026-04-29")
+
+    expect(
+      computeQuickBooksDueDateForArrival("5/5/2026", {
+        method: "ups_2day",
+        destinationZip: "30340",
+      })
+    ).toBe("2026-05-01")
+
+    expect(
+      computeQuickBooksDueDateForArrival("5/14/2026", {
+        method: "ups_ground",
+        destinationZip: "90048",
+      })
+    ).toBeNull()
   })
 
   it.each([
@@ -106,17 +147,22 @@ describe("UPS Ground arrival eligibility — issue #72", () => {
       now,
     })
 
-    expect(ground.earliest).toBeTruthy()
     expect(overnight.isoSet.has("2026-04-30")).toBe(true)
-    expect(
-      isArrivalDateValid(toIsoDate(ground.earliest!), {
-        method: "ups_ground",
-        destinationZip: zip,
-        now,
-      })
-    ).toBe(true)
 
-    if (lookupUpsGroundDays(zip) > 1) {
+    if (lookupUpsGroundDays(zip) > 3) {
+      expect(ground.earliest).toBeNull()
+    } else {
+      expect(ground.earliest).toBeTruthy()
+      expect(
+        isArrivalDateValid(toIsoDate(ground.earliest!), {
+          method: "ups_ground",
+          destinationZip: zip,
+          now,
+        })
+      ).toBe(true)
+    }
+
+    if (lookupUpsGroundDays(zip) > 1 && lookupUpsGroundDays(zip) <= 3) {
       expect(ground.isoSet.has("2026-04-30")).toBe(false)
     }
   })
@@ -209,10 +255,10 @@ describe("isArrivalDateValid server-side check", () => {
     expect(ok).toBe(false)
   })
 
-  it("accepts a far-future date that's a UPS delivery day", () => {
+  it("accepts a far-future Monday-Thursday date that's a UPS delivery day", () => {
     const ok = isArrivalDateValid("5/14/2026", {
       method: "ups_ground",
-      destinationZip: "90048",
+      destinationZip: "30340",
       now: new Date(2026, 3, 29, 14, 35),
     })
     expect(ok).toBe(true)

@@ -417,6 +417,16 @@ function addUpsDeliveryDays(start: Date, days: number): Date {
   return cursor
 }
 
+function subtractUpsDeliveryDays(start: Date, days: number): Date {
+  const cursor = new Date(start.getFullYear(), start.getMonth(), start.getDate())
+  let subtracted = 0
+  while (subtracted < days) {
+    cursor.setDate(cursor.getDate() - 1)
+    if (isUpsDeliveryDay(cursor)) subtracted += 1
+  }
+  return cursor
+}
+
 /**
  * Look up Ground transit days from the hardcoded table by 3-digit zip prefix.
  * Falls back to 5 days for the conservative continental-US worst case if missing.
@@ -424,6 +434,50 @@ function addUpsDeliveryDays(start: Date, days: number): Date {
 export function lookupUpsGroundDays(zip: string): number {
   const prefix = (zip || "").slice(0, 3)
   return UPS_GROUND_TRANSIT_DAYS_BY_PREFIX[prefix] ?? 5
+}
+
+export function isUpsGroundAvailableForZip(zip: string): boolean {
+  return lookupUpsGroundDays(zip) <= 3
+}
+
+export function normalizeUpsServiceCode(
+  serviceCode?: string | null
+): "GROUND" | "OVERNIGHT" | "2ND_DAY_AIR" | string {
+  const normalized = String(serviceCode || "")
+    .trim()
+    .toUpperCase()
+
+  if (!normalized) return ""
+  if (normalized.includes("GROUND")) return "GROUND"
+  if (
+    normalized.includes("OVERNIGHT") ||
+    normalized.includes("NEXT_DAY") ||
+    normalized.includes("NEXT DAY")
+  ) {
+    return "OVERNIGHT"
+  }
+  if (
+    normalized.includes("2ND_DAY") ||
+    normalized.includes("2ND DAY") ||
+    normalized.includes("SECOND_DAY") ||
+    normalized.includes("SECOND DAY") ||
+    normalized.includes("TWO_DAY") ||
+    normalized.includes("TWO DAY") ||
+    normalized.includes("2DAY")
+  ) {
+    return "2ND_DAY_AIR"
+  }
+
+  return normalized
+}
+
+function isAllowedUpsArrivalDay(d: Date): boolean {
+  if (!isUpsDeliveryDay(d)) return false
+
+  // Frozen UPS deliveries should land Monday-Thursday only. Friday arrivals
+  // leave too little room for missed-delivery recovery before Shabbos/weekend.
+  const day = d.getDay()
+  return day >= 1 && day <= 4
 }
 
 /**
@@ -492,6 +546,18 @@ export function computeEligibleArrivalDates(
           ? 2
           : lookupUpsGroundDays(destinationZip)
 
+    if (method === "ups_ground" && !isUpsGroundAvailableForZip(destinationZip)) {
+      reason = destinationZip
+        ? `UPS Ground to ${destinationZip} takes ~${transit} business days, so please choose UPS 2nd Day Air or Overnight.`
+        : "UPS Ground is only available where transit is 3 business days or less."
+      return {
+        dates: [],
+        isoSet: new Set(),
+        earliest: null,
+        reason,
+      }
+    }
+
     // Earliest arrival = dispatch + transit business days (UPS-side: weekends + holidays only)
     const earliest = addUpsDeliveryDays(dispatchDate, transit)
     const horizon = new Date(now.getFullYear(), now.getMonth(), now.getDate())
@@ -499,7 +565,7 @@ export function computeEligibleArrivalDates(
 
     const cursor = new Date(earliest)
     while (cursor <= horizon) {
-      if (isUpsDeliveryDay(cursor)) {
+      if (isAllowedUpsArrivalDay(cursor)) {
         out.push(new Date(cursor))
       }
       cursor.setDate(cursor.getDate() + 1)
@@ -512,7 +578,7 @@ export function computeEligibleArrivalDates(
           ? "UPS 2nd Day Air"
           : "UPS Ground"
     const zipNote = destinationZip ? ` to ${destinationZip}` : ""
-    reason = `${methodLabel}${zipNote} needs ~${transit} business day${transit === 1 ? "" : "s"} of transit.`
+    reason = `${methodLabel}${zipNote} needs ~${transit} business day${transit === 1 ? "" : "s"} of transit. We schedule frozen UPS arrivals Monday-Thursday.`
   } else if (method === "atlanta_delivery") {
     // Per-zip weekday + cutoff
     const cfg = atlantaZipConfig?.[destinationZip] ?? {
@@ -601,4 +667,46 @@ export function isArrivalDateValid(
   const iso = toIsoDate(date)
   const result = computeEligibleArrivalDates(input)
   return result.isoSet.has(iso)
+}
+
+export function parseCheckoutDate(dateMmDdYyyyOrIso: string): Date | null {
+  if (!dateMmDdYyyyOrIso) return null
+
+  const isIsoDate = /^\d{4}-\d{2}-\d{2}$/.test(dateMmDdYyyyOrIso)
+  const parts = dateMmDdYyyyOrIso.split(isIsoDate ? "-" : "/").map(Number)
+  if (parts.length !== 3) return null
+
+  const [y, m, d] = isIsoDate ? parts : [parts[2], parts[0], parts[1]]
+  if (!m || !d || !y) return null
+
+  return new Date(y, m - 1, d)
+}
+
+export function computeQuickBooksDueDateForArrival(
+  dateMmDdYyyyOrIso: string,
+  input: Pick<ComputeArrivalDatesInput, "method" | "destinationZip">
+): string | null {
+  const arrivalDate = parseCheckoutDate(dateMmDdYyyyOrIso)
+  if (!arrivalDate) return null
+
+  if (
+    input.method !== "ups_ground" &&
+    input.method !== "ups_overnight" &&
+    input.method !== "ups_2day"
+  ) {
+    return toIsoDate(arrivalDate)
+  }
+
+  const transit =
+    input.method === "ups_overnight"
+      ? 1
+      : input.method === "ups_2day"
+        ? 2
+        : lookupUpsGroundDays(input.destinationZip || "")
+
+  if (input.method === "ups_ground" && transit > 3) {
+    return null
+  }
+
+  return toIsoDate(subtractUpsDeliveryDays(arrivalDate, transit))
 }

@@ -9,13 +9,18 @@ import { jitsuTrack } from "@lib/jitsu"
 import { useCartTitleMap } from "@lib/hooks/use-cart-title-map"
 
 import { HttpTypes } from "@medusajs/types"
-import type { AtlantaZipDayConfig } from "@lib/util/eligible-arrival-dates"
+import {
+  isUpsGroundAvailableForZip,
+  normalizeUpsServiceCode,
+  type AtlantaZipDayConfig,
+} from "@lib/util/eligible-arrival-dates"
 import ErrorMessage from "@modules/checkout/components/error-message"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 
 import ArriveFoodCalendar from "../arrival-calendar"
 import { ALL_FREE_SHIP_CODES } from "@lib/util/free-shipping-codes"
+import { isUpsServiceEligibleForFreeShipping } from "@lib/util/free-shipping-codes"
 
 const PICKUP_OPTION_ON = "__PICKUP_ON"
 const PICKUP_OPTION_OFF = "__PICKUP_OFF"
@@ -112,13 +117,11 @@ const Shipping: React.FC<ShippingProps> = ({
   const addressComplete = !!(cart?.shipping_address?.first_name && cart?.shipping_address?.address_1)
   
   // Check if shipping method has been selected
-  const shippingMethodSelected = (cart.shipping_methods?.length ?? 0) > 0
-
-  // Auto-open if: address is done AND no shipping method yet, OR explicitly via URL
-  const isOpen = searchParams.get("step") === "delivery" || (addressComplete && !shippingMethodSelected)
+  const cartShippingMethodSelected = (cart.shipping_methods?.length ?? 0) > 0
 
   const fulfillmentType = cart.metadata?.fulfillmentType as string | undefined
-  const UPS_SERVICE_CODES = ["GROUND", "OVERNIGHT"]
+  const UPS_SERVICE_CODES = ["GROUND", "OVERNIGHT", "2ND_DAY_AIR"]
+  const destinationZip = (cart.shipping_address?.postal_code || "").trim()
 
   // A free-shipping promotion is "active" on the cart whenever Medusa has
   // attached one of our seeded codes. We use this to flip the UPS Ground row
@@ -129,25 +132,55 @@ const Shipping: React.FC<ShippingProps> = ({
     )
   )
 
-  const _shippingMethods = availableShippingMethods?.filter((sm) => {
-    const option = sm as ShippingOptionWithServiceZone
-    if (option.service_zone?.fulfillment_set?.type === "pickup") return false
+  const _shippingMethods = useMemo(
+    () =>
+      availableShippingMethods?.filter((sm) => {
+        const option = sm as ShippingOptionWithServiceZone
+        if (option.service_zone?.fulfillment_set?.type === "pickup") return false
 
-    if (fulfillmentType === "ups_shipping") {
-      const serviceCode = option.data?.service_code || option.service_code
-      return serviceCode && UPS_SERVICE_CODES.includes(serviceCode)
-    }
+        if (fulfillmentType === "ups_shipping") {
+          const serviceCode = normalizeUpsServiceCode(
+            option.data?.service_code || option.service_code || option.name
+          )
 
-    return true
-  })
+          if (!serviceCode || !UPS_SERVICE_CODES.includes(serviceCode)) {
+            return false
+          }
 
-  const _pickupMethods = availableShippingMethods?.filter(
-    (sm) =>
-      (sm as ShippingOptionWithServiceZone).service_zone?.fulfillment_set
-        ?.type === "pickup"
+          if (serviceCode === "GROUND") {
+            return isUpsGroundAvailableForZip(destinationZip)
+          }
+        }
+
+        return true
+      }),
+    [availableShippingMethods, destinationZip, fulfillmentType]
+  )
+
+  const _pickupMethods = useMemo(
+    () =>
+      availableShippingMethods?.filter(
+        (sm) =>
+          (sm as ShippingOptionWithServiceZone).service_zone?.fulfillment_set
+            ?.type === "pickup"
+      ),
+    [availableShippingMethods]
   )
   const showPickupSection = fulfillmentType !== "ups_shipping"
   const hasPickupOptions = !!_pickupMethods?.length && showPickupSection
+  const selectedShippingMethodIsVisible = Boolean(
+    shippingMethodId &&
+      (_shippingMethods?.some((method) => method.id === shippingMethodId) ||
+        (showPickupOptions === PICKUP_OPTION_ON &&
+          _pickupMethods?.some((method) => method.id === shippingMethodId)))
+  )
+  const shippingMethodSelected =
+    fulfillmentType === "ups_shipping"
+      ? selectedShippingMethodIsVisible
+      : cartShippingMethodSelected
+
+  // Auto-open if: address is done AND no valid shipping method yet, OR explicitly via URL
+  const isOpen = searchParams.get("step") === "delivery" || (addressComplete && !shippingMethodSelected)
 
   const [priceLoadError, setPriceLoadError] = useState(false)
 
@@ -176,12 +209,14 @@ const Shipping: React.FC<ShippingProps> = ({
       } else {
         setIsLoadingPrices(false)
       }
+    } else {
+      setIsLoadingPrices(false)
     }
 
     if (_pickupMethods?.find((m) => m.id === shippingMethodId)) {
       setShowPickupOptions(PICKUP_OPTION_ON)
     }
-  }, [availableShippingMethods])
+  }, [_shippingMethods, _pickupMethods, shippingMethodId])
 
   const handleEdit = () => {
     router.push(pathname + "?step=delivery", { scroll: false })
@@ -292,7 +327,7 @@ const Shipping: React.FC<ShippingProps> = ({
     }
   }
 
-  const isIncomplete = !isOpen && cart.shipping_methods?.length === 0
+  const isIncomplete = !isOpen && !shippingMethodSelected
 
   return (
     <div
@@ -342,8 +377,8 @@ const Shipping: React.FC<ShippingProps> = ({
                 No UPS shipping options for this address
               </p>
               <p className="text-xs text-amber-800 mb-3 leading-relaxed">
-                Your address is in our local delivery region — UPS Ground costs more
-                than our own van. Choose a faster, cheaper alternative:
+                UPS Ground is only available where transit is 3 business days or less.
+                If expedited UPS rates are unavailable, choose a local option:
               </p>
               <div className="flex flex-wrap gap-2">
                 <button
@@ -418,21 +453,28 @@ const Shipping: React.FC<ShippingProps> = ({
                       !isLoadingPrices &&
                       typeof calculatedPricesMap[option.id] !== "number"
 
-                    // Free-shipping promo applies to UPS Ground (not Overnight).
+                    // Free-shipping applies to the cheapest cold-chain-safe UPS
+                    // service for the ZIP. Faster optional services stay paid.
                     // When a free-ship promo is on the cart, this method's
                     // shipping_method amount will be 0; show "FREE" with the
                     // carrier rate struck through so the customer can see the
                     // savings they actually get.
                     const serviceCode =
-                      (option as ShippingOptionWithServiceZone).data?.service_code ||
-                      (option as ShippingOptionWithServiceZone).service_code
+                      normalizeUpsServiceCode(
+                        (option as ShippingOptionWithServiceZone).data?.service_code ||
+                          (option as ShippingOptionWithServiceZone).service_code ||
+                          option.name
+                      )
                     const rawAmount =
                       option.price_type === "flat"
                         ? option.amount
                         : calculatedPricesMap[option.id]
                     const freeShipApplies =
                       isFreeShipPromoActive &&
-                      serviceCode === "GROUND" &&
+                      isUpsServiceEligibleForFreeShipping({
+                        serviceCode,
+                        destinationZip,
+                      }) &&
                       typeof rawAmount === "number" &&
                       rawAmount > 0
 
@@ -554,7 +596,7 @@ const Shipping: React.FC<ShippingProps> = ({
             </div>
           )}
 
-          {shippingMethodId && showPickupOptions === PICKUP_OPTION_OFF && (
+          {selectedShippingMethodIsVisible && showPickupOptions === PICKUP_OPTION_OFF && (
             <div>
               <div className="flex flex-col mb-3">
                 <span className="text-sm font-medium text-gray-700">
@@ -568,7 +610,7 @@ const Shipping: React.FC<ShippingProps> = ({
                 <ArriveFoodCalendar
                   cart={cart}
                   setError={setError}
-                  availableShippingMethods={availableShippingMethods}
+                  availableShippingMethods={_shippingMethods}
                   serverNowIso={serverNowIso}
                   atlantaZipConfig={atlantaZipConfig}
                 />
@@ -598,7 +640,7 @@ const Shipping: React.FC<ShippingProps> = ({
             data-testid="delivery-option-error-message"
           />
 
-          {shippingMethodId && (
+          {selectedShippingMethodIsVisible && (
             <div className="flex justify-end mt-6">
               <button
                 type="button"
@@ -620,7 +662,22 @@ const Shipping: React.FC<ShippingProps> = ({
             const selected = cart.shipping_methods?.at(-1)
             const selectedAmount = selected?.amount ?? 0
             const cartShippingTotal = (cart as any).shipping_total ?? selectedAmount
-            const freeShipApplied = isFreeShipPromoActive && cartShippingTotal === 0 && selectedAmount > 0
+            const selectedServiceCode = normalizeUpsServiceCode(
+              (selected as any)?.data?.service_code ||
+                (selected as any)?.service_code ||
+                (selected as any)?.shipping_option?.data?.service_code ||
+                (selected as any)?.shipping_option?.service_code ||
+                (selected as any)?.shipping_option?.name ||
+                selected?.name
+            )
+            const freeShipApplied =
+              isFreeShipPromoActive &&
+              cartShippingTotal === 0 &&
+              selectedAmount > 0 &&
+              isUpsServiceEligibleForFreeShipping({
+                serviceCode: selectedServiceCode,
+                destinationZip,
+              })
             return (
               <div className="flex items-center justify-between gap-4">
                 <div className="min-w-0">

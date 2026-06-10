@@ -532,18 +532,23 @@ export async function setRequestedDeliveryDate({
       const destZip = (cart?.shipping_address?.postal_code || "").trim()
       const selectedShippingName =
         cart?.shipping_methods?.at(-1)?.name?.toLowerCase() || ""
+      const {
+        computeQuickBooksDueDateForArrival,
+        normalizeUpsServiceCode,
+      } = await import(
+        "@lib/util/eligible-arrival-dates"
+      )
+      const normalizedShippingService = normalizeUpsServiceCode(
+        selectedShippingName
+      )
       let method: any = "ups_ground"
       if (fulfillmentType === "atlanta_delivery") method = "atlanta_delivery"
       else if (fulfillmentType === "southeast_pickup")
         method = "southeast_pickup"
       else if (fulfillmentType === "plant_pickup") method = "plant_pickup"
-      else if (selectedShippingName.includes("overnight"))
+      else if (normalizedShippingService === "OVERNIGHT")
         method = "ups_overnight"
-      else if (
-        selectedShippingName.includes("2nd day") ||
-        selectedShippingName.includes("second day") ||
-        selectedShippingName.includes("two day")
-      ) {
+      else if (normalizedShippingService === "2ND_DAY_AIR") {
         method = "ups_2day"
       }
 
@@ -561,6 +566,34 @@ export async function setRequestedDeliveryDate({
           )
         }
       }
+
+      const qbdDueDate = computeQuickBooksDueDateForArrival(date, {
+        method,
+        destinationZip: destZip,
+      })
+
+      return sdk.store.cart
+        .update(
+          cartId,
+          withStaffCartMetadata(
+            {
+              metadata: {
+                requestedDeliveryDate: date,
+                qbdDueDate: qbdDueDate || "",
+              },
+            },
+            active,
+            "requested_delivery_date_update",
+            { requestedDeliveryDate: date, qbdDueDate }
+          ),
+          {},
+          headers
+        )
+        .then(async () => {
+          const cartCacheTag = await getCacheTag("carts")
+          revalidateTag(cartCacheTag)
+        })
+        .catch(medusaError)
     } catch (err: any) {
       // If validation itself errors (e.g., import failure), surface only real
       // validation errors. Pass-through unexpected errors as 500.
@@ -576,7 +609,7 @@ export async function setRequestedDeliveryDate({
     .update(
       cartId,
       withStaffCartMetadata(
-        { metadata: { requestedDeliveryDate: date } },
+        { metadata: { requestedDeliveryDate: date, qbdDueDate: "" } },
         active,
         "requested_delivery_date_update",
         { requestedDeliveryDate: date }
@@ -627,11 +660,28 @@ export async function setFulfillmentDetails({
 }) {
   const active = await getCartStaffContext()
   const headers = await cartHeadersForStaffContext(active)
+  let qbdDueDate = ""
+
+  if (scheduledDate && fulfillmentType !== "ups_shipping") {
+    try {
+      const { computeQuickBooksDueDateForArrival } = await import(
+        "@lib/util/eligible-arrival-dates"
+      )
+      qbdDueDate =
+        computeQuickBooksDueDateForArrival(scheduledDate, {
+          method: fulfillmentType as any,
+          destinationZip: fulfillmentZip,
+        }) || ""
+    } catch {
+      qbdDueDate = ""
+    }
+  }
 
   const metadata: Record<string, string | undefined> = {
     fulfillmentType,
     fulfillmentZip,
     scheduledDate: fulfillmentType === "ups_shipping" ? "" : scheduledDate,
+    qbdDueDate,
     scheduledTimeWindow: scheduledTimeWindow || "",
     pickupLocationId: pickupLocationId || "",
     pickupLocationName: pickupLocationName || "",
@@ -710,6 +760,7 @@ export async function clearFulfillmentDetails(cartId: string) {
             fulfillmentType: "",
             fulfillmentZip: "",
             scheduledDate: "",
+            qbdDueDate: "",
             scheduledTimeWindow: "",
             pickupLocationId: "",
           },

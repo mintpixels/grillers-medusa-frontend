@@ -23,6 +23,13 @@ type WeekGroup = {
 }
 
 const INITIAL_WEEKS_SHOWN = 3
+const DEFAULT_PLANT_PICKUP_DAYS = [
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+]
 
 function getMonday(date: Date): Date {
   const d = new Date(date.getFullYear(), date.getMonth(), date.getDate())
@@ -69,7 +76,7 @@ export default function PlantPickupScheduling({
   const availableDates = useMemo(
     () =>
       getAvailablePickupDates({
-        availableDays: config.PlantPickupAvailableDays ?? ["Tuesday", "Wednesday"],
+        availableDays: config.PlantPickupAvailableDays ?? DEFAULT_PLANT_PICKUP_DAYS,
         additionalDates: (config.PlantPickupAdditionalDates ?? []).map((d) => d.Date),
         blackoutDates: (config.PlantPickupBlackoutDates ?? []).map((d) => d.Date),
         cutoffHours: config.PlantPickupCutoffHours ?? 0,
@@ -128,7 +135,7 @@ export default function PlantPickupScheduling({
           Select a Pickup Date
         </h2>
         <p className="text-sm text-Charcoal/60">
-          Available for pickup on {(config.PlantPickupAvailableDays ?? ["Tuesday", "Wednesday"]).join(" & ")}s.
+          Same-day pickup is available Monday-Thursday before 11am ET and Friday before 9am ET when the plant is open.
         </p>
       </div>
 
