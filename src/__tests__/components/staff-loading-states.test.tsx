@@ -1,0 +1,280 @@
+import { render, screen, waitFor } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
+
+import PhoneOrderCopilot from "@modules/staff/components/phone-order-copilot"
+import StaffTeamAccessConsole from "@modules/staff/components/team-access-console"
+import { searchStaffCustomers } from "@lib/data/staff/order-entry"
+import {
+  searchStaffTeamUsers,
+  updateStaffTeamRole,
+} from "@lib/data/staff/team-access"
+
+const routerReplace = jest.fn()
+const routerRefresh = jest.fn()
+
+jest.mock("next/navigation", () => ({
+  useParams: () => ({ countryCode: "us" }),
+  usePathname: () => "/us/account/staff/orders",
+  useRouter: () => ({
+    replace: routerReplace,
+    refresh: routerRefresh,
+  }),
+  useSearchParams: () => new URLSearchParams(),
+}))
+
+jest.mock("@stripe/react-stripe-js", () => ({
+  CardElement: () => null,
+  Elements: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  useElements: () => null,
+  useStripe: () => null,
+}))
+
+jest.mock("@stripe/stripe-js", () => ({
+  loadStripe: jest.fn(() => Promise.resolve({})),
+}))
+
+jest.mock("@lib/util/stripe-key", () => ({
+  getStripePublishableKey: () => "",
+}))
+
+jest.mock("@lib/data/staff/order-entry", () => ({
+  applyStaffCustomerAccountAction: jest.fn(),
+  completeStaffPhoneOrder: jest.fn(),
+  createStaffCustomer: jest.fn(),
+  getStaffCustomerContext: jest.fn(),
+  getStaffLegacyOrderContext: jest.fn(),
+  prepareStaffPhoneOrder: jest.fn(),
+  saveStaffCustomerAddress: jest.fn(),
+  searchStaffCustomers: jest.fn(),
+  searchStaffProducts: jest.fn(),
+  updateStaffCustomerProfile: jest.fn(),
+}))
+
+jest.mock("@lib/data/staff/team-access", () => ({
+  searchStaffTeamUsers: jest.fn(),
+  updateStaffTeamRole: jest.fn(),
+}))
+
+jest.mock("@lib/data/staff/impersonation", () => ({
+  startStaffImpersonation: jest.fn(),
+  stopStaffImpersonation: jest.fn(),
+}))
+
+jest.mock("@lib/util/storefront-session-events", () => ({
+  dispatchStorefrontSessionUpdated: jest.fn(),
+}))
+
+jest.mock("@modules/staff/components/order-exception-console", () => ({
+  __esModule: true,
+  default: () => <div>Order support panel</div>,
+}))
+
+jest.mock(
+  "@modules/staff/components/catch-weight-finalization-console",
+  () => ({
+    __esModule: true,
+    default: () => <div>Pick and pack panel</div>,
+  })
+)
+
+jest.mock("@modules/staff/components/quickbooks-sync-status-console", () => ({
+  __esModule: true,
+  default: () => <div>Synchronization status panel</div>,
+}))
+
+const mockedSearchStaffCustomers = searchStaffCustomers as jest.MockedFunction<
+  typeof searchStaffCustomers
+>
+const mockedSearchStaffTeamUsers = searchStaffTeamUsers as jest.MockedFunction<
+  typeof searchStaffTeamUsers
+>
+const mockedUpdateStaffTeamRole = updateStaffTeamRole as jest.MockedFunction<
+  typeof updateStaffTeamRole
+>
+
+const superAdminCustomer = {
+  id: "cus_avi",
+  email: "aviswerdlow@gmail.com",
+  first_name: "Avi",
+  last_name: "Swerdlow",
+  metadata: { gp_staff_role: "super_admin" },
+} as any
+
+const greenbergCustomer = {
+  id: "cus_greenberg",
+  email: "m.m.greenberg@gmail.com",
+  firstName: "Meyer",
+  lastName: "Greenberg",
+  phone: "",
+  company: "",
+  source: "customer" as const,
+  recentOrders: [],
+  legacyOrders: [],
+  accountCredits: [],
+  accountNotes: [],
+  accountCreditBalance: 0,
+  accountCreditBalanceMinor: 0,
+}
+
+const peterTeamUser = {
+  id: "cus_peter",
+  email: "peterswerdlow@gmail.com",
+  firstName: "Peter",
+  lastName: "Swerdlow",
+  phone: "7703294820111",
+  company: "",
+  role: "super_admin" as const,
+  finalChargeEnabled: true,
+  isBootstrapSuperAdmin: true,
+  recentStaffAccessEvents: [],
+}
+
+describe("staff loading states", () => {
+  beforeEach(() => {
+    jest.clearAllMocks()
+  })
+
+  function visibleCustomerSearch() {
+    return screen
+      .getAllByLabelText("Customer search")
+      .find((element) => element.closest('[aria-hidden="true"]') === null)!
+  }
+
+  function visibleTextCount(text: string) {
+    return screen
+      .queryAllByText(text)
+      .filter((element) => element.closest('[aria-hidden="true"]') === null)
+      .length
+  }
+
+  it("clears the customer account search spinner after results render", async () => {
+    const user = userEvent.setup()
+    mockedSearchStaffCustomers.mockResolvedValue([greenbergCustomer])
+
+    render(
+      <PhoneOrderCopilot
+        countryCode="us"
+        initialImpersonation={null}
+        initialWorkspace="customer_account"
+        staffCustomer={superAdminCustomer}
+      />
+    )
+
+    await user.type(visibleCustomerSearch(), "greenberg")
+    await user.click(screen.getByRole("button", { name: "Search" }))
+
+    expect(await screen.findByText("Meyer Greenberg")).toBeInTheDocument()
+
+    const searchButton = screen.getByRole("button", { name: "Search" })
+    expect(searchButton).toHaveTextContent("Search")
+    expect(searchButton).not.toBeDisabled()
+    expect(searchButton).toHaveAttribute("aria-busy", "false")
+  })
+
+  it("starts account actions with a clean customer lookup", async () => {
+    const user = userEvent.setup()
+    mockedSearchStaffCustomers.mockResolvedValue([greenbergCustomer])
+
+    render(
+      <PhoneOrderCopilot
+        countryCode="us"
+        initialImpersonation={null}
+        initialWorkspace="phone_order"
+        staffCustomer={superAdminCustomer}
+      />
+    )
+
+    await user.type(visibleCustomerSearch(), "greenberg")
+    await user.click(screen.getByRole("button", { name: "Search" }))
+    await waitFor(() => {
+      expect(visibleTextCount("Meyer Greenberg")).toBeGreaterThan(0)
+    })
+
+    const accountActionsLink = screen.getByRole("link", {
+      name: /Account actions/i,
+    })
+    accountActionsLink.addEventListener("click", (event) =>
+      event.preventDefault()
+    )
+    await user.click(accountActionsLink)
+
+    const accountSearch = visibleCustomerSearch()
+    expect(accountSearch).toHaveValue("")
+    expect(visibleTextCount("Meyer Greenberg")).toBe(0)
+    expect(screen.getByRole("button", { name: "Search" })).not.toBeDisabled()
+  })
+
+  it("clears the team access search spinner after results render", async () => {
+    const user = userEvent.setup()
+    mockedSearchStaffTeamUsers.mockResolvedValue({
+      ok: true,
+      users: [peterTeamUser],
+    })
+
+    render(<StaffTeamAccessConsole />)
+
+    await user.type(screen.getByLabelText("Customer lookup"), "peter")
+    await user.click(screen.getByRole("button", { name: /search/i }))
+
+    expect(await screen.findByText("Peter Swerdlow")).toBeInTheDocument()
+
+    const searchButton = screen.getByRole("button", { name: /search/i })
+    expect(searchButton).toHaveTextContent("Search")
+    expect(searchButton).not.toBeDisabled()
+    expect(searchButton).toHaveAttribute("aria-busy", "false")
+  })
+
+  it("clears the team access save spinner after updating a role", async () => {
+    const user = userEvent.setup()
+    const officeUser = {
+      ...peterTeamUser,
+      id: "cus_office",
+      email: "office@example.com",
+      firstName: "Office",
+      lastName: "User",
+      role: "office" as const,
+      finalChargeEnabled: false,
+      isBootstrapSuperAdmin: false,
+    }
+    mockedSearchStaffTeamUsers.mockResolvedValue({
+      ok: true,
+      users: [officeUser],
+    })
+    mockedUpdateStaffTeamRole.mockResolvedValue({
+      ok: true,
+      user: { ...officeUser, role: "manager", finalChargeEnabled: true },
+    })
+
+    render(<StaffTeamAccessConsole />)
+
+    await user.type(screen.getByLabelText("Customer lookup"), "office")
+    await user.click(screen.getByRole("button", { name: /search/i }))
+    await user.click(await screen.findByText("Office User"))
+    await user.click(screen.getByLabelText(/Manager/i))
+    await user.click(screen.getByLabelText(/Can charge final orders/i))
+    await user.type(
+      screen.getByLabelText("Reason"),
+      "Peter approved manager access"
+    )
+    await user.type(
+      screen.getByLabelText(/Type MANAGER to confirm/i),
+      "MANAGER"
+    )
+
+    await user.click(
+      screen.getByRole("button", { name: "Update Staff Access" })
+    )
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("Office User is now Manager.")
+      ).toBeInTheDocument()
+    })
+
+    const saveButton = screen.getByRole("button", {
+      name: "Update Staff Access",
+    })
+    expect(saveButton).toHaveTextContent("Update Staff Access")
+    expect(saveButton).toHaveAttribute("aria-busy", "false")
+  })
+})

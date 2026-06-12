@@ -1,6 +1,13 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState, useTransition } from "react"
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+} from "react"
 import type { HttpTypes } from "@medusajs/types"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import {
@@ -336,6 +343,8 @@ export default function PhoneOrderCopilot({
   const [customerResults, setCustomerResults] = useState<
     StaffCustomerSummary[]
   >([])
+  const [isCustomerSearchPending, setIsCustomerSearchPending] = useState(false)
+  const customerSearchRequestId = useRef(0)
   const [selectedContext, setSelectedContext] =
     useState<StaffCustomerContext | null>(null)
   const [draftCustomer, setDraftCustomer] = useState<DraftCustomer>({
@@ -499,6 +508,13 @@ export default function PhoneOrderCopilot({
     setCustomerAccountVisibleNote("")
   }
 
+  function resetCustomerLookup() {
+    customerSearchRequestId.current += 1
+    setCustomerQuery("")
+    setCustomerResults([])
+    setIsCustomerSearchPending(false)
+  }
+
   async function activateCustomerContext(target: {
     id?: string
     email: string
@@ -522,17 +538,26 @@ export default function PhoneOrderCopilot({
     })
   }
 
-  function runCustomerSearch() {
+  async function runCustomerSearch() {
+    const requestId = customerSearchRequestId.current + 1
+    customerSearchRequestId.current = requestId
     setError(null)
-    startTransition(async () => {
-      try {
-        const results = await searchStaffCustomers(customerQuery)
-        setCustomerResults(results)
-        if (!results.length) setStatus("No matching customers found.")
-      } catch (err) {
-        setError(err instanceof Error ? err.message : String(err))
+    setStatus(null)
+    setIsCustomerSearchPending(true)
+
+    try {
+      const results = await searchStaffCustomers(customerQuery)
+      if (customerSearchRequestId.current !== requestId) return
+      setCustomerResults(results)
+      if (!results.length) setStatus("No matching customers found.")
+    } catch (err) {
+      if (customerSearchRequestId.current !== requestId) return
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      if (customerSearchRequestId.current === requestId) {
+        setIsCustomerSearchPending(false)
       }
-    })
+    }
   }
 
   function selectCustomer(
@@ -543,6 +568,7 @@ export default function PhoneOrderCopilot({
     if (!options.preserveStatus) setStatus(null)
     selectWorkspace(options.workspace || "phone_order")
     setShowNewCustomerForm(false)
+    setIsCustomerSearchPending(false)
     setCheckoutUrl(null)
     resetCustomerAccountAction()
     setDraftCustomer(draftFromCustomer(customer))
@@ -640,7 +666,7 @@ export default function PhoneOrderCopilot({
   function startNewCustomer() {
     setError(null)
     setStatus(null)
-    setCustomerResults([])
+    resetCustomerLookup()
     setSelectedContext(null)
     setDraftCustomer({
       email: "",
@@ -663,11 +689,13 @@ export default function PhoneOrderCopilot({
 
   function openCustomerContextWorkspace() {
     selectWorkspace("phone_order")
+    resetCustomerLookup()
     setShowNewCustomerForm(false)
   }
 
   function openCustomerAccountWorkspace() {
     selectWorkspace("customer_account")
+    resetCustomerLookup()
     setShowNewCustomerForm(false)
   }
 
@@ -1398,7 +1426,7 @@ export default function PhoneOrderCopilot({
             </label>
             <Button
               className="min-h-[44px] rounded-md bg-Charcoal px-4 text-sm font-rexton font-bold uppercase text-white"
-              isLoading={isPending}
+              isLoading={isCustomerSearchPending}
               onClick={runCustomerSearch}
               type="button"
             >
@@ -1606,7 +1634,7 @@ export default function PhoneOrderCopilot({
                   </label>
                   <Button
                     className="min-h-[44px] rounded-md bg-Charcoal px-4 text-sm font-rexton font-bold uppercase text-white"
-                    isLoading={isPending}
+                    isLoading={isCustomerSearchPending}
                     onClick={runCustomerSearch}
                     type="button"
                   >
@@ -1884,7 +1912,7 @@ export default function PhoneOrderCopilot({
                     </label>
                     <Button
                       className="min-h-[44px] rounded-md bg-Charcoal px-4 text-sm font-rexton font-bold uppercase text-white"
-                      isLoading={isPending}
+                      isLoading={isCustomerSearchPending}
                       onClick={runCustomerSearch}
                       type="button"
                     >

@@ -1,7 +1,13 @@
 "use client"
 
-import { useMemo, useState, useTransition } from "react"
-import { AlertTriangle, History, Search, ShieldCheck, Users } from "lucide-react"
+import { useMemo, useRef, useState } from "react"
+import {
+  AlertTriangle,
+  History,
+  Search,
+  ShieldCheck,
+  Users,
+} from "lucide-react"
 import Button from "@modules/common/components/button"
 import {
   STAFF_ROLE_OPTIONS,
@@ -63,7 +69,9 @@ export default function StaffTeamAccessConsole() {
   const [confirmation, setConfirmation] = useState("")
   const [status, setStatus] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [isPending, startTransition] = useTransition()
+  const [isSearching, setIsSearching] = useState(false)
+  const [isSavingRole, setIsSavingRole] = useState(false)
+  const searchRequestId = useRef(0)
 
   const requiredConfirmation = useMemo(
     () => staffRoleConfirmation(roleDraft),
@@ -76,26 +84,34 @@ export default function StaffTeamAccessConsole() {
     confirmation.trim().toUpperCase() === requiredConfirmation &&
     !(selected.isBootstrapSuperAdmin && roleDraft !== "super_admin")
 
-  function runSearch() {
+  async function runSearch() {
+    const requestId = searchRequestId.current + 1
+    searchRequestId.current = requestId
     setError(null)
     setStatus(null)
-    startTransition(async () => {
-      try {
-        const result = await searchStaffTeamUsers(query)
-        if (!result.ok) {
-          setResults([])
-          setError(result.error || "Customer lookup failed.")
-          return
-        }
+    setIsSearching(true)
 
-        setResults(result.users)
-        if (!result.users.length) {
-          setStatus("No matching customers found.")
-        }
-      } catch (err) {
-        setError("Customer lookup failed. Try again.")
+    try {
+      const result = await searchStaffTeamUsers(query)
+      if (searchRequestId.current !== requestId) return
+      if (!result.ok) {
+        setResults([])
+        setError(result.error || "Customer lookup failed.")
+        return
       }
-    })
+
+      setResults(result.users)
+      if (!result.users.length) {
+        setStatus("No matching customers found.")
+      }
+    } catch (err) {
+      if (searchRequestId.current !== requestId) return
+      setError("Customer lookup failed. Try again.")
+    } finally {
+      if (searchRequestId.current === requestId) {
+        setIsSearching(false)
+      }
+    }
   }
 
   function selectUser(user: StaffTeamUser) {
@@ -108,11 +124,12 @@ export default function StaffTeamAccessConsole() {
     setStatus(null)
   }
 
-  function submitRoleChange() {
+  async function submitRoleChange() {
     if (!selected) return
     setError(null)
     setStatus(null)
-    startTransition(async () => {
+    setIsSavingRole(true)
+    try {
       const result = await updateStaffTeamRole({
         customerId: selected.id,
         role: roleDraft,
@@ -128,14 +145,22 @@ export default function StaffTeamAccessConsole() {
 
       setSelected(result.user)
       setResults((current) =>
-        current.map((user) => (user.id === result.user!.id ? result.user! : user))
+        current.map((user) =>
+          user.id === result.user!.id ? result.user! : user
+        )
       )
       setRoleDraft(result.user.role)
       setFinalChargeDraft(result.user.finalChargeEnabled)
       setReason("")
       setConfirmation("")
-      setStatus(`${displayName(result.user)} is now ${staffRoleLabel(result.user.role)}.`)
-    })
+      setStatus(
+        `${displayName(result.user)} is now ${staffRoleLabel(
+          result.user.role
+        )}.`
+      )
+    } finally {
+      setIsSavingRole(false)
+    }
   }
 
   return (
@@ -176,7 +201,7 @@ export default function StaffTeamAccessConsole() {
           </label>
           <Button
             className="flex min-h-[44px] items-center justify-center gap-2 rounded-md bg-Charcoal px-4 text-sm font-rexton font-bold uppercase text-white"
-            isLoading={isPending}
+            isLoading={isSearching}
             onClick={runSearch}
             type="button"
           >
@@ -229,7 +254,9 @@ export default function StaffTeamAccessConsole() {
                   </span>
                   <span>
                     <span
-                      className={`inline-flex w-fit rounded-full border px-3 py-1 text-xs font-maison-neue-mono uppercase ${roleBadgeClass(user.role)}`}
+                      className={`inline-flex w-fit rounded-full border px-3 py-1 text-xs font-maison-neue-mono uppercase ${roleBadgeClass(
+                        user.role
+                      )}`}
                     >
                       {staffRoleLabel(user.role)}
                     </span>
@@ -269,7 +296,9 @@ export default function StaffTeamAccessConsole() {
                   {selected.email}
                 </p>
                 <span
-                  className={`mt-3 inline-flex rounded-full border px-3 py-1 text-xs font-maison-neue-mono uppercase ${roleBadgeClass(selected.role)}`}
+                  className={`mt-3 inline-flex rounded-full border px-3 py-1 text-xs font-maison-neue-mono uppercase ${roleBadgeClass(
+                    selected.role
+                  )}`}
                 >
                   Current: {staffRoleLabel(selected.role)}
                 </span>
@@ -277,7 +306,10 @@ export default function StaffTeamAccessConsole() {
 
               {selected.isBootstrapSuperAdmin && (
                 <div className="flex gap-3 rounded-md border border-Gold/35 bg-Gold/10 p-3 text-sm font-maison-neue text-Charcoal">
-                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+                  <AlertTriangle
+                    className="mt-0.5 h-4 w-4 shrink-0"
+                    aria-hidden
+                  />
                   <p>
                     Avi and Peter are bootstrap super admins. Their access is
                     code-managed so the store cannot lose every super admin.
@@ -337,8 +369,12 @@ export default function StaffTeamAccessConsole() {
                 <input
                   checked={roleDraft === "super_admin" || finalChargeDraft}
                   className="mt-1"
-                  disabled={roleDraft === "customer" || roleDraft === "super_admin"}
-                  onChange={(event) => setFinalChargeDraft(event.target.checked)}
+                  disabled={
+                    roleDraft === "customer" || roleDraft === "super_admin"
+                  }
+                  onChange={(event) =>
+                    setFinalChargeDraft(event.target.checked)
+                  }
                   type="checkbox"
                 />
                 <span>
@@ -375,8 +411,8 @@ export default function StaffTeamAccessConsole() {
 
               <Button
                 className="min-h-[48px] w-full rounded-md bg-Gold px-4 text-sm font-rexton font-bold uppercase text-Charcoal disabled:cursor-not-allowed disabled:opacity-45"
-                disabled={!canSubmit || isPending}
-                isLoading={isPending}
+                disabled={!canSubmit || isSavingRole}
+                isLoading={isSavingRole}
                 onClick={submitRoleChange}
                 type="button"
               >
@@ -408,7 +444,10 @@ export default function StaffTeamAccessConsole() {
                     {staffRoleLabel(
                       (event.previous_role || "customer") as StaffAccessRole
                     )}{" "}
-                    to {staffRoleLabel((event.role || "customer") as StaffAccessRole)}
+                    to{" "}
+                    {staffRoleLabel(
+                      (event.role || "customer") as StaffAccessRole
+                    )}
                   </p>
                   <p className="mt-1 text-xs text-Charcoal/50">
                     {formatDate(event.at)} by {event.staff_actor_email}
