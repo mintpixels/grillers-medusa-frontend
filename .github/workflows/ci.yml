@@ -13,9 +13,19 @@ jobs:
     permissions:
       contents: read
     env:
+      ALGOLIA_APPLICATION_ID: ${{ secrets.ALGOLIA_APPLICATION_ID }}
+      ALGOLIA_SEARCH_API_KEY: ${{ secrets.ALGOLIA_SEARCH_API_KEY }}
       MEDUSA_BACKEND_URL: ${{ secrets.MEDUSA_BACKEND_URL }}
       NEXT_PUBLIC_BASE_URL: ${{ secrets.NEXT_PUBLIC_BASE_URL }}
+      NEXT_PUBLIC_DEFAULT_REGION: ${{ secrets.NEXT_PUBLIC_DEFAULT_REGION }}
+      NEXT_PUBLIC_GOOGLE_PLACES_API_KEY: ${{ secrets.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY }}
+      NEXT_PUBLIC_JITSU_HOST: ${{ secrets.NEXT_PUBLIC_JITSU_HOST }}
+      NEXT_PUBLIC_JITSU_WRITE_KEY: ${{ secrets.NEXT_PUBLIC_JITSU_WRITE_KEY }}
       NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY }}
+      NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
+      NEXT_PUBLIC_STRIPE_KEY: ${{ secrets.NEXT_PUBLIC_STRIPE_KEY }}
+      STRAPI_API_TOKEN: ${{ secrets.STRAPI_API_TOKEN }}
+      STRAPI_ENDPOINT: ${{ secrets.STRAPI_ENDPOINT }}
     steps:
       - name: Mark start
         run: echo "CI_STARTED_AT_MS=$(date +%s000)" >> "$GITHUB_ENV"
