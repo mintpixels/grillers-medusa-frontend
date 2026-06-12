@@ -62,14 +62,21 @@ describe("staff access helpers", () => {
       email: "aviswerdlow@gmail.com",
       metadata: { role: "customer" },
     } as any
-    const peter = {
+    const peterBusinessEmail = {
       email: "Peter@grillerspride.com",
+      metadata: { role: "customer" },
+    } as any
+    const peterGmail = {
+      email: "PeterSwerdlow@gmail.com",
       metadata: { role: "customer" },
     } as any
 
     expect(isStaffCustomer(avi)).toBe(true)
     expect(isSuperAdminCustomer(avi)).toBe(true)
-    expect(staffAccessRole(peter)).toBe("super_admin")
+    expect(staffAccessRole(peterBusinessEmail)).toBe("super_admin")
+    expect(isStaffCustomer(peterGmail)).toBe(true)
+    expect(isSuperAdminCustomer(peterGmail)).toBe(true)
+    expect(staffAccessRole(peterGmail)).toBe("super_admin")
   })
 
   it("formats a staff display name safely", () => {
