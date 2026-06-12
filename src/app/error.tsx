@@ -30,6 +30,24 @@ export default function Error({
       return
     }
 
+    // #251: browser-only recoveries proxy through the server so secrets stay private.
+    try {
+      fetch("/api/ops-alert", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          alert_kind: "transient_navigation_auto_recovery",
+          title: "Transient navigation error auto-recovered",
+          message: error?.message || String(error),
+          digest: error?.digest || null,
+          url: window.location.href,
+        }),
+        keepalive: true,
+      }).catch(() => {})
+    } catch {
+      // Alerting must not interfere with route recovery.
+    }
+
     const timer = window.setTimeout(() => reset(), 150)
     return () => window.clearTimeout(timer)
   }, [error, recoverable, reset])

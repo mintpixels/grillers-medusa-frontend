@@ -12,6 +12,7 @@ import {
 } from "@lib/util/free-shipping-codes"
 import { getAuthHeaders } from "./cookies"
 import { normalizeUpsServiceCode } from "@lib/util/eligible-arrival-dates"
+import { emitStorefrontOpsAlert } from "@lib/ops-alert"
 
 function selectedUpsServiceCode(cart: HttpTypes.StoreCart): string | null {
   const method = cart.shipping_methods?.at(-1) as
@@ -114,6 +115,37 @@ export async function syncFreeShippingPromotion(
       headers
     )
     const afterCodes = (after?.promotions || []).map((p) => p.code)
+    const afterAutoCodes = afterCodes
+      .filter((code): code is string => Boolean(code))
+      .filter((code) => ALL_AUTO_APPLIED_CODES.includes(code))
+      .sort()
+    const expectedAutoCodes = [...desiredAutoCodes].sort()
+    const appliedAsExpected =
+      afterAutoCodes.length === expectedAutoCodes.length &&
+      expectedAutoCodes.every((code, index) => code === afterAutoCodes[index])
+
+    if (!appliedAsExpected) {
+      // #251: promotion mismatches must land in the ops timeline.
+      await emitStorefrontOpsAlert({
+        alertKind: "free_shipping_promo_mismatch",
+        title: `Auto promotion mismatch on cart ${cart.id}`,
+        path: "src/lib/data/free-shipping-promo.ts",
+        meta: {
+          cart_id: cart.id,
+          sent_codes: nextCodes,
+          expected_auto_codes: expectedAutoCodes,
+          attached_after: afterCodes,
+          fulfillment_type: fulfillmentType || null,
+          ship_state: shipState || null,
+          destination_zip: destinationZip || null,
+          subtotal_dollars: subtotalDollars,
+        },
+      })
+      throw new Error(
+        `Auto promotion mismatch after apply. Expected ${expectedAutoCodes.join(",") || "none"}; got ${afterAutoCodes.join(",") || "none"}.`
+      )
+    }
+
     console.log(
       "[checkout-promos] sync:",
       JSON.stringify({
@@ -125,11 +157,25 @@ export async function syncFreeShippingPromotion(
     )
     return desiredAutoCodes
   } catch (err) {
-    console.warn(
-      "[checkout-promos] applyPromotions threw:",
-      (err as any)?.message || err
-    )
-    return []
+    const message = (err as any)?.message || String(err)
+    console.error("[checkout-promos] sync failed:", message)
+    // #251: apply failures are alert-worthy but never block the existing error path.
+    await emitStorefrontOpsAlert({
+      alertKind: "free_shipping_promo_apply_failed",
+      title: `Auto promotion apply failed on cart ${cart.id}`,
+      path: "src/lib/data/free-shipping-promo.ts",
+      meta: {
+        cart_id: cart.id,
+        desired_auto_codes: desiredAutoCodes,
+        current_auto_codes: currentAutoCodes,
+        fulfillment_type: fulfillmentType || null,
+        ship_state: shipState || null,
+        destination_zip: destinationZip || null,
+        subtotal_dollars: subtotalDollars,
+        error: message,
+      },
+    })
+    throw new Error(`Free-shipping promotion sync failed: ${message}`)
   }
 }
 

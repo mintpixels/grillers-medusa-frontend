@@ -29,6 +29,7 @@ import { generateAlternates } from "@lib/util/seo"
 import { getBaseURL } from "@lib/util/env"
 import { withTimeout } from "@lib/util/promise-timeout"
 import { resolveHomeSections } from "@lib/util/home-sections"
+import { emitFallbackHomepageOpsAlert } from "@lib/homepage-ops-alerts"
 
 type PageProps = {
   params: Promise<{ countryCode: string }>
@@ -173,6 +174,12 @@ export default async function Home(props: {
     console.warn(
       "home: Strapi home sections unavailable — rendering fallback homepage"
     )
+    // #251: fallback homepage renders must be visible in the ops timeline.
+    await emitFallbackHomepageOpsAlert({
+      countryCode,
+      hasStrapiData: Boolean(strapiData),
+      hasGlobalData: Boolean(globalData),
+    })
   }
   const hasShopCollectionsSection = Boolean(
     homeSections.some(
