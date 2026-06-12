@@ -258,7 +258,7 @@ const Shipping: React.FC<ShippingProps> = ({
         })) || []
 
         trackAddShippingInfo({
-          total: (cart.total || 0) / 100,
+          total: cart.total || 0,
           currency: cart.currency_code?.toUpperCase(),
           shippingTier: selectedMethod?.name,
           items: shippingItems,
@@ -268,7 +268,7 @@ const Shipping: React.FC<ShippingProps> = ({
         jitsuTrack("shipping_info_submitted", {
           cart_id: cart.id,
           shipping_tier: selectedMethod?.name,
-          value: (cart.total || 0) / 100,
+          value: cart.total || 0,
           currency: cart.currency_code?.toUpperCase() || "USD",
           items: shippingItems.map(item => ({
             item_id: item.id,

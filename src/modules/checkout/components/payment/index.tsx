@@ -109,7 +109,7 @@ const Payment = ({
 
   const trackPaymentInfo = (paymentType: string) => {
     trackAddPaymentInfo({
-      total: (cart.total || 0) / 100,
+      total: cart.total || 0,
       currency: cart.currency_code?.toUpperCase(),
       paymentType,
       items: paymentItems,
@@ -119,7 +119,7 @@ const Payment = ({
     jitsuTrack("payment_info_submitted", {
       cart_id: cart.id,
       payment_type: paymentType,
-      value: (cart.total || 0) / 100,
+      value: cart.total || 0,
       currency: cart.currency_code?.toUpperCase() || "USD",
       items: paymentItems.map((item: any) => ({
         item_id: item.id,

@@ -1,6 +1,7 @@
 import strapiClient from "@lib/strapi"
 import { getProductsByHandles } from "@lib/data/strapi/collections"
 import { enrichStrapiProductsWithMedusaPrices } from "@lib/data/products"
+import { isVariantPurchasable } from "@lib/util/product-availability"
 import { CART_UPSELL_HANDLES } from "./config"
 import type { CartUpsellProduct } from "./types"
 
@@ -36,6 +37,7 @@ export async function getCartUpsellProducts(
       image,
       variantId: variant.VariantId,
       price: variant.Price?.CalculatedPriceNumber,
+      canAddToCart: isVariantPurchasable(variant),
     })
   }
 

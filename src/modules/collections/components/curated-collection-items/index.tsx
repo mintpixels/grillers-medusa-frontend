@@ -8,6 +8,7 @@ import { toast } from "@medusajs/ui"
 import { addToCart } from "@lib/data/cart"
 import { experimentCartMetadata } from "@lib/experiments/client-context"
 import { dispatchCartUpdated } from "@lib/util/cart-events"
+import { isVariantPurchasable } from "@lib/util/product-availability"
 import {
   lineCartMetadata,
   lineEstimatedTotal,
@@ -245,9 +246,12 @@ function CollectionItemAddButton({
   const [isAdding, setIsAdding] = React.useState(false)
   const variant = item.Product.MedusaProduct?.Variants?.[0]
   const quantity = item.Quantity || 1
+  const canAddToCart = Boolean(
+    variant?.VariantId && isVariantPurchasable(variant)
+  )
 
   const onAdd = async () => {
-    if (!variant?.VariantId) return
+    if (!variant?.VariantId || !canAddToCart) return
     setIsAdding(true)
     try {
       await addToCart({
@@ -284,10 +288,16 @@ function CollectionItemAddButton({
     <button
       type="button"
       onClick={onAdd}
-      disabled={isAdding || !variant?.VariantId}
+      disabled={isAdding || !canAddToCart}
       className="inline-flex min-h-[34px] shrink-0 items-center justify-center rounded-full border border-Charcoal px-3 font-rexton text-[10px] font-bold uppercase tracking-wide text-Charcoal transition-colors hover:bg-Charcoal hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
     >
-      {isAdding ? "Adding" : quantity > 1 ? `Add ${quantity}x` : "Add"}
+      {isAdding
+        ? "Adding"
+        : !canAddToCart
+        ? "Out"
+        : quantity > 1
+        ? `Add ${quantity}x`
+        : "Add"}
     </button>
   )
 }

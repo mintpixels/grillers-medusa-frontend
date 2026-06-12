@@ -7,14 +7,19 @@ import LocalizedClientLink from "@modules/common/components/localized-client-lin
 import { addToCart } from "@lib/data/cart"
 import { experimentCartMetadata } from "@lib/experiments/client-context"
 import { dispatchCartUpdated } from "@lib/util/cart-events"
+import { isVariantPurchasable } from "@lib/util/product-availability"
 import type { StrapiProductData } from "types/strapi"
 
 const ProductListItem = ({ hit }: { hit: StrapiProductData }) => {
   const [isAdding, setIsAdding] = useState(false)
+  const variant = hit?.MedusaProduct?.Variants?.[0]
+  const canAddToCart = Boolean(
+    variant?.VariantId && isVariantPurchasable(variant)
+  )
 
   const handleAddToCart = async () => {
-    const variantId = hit?.MedusaProduct?.Variants?.[0]?.VariantId
-    if (!variantId) return
+    const variantId = variant?.VariantId
+    if (!variantId || !canAddToCart) return
 
     setIsAdding(true)
     try {
@@ -161,10 +166,10 @@ const ProductListItem = ({ hit }: { hit: StrapiProductData }) => {
           {/* Add to Cart Button */}
           <button
             onClick={handleAddToCart}
-            disabled={isAdding || !hit?.MedusaProduct?.Variants?.[0]?.VariantId}
+            disabled={isAdding || !canAddToCart}
             className="w-full py-2 px-4 rounded-[5px] border border-Charcoal bg-Gold text-Charcoal font-rexton text-xs font-bold uppercase transition-opacity hover:opacity-95 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center"
           >
-            {isAdding ? "Adding..." : "Add to Cart"}
+            {isAdding ? "Adding..." : canAddToCart ? "Add to Cart" : "Out of stock"}
           </button>
         </div>
       </div>

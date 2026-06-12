@@ -1436,6 +1436,10 @@ function isStripeProvider(providerId?: string) {
     .includes("stripe")
 }
 
+function isFinalChargePayment(payment: StaffExceptionPayment) {
+  return payment.id.startsWith("final_charge:")
+}
+
 function latestRefundFromPayment(payment: AnyRecord | null | undefined) {
   const refunds = Array.isArray(payment?.refunds) ? payment.refunds : []
   return refunds[refunds.length - 1] || null
@@ -2528,8 +2532,11 @@ export async function applyStaffOrderException(
         )
         let refundResponse: { payment: AnyRecord }
         try {
+          const refundPath = isFinalChargePayment(payment)
+            ? `/admin/grillers/orders/${order.id}/finalization/refund-final-charge`
+            : `/admin/grillers/payments/${payment.id}/refund`
           refundResponse = await adminFetch<{ payment: AnyRecord }>(
-            `/admin/grillers/payments/${payment.id}/refund`,
+            refundPath,
             {
               method: "POST",
               headers: { "Idempotency-Key": requestKey },

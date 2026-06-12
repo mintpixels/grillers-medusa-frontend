@@ -5,4 +5,5 @@ export type CartUpsellProduct = {
   image: string
   variantId: string
   price?: number
+  canAddToCart: boolean
 }

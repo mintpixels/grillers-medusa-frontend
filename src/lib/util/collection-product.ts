@@ -111,6 +111,15 @@ function compactVariant(variant: any) {
   if (variant.FreeDeliveryExclusionReason) {
     compact.FreeDeliveryExclusionReason = variant.FreeDeliveryExclusionReason
   }
+  if (variant.manage_inventory !== undefined) {
+    compact.manage_inventory = variant.manage_inventory
+  }
+  if (variant.allow_backorder !== undefined) {
+    compact.allow_backorder = variant.allow_backorder
+  }
+  if (typeof variant.inventory_quantity === "number") {
+    compact.inventory_quantity = variant.inventory_quantity
+  }
 
   const price = variant.Price?.CalculatedPriceNumber
   if (typeof price === "number") {
@@ -204,5 +213,8 @@ export const ALGOLIA_COLLECTION_PRODUCT_ATTRIBUTES = [
   "MedusaProduct.Variants.Sku",
   "MedusaProduct.Variants.QualifiesForFreeDeliveryOffers",
   "MedusaProduct.Variants.FreeDeliveryExclusionReason",
+  "MedusaProduct.Variants.manage_inventory",
+  "MedusaProduct.Variants.allow_backorder",
+  "MedusaProduct.Variants.inventory_quantity",
   "MedusaProduct.Variants.Price.CalculatedPriceNumber",
 ]

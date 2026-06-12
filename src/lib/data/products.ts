@@ -72,7 +72,7 @@ export const listProducts = async ({
           offset,
           region_id: region?.id,
           fields:
-            "*variants.calculated_price,+variants.inventory_quantity,+metadata,+tags,*categories,*categories.parent_category,*categories.parent_category.parent_category",
+            "*variants.calculated_price,+variants.inventory_quantity,+variants.manage_inventory,+variants.allow_backorder,+metadata,+tags,*categories,*categories.parent_category,*categories.parent_category.parent_category",
           ...queryParams,
         },
         headers,
@@ -151,11 +151,8 @@ export const listProductsWithSort = async ({
 
 /**
  * Strapi is the source of truth for product copy/metadata, but Medusa is the
- * source of truth for live prices. The Strapi `MedusaProduct.Variants[*].Price`
- * is populated via a sync workflow that can lag or miss products. This helper
- * fetches live prices from Medusa for the given Strapi products and patches
- * `Variants[i].Price.CalculatedPriceNumber` so cards render the live price
- * regardless of Strapi sync state.
+ * source of truth for live prices and availability. Strapi product snapshots can
+ * lag or miss fields, so this helper overlays live Medusa card state.
  */
 export const enrichStrapiProductsWithMedusaPrices = async <T extends StrapiCollectionProduct>(
   products: T[],
@@ -206,20 +203,31 @@ export const enrichStrapiProductsWithMedusaPrices = async <T extends StrapiColle
     )
   ).flat()
 
-  const priceByVariantId = new Map<string, number>()
-  const priceByProductFirstVariant = new Map<string, number>()
+  type LiveVariantSnapshot = {
+    price?: number
+    manage_inventory?: boolean | null
+    allow_backorder?: boolean | null
+    inventory_quantity?: number | null
+  }
+
+  const variantById = new Map<string, LiveVariantSnapshot>()
+  const firstVariantByProduct = new Map<string, LiveVariantSnapshot>()
   for (const mp of medusaProducts) {
     const variants = mp.variants ?? []
-    let firstAmount: number | null = null
+    let firstSnapshot: LiveVariantSnapshot | null = null
     for (const v of variants) {
       const amount = (v as any).calculated_price?.calculated_amount
-      if (typeof amount === "number") {
-        priceByVariantId.set(v.id, amount)
-        if (firstAmount === null) firstAmount = amount
+      const snapshot: LiveVariantSnapshot = {
+        price: typeof amount === "number" ? amount : undefined,
+        manage_inventory: (v as any).manage_inventory,
+        allow_backorder: (v as any).allow_backorder,
+        inventory_quantity: (v as any).inventory_quantity,
       }
+      variantById.set(v.id, snapshot)
+      if (firstSnapshot === null) firstSnapshot = snapshot
     }
-    if (firstAmount !== null) {
-      priceByProductFirstVariant.set(mp.id, firstAmount)
+    if (firstSnapshot !== null) {
+      firstVariantByProduct.set(mp.id, firstSnapshot)
     }
   }
 
@@ -227,7 +235,7 @@ export const enrichStrapiProductsWithMedusaPrices = async <T extends StrapiColle
     if (!p.MedusaProduct) return p
     const variants = p.MedusaProduct.Variants ?? []
     if (variants.length === 0) {
-      const fallback = priceByProductFirstVariant.get(p.MedusaProduct.ProductId)
+      const fallback = firstVariantByProduct.get(p.MedusaProduct.ProductId)
       if (fallback == null) return p
       return {
         ...p,
@@ -236,20 +244,35 @@ export const enrichStrapiProductsWithMedusaPrices = async <T extends StrapiColle
           Variants: [
             {
               VariantId: "",
-              Price: { CalculatedPriceNumber: fallback },
+              ...(typeof fallback.price === "number"
+                ? { Price: { CalculatedPriceNumber: fallback.price } }
+                : {}),
+              manage_inventory: fallback.manage_inventory,
+              allow_backorder: fallback.allow_backorder,
+              inventory_quantity: fallback.inventory_quantity,
             },
           ],
         },
       }
     }
     const enrichedVariants = variants.map((v) => {
-      const amount =
-        priceByVariantId.get(v.VariantId) ??
-        priceByProductFirstVariant.get(p.MedusaProduct!.ProductId)
-      if (amount == null) return v
+      const snapshot =
+        variantById.get(v.VariantId) ??
+        firstVariantByProduct.get(p.MedusaProduct!.ProductId)
+      if (snapshot == null) return v
       return {
         ...v,
-        Price: { ...(v.Price ?? {}), CalculatedPriceNumber: amount },
+        ...(typeof snapshot.price === "number"
+          ? {
+              Price: {
+                ...(v.Price ?? {}),
+                CalculatedPriceNumber: snapshot.price,
+              },
+            }
+          : {}),
+        manage_inventory: snapshot.manage_inventory,
+        allow_backorder: snapshot.allow_backorder,
+        inventory_quantity: snapshot.inventory_quantity,
       }
     })
     return {

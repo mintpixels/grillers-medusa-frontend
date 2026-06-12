@@ -180,6 +180,9 @@ export interface MedusaProductVariant {
   Sku?: string | null
   QualifiesForFreeDeliveryOffers?: boolean | null
   FreeDeliveryExclusionReason?: string | null
+  manage_inventory?: boolean | null
+  allow_backorder?: boolean | null
+  inventory_quantity?: number | null
   WaitlistEnabled?: boolean | null
   AvailabilityLifecycle?: AvailabilityLifecycle | null
   Price?: {

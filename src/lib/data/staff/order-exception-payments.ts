@@ -32,6 +32,23 @@ function numericValue(value: unknown): number | null {
   return null
 }
 
+function metadataObject(value: unknown): AnyRecord {
+  if (!value) return {}
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value)
+      return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+        ? parsed
+        : {}
+    } catch {
+      return {}
+    }
+  }
+  return typeof value === "object" && !Array.isArray(value)
+    ? { ...(value as AnyRecord) }
+    : {}
+}
+
 export function collectStaffOrderPayments(
   order: AnyRecord
 ): StaffOrderPayment[] {
@@ -39,7 +56,7 @@ export function collectStaffOrderPayments(
     ? order.payment_collections
     : []
 
-  return collections.flatMap((collection: AnyRecord) => {
+  const medusaPayments = collections.flatMap((collection: AnyRecord) => {
     const payments = Array.isArray(collection.payments)
       ? collection.payments
       : []
@@ -91,6 +108,44 @@ export function collectStaffOrderPayments(
       }
     })
   })
+
+  const metadata = metadataObject(order.metadata)
+  const paymentIntentId = metadata.stripe_payment_intent_id
+  if (
+    metadata.final_charge_status === "succeeded" &&
+    typeof paymentIntentId === "string" &&
+    paymentIntentId
+  ) {
+    const capturedAmount = staffCurrencyAmount(
+      metadata.final_total ||
+        metadata.final_order_total ||
+        metadata.final_charge_amount ||
+        order.total ||
+        0
+    )
+    const refundedAmount = staffCurrencyAmount(
+      metadata.final_charge_refunded_amount || 0
+    )
+    medusaPayments.push({
+      id: `final_charge:${paymentIntentId}`,
+      amount: capturedAmount,
+      capturedAmount,
+      refundedAmount,
+      refundableAmount: staffCurrencyAmount(
+        Math.max(0, capturedAmount - refundedAmount)
+      ),
+      currencyCode: order.currency_code || "usd",
+      providerId: "pp_stripe_final_charge",
+      status:
+        refundedAmount >= capturedAmount
+          ? "refunded"
+          : refundedAmount > 0
+          ? "partially_refunded"
+          : "captured",
+    })
+  }
+
+  return medusaPayments
 }
 
 export function validateFullStripeCaptureAmount({

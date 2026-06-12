@@ -10,15 +10,20 @@ import { trackAddToCart } from "@lib/gtm"
 import { jitsuTrack } from "@lib/jitsu"
 import { formatProductPriceDisplay } from "@lib/util/price-display"
 import { dispatchCartUpdated } from "@lib/util/cart-events"
+import { isVariantPurchasable } from "@lib/util/product-availability"
 import type { StrapiProductData } from "types/strapi"
 
 const ProductCard = ({ hit }: { hit: StrapiProductData }) => {
   const [isAdding, setIsAdding] = useState(false)
+  const variant = hit?.MedusaProduct?.Variants?.[0]
+  const canAddToCart = Boolean(
+    variant?.VariantId && isVariantPurchasable(variant)
+  )
 
   const handleAddToCart = async () => {
     // Get the first variant ID
-    const variantId = hit?.MedusaProduct?.Variants?.[0]?.VariantId
-    if (!variantId) return
+    const variantId = variant?.VariantId
+    if (!variantId || !canAddToCart) return
 
     setIsAdding(true)
     try {
@@ -32,7 +37,7 @@ const ProductCard = ({ hit }: { hit: StrapiProductData }) => {
 
       toast.success("Added to cart", { description: hit.Title })
 
-      const price = hit?.MedusaProduct?.Variants?.[0]?.Price?.CalculatedPriceNumber
+      const price = variant?.Price?.CalculatedPriceNumber
       const itemId = hit?.MedusaProduct?.ProductId || hit.objectID
       trackAddToCart({ id: itemId, title: hit.Title, price }, 1)
       jitsuTrack("product_added_to_cart", {
@@ -204,10 +209,10 @@ const ProductCard = ({ hit }: { hit: StrapiProductData }) => {
 
         <button
           onClick={handleAddToCart}
-          disabled={isAdding || !hit?.MedusaProduct?.Variants?.[0]?.VariantId}
+          disabled={isAdding || !canAddToCart}
           className="px-6 py-2 rounded-[5px] border border-Charcoal bg-Gold text-Charcoal font-rexton text-xs font-bold uppercase transition-opacity hover:opacity-95 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {isAdding ? "Adding..." : "Add to Cart"}
+          {isAdding ? "Adding..." : canAddToCart ? "Add to Cart" : "Out of stock"}
         </button>
       </div>
     </div>

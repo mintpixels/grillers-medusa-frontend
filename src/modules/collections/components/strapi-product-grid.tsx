@@ -11,6 +11,7 @@ import { experimentCartMetadata } from "@lib/experiments/client-context"
 import { formatProductPriceDisplay } from "@lib/util/price-display"
 import { sanitizeProductCopy } from "@lib/util/product-claims"
 import { dispatchCartUpdated } from "@lib/util/cart-events"
+import { isVariantPurchasable } from "@lib/util/product-availability"
 import {
   freeDeliveryEligibilityMetadata,
   getProductFreeDeliveryEligibility,
@@ -46,10 +47,13 @@ export const ProductCard = memo(function ProductCard({
 }) {
   const [isAdding, setIsAdding] = useState(false)
   const variant = product?.MedusaProduct?.Variants?.[0]
+  const canAddToCart = Boolean(
+    variant?.VariantId && isVariantPurchasable(variant)
+  )
 
   const handleAddToCart = async () => {
     const variantId = variant?.VariantId
-    if (!variantId) return
+    if (!variantId || !canAddToCart) return
 
     setIsAdding(true)
     try {
@@ -282,9 +286,7 @@ export const ProductCard = memo(function ProductCard({
 
             <button
               onClick={handleAddToCart}
-              disabled={
-                isAdding || !variant?.VariantId
-              }
+              disabled={isAdding || !canAddToCart}
               className="w-full min-h-[44px] min-w-0 px-4 py-2.5 rounded-[5px] border border-Charcoal bg-Gold text-Charcoal font-rexton text-xs font-bold uppercase transition-opacity hover:opacity-95 disabled:opacity-50 disabled:cursor-not-allowed whitespace-normal text-center"
               data-agent-action="add-to-cart"
               data-product-handle={product?.MedusaProduct?.Handle}
@@ -295,8 +297,8 @@ export const ProductCard = memo(function ProductCard({
                 "Adding..."
               ) : (
                 <span className="inline-flex flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5">
-                  <span>Add to Cart</span>
-                  {addToCartPrice && (
+                  <span>{canAddToCart ? "Add to Cart" : "Out of stock"}</span>
+                  {canAddToCart && addToCartPrice && (
                     <span className="font-maison-neue-mono text-[10px]">
                       {addToCartPrice}
                     </span>
@@ -446,9 +448,7 @@ export const ProductCard = memo(function ProductCard({
       <div className="grid min-w-0 grid-cols-1 gap-2 mt-4 sm:flex sm:items-center sm:justify-between">
         <button
           onClick={handleAddToCart}
-          disabled={
-            isAdding || !variant?.VariantId
-          }
+          disabled={isAdding || !canAddToCart}
           className="min-h-[44px] min-w-0 px-4 py-2 rounded-[5px] border border-Charcoal bg-Gold text-Charcoal font-rexton text-xs font-bold uppercase transition-opacity hover:opacity-95 disabled:opacity-50 disabled:cursor-not-allowed whitespace-normal"
           data-agent-action="add-to-cart"
           data-product-handle={product?.MedusaProduct?.Handle}
@@ -459,8 +459,8 @@ export const ProductCard = memo(function ProductCard({
             "Adding..."
           ) : (
             <span className="inline-flex flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5">
-              <span>Add to Cart</span>
-              {addToCartPrice && (
+              <span>{canAddToCart ? "Add to Cart" : "Out of stock"}</span>
+              {canAddToCart && addToCartPrice && (
                 <span className="font-maison-neue-mono text-[10px]">
                   {addToCartPrice}
                 </span>

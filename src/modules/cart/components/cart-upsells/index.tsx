@@ -73,7 +73,7 @@ export default function CartUpsells({
   ) => {
     event.preventDefault()
     event.stopPropagation()
-    if (addingId) return
+    if (addingId || !product.canAddToCart) return
 
     setAddingId(product.id)
     try {
@@ -164,14 +164,18 @@ export default function CartUpsells({
             <button
               type="button"
               onClick={(event) => handleAdd(event, product, index)}
-              disabled={addingId === product.id}
+              disabled={addingId === product.id || !product.canAddToCart}
               className={
                 compact
                   ? "min-h-[36px] shrink-0 rounded-[5px] border border-Charcoal bg-Gold px-3 text-[10px] font-rexton font-bold uppercase tracking-wide text-Charcoal transition-opacity hover:opacity-90 disabled:opacity-60"
                   : "mt-3 min-h-[36px] w-full rounded-[5px] border border-Charcoal bg-Gold px-3 text-[10px] font-rexton font-bold uppercase tracking-wide text-Charcoal transition-opacity hover:opacity-90 disabled:opacity-60"
               }
             >
-              {addingId === product.id ? "Adding" : "+ Add"}
+              {addingId === product.id
+                ? "Adding"
+                : product.canAddToCart
+                ? "+ Add"
+                : "Out of stock"}
             </button>
           </div>
         ))}

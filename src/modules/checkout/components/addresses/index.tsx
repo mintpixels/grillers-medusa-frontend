@@ -86,7 +86,7 @@ const Addresses = ({
 
       trackBeginCheckout({
         id: cart.id,
-        total: (cart.total || 0) / 100,
+        total: cart.total || 0,
         currency: cart.currency_code?.toUpperCase(),
         items: checkoutItems,
         titleMap: cartTitleMap,
@@ -95,7 +95,7 @@ const Addresses = ({
       const coupon = (cart as any).promotions?.[0]?.code || undefined
       jitsuTrack("checkout_started", {
         cart_id: cart.id,
-        value: (cart.total || 0) / 100,
+        value: cart.total || 0,
         currency: cart.currency_code?.toUpperCase() || "USD",
         coupon,
         items: checkoutItems.map((item) => ({

@@ -16,6 +16,7 @@ import {
   freeDeliveryEligibilityMetadata,
   getProductFreeDeliveryEligibility,
 } from "@lib/util/free-delivery-eligibility"
+import { isVariantPurchasable } from "@lib/util/product-availability"
 import { formatProductPriceDisplay } from "@lib/util/price-display"
 import { sanitizeProductCopy } from "@lib/util/product-claims"
 import type { StrapiCollectionProduct } from "@lib/data/strapi/collections"
@@ -93,6 +94,9 @@ const RecipeHeroProduct = ({
 }) => {
   const [isAdding, setIsAdding] = React.useState(false)
   const variant = product.MedusaProduct?.Variants?.[0]
+  const canAddToCart = Boolean(
+    variant?.VariantId && isVariantPurchasable(variant)
+  )
   const handle = product.MedusaProduct?.Handle
   const imageUrl = product.FeaturedImage?.url || product.GalleryImages?.[0]?.url
   const productTitle = product.Title || "Featured product"
@@ -124,7 +128,7 @@ const RecipeHeroProduct = ({
   ].filter((fact): fact is { label: string; value: string } => Boolean(fact))
 
   const handleAddToCart = async () => {
-    if (!variant?.VariantId) return
+    if (!variant?.VariantId || !canAddToCart) return
 
     setIsAdding(true)
     try {
@@ -254,14 +258,14 @@ const RecipeHeroProduct = ({
           <div className="mt-5 grid gap-2 min-[420px]:grid-cols-2 sm:flex sm:flex-wrap">
             <button
               onClick={handleAddToCart}
-              disabled={isAdding || !variant?.VariantId}
+              disabled={isAdding || !canAddToCart}
               className="inline-flex min-h-[44px] min-w-0 items-center justify-center rounded-[5px] border border-Charcoal bg-Gold px-4 py-2 font-rexton text-xs font-bold uppercase text-Charcoal transition-opacity hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50"
               data-agent-action="add-recipe-hero-product-to-cart"
               data-product-handle={handle}
               data-variant-id={variant?.VariantId}
               data-sku={variant?.Sku}
             >
-              {isAdding ? "Adding..." : "Add to Cart"}
+              {isAdding ? "Adding..." : canAddToCart ? "Add to Cart" : "Out of stock"}
             </button>
             {handle && (
               <LocalizedClientLink

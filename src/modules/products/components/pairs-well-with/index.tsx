@@ -15,6 +15,7 @@ import {
   lineCartMetadata,
   productPriceDisplay,
 } from "@lib/util/collection-substitutions"
+import { isVariantPurchasable } from "@lib/util/product-availability"
 
 function normalize(value?: unknown) {
   if (value == null) return ""
@@ -175,18 +176,31 @@ export default async function PairsWellWith({
                 ? "Review substitution details on the collection page before adding."
                 : undefined
             const items = collection.products
-              .map((collectionItem) => ({
-                variantId:
+              .map((collectionItem) => {
+                const variant =
                   collectionItem.Product.MedusaProduct?.Variants?.[0]
-                    ?.VariantId || "",
-                title:
-                  collectionItem.Product.Title ||
-                  collectionItem.Product.MedusaProduct?.Handle ||
-                  "",
-                quantity: collectionItem.Quantity || 1,
-                metadata: lineCartMetadata(collectionItem),
-              }))
+
+                return {
+                  variantId: variant?.VariantId || "",
+                  title:
+                    collectionItem.Product.Title ||
+                    collectionItem.Product.MedusaProduct?.Handle ||
+                    "",
+                  quantity: collectionItem.Quantity || 1,
+                  metadata: lineCartMetadata(collectionItem),
+                  canAddToCart: isVariantPurchasable(variant),
+                }
+              })
               .filter((item) => item.variantId)
+            const unavailableCount = items.filter(
+              (item) => !item.canAddToCart
+            ).length
+            const availabilityDisabledReason =
+              unavailableCount > 0
+                ? `${unavailableCount} collection item${
+                    unavailableCount === 1 ? " is" : "s are"
+                  } out of stock.`
+                : undefined
             const total = collection.products.reduce(
               (sum, item) =>
                 sum + lineEstimatedTotal(item.Product, item.Quantity || 1),
@@ -309,14 +323,16 @@ export default async function PairsWellWith({
                       ${total.toFixed(2)}
                     </span>
                   </div>
-                  <AddBundleButton
-                    items={items}
-                    countryCode={countryCode}
-                    bundleId={collection.documentId}
-                    bundleTitle={collection.Name}
-                    bundleSlug={collection.Slug}
-                    disabledReason={quickAddDisabledReason}
-                  />
+	                  <AddBundleButton
+	                    items={items}
+	                    countryCode={countryCode}
+	                    bundleId={collection.documentId}
+	                    bundleTitle={collection.Name}
+	                    bundleSlug={collection.Slug}
+	                    disabledReason={
+	                      quickAddDisabledReason || availabilityDisabledReason
+	                    }
+	                  />
                 </div>
               </article>
             )

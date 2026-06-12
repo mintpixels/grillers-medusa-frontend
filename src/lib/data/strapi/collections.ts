@@ -233,6 +233,9 @@ export type StrapiCollectionProduct = {
       Sku?: string
       QualifiesForFreeDeliveryOffers?: boolean | null
       FreeDeliveryExclusionReason?: string | null
+      manage_inventory?: boolean | null
+      allow_backorder?: boolean | null
+      inventory_quantity?: number | null
       Price?: {
         CalculatedPriceNumber: number
       }
