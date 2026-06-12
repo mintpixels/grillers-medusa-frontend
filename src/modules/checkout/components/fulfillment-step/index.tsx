@@ -516,15 +516,8 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
       await setFulfillmentDetails({
         cartId: cart.id,
         fulfillmentType: option,
-        fulfillmentZip: option === "atlanta_delivery" ? shipZip : "00000",
-        scheduledDate:
-          option === "ups_shipping"
-            ? ""
-            : new Date().toLocaleDateString("en-US", {
-                month: "numeric",
-                day: "numeric",
-                year: "numeric",
-              }),
+        fulfillmentZip: "00000",
+        scheduledDate: "",
       })
 
       await attachShippingMethod(option)
