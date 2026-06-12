@@ -43,13 +43,13 @@ export function pickPlantPickupCredit(input: {
 }
 
 /**
- * Southeast Pickup credit — a flat $15 incentive applied when the
+ * Southeast Pickup credit — a flat $20 incentive applied when the
  * customer picks Southeast Pickup AND the cart subtotal qualifies them
  * for the in-region free-ship promo ($250). The route is dramatically
  * cheaper than cold UPS, so we share part of the savings back.
  */
 export const SE_PICKUP_CREDIT_CODE = "GP_SE_PICKUP_CREDIT"
-export const SE_PICKUP_CREDIT_AMOUNT = 15
+export const SE_PICKUP_CREDIT_AMOUNT = 20
 export const SE_PICKUP_CREDIT_THRESHOLD = IN_REGION_THRESHOLD
 
 export function pickSoutheastPickupCredit(input: {

@@ -1,6 +1,7 @@
 import {
   FREE_SHIP_IN_REGION_CODE,
   FREE_SHIP_NATIONAL_CODE,
+  SE_PICKUP_CREDIT_AMOUNT,
   isUpsServiceEligibleForFreeShipping,
   pickFreeShippingCode,
 } from "@lib/util/free-shipping-codes"
@@ -112,5 +113,9 @@ describe("UPS free-shipping service selection", () => {
         selectedUpsServiceCode: "3_DAY_SELECT",
       })
     ).toBe(FREE_SHIP_NATIONAL_CODE)
+  })
+
+  it("uses the documented Southeast Pickup credit amount", () => {
+    expect(SE_PICKUP_CREDIT_AMOUNT).toBe(20)
   })
 })
