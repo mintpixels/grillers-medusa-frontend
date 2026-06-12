@@ -12,6 +12,10 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    env:
+      MEDUSA_BACKEND_URL: ${{ secrets.MEDUSA_BACKEND_URL }}
+      NEXT_PUBLIC_BASE_URL: ${{ secrets.NEXT_PUBLIC_BASE_URL }}
+      NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY }}
     steps:
       - name: Mark start
         run: echo "CI_STARTED_AT_MS=$(date +%s000)" >> "$GITHUB_ENV"
