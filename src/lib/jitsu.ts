@@ -20,6 +20,41 @@ let globalContext: Record<string, string> = {
 let experimentContext: Record<string, any> = {}
 let userTraits: Record<string, any> = {}
 
+type GpAnalyticsPayload = {
+  event: string
+  event_id: string
+  event_timestamp_ms: number
+  anonymous_id?: string
+  user_id?: string
+  session_id: string
+  experience_version: "legacy" | "medusa"
+  route_market: "atlanta_metro" | "southeast" | "national" | "unknown"
+  fulfillment_tier?: string | null
+  customer_type: "dtc" | "institutional" | "unknown"
+  source: "client"
+  properties: Record<string, any>
+  context: Record<string, any>
+}
+
+const GP_ANALYTICS_CONTEXT_KEYS = new Set([
+  "anonymous_id",
+  "customer_type",
+  "event_id",
+  "event_timestamp_ms",
+  "experience_version",
+  "experiment_context",
+  "fulfillment_tier",
+  "locale",
+  "page",
+  "route_market",
+  "screen",
+  "session_id",
+  "timezone",
+  "user",
+  "user_agent",
+  "user_id",
+])
+
 function getUserId(): string | undefined {
   return getCookie(COOKIE_USER_ID) || undefined
 }
@@ -155,6 +190,116 @@ function sendEvent(payload: Record<string, any>) {
     } catch {
       // Silent fail
     }
+  }
+
+  sendGpAnalyticsMirror(payload)
+}
+
+function normalizeRouteMarket(
+  value: unknown
+): GpAnalyticsPayload["route_market"] {
+  if (
+    value === "atlanta_metro" ||
+    value === "southeast" ||
+    value === "national"
+  ) {
+    return value
+  }
+  if (value === "core") {
+    return "atlanta_metro"
+  }
+  if (value === "scheduled_pod") {
+    return "southeast"
+  }
+  return "unknown"
+}
+
+function normalizeCustomerType(
+  value: unknown
+): GpAnalyticsPayload["customer_type"] {
+  return value === "dtc" || value === "institutional" ? value : "unknown"
+}
+
+function sendGpAnalyticsMirror(payload: Record<string, any>) {
+  const endpoint = process.env.NEXT_PUBLIC_GP_ANALYTICS_ENDPOINT
+  const apiKey = process.env.NEXT_PUBLIC_GP_ANALYTICS_CLIENT_KEY
+  const clientPath = process.env.NEXT_PUBLIC_GP_ANALYTICS_CLIENT_PATH || "/a"
+  const dualRunEnabled =
+    process.env.NEXT_PUBLIC_GP_ANALYTICS_DUAL_RUN !== "false"
+
+  if (!endpoint || !apiKey || !dualRunEnabled) return
+
+  try {
+    const ctx = payload.eventn_ctx || {}
+    const {
+      eventn_ctx: _eventContext,
+      event_type: _eventType,
+      ...properties
+    } = payload
+    const eventProperties = Object.fromEntries(
+      Object.entries(ctx).filter(([key]) => !GP_ANALYTICS_CONTEXT_KEYS.has(key))
+    )
+    const body: GpAnalyticsPayload = {
+      event: String(payload.event_type || "unknown"),
+      event_id: String(ctx.event_id || randomId()),
+      event_timestamp_ms:
+        typeof ctx.event_timestamp_ms === "number"
+          ? ctx.event_timestamp_ms
+          : Date.now(),
+      anonymous_id:
+        typeof ctx.anonymous_id === "string" ? ctx.anonymous_id : undefined,
+      user_id: typeof ctx.user_id === "string" ? ctx.user_id : undefined,
+      session_id:
+        typeof ctx.session_id === "string" ? ctx.session_id : getSessionId(),
+      experience_version:
+        ctx.experience_version === "legacy" ? "legacy" : "medusa",
+      route_market: normalizeRouteMarket(ctx.route_market),
+      fulfillment_tier:
+        typeof ctx.fulfillment_tier === "string" ? ctx.fulfillment_tier : null,
+      customer_type: normalizeCustomerType(ctx.customer_type),
+      source: "client",
+      properties: {
+        ...properties,
+        ...eventProperties,
+        ...(ctx.experiment_context
+          ? { experiment_context: ctx.experiment_context }
+          : {}),
+      },
+      context: {
+        page: ctx.page,
+        screen: ctx.screen,
+        locale: ctx.locale,
+        timezone: ctx.timezone,
+        userAgent: ctx.user_agent,
+        library: {
+          name: "grillers-medusa-frontend-jitsu-dual-run",
+          version: "0.1.0",
+        },
+      },
+    }
+
+    fetch(`${clientPath.replace(/\/$/, "")}/v1/track`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(body),
+      keepalive: true,
+    })
+      .then((res) => {
+        if (res && !res.ok) {
+          console.warn("[gp-analytics] mirror returned non-2xx", {
+            status: res.status,
+            statusText: res.statusText,
+          })
+        }
+      })
+      .catch(() => {
+        // Dual-run analytics must never affect storefront UX.
+      })
+  } catch {
+    // Dual-run analytics must never affect storefront UX.
   }
 }
 

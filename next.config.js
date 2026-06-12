@@ -78,6 +78,19 @@ const nextConfig = {
       { source: "/us/specialty", destination: "/us/page/specialty", permanent: true },
     ]
   },
+  async rewrites() {
+    const analyticsEndpoint = process.env.NEXT_PUBLIC_GP_ANALYTICS_ENDPOINT
+    if (!analyticsEndpoint) {
+      return []
+    }
+
+    return [
+      {
+        source: "/a/:path*",
+        destination: `${analyticsEndpoint.replace(/\/$/, "")}/:path*`,
+      },
+    ]
+  },
 }
 
 module.exports = nextConfig

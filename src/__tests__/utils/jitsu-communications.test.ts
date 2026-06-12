@@ -1,4 +1,8 @@
-import { jitsuTrack, setJitsuExperimentContext } from "@lib/jitsu"
+import {
+  jitsuTrack,
+  setJitsuContext,
+  setJitsuExperimentContext,
+} from "@lib/jitsu"
 
 describe("jitsu first-party communications ingestion", () => {
   const originalEnv = { ...process.env }
@@ -9,6 +13,15 @@ describe("jitsu first-party communications ingestion", () => {
     process.env.NEXT_PUBLIC_COMMUNICATIONS_INGESTION_URL =
       "https://medusa.example.com/"
     process.env.NEXT_PUBLIC_COMMUNICATIONS_API_KEY = "public-ingestion-key"
+    process.env.NEXT_PUBLIC_GP_ANALYTICS_ENDPOINT = ""
+    process.env.NEXT_PUBLIC_GP_ANALYTICS_CLIENT_KEY = ""
+    process.env.NEXT_PUBLIC_GP_ANALYTICS_CLIENT_PATH = ""
+    process.env.NEXT_PUBLIC_GP_ANALYTICS_DUAL_RUN = "true"
+    setJitsuContext({
+      experience_version: "medusa",
+      route_market: "unknown",
+      customer_type: "unknown",
+    })
     global.fetch = jest.fn().mockResolvedValue({ ok: true }) as any
   })
 
@@ -69,5 +82,103 @@ describe("jitsu first-party communications ingestion", () => {
         assignment_id: "assign_123",
       },
     })
+  })
+
+  it("mirrors events to the GP analytics endpoint without disabling communications", () => {
+    process.env.NEXT_PUBLIC_GP_ANALYTICS_ENDPOINT =
+      "https://analytics.example.com/"
+    process.env.NEXT_PUBLIC_GP_ANALYTICS_CLIENT_KEY = "client-key"
+    setJitsuContext({
+      route_market: "core",
+      customer_type: "dtc",
+    })
+
+    jitsuTrack("product_added_to_cart", {
+      product_id: "prod_123",
+      variant_id: "variant_123",
+      fulfillment_tier: "pickup",
+    })
+
+    expect(global.fetch).toHaveBeenCalledTimes(2)
+    const gpCall = (global.fetch as jest.Mock).mock.calls.find(([url]) =>
+      String(url).startsWith("/a/v1/track")
+    )
+
+    expect(gpCall).toBeTruthy()
+    const [, init] = gpCall
+    const body = JSON.parse(init.body)
+
+    expect(init.headers.Authorization).toBe("Bearer client-key")
+    expect(body.event).toBe("product_added_to_cart")
+    expect(body.source).toBe("client")
+    expect(body.route_market).toBe("atlanta_metro")
+    expect(body.customer_type).toBe("dtc")
+    expect(body.fulfillment_tier).toBe("pickup")
+    expect(body.properties).toEqual(
+      expect.objectContaining({
+        product_id: "prod_123",
+        variant_id: "variant_123",
+        src: "jitsu_track",
+      })
+    )
+    expect(body.anonymous_id).toBeTruthy()
+    expect(body.session_id).toBeTruthy()
+  })
+
+  it("can disable the GP analytics dual-run mirror independently", () => {
+    process.env.NEXT_PUBLIC_GP_ANALYTICS_ENDPOINT =
+      "https://analytics.example.com/"
+    process.env.NEXT_PUBLIC_GP_ANALYTICS_CLIENT_KEY = "client-key"
+    process.env.NEXT_PUBLIC_GP_ANALYTICS_DUAL_RUN = "false"
+
+    jitsuTrack("cart_viewed", {
+      cart_id: "cart_123",
+    })
+
+    expect(global.fetch).toHaveBeenCalledTimes(1)
+    expect((global.fetch as jest.Mock).mock.calls[0][0]).toBe(
+      "https://medusa.example.com/api/track"
+    )
+  })
+
+  it("keeps the GP analytics mirror default-off when flags are unset", () => {
+    process.env.NEXT_PUBLIC_COMMUNICATIONS_INGESTION_URL = ""
+    process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL = ""
+    process.env.NEXT_PUBLIC_GP_ANALYTICS_ENDPOINT = ""
+    process.env.NEXT_PUBLIC_GP_ANALYTICS_CLIENT_KEY = ""
+
+    jitsuTrack("page_viewed")
+
+    expect(global.fetch).not.toHaveBeenCalled()
+  })
+
+  it("warns without throwing when the GP analytics mirror returns non-2xx", async () => {
+    process.env.NEXT_PUBLIC_GP_ANALYTICS_ENDPOINT =
+      "https://analytics.example.com/"
+    process.env.NEXT_PUBLIC_GP_ANALYTICS_CLIENT_KEY = "client-key"
+    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {})
+    ;(global.fetch as jest.Mock)
+      .mockResolvedValueOnce({ ok: true })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 503,
+        statusText: "Service Unavailable",
+      })
+
+    expect(() => {
+      jitsuTrack("cart_viewed", {
+        cart_id: "cart_123",
+      })
+    }).not.toThrow()
+
+    await Promise.resolve()
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      "[gp-analytics] mirror returned non-2xx",
+      {
+        status: 503,
+        statusText: "Service Unavailable",
+      }
+    )
   })
 })
