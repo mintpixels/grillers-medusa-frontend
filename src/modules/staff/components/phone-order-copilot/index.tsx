@@ -1033,6 +1033,16 @@ export default function PhoneOrderCopilot({
     }
   }, [activeWorkspaceAction, fallbackWorkspace, selectWorkspace])
 
+  useEffect(() => {
+    if (
+      activeWorkspace === "new_customer" &&
+      !showNewCustomerForm &&
+      !draftCustomer.id
+    ) {
+      setShowNewCustomerForm(true)
+    }
+  }, [activeWorkspace, draftCustomer.id, showNewCustomerForm])
+
   const workspaceItemClass =
     "group flex h-full min-h-[132px] w-full flex-col justify-between rounded-md border p-4 text-left transition focus:outline-none focus:ring-2 focus:ring-Gold focus:ring-offset-2"
 
@@ -1095,28 +1105,16 @@ export default function PhoneOrderCopilot({
         : "border-gray-200 bg-white text-Charcoal hover:border-Gold/50 hover:bg-SilverPlate/25"
     }`
 
-    if (action.href) {
-      return (
-        <LocalizedClientLink
-          className={className}
-          href={action.href}
-          key={action.id}
-        >
-          {content}
-        </LocalizedClientLink>
-      )
-    }
-
     return (
-      <button
-        aria-pressed={isActive}
+      <LocalizedClientLink
+        aria-current={isActive ? "page" : undefined}
         className={className}
+        href={action.href || `/account/staff/orders?workspace=${action.id}`}
         key={action.id}
         onClick={action.onClick}
-        type="button"
       >
         {content}
-      </button>
+      </LocalizedClientLink>
     )
   }
 
