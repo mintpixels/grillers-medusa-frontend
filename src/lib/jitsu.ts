@@ -231,7 +231,11 @@ function sendGpAnalyticsMirror(payload: Record<string, any>) {
 
   try {
     const ctx = payload.eventn_ctx || {}
-    const { eventn_ctx: _eventContext, event_type: _eventType, ...properties } = payload
+    const {
+      eventn_ctx: _eventContext,
+      event_type: _eventType,
+      ...properties
+    } = payload
     const eventProperties = Object.fromEntries(
       Object.entries(ctx).filter(([key]) => !GP_ANALYTICS_CONTEXT_KEYS.has(key))
     )
@@ -282,9 +286,18 @@ function sendGpAnalyticsMirror(payload: Record<string, any>) {
       },
       body: JSON.stringify(body),
       keepalive: true,
-    }).catch(() => {
-      // Dual-run analytics must never affect storefront UX.
     })
+      .then((res) => {
+        if (res && !res.ok) {
+          console.warn("[gp-analytics] mirror returned non-2xx", {
+            status: res.status,
+            statusText: res.statusText,
+          })
+        }
+      })
+      .catch(() => {
+        // Dual-run analytics must never affect storefront UX.
+      })
   } catch {
     // Dual-run analytics must never affect storefront UX.
   }

@@ -10,6 +10,10 @@ import { jitsuTrack } from "@lib/jitsu"
 import { useCartTitleMap } from "@lib/hooks/use-cart-title-map"
 import { ATLANTA_DELIVERY_ZIP_DAYS } from "@lib/util/atlanta-delivery-zips"
 import { normalizeDeliveryZip } from "@lib/util/delivery-zip"
+import {
+  getCheckoutAnalyticsItems,
+  getCheckoutAnalyticsValue,
+} from "@modules/checkout/utils/analytics"
 import { HttpTypes } from "@medusajs/types"
 import { useToggleState } from "@medusajs/ui"
 import Spinner from "@modules/common/icons/spinner"
@@ -76,17 +80,12 @@ const Addresses = ({
   useEffect(() => {
     if (cart && !hasTrackedCheckout.current) {
       hasTrackedCheckout.current = true
-      const checkoutItems =
-        cart.items?.map((item) => ({
-          id: item.product_id || item.id,
-          title: item.product_title || "",
-          price: (item.unit_price || 0) / 100,
-          quantity: item.quantity,
-        })) || []
+      const checkoutItems = getCheckoutAnalyticsItems(cart)
+      const checkoutValue = getCheckoutAnalyticsValue(cart)
 
       trackBeginCheckout({
         id: cart.id,
-        total: cart.total || 0,
+        total: checkoutValue,
         currency: cart.currency_code?.toUpperCase(),
         items: checkoutItems,
         titleMap: cartTitleMap,
@@ -95,7 +94,7 @@ const Addresses = ({
       const coupon = (cart as any).promotions?.[0]?.code || undefined
       jitsuTrack("checkout_started", {
         cart_id: cart.id,
-        value: cart.total || 0,
+        value: checkoutValue,
         currency: cart.currency_code?.toUpperCase() || "USD",
         coupon,
         items: checkoutItems.map((item) => ({

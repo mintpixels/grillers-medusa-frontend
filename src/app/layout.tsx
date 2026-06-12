@@ -143,7 +143,9 @@ export default function RootLayout(props: { children: React.ReactNode }) {
         <Suspense fallback={null}>
           <AnalyticsProvider />
         </Suspense>
-        <JitsuScript />
+        <Suspense fallback={null}>
+          <JitsuScript />
+        </Suspense>
         <Suspense fallback={null}>
           <CookieConsentProvider />
         </Suspense>

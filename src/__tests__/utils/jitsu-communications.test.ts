@@ -140,4 +140,45 @@ describe("jitsu first-party communications ingestion", () => {
       "https://medusa.example.com/api/track"
     )
   })
+
+  it("keeps the GP analytics mirror default-off when flags are unset", () => {
+    process.env.NEXT_PUBLIC_COMMUNICATIONS_INGESTION_URL = ""
+    process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL = ""
+    process.env.NEXT_PUBLIC_GP_ANALYTICS_ENDPOINT = ""
+    process.env.NEXT_PUBLIC_GP_ANALYTICS_CLIENT_KEY = ""
+
+    jitsuTrack("page_viewed")
+
+    expect(global.fetch).not.toHaveBeenCalled()
+  })
+
+  it("warns without throwing when the GP analytics mirror returns non-2xx", async () => {
+    process.env.NEXT_PUBLIC_GP_ANALYTICS_ENDPOINT =
+      "https://analytics.example.com/"
+    process.env.NEXT_PUBLIC_GP_ANALYTICS_CLIENT_KEY = "client-key"
+    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {})
+    ;(global.fetch as jest.Mock)
+      .mockResolvedValueOnce({ ok: true })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 503,
+        statusText: "Service Unavailable",
+      })
+
+    expect(() => {
+      jitsuTrack("cart_viewed", {
+        cart_id: "cart_123",
+      })
+    }).not.toThrow()
+
+    await Promise.resolve()
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      "[gp-analytics] mirror returned non-2xx",
+      {
+        status: 503,
+        statusText: "Service Unavailable",
+      }
+    )
+  })
 })

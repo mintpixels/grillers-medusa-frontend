@@ -15,6 +15,10 @@ import ErrorMessage from "@modules/checkout/components/error-message"
 import InventoryResolutionNotice from "@modules/checkout/components/inventory-resolution-notice"
 import PaymentButton from "@modules/checkout/components/payment-button"
 import { StripeCardContainer } from "@modules/checkout/components/payment-container"
+import {
+  getCheckoutAnalyticsItems,
+  getCheckoutAnalyticsValue,
+} from "@modules/checkout/utils/analytics"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useCallback, useEffect, useRef, useState } from "react"
 
@@ -99,17 +103,12 @@ const Payment = ({
 
   const isStripe = isStripeFunc(selectedPaymentMethod)
 
-  const paymentItems =
-    cart.items?.map((item: any) => ({
-      id: item.product_id || item.id,
-      title: item.product_title || "",
-      price: (item.unit_price || 0) / 100,
-      quantity: item.quantity,
-    })) || []
+  const paymentItems = getCheckoutAnalyticsItems(cart)
+  const paymentValue = getCheckoutAnalyticsValue(cart)
 
   const trackPaymentInfo = (paymentType: string) => {
     trackAddPaymentInfo({
-      total: cart.total || 0,
+      total: paymentValue,
       currency: cart.currency_code?.toUpperCase(),
       paymentType,
       items: paymentItems,
@@ -119,7 +118,7 @@ const Payment = ({
     jitsuTrack("payment_info_submitted", {
       cart_id: cart.id,
       payment_type: paymentType,
-      value: cart.total || 0,
+      value: paymentValue,
       currency: cart.currency_code?.toUpperCase() || "USD",
       items: paymentItems.map((item: any) => ({
         item_id: item.id,
