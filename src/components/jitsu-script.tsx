@@ -1,13 +1,14 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { usePathname } from "next/navigation"
+import { usePathname, useSearchParams } from "next/navigation"
 import { hasConsent } from "@lib/utils/cookies"
 import { jitsuPage } from "@lib/jitsu"
 
 export default function JitsuScript() {
   const [hasAnalyticsConsent, setHasAnalyticsConsent] = useState(false)
   const pathname = usePathname()
+  const searchParams = useSearchParams()
 
   // Check consent on mount
   useEffect(() => {
@@ -22,10 +23,12 @@ export default function JitsuScript() {
   // Track page views on route changes
   useEffect(() => {
     if (hasAnalyticsConsent && pathname) {
+      const search = searchParams?.toString() || ""
       try {
         jitsuPage({
           url: typeof window !== "undefined" ? window.location.href : undefined,
           path: pathname,
+          search,
           referrer:
             typeof document !== "undefined" ? document.referrer : undefined,
           title: typeof document !== "undefined" ? document.title : undefined,
@@ -34,7 +37,7 @@ export default function JitsuScript() {
         // Analytics failures must not trip app route boundaries.
       }
     }
-  }, [pathname, hasAnalyticsConsent])
+  }, [pathname, searchParams, hasAnalyticsConsent])
 
   return null
 }
