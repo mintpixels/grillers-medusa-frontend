@@ -158,7 +158,7 @@ const Item = ({
               productInfo={{
                 id: item.product_id || item.id,
                 title: item.product_title || "",
-                price: item.unit_price ? item.unit_price / 100 : undefined,
+                price: item.unit_price ?? undefined,
                 quantity: item.quantity,
                 currency: currencyCode,
               }}
