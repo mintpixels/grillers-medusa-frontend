@@ -186,7 +186,7 @@ const QuantitySelector = ({
         item_name: item.product_title || item.title,
         previous_quantity: item.quantity,
         new_quantity: newQuantity,
-        price: (item.unit_price ?? 0) / 100,
+        price: item.unit_price ?? 0,
       })
     } catch (error) {
       setOptimisticQuantity(item.quantity)
@@ -313,13 +313,13 @@ export default function SideCart({
     if (isOpen && cart?.items?.length) {
       jitsuTrack("cart_viewed", {
         cart_id: cart.id,
-        value: (cart.subtotal ?? 0) / 100,
+        value: cart.subtotal ?? 0,
         currency: cart.currency_code?.toUpperCase() || "USD",
         item_count: cart.items.reduce((acc, item) => acc + item.quantity, 0),
         items: cart.items.map((item) => ({
           item_id: item.product_id || item.id,
           item_name: item.product_title || item.title,
-          price: (item.unit_price ?? 0) / 100,
+          price: item.unit_price ?? 0,
           quantity: item.quantity,
         })),
       })

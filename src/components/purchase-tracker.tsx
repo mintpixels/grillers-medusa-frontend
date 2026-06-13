@@ -31,12 +31,12 @@ export default function PurchaseTracker({ order }: { order: OrderData }) {
 
     trackPurchase({
       id: order.id,
-      total: order.total / 100,
+      total: order.total,
       currency_code: order.currency_code,
       items: order.items?.map((item) => ({
         product_id: item.product_id,
         title: item.title,
-        unit_price: item.unit_price / 100,
+        unit_price: item.unit_price,
         quantity: item.quantity,
       })),
     })
