@@ -732,6 +732,7 @@ const sections: GuideSection[] = [
       "New QuickBooks sales orders should be marked Print Later and should include the specific fulfillment service item: del-ZIP for Atlanta delivery, del - City for Southeast delivery, or the plant pickup/pickup-discount item.",
       "New QuickBooks sales orders should use the Due Date as the ready-by date. The Memo starts with Peter's planning code: P/Up, L/D, Southeast pickup city, UPS/G, UPS 3Day, UPS 2Day, or UPS O/Night.",
       "Customer checkout notes should appear on the description of the final QuickBooks Sales Order line item, not only in Medusa.",
+      "Staff notes entered before the Sales Order posts should be included in the initial QuickBooks memo. Staff notes entered after the Sales Order exists should be appended by the Web Connector writer.",
       "For sync health, use the sync service dashboard/logs or health command rather than relying only on the green Web Connector bars.",
     ],
     watch: [
