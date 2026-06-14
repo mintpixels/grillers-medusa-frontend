@@ -309,6 +309,8 @@ export default function StaffQuickBooksSyncStatusConsole() {
   const orders = data?.orders.data || []
   const syncStatus = data?.sync_status
   const activeSummary = useMemo(() => data?.summary, [data])
+  const qbwcConfiguration = syncStatus?.qbwc_configuration
+  const qbwcWarnings = qbwcConfiguration?.warnings?.filter(Boolean) || []
 
   return (
     <section className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
@@ -387,6 +389,34 @@ export default function StaffQuickBooksSyncStatusConsole() {
             <p className="mt-1 text-xs font-maison-neue text-Charcoal/55">
               Current step: {humanStatus(syncStatus.current_step)}
             </p>
+          )}
+          {qbwcConfiguration?.username && (
+            <p className="mt-1 text-xs font-maison-neue text-Charcoal/55">
+              Configured Web Connector user: {qbwcConfiguration.username}
+            </p>
+          )}
+          {qbwcWarnings.length > 0 && (
+            <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
+              <div className="flex gap-2">
+                <AlertTriangle
+                  className="mt-0.5 h-4 w-4 shrink-0 text-amber-700"
+                  aria-hidden
+                />
+                <div className="space-y-1">
+                  <p className="text-sm font-maison-neue font-semibold text-amber-900">
+                    Web Connector needs attention
+                  </p>
+                  {qbwcWarnings.map((warning) => (
+                    <p
+                      className="text-xs font-maison-neue text-amber-900/80"
+                      key={warning}
+                    >
+                      {warning}
+                    </p>
+                  ))}
+                </div>
+              </div>
+            </div>
           )}
         </div>
       </div>

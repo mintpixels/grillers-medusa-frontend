@@ -80,6 +80,13 @@ export type StaffQuickBooksSyncStatus = {
     current_step?: string | null
     last_web_connector_session_at?: string | null
     last_web_connector_status?: string | null
+    qbwc_configuration?: {
+      configured: boolean
+      username_configured: boolean
+      password_configured: boolean
+      username?: string | null
+      warnings?: string[]
+    }
   }
   orders: {
     data: StaffQuickBooksSyncOrder[]
