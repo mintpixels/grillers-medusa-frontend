@@ -20,7 +20,7 @@ import {
 } from "@lib/util/eligible-arrival-dates"
 import ErrorMessage from "@modules/checkout/components/error-message"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 
 import ArriveFoodCalendar from "../arrival-calendar"
 import { ALL_FREE_SHIP_CODES } from "@lib/util/free-shipping-codes"
@@ -292,6 +292,53 @@ const Shipping: React.FC<ShippingProps> = ({
   useEffect(() => {
     setError(null)
   }, [isOpen])
+
+  // Default the cart to the CHEAPEST available UPS option once the offered set and
+  // its prices have loaded and the customer hasn't already chosen a still-valid
+  // method. This keeps the order-summary price honest (e.g. CA, where Ground is
+  // filtered out, defaults to Overnight; VA defaults to Ground) and replaces any
+  // stale method that is no longer offered for the destination. The customer can
+  // still upgrade to a pricier option. guardKey prevents re-selecting the same
+  // (destination, option) target, so there is no render loop.
+  const autoSelectGuardRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (fulfillmentType !== "ups_shipping") return
+    if (isLoadingPrices) return
+    if (selectedShippingMethodIsVisible) return
+    const methods = _shippingMethods ?? []
+    if (methods.length === 0) return
+
+    const priced: { id: string; price: number }[] = []
+    for (const method of methods) {
+      if (method.price_type === "flat") {
+        priced.push({ id: method.id, price: method.amount ?? Number.POSITIVE_INFINITY })
+        continue
+      }
+      const calculated = calculatedPricesMap[method.id]
+      if (typeof calculated !== "number") return // a calculated price is still pending — wait
+      if (calculated <= -10) continue // sentinel: not actually available
+      priced.push({ id: method.id, price: calculated })
+    }
+    if (priced.length === 0) return
+
+    const cheapest = priced.reduce((a, b) => (b.price < a.price ? b : a))
+    if (!cheapest.id || cheapest.id === shippingMethodId) return
+
+    const guardKey = `${destinationZip}:${cheapest.id}`
+    if (autoSelectGuardRef.current === guardKey) return
+    autoSelectGuardRef.current = guardKey
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises
+    handleSetShippingMethod(cheapest.id, "shipping")
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    fulfillmentType,
+    isLoadingPrices,
+    selectedShippingMethodIsVisible,
+    _shippingMethods,
+    calculatedPricesMap,
+    shippingMethodId,
+    destinationZip,
+  ])
 
   // Detect the empty Delivery Options dead-end: UPS chosen but no UPS rates apply
   // (typically because the cart's address falls inside our local-delivery region).
