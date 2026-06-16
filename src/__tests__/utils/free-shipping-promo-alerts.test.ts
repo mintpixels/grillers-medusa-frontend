@@ -25,6 +25,16 @@ jest.mock("@lib/ops-alert", () => ({
   emitStorefrontOpsAlert: jest.fn(async () => ({ ok: true, skipped: false })),
 }))
 
+// #266: free-shipping-promo now reads the Strapi UPS thresholds. Mock it so the
+// suite doesn't pull graphql-request (ESM) into Jest; null → the constant
+// thresholds, which is what this alerting test already assumes.
+jest.mock("@lib/data/strapi/checkout", () => ({
+  getFreeShippingThresholds: jest.fn(async () => ({
+    inRegionThreshold: null,
+    nationalThreshold: null,
+  })),
+}))
+
 describe("syncFreeShippingPromotion alerting", () => {
   beforeEach(() => {
     jest.clearAllMocks()
@@ -37,6 +47,7 @@ describe("syncFreeShippingPromotion alerting", () => {
       syncFreeShippingPromotion({
         id: "cart_alert_apply",
         subtotal: 200,
+        items: [{ subtotal: 200, metadata: {} }],
         metadata: { fulfillmentType: "plant_pickup" },
         promotions: [],
       } as any)
@@ -66,6 +77,7 @@ describe("syncFreeShippingPromotion alerting", () => {
       syncFreeShippingPromotion({
         id: "cart_alert_mismatch",
         subtotal: 200,
+        items: [{ subtotal: 200, metadata: {} }],
         metadata: { fulfillmentType: "plant_pickup" },
         promotions: [],
       } as any)
