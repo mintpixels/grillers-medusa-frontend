@@ -9,6 +9,7 @@ import { isStaffCustomer } from "@lib/util/staff-access"
 import type { StaffImpersonationSession } from "@lib/data/staff/impersonation-types"
 import StaffContextActions from "@modules/staff/components/staff-context-actions"
 import { useExitStaffContext } from "@modules/staff/hooks/use-exit-staff-context"
+import { Images } from "lucide-react"
 
 const navItems = [
   {
@@ -172,8 +173,14 @@ const AccountNav = ({
       </svg>
     ),
   }
+  const merchandisingItem = {
+    label: "Product Merchandising",
+    href: "/account/staff/merchandising",
+    testId: "staff-product-merchandising-link",
+    icon: <Images className="h-5 w-5" aria-hidden />,
+  }
   const items = canUseStaffTools
-    ? [navItems[0], staffItem, ...navItems.slice(1)]
+    ? [navItems[0], staffItem, ...navItems.slice(1), merchandisingItem]
     : navItems
 
   const handleLogout = async () => {

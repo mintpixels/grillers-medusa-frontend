@@ -1,0 +1,416 @@
+"use client"
+
+import { useMemo, useState } from "react"
+import {
+  ArrowDown,
+  ArrowUp,
+  CheckCircle2,
+  ImageIcon,
+  ShieldCheck,
+  Search,
+  SlidersHorizontal,
+  XCircle,
+} from "lucide-react"
+import LocalizedClientLink from "@modules/common/components/localized-client-link"
+import type { ProductMerchandisingTagSummary } from "@lib/data/staff/product-merchandising"
+
+type Props = {
+  tags: ProductMerchandisingTagSummary[]
+}
+
+type SortKey =
+  | "name"
+  | "productCount"
+  | "imageCount"
+  | "approvedImageCount"
+  | "reviewedImageCount"
+  | "rejectedImageCount"
+  | "notReviewedImageCount"
+
+type SortDirection = "asc" | "desc"
+
+const sortLabels: Record<SortKey, string> = {
+  name: "Name",
+  productCount: "Products",
+  imageCount: "Total images",
+  approvedImageCount: "Approved",
+  reviewedImageCount: "Reviewed",
+  rejectedImageCount: "Rejected",
+  notReviewedImageCount: "Not reviewed",
+}
+
+function percent(value: number, total: number) {
+  if (!total) return "0%"
+  return `${Math.round((value / total) * 100)}%`
+}
+
+function metricClass(kind: "neutral" | "good" | "warn" | "info") {
+  if (kind === "good")
+    return "border-emerald-200 bg-emerald-50 text-emerald-800"
+  if (kind === "warn") return "border-red-200 bg-red-50 text-red-800"
+  if (kind === "info") return "border-blue-200 bg-blue-50 text-blue-800"
+  return "border-gray-200 bg-white text-Charcoal"
+}
+
+function SortButton({
+  label,
+  sortKey,
+  activeKey,
+  direction,
+  onSort,
+}: {
+  label: string
+  sortKey: SortKey
+  activeKey: SortKey
+  direction: SortDirection
+  onSort: (key: SortKey) => void
+}) {
+  const active = activeKey === sortKey
+  const Icon = direction === "asc" ? ArrowUp : ArrowDown
+
+  return (
+    <button
+      type="button"
+      onClick={() => onSort(sortKey)}
+      className="inline-flex min-h-[34px] items-center gap-1.5 rounded-md px-2 text-left text-xs font-maison-neue-mono uppercase text-Charcoal/55 transition hover:bg-Scroll hover:text-Charcoal"
+    >
+      {label}
+      {active && <Icon className="h-3.5 w-3.5 text-Gold" aria-hidden />}
+    </button>
+  )
+}
+
+export default function ProductMerchandisingTable({ tags }: Props) {
+  const [query, setQuery] = useState("")
+  const [sortKey, setSortKey] = useState<SortKey>("notReviewedImageCount")
+  const [direction, setDirection] = useState<SortDirection>("desc")
+
+  const totals = useMemo(
+    () =>
+      tags.reduce(
+        (acc, tag) => {
+          acc.products += tag.productCount
+          acc.images += tag.imageCount
+          acc.reviewed += tag.reviewedImageCount
+          acc.approved += tag.approvedImageCount
+          acc.rejected += tag.rejectedImageCount
+          acc.notReviewed += tag.imageCount - tag.reviewedImageCount
+          return acc
+        },
+        {
+          products: 0,
+          images: 0,
+          reviewed: 0,
+          approved: 0,
+          rejected: 0,
+          notReviewed: 0,
+        }
+      ),
+    [tags]
+  )
+
+  const filtered = useMemo(() => {
+    const needle = query.trim().toLowerCase()
+    const rows = needle
+      ? tags.filter((tag) =>
+          [
+            tag.displayName,
+            tag.name,
+            tag.description,
+            tag.seoDescription,
+            tag.l2Parents.join(" "),
+            tag.metadata.join(" "),
+          ]
+            .join(" ")
+            .toLowerCase()
+            .includes(needle)
+        )
+      : tags
+
+    return [...rows].sort((a, b) => {
+      const multiplier = direction === "asc" ? 1 : -1
+      if (sortKey === "name") {
+        return a.displayName.localeCompare(b.displayName) * multiplier
+      }
+      if (sortKey === "notReviewedImageCount") {
+        return (
+          (a.imageCount -
+            a.reviewedImageCount -
+            (b.imageCount - b.reviewedImageCount)) *
+          multiplier
+        )
+      }
+      return ((a[sortKey] as number) - (b[sortKey] as number)) * multiplier
+    })
+  }, [direction, query, sortKey, tags])
+
+  function updateSort(key: SortKey) {
+    if (key === sortKey) {
+      setDirection((current) => (current === "asc" ? "desc" : "asc"))
+      return
+    }
+
+    setSortKey(key)
+    setDirection(key === "name" ? "asc" : "desc")
+  }
+
+  return (
+    <div className="space-y-5">
+      <section className="grid gap-3 medium:grid-cols-4">
+        <div className={`rounded-md border p-4 ${metricClass("info")}`}>
+          <p className="text-[11px] font-maison-neue-mono uppercase opacity-65">
+            Total images
+          </p>
+          <p className="mt-2 text-3xl font-gyst font-bold">{totals.images}</p>
+        </div>
+        <div className={`rounded-md border p-4 ${metricClass("good")}`}>
+          <p className="text-[11px] font-maison-neue-mono uppercase opacity-65">
+            Total approved
+          </p>
+          <p className="mt-2 text-3xl font-gyst font-bold">{totals.approved}</p>
+        </div>
+        <div className={`rounded-md border p-4 ${metricClass("warn")}`}>
+          <p className="text-[11px] font-maison-neue-mono uppercase opacity-65">
+            Total rejected
+          </p>
+          <p className="mt-2 text-3xl font-gyst font-bold">{totals.rejected}</p>
+        </div>
+        <div className={`rounded-md border p-4 ${metricClass("neutral")}`}>
+          <p className="text-[11px] font-maison-neue-mono uppercase opacity-65">
+            Total not reviewed
+          </p>
+          <p className="mt-2 text-3xl font-gyst font-bold">
+            {totals.notReviewed}
+          </p>
+        </div>
+      </section>
+
+      <section className="rounded-lg border border-gray-200 bg-white">
+        <div className="border-b border-gray-200 p-4">
+          <div className="flex flex-col gap-3 large:flex-row large:items-center large:justify-between">
+            <label className="relative block large:w-[420px]">
+              <Search
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-Charcoal/35"
+                aria-hidden
+              />
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search L3 tags, metadata, or parent groups"
+                className="min-h-[44px] w-full rounded-md border border-gray-200 bg-Scroll/35 pl-10 pr-3 text-sm font-maison-neue text-Charcoal outline-none transition focus:border-Gold focus:bg-white focus:ring-2 focus:ring-Gold/15"
+              />
+            </label>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center rounded-md border border-gray-200 bg-white px-2.5 py-2 text-xs font-maison-neue-mono uppercase text-Charcoal/55">
+                {tags.length} L3 groups / {totals.products} products
+              </span>
+              <span className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-2.5 py-2 text-xs font-maison-neue-mono uppercase text-Charcoal/55">
+                <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden />
+                Sort by {sortLabels[sortKey].toLowerCase()}
+              </span>
+              <select
+                value={sortKey}
+                onChange={(event) => updateSort(event.target.value as SortKey)}
+                className="min-h-[36px] rounded-md border border-gray-200 bg-white px-2 text-sm font-maison-neue text-Charcoal outline-none focus:border-Gold"
+              >
+                {Object.entries(sortLabels).map(([key, label]) => (
+                  <option key={key} value={key}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[1160px] border-collapse">
+            <thead>
+              <tr className="border-b border-gray-200 bg-Scroll/45">
+                <th className="px-4 py-3 text-left">
+                  <SortButton
+                    label="Name"
+                    sortKey="name"
+                    activeKey={sortKey}
+                    direction={direction}
+                    onSort={updateSort}
+                  />
+                </th>
+                <th className="px-4 py-3 text-right">
+                  <SortButton
+                    label="Products"
+                    sortKey="productCount"
+                    activeKey={sortKey}
+                    direction={direction}
+                    onSort={updateSort}
+                  />
+                </th>
+                <th className="px-4 py-3 text-right">
+                  <SortButton
+                    label="Total images"
+                    sortKey="imageCount"
+                    activeKey={sortKey}
+                    direction={direction}
+                    onSort={updateSort}
+                  />
+                </th>
+                <th className="px-4 py-3 text-right">
+                  <SortButton
+                    label="Approved"
+                    sortKey="approvedImageCount"
+                    activeKey={sortKey}
+                    direction={direction}
+                    onSort={updateSort}
+                  />
+                </th>
+                <th className="px-4 py-3 text-right">
+                  <SortButton
+                    label="Rejected"
+                    sortKey="rejectedImageCount"
+                    activeKey={sortKey}
+                    direction={direction}
+                    onSort={updateSort}
+                  />
+                </th>
+                <th className="px-4 py-3 text-right">
+                  <SortButton
+                    label="Not reviewed"
+                    sortKey="notReviewedImageCount"
+                    activeKey={sortKey}
+                    direction={direction}
+                    onSort={updateSort}
+                  />
+                </th>
+                <th className="px-4 py-3 text-left">Metadata</th>
+                <th className="px-4 py-3 text-left">Review status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((tag) => (
+                <tr
+                  key={tag.documentId}
+                  className="border-b border-gray-100 transition hover:bg-Gold/5"
+                >
+                  <td className="px-4 py-4 align-top">
+                    <LocalizedClientLink
+                      href={`/account/staff/merchandising/${encodeURIComponent(
+                        tag.documentId
+                      )}`}
+                      className="group block"
+                    >
+                      <div className="flex items-start gap-3">
+                        <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-Charcoal text-white">
+                          <ImageIcon className="h-4 w-4" aria-hidden />
+                        </span>
+                        <span>
+                          <span className="block text-base font-maison-neue font-semibold text-Charcoal group-hover:text-Gold">
+                            {tag.displayName}
+                          </span>
+                          <span className="mt-1 block text-xs font-maison-neue-mono uppercase text-Charcoal/45">
+                            {tag.l2Parents.length
+                              ? tag.l2Parents.join(" / ")
+                              : "No L2 parent detected"}
+                          </span>
+                        </span>
+                      </div>
+                    </LocalizedClientLink>
+                  </td>
+                  <td className="px-4 py-4 text-right align-top text-lg font-maison-neue font-semibold text-Charcoal">
+                    {tag.productCount}
+                  </td>
+                  <td className="px-4 py-4 text-right align-top">
+                    <div className="font-maison-neue text-lg font-semibold text-Charcoal">
+                      {tag.imageCount}
+                    </div>
+                    {tag.noImageProductCount > 0 && (
+                      <div className="text-xs font-maison-neue text-red-700">
+                        {tag.noImageProductCount} product
+                        {tag.noImageProductCount === 1 ? "" : "s"} missing
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-4 py-4 text-right align-top text-lg font-maison-neue font-semibold text-emerald-700">
+                    {tag.approvedImageCount}
+                  </td>
+                  <td className="px-4 py-4 text-right align-top text-lg font-maison-neue font-semibold text-red-700">
+                    {tag.rejectedImageCount}
+                  </td>
+                  <td className="px-4 py-4 text-right align-top text-lg font-maison-neue font-semibold text-Charcoal">
+                    {tag.imageCount - tag.reviewedImageCount}
+                  </td>
+                  <td className="px-4 py-4 align-top">
+                    <div className="flex max-w-[340px] flex-wrap gap-1.5">
+                      {tag.metadata.slice(0, 4).map((item) => (
+                        <span
+                          key={item}
+                          className="rounded-full border border-gray-200 bg-white px-2 py-1 text-[11px] font-maison-neue text-Charcoal/65"
+                        >
+                          {item}
+                        </span>
+                      ))}
+                      {!tag.metadata.length && (
+                        <span className="text-sm font-maison-neue text-Charcoal/40">
+                          No metadata surfaced
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-4 py-4 align-top">
+                    <div className="flex flex-col gap-2">
+                      <div className="h-2 overflow-hidden rounded-full bg-gray-100">
+                        <div
+                          className="h-full rounded-full bg-Gold"
+                          style={{
+                            width: percent(
+                              tag.reviewedImageCount,
+                              tag.imageCount
+                            ),
+                          }}
+                        />
+                      </div>
+                      <div className="flex flex-wrap gap-2 text-xs font-maison-neue text-Charcoal/60">
+                        <span className="inline-flex items-center gap-1">
+                          <CheckCircle2
+                            className="h-3.5 w-3.5 text-emerald-600"
+                            aria-hidden
+                          />
+                          {tag.approvedImageCount} approved
+                        </span>
+                        <span className="inline-flex items-center gap-1">
+                          <XCircle
+                            className="h-3.5 w-3.5 text-red-600"
+                            aria-hidden
+                          />
+                          {tag.rejectedImageCount} rejected
+                        </span>
+                        <span className="inline-flex items-center gap-1">
+                          <ShieldCheck
+                            className="h-3.5 w-3.5 text-amber-600"
+                            aria-hidden
+                          />
+                          {tag.imageCount - tag.reviewedImageCount} open
+                        </span>
+                        <span>
+                          {percent(tag.reviewedImageCount, tag.imageCount)} done
+                        </span>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {!filtered.length && (
+          <div className="px-4 py-14 text-center">
+            <p className="font-maison-neue text-sm text-Charcoal/55">
+              No L3 groups match that search.
+            </p>
+          </div>
+        )}
+      </section>
+    </div>
+  )
+}
