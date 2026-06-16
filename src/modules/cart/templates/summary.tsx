@@ -106,7 +106,11 @@ const Summary = ({
       <DiscountCode cart={cart} />
       <FulfillmentProgress
         subtotal={eligibleSubtotal}
-        cartSubtotal={cart.subtotal}
+        cartSubtotal={
+          (cart as any).item_subtotal ??
+          (cart as any).item_total ??
+          cart.subtotal
+        }
         excludedSubtotal={excludedSubtotal}
         currencyCode={cart.currency_code}
         fulfillmentType={fulfillmentType}
