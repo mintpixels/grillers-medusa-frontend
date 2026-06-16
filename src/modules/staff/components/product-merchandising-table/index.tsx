@@ -225,7 +225,7 @@ export default function ProductMerchandisingTable({ tags }: Props) {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1160px] border-collapse">
+          <table className="w-full min-w-[980px] border-collapse">
             <thead>
               <tr className="border-b border-gray-200 bg-Scroll/45">
                 <th className="px-4 py-3 text-left">
@@ -282,7 +282,6 @@ export default function ProductMerchandisingTable({ tags }: Props) {
                     onSort={updateSort}
                   />
                 </th>
-                <th className="px-4 py-3 text-left">Metadata</th>
                 <th className="px-4 py-3 text-left">Review status</th>
               </tr>
             </thead>
@@ -338,23 +337,6 @@ export default function ProductMerchandisingTable({ tags }: Props) {
                   </td>
                   <td className="px-4 py-4 text-right align-top text-lg font-maison-neue font-semibold text-Charcoal">
                     {tag.imageCount - tag.reviewedImageCount}
-                  </td>
-                  <td className="px-4 py-4 align-top">
-                    <div className="flex max-w-[340px] flex-wrap gap-1.5">
-                      {tag.metadata.slice(0, 4).map((item) => (
-                        <span
-                          key={item}
-                          className="rounded-full border border-gray-200 bg-white px-2 py-1 text-[11px] font-maison-neue text-Charcoal/65"
-                        >
-                          {item}
-                        </span>
-                      ))}
-                      {!tag.metadata.length && (
-                        <span className="text-sm font-maison-neue text-Charcoal/40">
-                          No metadata surfaced
-                        </span>
-                      )}
-                    </div>
                   </td>
                   <td className="px-4 py-4 align-top">
                     <div className="flex flex-col gap-2">
