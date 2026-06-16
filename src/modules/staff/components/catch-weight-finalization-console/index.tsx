@@ -2882,6 +2882,26 @@ export default function StaffCatchWeightFinalizationConsole({
                     </Button>
                   )}
                 </div>
+                {inFulfillmentReadyPhase && (
+                  <div className="mt-3 flex items-start gap-2 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2.5 text-sm font-maison-neue text-emerald-900">
+                    <span aria-hidden className="mt-0.5 font-bold leading-none">
+                      ✓
+                    </span>
+                    <p>
+                      <span className="font-semibold">
+                        Card charged
+                        {totals.final_order_total !== null &&
+                        totals.final_order_total !== undefined
+                          ? ` — ${money(totals.final_order_total, currencyCode)} captured`
+                          : ""}
+                        .
+                      </span>{" "}
+                      {fulfilled
+                        ? "Order fulfilled and released to shipping."
+                        : "Order is ready to ship — click Mark Fulfilled to release it."}
+                    </p>
+                  </div>
+                )}
                 {inPickingPhase && !pickClaimed && (
                   <div className="mt-3 rounded-md border border-blue-100 bg-blue-50/50 px-3 py-2 text-sm text-blue-900">
                     <p className="font-maison-neue font-semibold">
