@@ -2,8 +2,10 @@ import { retrieveAuthenticatedCustomerForStaffAccess } from "@lib/data/customer"
 import { getProductMerchandisingTags } from "@lib/data/staff/product-merchandising"
 import { isStaffCustomer } from "@lib/util/staff-access"
 import ProductMerchandisingTable from "@modules/staff/components/product-merchandising-table"
+import { Loader2 } from "lucide-react"
 import { Metadata } from "next"
 import { notFound, redirect } from "next/navigation"
+import { Suspense } from "react"
 
 export const dynamic = "force-dynamic"
 
@@ -14,6 +16,27 @@ export const metadata: Metadata = {
     index: false,
     follow: false,
   },
+}
+
+function ProductMerchandisingLoading() {
+  return (
+    <div className="flex min-h-[360px] items-center justify-center rounded-lg border border-gray-200 bg-white">
+      <div className="text-center">
+        <Loader2
+          className="mx-auto h-8 w-8 animate-spin text-Gold"
+          aria-hidden
+        />
+        <p className="mt-4 text-xs font-maison-neue-mono uppercase text-Charcoal/50">
+          Loading data from Strapi
+        </p>
+      </div>
+    </div>
+  )
+}
+
+async function ProductMerchandisingTableData() {
+  const tags = await getProductMerchandisingTags()
+  return <ProductMerchandisingTable tags={tags} />
 }
 
 export default async function StaffProductMerchandisingPage({
@@ -32,8 +55,6 @@ export default async function StaffProductMerchandisingPage({
     notFound()
   }
 
-  const tags = await getProductMerchandisingTags()
-
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 large:flex-row large:items-end large:justify-between">
@@ -51,7 +72,9 @@ export default async function StaffProductMerchandisingPage({
         </div>
       </div>
 
-      <ProductMerchandisingTable tags={tags} />
+      <Suspense fallback={<ProductMerchandisingLoading />}>
+        <ProductMerchandisingTableData />
+      </Suspense>
     </div>
   )
 }

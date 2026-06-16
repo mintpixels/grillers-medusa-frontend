@@ -237,7 +237,7 @@ export default function ProductMerchandisingTable({ tags }: Props) {
                     onSort={updateSort}
                   />
                 </th>
-                <th className="px-4 py-3 text-left">
+                <th className="px-4 py-3 text-center">
                   <SortButton
                     label="Products"
                     sortKey="productCount"
@@ -246,7 +246,7 @@ export default function ProductMerchandisingTable({ tags }: Props) {
                     onSort={updateSort}
                   />
                 </th>
-                <th className="px-4 py-3 text-left">
+                <th className="px-4 py-3 text-center">
                   <SortButton
                     label="Total images"
                     sortKey="imageCount"
@@ -255,7 +255,7 @@ export default function ProductMerchandisingTable({ tags }: Props) {
                     onSort={updateSort}
                   />
                 </th>
-                <th className="px-4 py-3 text-left">
+                <th className="px-4 py-3 text-center">
                   <SortButton
                     label="Approved"
                     sortKey="approvedImageCount"
@@ -264,7 +264,7 @@ export default function ProductMerchandisingTable({ tags }: Props) {
                     onSort={updateSort}
                   />
                 </th>
-                <th className="px-4 py-3 text-left">
+                <th className="px-4 py-3 text-center">
                   <SortButton
                     label="Rejected"
                     sortKey="rejectedImageCount"
@@ -273,7 +273,7 @@ export default function ProductMerchandisingTable({ tags }: Props) {
                     onSort={updateSort}
                   />
                 </th>
-                <th className="px-4 py-3 text-left">
+                <th className="px-4 py-3 text-center">
                   <SortButton
                     label="Not reviewed"
                     sortKey="notReviewedImageCount"
@@ -315,10 +315,10 @@ export default function ProductMerchandisingTable({ tags }: Props) {
                       </div>
                     </LocalizedClientLink>
                   </td>
-                  <td className="px-4 py-4 text-left align-top text-lg font-maison-neue font-semibold text-Charcoal">
+                  <td className="px-4 py-4 text-center align-top text-lg font-maison-neue font-semibold text-Charcoal">
                     {tag.productCount}
                   </td>
-                  <td className="px-4 py-4 text-left align-top">
+                  <td className="px-4 py-4 text-center align-top">
                     <div className="font-maison-neue text-lg font-semibold text-Charcoal">
                       {tag.imageCount}
                     </div>
@@ -329,13 +329,13 @@ export default function ProductMerchandisingTable({ tags }: Props) {
                       </div>
                     )}
                   </td>
-                  <td className="px-4 py-4 text-left align-top text-lg font-maison-neue font-semibold text-emerald-700">
+                  <td className="px-4 py-4 text-center align-top text-lg font-maison-neue font-semibold text-emerald-700">
                     {tag.approvedImageCount}
                   </td>
-                  <td className="px-4 py-4 text-left align-top text-lg font-maison-neue font-semibold text-red-700">
+                  <td className="px-4 py-4 text-center align-top text-lg font-maison-neue font-semibold text-red-700">
                     {tag.rejectedImageCount}
                   </td>
-                  <td className="px-4 py-4 text-left align-top text-lg font-maison-neue font-semibold text-Charcoal">
+                  <td className="px-4 py-4 text-center align-top text-lg font-maison-neue font-semibold text-Charcoal">
                     {tag.imageCount - tag.reviewedImageCount}
                   </td>
                   <td className="px-4 py-4 align-top">
