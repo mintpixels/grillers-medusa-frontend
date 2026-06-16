@@ -23,6 +23,9 @@ type SideCartPayload = {
   atlantaZipConfig?: Record<string, AtlantaZipDayConfig>
   initialDeliveryZip?: string | null
   productDetailsMap: CartProductDetailsMap
+  /** #266: Strapi-editable UPS free-shipping thresholds. Null → constants. */
+  inRegionThreshold?: number | null
+  nationalThreshold?: number | null
 }
 
 const emptyPayload = (countryCode: string): SideCartPayload => ({
@@ -32,6 +35,8 @@ const emptyPayload = (countryCode: string): SideCartPayload => ({
   atlantaZipConfig: undefined,
   initialDeliveryZip: null,
   productDetailsMap: {},
+  inRegionThreshold: null,
+  nationalThreshold: null,
 })
 
 export default function SideCartWrapper({

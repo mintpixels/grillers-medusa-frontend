@@ -24,6 +24,9 @@ type SummaryProps = {
   }
   deliveryZip?: string | null
   atlantaZipConfig?: Record<string, AtlantaZipDayConfig>
+  /** #266: Strapi-editable UPS free-shipping thresholds. Null → constants. */
+  inRegionThreshold?: number | null
+  nationalThreshold?: number | null
 }
 
 /**
@@ -39,7 +42,13 @@ function formatFulfillmentType(type: FulfillmentType): string {
   return labels[type] || type
 }
 
-const Summary = ({ cart, deliveryZip, atlantaZipConfig }: SummaryProps) => {
+const Summary = ({
+  cart,
+  deliveryZip,
+  atlantaZipConfig,
+  inRegionThreshold,
+  nationalThreshold,
+}: SummaryProps) => {
   const router = useRouter()
   const [isChanging, setIsChanging] = useState(false)
   const eligibleSubtotal = getFreeDeliveryEligibleSubtotal(cart.items)
@@ -104,12 +113,17 @@ const Summary = ({ cart, deliveryZip, atlantaZipConfig }: SummaryProps) => {
         shipState={cart.shipping_address?.province}
         postalCode={cart.shipping_address?.postal_code || deliveryZip}
         atlantaZipConfig={atlantaZipConfig}
+        inRegionThreshold={inRegionThreshold}
+        nationalThreshold={nationalThreshold}
         context="cart"
       />
       <Divider />
       <InventoryResolutionNotice cart={cart} />
       <CartTotals
         totals={cart}
+        freeShippingSubtotal={eligibleSubtotal}
+        inRegionThreshold={inRegionThreshold}
+        nationalThreshold={nationalThreshold}
       />
       <LocalizedClientLink
         href="/checkout"

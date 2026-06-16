@@ -35,6 +35,9 @@ type FulfillmentProgressProps = {
   className?: string
   context?: "cart" | "pdp"
   variant?: "light" | "dark"
+  /** #266: Strapi-editable UPS free-shipping thresholds. Null → constants. */
+  inRegionThreshold?: number | null
+  nationalThreshold?: number | null
 }
 
 const WEEKDAY_NAMES = [
@@ -107,6 +110,8 @@ export default function FulfillmentProgress({
   atlantaZipConfig = ATLANTA_DELIVERY_ZIP_DAYS,
   className = "",
   variant = "light",
+  inRegionThreshold,
+  nationalThreshold,
 }: FulfillmentProgressProps) {
   const normalizedPropZip = normalizeDeliveryZip(postalCode)
   const [submittedZip, setSubmittedZip] = useState(normalizedPropZip)
@@ -130,6 +135,8 @@ export default function FulfillmentProgress({
     subtotal: baseSubtotal,
     fulfillmentType: effectiveFulfillmentType,
     shipState,
+    inRegionThreshold,
+    nationalThreshold,
   })
 
   const progress = state.threshold

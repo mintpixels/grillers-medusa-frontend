@@ -234,6 +234,9 @@ type SideCartProps = {
   initialDeliveryZip?: string | null
   productDetailsMap?: CartProductDetailsMap
   isLoading?: boolean
+  /** #266: Strapi-editable UPS free-shipping thresholds. Null → constants. */
+  inRegionThreshold?: number | null
+  nationalThreshold?: number | null
 }
 
 export default function SideCart({
@@ -244,6 +247,8 @@ export default function SideCart({
   initialDeliveryZip,
   productDetailsMap = {},
   isLoading = false,
+  inRegionThreshold,
+  nationalThreshold,
 }: SideCartProps) {
   const { isOpen, closeCart, openCart } = useCart()
   const [announcement, setAnnouncement] = useState("")
@@ -639,6 +644,8 @@ export default function SideCart({
                                 }
                                 postalCode={postalCode}
                                 atlantaZipConfig={atlantaZipConfig}
+                                inRegionThreshold={inRegionThreshold}
+                                nationalThreshold={nationalThreshold}
                                 context="cart"
                                 className="mb-3"
                               />

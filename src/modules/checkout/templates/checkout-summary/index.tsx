@@ -25,6 +25,9 @@ type CheckoutSummaryProps = {
   atlantaZipConfig?: Record<string, AtlantaZipDayConfig>
   productDetailsMap?: CartProductDetailsMap
   deliveryZip?: string | null
+  /** #266: Strapi-editable UPS free-shipping thresholds. Null → constants. */
+  inRegionThreshold?: number | null
+  nationalThreshold?: number | null
 }
 
 // Item component that fetches Strapi image and title
@@ -120,6 +123,8 @@ const CheckoutSummary = ({
   atlantaZipConfig,
   productDetailsMap = {},
   deliveryZip,
+  inRegionThreshold,
+  nationalThreshold,
 }: CheckoutSummaryProps) => {
   const items = cart.items || []
   const totalItems = items.reduce((acc, item) => acc + item.quantity, 0)
@@ -202,6 +207,8 @@ const CheckoutSummary = ({
           fulfillmentType={fulfillmentType}
           variant="dark"
           atlantaZipConfig={atlantaZipConfig}
+          inRegionThreshold={inRegionThreshold}
+          nationalThreshold={nationalThreshold}
         />
 
         {/* Shipping line. When the free-shipping promo is on the cart, show

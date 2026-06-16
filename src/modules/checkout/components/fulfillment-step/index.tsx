@@ -11,6 +11,7 @@ import {
   SE_PICKUP_CREDIT_AMOUNT,
   SE_PICKUP_CREDIT_THRESHOLD,
 } from "@lib/util/free-shipping-codes"
+import { getFreeDeliveryEligibleSubtotal } from "@lib/util/free-delivery-eligibility"
 import type { FulfillmentConfigData, PickupCreditConfig } from "@lib/data/strapi/checkout"
 import { useFulfillmentEdit } from "@modules/checkout/context/fulfillment-edit-context"
 import PlantPickupScheduling from "@modules/checkout/components/fulfillment-selector/scheduling/plant-pickup"
@@ -210,7 +211,13 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
   }, [showSelection, setIsEditingFulfillment])
 
   const cartTotal = cart.total || 0
-  const cartSubtotal = cart.subtotal || 0
+  // #265: the plant-pickup and Southeast-pickup credits gate off the
+  // FREE-DELIVERY ELIGIBLE subtotal (excludes SKUs flagged
+  // `free_delivery_eligible = false`), matching FulfillmentProgress and the
+  // authoritative promo gate in syncFreeShippingPromotion. Using the raw
+  // cart subtotal here would let excluded bulk items push a customer over
+  // the credit threshold in the copy while the actual promo never applies.
+  const cartSubtotal = getFreeDeliveryEligibleSubtotal(cart.items)
 
   const normalizeMinimum = (value: number | undefined, defaultValue: number): number => {
     if (value === undefined || value === null) return defaultValue

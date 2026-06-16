@@ -17,6 +17,7 @@ import ProductConversionPanel from "@modules/products/components/product-convers
 import ProductFacts from "@modules/products/components/product-facts"
 import ProductIngredientDisclosures from "@modules/products/components/product-ingredient-disclosures"
 import { sanitizeProductCopy } from "@lib/util/product-claims"
+import { getProductFreeDeliveryEligibility } from "@lib/util/free-delivery-eligibility"
 import ProductImages from "./product-images"
 import {
   isCatalogLifecyclePurchasable,
@@ -155,6 +156,15 @@ export default function ProductDetail({
       (variant) => selectedSku && variant.Sku === selectedSku
     ) ||
     null
+  // #265 (req b): the "At a glance" facts only render a POSITIVE
+  // free-delivery-eligible badge. For an EXCLUDED product/variant there's no
+  // signal it won't count toward free delivery, so show a small, VARIANT-
+  // accurate note near the add-to-cart that mirrors the cart copy.
+  const freeDeliveryEligibility = getProductFreeDeliveryEligibility(
+    strapiProductData,
+    selectedSku
+  )
+  const showFreeDeliveryExclusion = freeDeliveryEligibility.qualifies === false
   const showBackInStockForm = shouldShowBackInStockForm({
     inStock,
     product,
@@ -280,6 +290,14 @@ export default function ProductDetail({
               decrement={decrement}
               handleAddToCart={handleAddToCart}
             />
+            {showFreeDeliveryExclusion && (
+              <p className="mt-2 font-maison-neue text-xs leading-snug text-Charcoal/60">
+                Does not count toward free delivery
+                {freeDeliveryEligibility.reason
+                  ? `: ${freeDeliveryEligibility.reason}`
+                  : "."}
+              </p>
+            )}
           </div>
 
           {/* Notify-me-when-back-in-stock — only shown when the selected

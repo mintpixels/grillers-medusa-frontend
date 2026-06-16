@@ -44,6 +44,25 @@ export const NATIONAL_THRESHOLD = 500
 export const PICKUP_BONUS_THRESHOLD = 150
 export const PICKUP_BONUS_AMOUNT = 7.5
 
+/**
+ * #266: a Strapi-editable threshold override is honored only when it's a finite
+ * POSITIVE number. `null`/`undefined` (field not deployed/populated) — and also
+ * a `0`, negative, or `NaN` (misconfiguration) — falls back to the hardcoded
+ * constant, so a bad Strapi value can never collapse the threshold to "free on
+ * everything". Shared by the UI (getFreeShippingState) and the promo gate
+ * (free-shipping-promo.ts) so display and applied discount stay consistent.
+ */
+export function resolveFreeShippingThreshold(
+  override: number | null | undefined,
+  fallback: number
+): number {
+  return typeof override === "number" &&
+    Number.isFinite(override) &&
+    override > 0
+    ? override
+    : fallback
+}
+
 export type FulfillmentType =
   | "ups_shipping"
   | "ups_overnight"
@@ -102,6 +121,15 @@ export function getFreeShippingState(input: {
   subtotal?: number | null
   fulfillmentType?: FulfillmentType
   shipState?: string | null
+  /**
+   * Strapi-editable in-region free-shipping threshold (#266). When `null`/
+   * `undefined` (Strapi field not deployed/populated) we fall back to the
+   * hardcoded `IN_REGION_THRESHOLD` constant.
+   */
+  inRegionThreshold?: number | null
+  /** Strapi-editable national free-shipping threshold (#266). Falls back to
+   * `NATIONAL_THRESHOLD`. */
+  nationalThreshold?: number | null
 }): FreeShippingState {
   const sub = Math.max(0, input.subtotal ?? 0)
 
@@ -156,7 +184,11 @@ export function getFreeShippingState(input: {
     input.fulfillmentType === "southeast_pickup" ||
     isInRegionState(input.shipState)
 
-  const threshold = inRegion ? IN_REGION_THRESHOLD : NATIONAL_THRESHOLD
+  // #266: prefer the Strapi-editable thresholds when supplied; a null/0/invalid
+  // value safely falls back to the hardcoded constant (see resolveFreeShippingThreshold).
+  const threshold = inRegion
+    ? resolveFreeShippingThreshold(input.inRegionThreshold, IN_REGION_THRESHOLD)
+    : resolveFreeShippingThreshold(input.nationalThreshold, NATIONAL_THRESHOLD)
   const qualified = sub >= threshold
   const remaining = qualified ? 0 : Math.max(0, threshold - sub)
   const remainingPercentage = Math.min(
@@ -195,7 +227,12 @@ export function freeShippingPlainText(input: {
   subtotal?: number | null
   fulfillmentType?: FulfillmentType
   shipState?: string | null
+  inRegionThreshold?: number | null
+  nationalThreshold?: number | null
 }): string {
+  // `getFreeShippingState` already applies the threshold defaulting; this
+  // helper renders off the resolved state (`s.remaining`/`s.threshold`), so it
+  // just needs to forward the optional Strapi thresholds. #266.
   const s = getFreeShippingState(input)
   const fmt = (n: number) =>
     `$${n.toLocaleString(undefined, {

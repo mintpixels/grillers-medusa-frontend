@@ -118,4 +118,54 @@ describe("UPS free-shipping service selection", () => {
   it("uses the documented Southeast Pickup credit amount", () => {
     expect(SE_PICKUP_CREDIT_AMOUNT).toBe(20)
   })
+
+  it("honors a Strapi-editable threshold so the applied promo matches the UI (#266)", () => {
+    // In-region threshold raised to $300: a $260 order no longer qualifies.
+    expect(
+      pickFreeShippingCode({
+        eligibleSubtotalDollars: 260,
+        fulfillmentType: "ups_shipping",
+        shipState: "GA",
+        destinationZip: "30340",
+        selectedUpsServiceCode: "GROUND",
+        inRegionThreshold: 300,
+      })
+    ).toBeNull()
+    // $300 clears the raised threshold.
+    expect(
+      pickFreeShippingCode({
+        eligibleSubtotalDollars: 300,
+        fulfillmentType: "ups_shipping",
+        shipState: "GA",
+        destinationZip: "30340",
+        selectedUpsServiceCode: "GROUND",
+        inRegionThreshold: 300,
+      })
+    ).toBe(FREE_SHIP_IN_REGION_CODE)
+  })
+
+  it("ignores a 0/invalid Strapi threshold and falls back to the constant (#266 safety)", () => {
+    // A bogus 0 threshold must NOT make a sub-$250 order free.
+    expect(
+      pickFreeShippingCode({
+        eligibleSubtotalDollars: 100,
+        fulfillmentType: "ups_shipping",
+        shipState: "GA",
+        destinationZip: "30340",
+        selectedUpsServiceCode: "GROUND",
+        inRegionThreshold: 0,
+      })
+    ).toBeNull()
+    // At the constant $250 it qualifies again.
+    expect(
+      pickFreeShippingCode({
+        eligibleSubtotalDollars: 250,
+        fulfillmentType: "ups_shipping",
+        shipState: "GA",
+        destinationZip: "30340",
+        selectedUpsServiceCode: "GROUND",
+        inRegionThreshold: 0,
+      })
+    ).toBe(FREE_SHIP_IN_REGION_CODE)
+  })
 })

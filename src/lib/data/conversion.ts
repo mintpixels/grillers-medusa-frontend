@@ -4,9 +4,11 @@ import { retrieveCart } from "@lib/data/cart"
 import { retrieveCustomer } from "@lib/data/customer"
 import { getDeliveryZipCookie } from "@lib/data/delivery-zip"
 import { getAtlantaDeliveryZipConfig } from "@lib/data/strapi/fulfillment"
+import { getFreeShippingThresholds } from "@lib/data/strapi/checkout"
 import type { FulfillmentType } from "@lib/util/free-shipping"
 import type { AtlantaZipDayConfig } from "@lib/util/eligible-arrival-dates"
 import { getAddressBookDeliveryZip } from "@lib/util/delivery-zip"
+import { withTimeout } from "@lib/util/promise-timeout"
 import {
   getExcludedFreeDeliverySubtotal,
   getFreeDeliveryEligibleSubtotal,
@@ -22,15 +24,29 @@ export type CartConversionState = {
   shipState: string | null
   postalCode: string | null
   atlantaZipConfig?: Record<string, AtlantaZipDayConfig>
+  /** #266: Strapi-editable UPS free-shipping thresholds (null → constants), so
+   * the PDP progress matches the cart/checkout/side-cart threshold. */
+  inRegionThreshold?: number | null
+  nationalThreshold?: number | null
 }
 
 export async function getCartConversionState(): Promise<CartConversionState> {
   const cart = await retrieveCart().catch(() => null)
-  const [savedZip, atlantaZipConfig, customer] = await Promise.all([
-    getDeliveryZipCookie(),
-    getAtlantaDeliveryZipConfig().catch(() => undefined),
-    retrieveCustomer().catch(() => null),
-  ])
+  const [savedZip, atlantaZipConfig, customer, thresholds] =
+    await Promise.all([
+      getDeliveryZipCookie(),
+      getAtlantaDeliveryZipConfig().catch(() => undefined),
+      retrieveCustomer().catch(() => null),
+      withTimeout(
+        getFreeShippingThresholds().catch(() => ({
+          inRegionThreshold: null,
+          nationalThreshold: null,
+        })),
+        400,
+        { inRegionThreshold: null, nationalThreshold: null },
+        "cart conversion thresholds"
+      ),
+    ])
   const customerZip = getAddressBookDeliveryZip(customer?.addresses)
   const fallbackZip = savedZip || customerZip
 
@@ -45,6 +61,8 @@ export async function getCartConversionState(): Promise<CartConversionState> {
       shipState: null,
       postalCode: fallbackZip || null,
       atlantaZipConfig,
+      inRegionThreshold: thresholds.inRegionThreshold,
+      nationalThreshold: thresholds.nationalThreshold,
     }
   }
 
@@ -67,5 +85,7 @@ export async function getCartConversionState(): Promise<CartConversionState> {
     shipState: cart.shipping_address?.province || null,
     postalCode: cart.shipping_address?.postal_code || fallbackZip || null,
     atlantaZipConfig,
+    inRegionThreshold: thresholds.inRegionThreshold,
+    nationalThreshold: thresholds.nationalThreshold,
   }
 }

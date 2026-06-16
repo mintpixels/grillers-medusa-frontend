@@ -2,6 +2,7 @@ import { retrieveCart } from "@lib/data/cart"
 import { retrieveCustomer } from "@lib/data/customer"
 import { getDeliveryZipCookie } from "@lib/data/delivery-zip"
 import { getAtlantaDeliveryZipConfig } from "@lib/data/strapi/fulfillment"
+import { getFreeShippingThresholds } from "@lib/data/strapi/checkout"
 import { getAddressBookDeliveryZip } from "@lib/util/delivery-zip"
 import { buildCartProductDetailsMap } from "@lib/util/cart-product-details"
 import { withTimeout } from "@lib/util/promise-timeout"
@@ -33,25 +34,37 @@ export async function generateMetadata({
 
 export default async function Cart({ params }: PageProps) {
   const { countryCode } = await params
-  const [cart, customer, deliveryZip, atlantaZipConfig] = await Promise.all([
-    retrieveCart().catch((error) => {
-      console.error(error)
-      return undefined
-    }),
-    withTimeout(
-      retrieveCustomer().catch(() => null),
-      1000,
-      null,
-      "cart page customer"
-    ),
-    withTimeout(getDeliveryZipCookie(), 400, null, "cart page delivery zip"),
-    withTimeout(
-      getAtlantaDeliveryZipConfig().catch(() => undefined),
-      1000,
-      undefined,
-      "cart page delivery config"
-    ),
-  ])
+  const [cart, customer, deliveryZip, atlantaZipConfig, freeShippingThresholds] =
+    await Promise.all([
+      retrieveCart().catch((error) => {
+        console.error(error)
+        return undefined
+      }),
+      withTimeout(
+        retrieveCustomer().catch(() => null),
+        1000,
+        null,
+        "cart page customer"
+      ),
+      withTimeout(getDeliveryZipCookie(), 400, null, "cart page delivery zip"),
+      withTimeout(
+        getAtlantaDeliveryZipConfig().catch(() => undefined),
+        1000,
+        undefined,
+        "cart page delivery config"
+      ),
+      // #266: editable UPS free-shipping thresholds. Safe-fails to
+      // { inRegionThreshold: null, nationalThreshold: null } → constants.
+      withTimeout(
+        getFreeShippingThresholds().catch(() => ({
+          inRegionThreshold: null,
+          nationalThreshold: null,
+        })),
+        1000,
+        { inRegionThreshold: null, nationalThreshold: null },
+        "cart page free-shipping thresholds"
+      ),
+    ])
 
   if (cart === undefined) {
     return notFound()
@@ -85,6 +98,8 @@ export default async function Cart({ params }: PageProps) {
         deliveryZip={defaultDeliveryZip}
         atlantaZipConfig={atlantaZipConfig}
         productDetailsMap={productDetailsMap}
+        inRegionThreshold={freeShippingThresholds.inRegionThreshold}
+        nationalThreshold={freeShippingThresholds.nationalThreshold}
         cartUpsellVariant={
           cartUpsellExperiment?.isEnabled
             ? cartUpsellExperiment.variantKey
