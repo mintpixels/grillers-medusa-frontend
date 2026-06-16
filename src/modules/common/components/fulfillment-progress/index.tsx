@@ -6,7 +6,10 @@ import {
   getFreeShippingState,
   type FulfillmentType,
 } from "@lib/util/free-shipping"
-import { lookupUpsGroundDays } from "@lib/util/eligible-arrival-dates"
+import {
+  isUpsGroundAvailableForZip,
+  lookupUpsGroundDays,
+} from "@lib/util/eligible-arrival-dates"
 import { ATLANTA_DELIVERY_ZIP_DAYS } from "@lib/util/atlanta-delivery-zips"
 import {
   SE_PICKUP_CREDIT_AMOUNT,
@@ -92,8 +95,14 @@ function compactEtaText(
   }
 
   if (postalCode.length === 5) {
-    const days = lookupUpsGroundDays(postalCode)
-    return `UPS Ground · ~${days} business day${days === 1 ? "" : "s"}`
+    // Only advertise UPS Ground where it's actually offered (transit <= 3 business
+    // days; cold-chain-safe). Past that, Ground is filtered out of the delivery
+    // options, so the only national UPS service is Overnight — never imply Ground.
+    if (isUpsGroundAvailableForZip(postalCode)) {
+      const days = lookupUpsGroundDays(postalCode)
+      return `UPS Ground · ~${days} business day${days === 1 ? "" : "s"}`
+    }
+    return "UPS Overnight · next business day"
   }
 
   return ""
