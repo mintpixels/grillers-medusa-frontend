@@ -1,3 +1,4 @@
+import { cache } from "react"
 import { gql } from "graphql-request"
 import strapiClient from "@lib/strapi"
 import type { StrapiSEO } from "./seo"
@@ -178,22 +179,24 @@ export type FreeShippingThresholds = {
   nationalThreshold: number | null
 }
 
-export async function getFreeShippingThresholds(): Promise<FreeShippingThresholds> {
-  try {
-    const data = await strapiClient.request<ShippingSettingData>(
-      ShippingSettingQuery
-    )
-    return {
-      inRegionThreshold:
-        data?.shippingSetting?.UPSInRegionFreeThreshold ?? null,
-      nationalThreshold:
-        data?.shippingSetting?.UPSNationalFreeThreshold ?? null,
+export const getFreeShippingThresholds = cache(
+  async (): Promise<FreeShippingThresholds> => {
+    try {
+      const data = await strapiClient.request<ShippingSettingData>(
+        ShippingSettingQuery
+      )
+      return {
+        inRegionThreshold:
+          data?.shippingSetting?.UPSInRegionFreeThreshold ?? null,
+        nationalThreshold:
+          data?.shippingSetting?.UPSNationalFreeThreshold ?? null,
+      }
+    } catch {
+      // Strapi unavailable or fields not yet deployed → fall back to constants.
+      return { inRegionThreshold: null, nationalThreshold: null }
     }
-  } catch {
-    // Strapi unavailable or fields not yet deployed → fall back to constants.
-    return { inRegionThreshold: null, nationalThreshold: null }
   }
-}
+)
 
 // ============================================
 // Existing Checkout Types

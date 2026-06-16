@@ -6,9 +6,13 @@ import { useStorefrontSession } from "@modules/layout/components/storefront-sess
 export default function DeliveryPromiseSession({
   countryCode,
   atlantaZipCodes,
+  inRegionThreshold,
+  nationalThreshold,
 }: {
   countryCode: string
   atlantaZipCodes: string[]
+  inRegionThreshold?: number | null
+  nationalThreshold?: number | null
 }) {
   const { customer, deliveryZip, deliveryZipSource } = useStorefrontSession()
 
@@ -19,6 +23,8 @@ export default function DeliveryPromiseSession({
       initialZip={deliveryZip}
       initialZipSource={deliveryZipSource}
       isLoggedIn={Boolean(customer)}
+      inRegionThreshold={inRegionThreshold}
+      nationalThreshold={nationalThreshold}
     />
   )
 }
