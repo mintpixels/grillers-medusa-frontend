@@ -181,6 +181,48 @@ function formatOrderDate(value?: string) {
   return date.toLocaleDateString()
 }
 
+// <input type="date"> expects a YYYY-MM-DD value in the user's local date.
+function localIsoDate(date: Date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, "0")
+  const day = String(date.getDate()).padStart(2, "0")
+  return `${year}-${month}-${day}`
+}
+
+// The business calendar date (America/New_York) as YYYY-MM-DD. Order dates are
+// compared in ET on the server (businessCalendarDate), so the default window
+// must anchor on the ET "today" too — otherwise a staffer west of ET could see
+// a default `dateTo` that's a day behind the business day. #268 P2.
+function easternIsoDate(date: Date) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date)
+  const year = parts.find((p) => p.type === "year")?.value
+  const month = parts.find((p) => p.type === "month")?.value
+  const day = parts.find((p) => p.type === "day")?.value
+  return year && month && day ? `${year}-${month}-${day}` : localIsoDate(date)
+}
+
+// Default order-support date window: one year back through today, computed in
+// America/New_York so it's consistent regardless of the staff browser's TZ.
+function defaultOrderDateRange() {
+  const todayEastern = easternIsoDate(new Date())
+  // Subtract a year from the ET calendar date by string math (no TZ drift):
+  // YYYY-MM-DD → (YYYY-1)-MM-DD.
+  const [year, monthDay] = [
+    todayEastern.slice(0, 4),
+    todayEastern.slice(4),
+  ]
+  const oneYearBack = `${Number(year) - 1}${monthDay}`
+  return {
+    dateFrom: oneYearBack,
+    dateTo: todayEastern,
+  }
+}
+
 function statusChip(
   value: string,
   tone: "neutral" | "gold" | "green" | "red" = "neutral"
@@ -363,19 +405,22 @@ function DetailRow({ label, value }: { label: string; value?: string }) {
   )
 }
 
+// Like DetailRow, but always renders the field with an em dash placeholder when
+// no real backing data exists. Used for the QuickBooks document essentials so
+// staff see the full QB Docs list and know which fields are not yet populated.
+function DetailRowAlways({ label, value }: { label: string; value?: string }) {
+  return (
+    <div>
+      <dt className={labelClass()}>{label}</dt>
+      <dd className="mt-1 text-sm font-maison-neue text-Charcoal">
+        {value || "—"}
+      </dd>
+    </div>
+  )
+}
+
 function formatOptionalDate(value?: string) {
   return formatOrderDate(value) || undefined
-}
-
-function formatLegacySource(value?: string) {
-  if (!value) return undefined
-  return value.replace(/[_-]/g, " ")
-}
-
-function legacyDocumentLabel(order: StaffExceptionOrderDetail) {
-  const ref =
-    order.legacy?.refNumber || order.displayId.replace(/^Legacy\s+/i, "")
-  return ref ? `Invoice ${ref}` : "QuickBooks invoice"
 }
 
 function LegacyOrderReadOnlyPanel({
@@ -386,6 +431,23 @@ function LegacyOrderReadOnlyPanel({
   const legacy = order.legacy
   const hasItems = order.items.length > 0
 
+  // Map the QB Docs essentials onto the data we actually have.
+  // Sales Order ≈ the QuickBooks ref number + placed date.
+  const salesOrderNumber =
+    legacy?.refNumber || order.displayId.replace(/^Legacy\s+/i, "")
+  const salesOrderDate = formatOptionalDate(legacy?.placedAt || order.createdAt)
+  // Invoice number / date are not distinguished from the Sales Order in the
+  // current legacy import — no real backing data, so these stay placeholders.
+  const invoiceNumber: string | undefined = undefined
+  const invoiceDate: string | undefined = undefined
+  // "Order Source" (Staff ID vs Customer Submitted) is not captured for
+  // historical QuickBooks orders — no real backing data.
+  const orderSource: string | undefined = undefined
+
+  const totalSalesOrder = formatMoney(order.total, order.currencyCode)
+  // A distinct invoiced total is not imported separately from the SO total.
+  const totalInvoiced: string | undefined = undefined
+
   return (
     <div className="grid gap-5 p-5">
       <div className="rounded-md border border-Gold/35 bg-Gold/10 p-4 text-sm font-maison-neue text-Charcoal/75">
@@ -394,88 +456,33 @@ function LegacyOrderReadOnlyPanel({
         QuickBooks or the operations workflow.
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(260px,0.9fr)]">
-        <section className="rounded-md border border-gray-100 p-4">
-          <div className="flex items-center gap-2">
-            <FileText className="h-4 w-4 text-Charcoal/55" />
-            <h3 className="text-sm font-maison-neue font-semibold text-Charcoal">
-              QuickBooks document
-            </h3>
-          </div>
-          <dl className="mt-4 grid gap-3 small:grid-cols-2">
-            <DetailRow label="Document" value={legacyDocumentLabel(order)} />
-            <DetailRow
-              label="Source"
-              value={formatLegacySource(legacy?.source)}
-            />
-            <DetailRow label="Ref number" value={legacy?.refNumber} />
-            <DetailRow label="Txn ID" value={legacy?.qbdTxnId} />
-            <DetailRow
-              label="Placed"
-              value={formatOptionalDate(legacy?.placedAt || order.createdAt)}
-            />
-            <DetailRow
-              label="Ship date"
-              value={formatOptionalDate(legacy?.shipDate)}
-            />
-            <DetailRow
-              label="Imported"
-              value={formatOptionalDate(legacy?.importedAt)}
-            />
-            <DetailRow label="Source order" value={legacy?.sourceOrderId} />
-            <DetailRow label="Legacy order" value={legacy?.legacyOrderId} />
-          </dl>
-        </section>
-
-        <section className="rounded-md border border-gray-100 p-4">
-          <div className="flex items-center gap-2">
-            <CreditCard className="h-4 w-4 text-Charcoal/55" />
-            <h3 className="text-sm font-maison-neue font-semibold text-Charcoal">
-              Totals and customer
-            </h3>
-          </div>
-          <dl className="mt-4 grid gap-3 small:grid-cols-2">
-            <DetailRow label="Customer" value={order.customerName} />
-            <DetailRow label="Email" value={order.email} />
-            <DetailRow label="QBD customer" value={legacy?.qbdCustomerListId} />
-            <DetailRow
-              label="Legacy customer"
-              value={legacy?.legacyCustomerId}
-            />
-            <DetailRow
-              label="Linked Medusa customer"
-              value={legacy?.medusaCustomerId}
-            />
-            <DetailRow
-              label="Subtotal"
-              value={formatMoney(order.subtotal, order.currencyCode)}
-            />
-            <DetailRow
-              label="Discount"
-              value={formatMoney(order.discountTotal, order.currencyCode)}
-            />
-            <DetailRow
-              label="Shipping"
-              value={formatMoney(order.shippingTotal, order.currencyCode)}
-            />
-            <DetailRow
-              label="Tax"
-              value={formatMoney(order.taxTotal, order.currencyCode)}
-            />
-            <DetailRow
-              label="Total"
-              value={formatMoney(order.total, order.currencyCode)}
-            />
-          </dl>
-        </section>
-      </div>
+      <section className="rounded-md border border-gray-100 p-4">
+        <div className="flex items-center gap-2">
+          <FileText className="h-4 w-4 text-Charcoal/55" />
+          <h3 className="text-sm font-maison-neue font-semibold text-Charcoal">
+            QuickBooks document
+          </h3>
+        </div>
+        <dl className="mt-4 grid gap-3 small:grid-cols-2">
+          <DetailRowAlways label="Invoice number" value={invoiceNumber} />
+          <DetailRowAlways label="Invoice date" value={invoiceDate} />
+          <DetailRowAlways label="Sales order number" value={salesOrderNumber} />
+          <DetailRowAlways label="Sales order date" value={salesOrderDate} />
+          <DetailRowAlways label="Order source" value={orderSource} />
+          <DetailRowAlways
+            label="Total sales order"
+            value={totalSalesOrder}
+          />
+          <DetailRowAlways label="Total invoiced" value={totalInvoiced} />
+        </dl>
+      </section>
 
       <section className="rounded-md border border-gray-100 p-4">
         <div className="flex flex-col gap-2 small:flex-row small:items-center small:justify-between">
           <div className="flex items-center gap-2">
             <ShoppingBasket className="h-4 w-4 text-Charcoal/55" />
             <h3 className="text-sm font-maison-neue font-semibold text-Charcoal">
-              Read-only invoice lines
+              Invoice lines
             </h3>
           </div>
           {statusChip(
@@ -485,50 +492,42 @@ function LegacyOrderReadOnlyPanel({
         </div>
 
         {hasItems ? (
-          <div className="mt-4 divide-y divide-gray-100">
-            {order.items.map((item) => (
-              <div
-                className="grid gap-3 py-4 lg:grid-cols-[minmax(0,1fr)_88px_108px_112px]"
-                key={item.id}
-              >
-                <div className="min-w-0">
-                  <p className="text-sm font-maison-neue font-semibold text-Charcoal">
-                    {item.title}
-                  </p>
-                  <p className="mt-1 text-xs font-maison-neue text-Charcoal/55">
-                    {[item.subtitle, item.sku ? `SKU ${item.sku}` : ""]
-                      .filter(Boolean)
-                      .join(" | ")}
-                  </p>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {item.qbdListId && statusChip(`QBD ${item.qbdListId}`)}
-                    {item.qbdTxnLineId && statusChip("Txn line")}
-                    {item.mappingStatus && statusChip(item.mappingStatus)}
-                    {item.lineKind && statusChip(item.lineKind)}
-                    {item.customerVisible === false &&
-                      statusChip("non customer line")}
+          <div className="mt-4">
+            <div className="hidden grid-cols-[minmax(0,1fr)_104px_104px] gap-3 border-b border-gray-100 pb-2 lg:grid">
+              <span className={labelClass()}>Description</span>
+              <span className={`${labelClass()} lg:text-right`}>
+                Qty ordered
+              </span>
+              <span className={`${labelClass()} lg:text-right`}>
+                Qty invoiced
+              </span>
+            </div>
+            <div className="divide-y divide-gray-100">
+              {order.items.map((item) => (
+                <div
+                  className="grid gap-3 py-3 lg:grid-cols-[minmax(0,1fr)_104px_104px]"
+                  key={item.id}
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-maison-neue font-semibold text-Charcoal">
+                      {item.title}
+                    </p>
+                  </div>
+                  <div className="lg:text-right">
+                    <p className={`${labelClass()} lg:hidden`}>Qty ordered</p>
+                    <p className="mt-1 text-sm font-maison-neue font-semibold text-Charcoal lg:mt-0">
+                      {item.quantity}
+                    </p>
+                  </div>
+                  <div className="lg:text-right">
+                    <p className={`${labelClass()} lg:hidden`}>Qty invoiced</p>
+                    <p className="mt-1 text-sm font-maison-neue font-semibold text-Charcoal lg:mt-0">
+                      {item.fulfilledQuantity}
+                    </p>
                   </div>
                 </div>
-                <div>
-                  <p className={labelClass()}>Qty</p>
-                  <p className="mt-1 text-sm font-maison-neue font-semibold text-Charcoal">
-                    {item.quantity}
-                  </p>
-                </div>
-                <div>
-                  <p className={labelClass()}>Unit</p>
-                  <p className="mt-1 text-sm font-maison-neue font-semibold text-Charcoal">
-                    {formatMoney(item.unitPrice, order.currencyCode)}
-                  </p>
-                </div>
-                <div className="lg:text-right">
-                  <p className={labelClass()}>Line total</p>
-                  <p className="mt-1 text-sm font-maison-neue font-semibold text-Charcoal">
-                    {formatMoney(item.total, order.currencyCode)}
-                  </p>
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         ) : (
           <div className="mt-4 rounded-md border border-gray-100 bg-SilverPlate/30 p-4">
@@ -1150,8 +1149,14 @@ export default function StaffOrderExceptionConsole({
   const [fulfillmentTypeFilter, setFulfillmentTypeFilter] = useState<
     StaffFulfillmentType | ""
   >("")
-  const [dateFromFilter, setDateFromFilter] = useState("")
-  const [dateToFilter, setDateToFilter] = useState("")
+  // Default the window to one year back through today. Staff can clear or
+  // widen it; an empty value means "no bound" on that side.
+  const [dateFromFilter, setDateFromFilter] = useState(
+    () => defaultOrderDateRange().dateFrom
+  )
+  const [dateToFilter, setDateToFilter] = useState(
+    () => defaultOrderDateRange().dateTo
+  )
   const [orderSort, setOrderSort] =
     useState<StaffExceptionOrderSortKey>("created_desc")
   const [page, setPage] = useState(1)
@@ -1634,11 +1639,12 @@ export default function StaffOrderExceptionConsole({
 
               <div className="grid gap-2 small:grid-cols-2">
                 <label className="flex min-w-0 flex-col gap-1">
-                  <span className={labelClass()}>Ship / pickup from</span>
+                  <span className={labelClass()}>Order date from</span>
                   <input
                     className={fieldClass()}
                     type="date"
                     value={dateFromFilter}
+                    max={dateToFilter || undefined}
                     onChange={(event) => {
                       setDateFromFilter(event.target.value)
                       setPage(1)
@@ -1646,11 +1652,12 @@ export default function StaffOrderExceptionConsole({
                   />
                 </label>
                 <label className="flex min-w-0 flex-col gap-1">
-                  <span className={labelClass()}>Through</span>
+                  <span className={labelClass()}>Order date through</span>
                   <input
                     className={fieldClass()}
                     type="date"
                     value={dateToFilter}
+                    min={dateFromFilter || undefined}
                     onChange={(event) => {
                       setDateToFilter(event.target.value)
                       setPage(1)
