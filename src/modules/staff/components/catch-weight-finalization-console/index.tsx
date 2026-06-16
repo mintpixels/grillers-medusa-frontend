@@ -134,13 +134,10 @@ const shipperOptions = [
 ]
 
 type FinalizationPhase = "picking" | "packing"
-type QueueSortKey =
-  | "ship_date_asc"
-  | "ship_date_desc"
-  | "order_newest"
-  | "order_oldest"
-  | "total_desc"
-  | "total_asc"
+// #269: the queue sort dropdown only offers ship-date ordering. The other four
+// keys (order_newest/order_oldest/total_desc/total_asc) were removed from the
+// UI; narrow the type so the dead switch branches can be dropped too.
+type QueueSortKey = "ship_date_asc" | "ship_date_desc"
 
 function money(value?: number | string | null, currencyCode = "usd") {
   const amount = Number(value)
@@ -224,11 +221,6 @@ function queueDisplayIdValue(item: StaffCatchWeightFinalizationSummary) {
   return Number.isFinite(fallback) ? fallback : 0
 }
 
-function queueTotalValue(item: StaffCatchWeightFinalizationSummary) {
-  const total = Number(item.final_order_total ?? item.estimated_order_total)
-  return Number.isFinite(total) ? total : 0
-}
-
 function compareQueueDates(
   a: StaffCatchWeightFinalizationSummary,
   b: StaffCatchWeightFinalizationSummary,
@@ -250,8 +242,6 @@ function compareQueueOrders(
 ) {
   const orderA = queueDisplayIdValue(a)
   const orderB = queueDisplayIdValue(b)
-  const totalA = queueTotalValue(a)
-  const totalB = queueTotalValue(b)
 
   switch (sortKey) {
     case "ship_date_desc": {
@@ -259,16 +249,6 @@ function compareQueueOrders(
       if (dateCompare) return dateCompare
       return orderA - orderB
     }
-    case "order_newest":
-      return orderB - orderA
-    case "order_oldest":
-      return orderA - orderB
-    case "total_desc":
-      if (totalA !== totalB) return totalB - totalA
-      return compareQueueDates(a, b)
-    case "total_asc":
-      if (totalA !== totalB) return totalA - totalB
-      return compareQueueDates(a, b)
     case "ship_date_asc":
     default: {
       const dateCompare = compareQueueDates(a, b)
@@ -2551,12 +2531,11 @@ export default function StaffCatchWeightFinalizationConsole({
                       setQueueSort(event.target.value as QueueSortKey)
                     }
                   >
+                    {/* #269: Peter only wants Ship Date (= due date the order
+                        must leave the plant) sort. Order-# and Total sorts
+                        removed; the queue still defaults to earliest. */}
                     <option value="ship_date_asc">Ship date, earliest</option>
                     <option value="ship_date_desc">Ship date, latest</option>
-                    <option value="order_newest">Order #, newest</option>
-                    <option value="order_oldest">Order #, oldest</option>
-                    <option value="total_desc">Total, high to low</option>
-                    <option value="total_asc">Total, low to high</option>
                   </select>
                 </label>
                 <label className="flex min-h-[42px] items-center gap-2 rounded-md border border-gray-200 bg-white px-3 text-sm font-maison-neue text-Charcoal">
