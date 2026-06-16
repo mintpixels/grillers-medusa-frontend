@@ -862,6 +862,9 @@ function LineEditor({
   >("idle")
   const [isPending, startTransition] = useTransition()
   const [isSearchPending, startSearchTransition] = useTransition()
+  // #271: collapse each line to a single row by default; the operator can open
+  // the exception controls, and they auto-open when a line needs attention.
+  const [manuallyExpanded, setManuallyExpanded] = useState(false)
   const lastSavedSignature = useRef(draftSignature(draft))
   const latestDraftSignature = useRef(draftSignature(draft))
   const isRemoved = draft.status === "removed"
@@ -1224,90 +1227,230 @@ function LineEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft, orderId, line.line_item_id])
 
+  // #271: one-line-per-item. The row is collapsed by default; it auto-expands
+  // (and can't be collapsed) while the line still needs the operator.
+  const orderedText = numberText(line.ordered_quantity) || "0"
+  const needsPackWeights =
+    requiresActualWeight &&
+    packingPhase &&
+    enteredWeightCount < Math.max(1, expectedWeights)
+  // An unresolved error (local validation, failed autosave, or a server-reported
+  // line error) must auto-expand so the error banner + Save Line are never
+  // hidden behind a collapsed row.
+  const lineHasError =
+    Boolean(error) || saveState === "error" || Boolean(serverLineErrorMessage)
+  // A non-blocking exception (saved partial shortage, server warning) keeps a
+  // visible row state even when collapsed, so it isn't mistaken for a clean line.
+  const hasWarning =
+    !hasBlockingReadinessIssue &&
+    !isRemoved &&
+    !isSubstituted &&
+    !lineHasError &&
+    (visibleReadinessIssues.length > 0 || Boolean(serverLineWarningMessage))
+  const autoExpand =
+    hasBlockingReadinessIssue ||
+    isRemoved ||
+    isSubstituted ||
+    needsPackWeights ||
+    lineHasError
+  const expanded = manuallyExpanded || autoExpand
+
+  function setFull() {
+    if (!canEdit || orderedCount <= 0) return
+    update("actual_quantity", String(orderedCount))
+  }
+
+  const rowGlyph = lineHasError
+    ? { icon: "⚠", cls: "text-red-600", label: "Save error — open to fix" }
+    : isRemoved
+      ? { icon: "⊘", cls: "text-amber-600", label: "Out of stock" }
+      : isSubstituted
+        ? { icon: "⇄", cls: "text-blue-600", label: "Substituted" }
+        : hasBlockingReadinessIssue
+          ? { icon: "⚠", cls: "text-amber-600", label: "Needs attention" }
+          : needsPackWeights
+            ? { icon: "◐", cls: "text-blue-600", label: "Needs weights" }
+            : hasWarning
+              ? { icon: "!", cls: "text-blue-600", label: "Exception recorded" }
+              : draft.status === "ready"
+                ? { icon: "✓", cls: "text-emerald-600", label: "Ready" }
+                : { icon: "○", cls: "text-Charcoal/30", label: "Not started" }
+
+  const saveGlyph =
+    saveState === "saving"
+      ? { icon: "⟳", cls: "text-Charcoal/40", label: "Saving" }
+      : saveState === "saved"
+        ? { icon: "✓", cls: "text-emerald-600", label: "Saved" }
+        : saveState === "error"
+          ? { icon: "⚠", cls: "text-red-600", label: "Autosave failed" }
+          : { icon: "", cls: "", label: "" }
+
   return (
     <div className="border-b border-gray-200 px-4 py-4 last:border-b-0">
       <div
-        className={`rounded-md border bg-white p-4 ${
-          hasBlockingReadinessIssue
-            ? "border-amber-300"
-            : visibleReadinessIssues.length
-            ? "border-blue-200"
-            : "border-gray-100"
+        className={`rounded-md border p-2 ${
+          lineHasError
+            ? "border-red-300 bg-red-50/40"
+            : hasBlockingReadinessIssue
+              ? "border-amber-300 bg-amber-50/40"
+              : isRemoved
+                ? "border-amber-200 bg-amber-50/25"
+                : isSubstituted
+                  ? "border-blue-200 bg-blue-50/25"
+                  : hasWarning
+                    ? "border-blue-200 bg-blue-50/20"
+                    : "border-gray-100 bg-white"
         }`}
       >
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <h4 className="min-w-0 text-base font-maison-neue font-semibold leading-snug text-Charcoal">
+        {/* #271: compact one-line row — read item, enter qty, done. */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          <span
+            className={`shrink-0 text-base leading-none ${rowGlyph.cls}`}
+            role="img"
+            aria-label={rowGlyph.label}
+            title={rowGlyph.label}
+          >
+            {rowGlyph.icon}
+          </span>
+
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+              <span className="truncate text-sm font-maison-neue font-semibold text-Charcoal">
                 {title}
-              </h4>
+              </span>
               {pricingBasisBadge(requiresActualWeight)}
               {statusBadge(draft.status)}
             </div>
-            <p className="mt-1 truncate text-[11px] font-maison-neue-mono uppercase text-Charcoal/45">
+            <span className="block truncate text-[11px] font-maison-neue-mono uppercase text-Charcoal/45">
               {skuSummary}
-            </p>
-            <p className="mt-2 text-sm font-maison-neue text-Charcoal/60">
-              Ordered {numberText(line.ordered_quantity) || "0"} |{" "}
-              {quantityInputLabel} {effectiveActualQuantity || "0"}
-              {packingPhase && pickedCount > 0
-                ? ` | picked ${numberText(pickedCount)}`
-                : ""}
-              {requiresActualWeight && packingPhase
-                ? ` | weighed ${enteredWeightCount}/${expectedWeights || "?"}`
-                : ""}
-              {line.estimated_weight_total !== null &&
-              line.estimated_weight_total !== undefined
-                ? ` | est. ${numberText(line.estimated_weight_total)} lb`
-                : ""}
-              {requiresActualWeight && effectiveUnitWeightTotal > 0
-                ? ` | actual ${numberText(effectiveUnitWeightTotal)} lb`
-                : ""}
-              {line.final_line_total !== null &&
-              line.final_line_total !== undefined
-                ? ` | final ${money(line.final_line_total, currencyCode)}`
-                : ""}
-            </p>
-            {replacementSummary && (
-              <p className="mt-1 truncate text-xs font-maison-neue text-blue-700">
-                Replacement: {replacementSummary}
-              </p>
-            )}
-            {visibleReadinessIssues.length > 0 && (
-              <div
-                className={`mt-3 rounded-md border px-3 py-2 text-sm ${
-                  hasBlockingReadinessIssue
-                    ? "border-amber-200 bg-amber-50 text-amber-900"
-                    : "border-blue-100 bg-blue-50/70 text-blue-900"
-                }`}
-              >
-                <p className="font-maison-neue font-semibold">
-                  {hasBlockingReadinessIssue
-                    ? "Needs attention before handoff"
-                    : "Intentional exception"}
-                </p>
-                <ul className="mt-1 list-disc space-y-1 pl-5 font-maison-neue">
-                  {visibleReadinessIssues.map((issue) => (
-                    <li key={`${issue.tone}-${issue.message}`}>
-                      {issue.message}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
+            </span>
           </div>
-          <Button
-            className={`${primaryButtonClass} w-full sm:w-auto`}
-            disabled={!canEdit}
-            isLoading={isPending || saveState === "saving"}
-            onClick={save}
-            type="button"
-          >
-            Save Line
-          </Button>
-        </div>
 
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="hidden shrink-0 whitespace-nowrap text-sm font-maison-neue text-Charcoal/55 sm:block">
+            Ord {orderedText}
+          </div>
+
+          {isRemoved ? (
+            <span className="shrink-0 whitespace-nowrap text-sm font-maison-neue font-semibold text-amber-700">
+              Out of stock
+            </span>
+          ) : requiresActualWeight && packingPhase ? (
+            <button
+              type="button"
+              onClick={() => setManuallyExpanded(true)}
+              className="shrink-0 whitespace-nowrap rounded-md border border-blue-200 bg-blue-50 px-2.5 py-2 text-xs font-maison-neue text-blue-900"
+            >
+              Weigh {enteredWeightCount}/{expectedWeights || "?"}
+              {effectiveUnitWeightTotal > 0
+                ? ` · ${numberText(effectiveUnitWeightTotal)} lb`
+                : ""}
+            </button>
+          ) : (
+            <div className="flex shrink-0 items-center gap-1.5">
+              <span className="hidden text-[11px] font-maison-neue-mono uppercase text-Charcoal/45 sm:inline">
+                {quantityInputLabel}
+              </span>
+              <input
+                className={`${fieldClass} w-14 text-center`}
+                inputMode="decimal"
+                value={draft.actual_quantity}
+                disabled={!canEdit || isRemoved}
+                onChange={(event) =>
+                  update("actual_quantity", event.target.value)
+                }
+                aria-label={`${quantityInputLabel} quantity for ${title}`}
+              />
+              {canEdit &&
+                orderedCount > 0 &&
+                actualQuantityValue(draft) !== orderedCount && (
+                  <button
+                    type="button"
+                    onClick={setFull}
+                    className="rounded-md border border-gray-200 bg-white px-2 py-2 text-[11px] font-rexton font-bold uppercase text-Charcoal hover:border-Gold/70"
+                  >
+                    Full
+                  </button>
+                )}
+            </div>
+          )}
+
+          <span
+            className={`inline-block w-5 shrink-0 text-center text-sm ${saveGlyph.cls}`}
+            title={saveGlyph.label}
+            aria-label={saveGlyph.label || undefined}
+          >
+            {saveGlyph.icon}
+          </span>
+
+          <button
+            type="button"
+            onClick={() => setManuallyExpanded((value) => !value)}
+            disabled={autoExpand && !manuallyExpanded}
+            aria-expanded={expanded}
+            aria-label={expanded ? "Collapse line details" : "Open line details"}
+            className={`shrink-0 rounded-md border px-2 py-2 text-xs leading-none ${
+              autoExpand && !manuallyExpanded
+                ? "cursor-default border-transparent text-Charcoal/25"
+                : "border-gray-200 text-Charcoal/60 hover:border-Gold/70"
+            }`}
+          >
+            {expanded ? "▲" : "▼"}
+          </button>
+        </div>
+      </div>
+
+      {expanded && (
+        <div className="mt-2 rounded-md border border-gray-100 bg-SilverPlate/20 p-4">
+          <p className="text-sm font-maison-neue text-Charcoal/60">
+            Ordered {orderedText} | {quantityInputLabel}{" "}
+            {effectiveActualQuantity || "0"}
+            {packingPhase && pickedCount > 0
+              ? ` | picked ${numberText(pickedCount)}`
+              : ""}
+            {requiresActualWeight && packingPhase
+              ? ` | weighed ${enteredWeightCount}/${expectedWeights || "?"}`
+              : ""}
+            {line.estimated_weight_total !== null &&
+            line.estimated_weight_total !== undefined
+              ? ` | est. ${numberText(line.estimated_weight_total)} lb`
+              : ""}
+            {requiresActualWeight && effectiveUnitWeightTotal > 0
+              ? ` | actual ${numberText(effectiveUnitWeightTotal)} lb`
+              : ""}
+            {line.final_line_total !== null &&
+            line.final_line_total !== undefined
+              ? ` | final ${money(line.final_line_total, currencyCode)}`
+              : ""}
+          </p>
+          {replacementSummary && (
+            <p className="mt-1 truncate text-xs font-maison-neue text-blue-700">
+              Replacement: {replacementSummary}
+            </p>
+          )}
+          {visibleReadinessIssues.length > 0 && (
+            <div
+              className={`mt-3 rounded-md border px-3 py-2 text-sm ${
+                hasBlockingReadinessIssue
+                  ? "border-amber-200 bg-amber-50 text-amber-900"
+                  : "border-blue-100 bg-blue-50/70 text-blue-900"
+              }`}
+            >
+              <p className="font-maison-neue font-semibold">
+                {hasBlockingReadinessIssue
+                  ? "Needs attention before handoff"
+                  : "Intentional exception"}
+              </p>
+              <ul className="mt-1 list-disc space-y-1 pl-5 font-maison-neue">
+                {visibleReadinessIssues.map((issue) => (
+                  <li key={`${issue.tone}-${issue.message}`}>
+                    {issue.message}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {requiresActualWeight && packingPhase ? (
             <div className="min-w-0 sm:col-span-2 xl:col-span-4">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -1369,27 +1512,7 @@ function LineEditor({
             </div>
           )}
 
-          <div className="flex min-w-0 flex-col gap-1">
-            <span className={labelClass}>Ordered</span>
-            <div className="flex min-h-[42px] items-center rounded-md border border-gray-100 bg-gray-50 px-3 text-sm text-Charcoal/70">
-              {numberText(line.ordered_quantity) || "0"}
-            </div>
-          </div>
-
-          <label className="flex min-w-0 flex-col gap-1">
-            <span className={labelClass}>{quantityInputLabel}</span>
-            <input
-              className={fieldClass}
-              inputMode="decimal"
-              value={draft.actual_quantity}
-              disabled={
-                !canEdit || isRemoved || (requiresActualWeight && packingPhase)
-              }
-              onChange={(event) =>
-                update("actual_quantity", event.target.value)
-              }
-            />
-          </label>
+          {/* Ordered + picked/packed qty now live on the compact row (#271). */}
 
           {canPickLineExceptions && (
             <div className="flex min-w-0 flex-col gap-1 sm:col-span-2 xl:col-span-2">
@@ -1613,16 +1736,28 @@ function LineEditor({
               serverLineWarningMessage}
           </p>
         )}
-        <p className="mt-3 text-xs font-maison-neue text-Charcoal/45">
-          {saveState === "saving"
-            ? "Autosaving..."
-            : saveState === "saved"
-            ? "Saved"
-            : saveState === "error"
-            ? "Autosave failed"
-            : "Changes save automatically"}
-        </p>
-      </div>
+        <div className="mt-4 flex items-center justify-between gap-3">
+          <p className="text-xs font-maison-neue text-Charcoal/45">
+            {saveState === "saving"
+              ? "Autosaving..."
+              : saveState === "saved"
+                ? "Saved"
+                : saveState === "error"
+                  ? "Autosave failed"
+                  : "Changes save automatically"}
+          </p>
+          <Button
+            className={`${primaryButtonClass} w-full sm:w-auto`}
+            disabled={!canEdit}
+            isLoading={isPending || saveState === "saving"}
+            onClick={save}
+            type="button"
+          >
+            Save Line
+          </Button>
+        </div>
+        </div>
+      )}
     </div>
   )
 }
