@@ -191,7 +191,14 @@ const CheckoutSummary = ({
           <span className="text-gray-400">Subtotal</span>
           <span className="text-white">
             {convertToLocale({
-              amount: cart.subtotal ?? 0,
+              // Items only. Medusa's cart.subtotal already includes
+              // shipping_subtotal, so using it here double-counts shipping and
+              // makes the Subtotal equal the Total (shipping appears "missing").
+              amount:
+                (cart as any).item_subtotal ??
+                (cart as any).item_total ??
+                cart.subtotal ??
+                0,
               currency_code: cart.currency_code,
             })}
           </span>
@@ -199,7 +206,11 @@ const CheckoutSummary = ({
 
         <FulfillmentProgress
           subtotal={eligibleSubtotal}
-          cartSubtotal={cart.subtotal}
+          cartSubtotal={
+            (cart as any).item_subtotal ??
+            (cart as any).item_total ??
+            cart.subtotal
+          }
           excludedSubtotal={excludedSubtotal}
           currencyCode={cart.currency_code}
           shipState={cart.shipping_address?.province}
