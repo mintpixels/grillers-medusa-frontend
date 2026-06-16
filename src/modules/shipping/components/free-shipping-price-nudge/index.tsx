@@ -1,6 +1,7 @@
 "use client"
 
 import { convertToLocale } from "@lib/util/money"
+import { getFreeDeliveryEligibleSubtotal } from "@lib/util/free-delivery-eligibility"
 import { CheckCircleSolid, XMark } from "@medusajs/icons"
 import {
   HttpTypes,
@@ -21,7 +22,13 @@ const computeTarget = (
     (pr) => pr.attribute === "item_total"
   )!
 
-  const currentAmount = cart.item_total
+  // #265: progress toward free shipping must reflect only free-delivery-eligible
+  // items — SKUs flagged `QualifiesForFreeDeliveryOffers = false` (bulk/
+  // institutional packs, large turkeys) should not advance the threshold. Use
+  // the eligible subtotal instead of the raw cart.item_total. (GP's live free
+  // shipping is driven by free-shipping.ts, so this stock Medusa item_total
+  // nudge is typically inert; this keeps it consistent if ever configured.)
+  const currentAmount = getFreeDeliveryEligibleSubtotal(cart.items)
   const targetAmount = parseFloat(priceRule.value)
 
   if (priceRule.operator === "gt") {

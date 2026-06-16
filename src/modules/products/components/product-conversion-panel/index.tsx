@@ -67,6 +67,8 @@ export default function ProductConversionPanel({
         shipState={cartState?.shipState}
         postalCode={cartState?.postalCode}
         atlantaZipConfig={cartState?.atlantaZipConfig}
+        inRegionThreshold={cartState?.inRegionThreshold}
+        nationalThreshold={cartState?.nationalThreshold}
         context="pdp"
       />
     </div>

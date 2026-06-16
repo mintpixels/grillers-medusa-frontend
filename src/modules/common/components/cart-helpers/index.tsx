@@ -28,6 +28,9 @@ type FreeShippingHelperProps = {
   fulfillmentType?: FulfillmentType
   className?: string
   variant?: "light" | "dark"
+  /** #266: Strapi-editable UPS free-shipping thresholds. Null → constants. */
+  inRegionThreshold?: number | null
+  nationalThreshold?: number | null
 }
 
 export const FreeShippingHelper: React.FC<FreeShippingHelperProps> = ({
@@ -37,11 +40,19 @@ export const FreeShippingHelper: React.FC<FreeShippingHelperProps> = ({
   fulfillmentType,
   className = "",
   variant = "light",
+  inRegionThreshold,
+  nationalThreshold,
 }) => {
   const sub = subtotal ?? 0
   if (sub <= 0) return null
 
-  const state = getFreeShippingState({ subtotal: sub, fulfillmentType, shipState })
+  const state = getFreeShippingState({
+    subtotal: sub,
+    fulfillmentType,
+    shipState,
+    inRegionThreshold,
+    nationalThreshold,
+  })
   const { qualified, isPlantPickup } = state
 
   let message: React.ReactNode = null

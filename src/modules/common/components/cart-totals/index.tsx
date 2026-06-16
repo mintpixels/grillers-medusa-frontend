@@ -19,6 +19,17 @@ type CartTotalsProps = {
   hasNetWeightItems?: boolean
   shipState?: string | null
   fulfillmentType?: FulfillmentType
+  /**
+   * Free-shipping-eligible subtotal (excludes SKUs flagged
+   * `QualifiesForFreeDeliveryOffers = false`). When provided, the free-shipping
+   * progress message uses this instead of the raw `subtotal` so excluded items
+   * (bulk/institutional packs, large turkeys, etc.) don't advance the threshold
+   * — issue #265. Falls back to `subtotal` when omitted.
+   */
+  freeShippingSubtotal?: number | null
+  /** #266: Strapi-editable UPS free-shipping thresholds. Null → constants. */
+  inRegionThreshold?: number | null
+  nationalThreshold?: number | null
 }
 
 // Net-weight info tooltip component
@@ -67,6 +78,9 @@ const CartTotals: React.FC<CartTotalsProps> = ({
   hasNetWeightItems = false,
   shipState,
   fulfillmentType,
+  freeShippingSubtotal,
+  inRegionThreshold,
+  nationalThreshold,
 }) => {
   const {
     currency_code,
@@ -84,10 +98,12 @@ const CartTotals: React.FC<CartTotalsProps> = ({
     <div>
       <div className="flex flex-col gap-y-2 txt-medium text-ui-fg-subtle ">
         <FreeShippingHelper
-          subtotal={subtotal}
+          subtotal={freeShippingSubtotal ?? subtotal}
           currencyCode={currency_code}
           shipState={shipState}
           fulfillmentType={fulfillmentType}
+          inRegionThreshold={inRegionThreshold}
+          nationalThreshold={nationalThreshold}
           className="mb-1"
         />
         <div className="flex items-center justify-between">

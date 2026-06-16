@@ -47,6 +47,8 @@ const CartTemplate = ({
   atlantaZipConfig,
   productDetailsMap = {},
   cartUpsellVariant,
+  inRegionThreshold,
+  nationalThreshold,
 }: {
   cart: HttpTypes.StoreCart | null
   customer: HttpTypes.StoreCustomer | null
@@ -55,6 +57,9 @@ const CartTemplate = ({
   atlantaZipConfig?: Record<string, AtlantaZipDayConfig>
   productDetailsMap?: CartProductDetailsMap
   cartUpsellVariant?: string | null
+  /** #266: Strapi-editable UPS free-shipping thresholds. Null → constants. */
+  inRegionThreshold?: number | null
+  nationalThreshold?: number | null
 }) => {
   return (
     <div className="py-12">
@@ -89,6 +94,8 @@ const CartTemplate = ({
                         cart={cart as any}
                         deliveryZip={deliveryZip}
                         atlantaZipConfig={atlantaZipConfig}
+                        inRegionThreshold={inRegionThreshold}
+                        nationalThreshold={nationalThreshold}
                       />
                     </div>
                   </>

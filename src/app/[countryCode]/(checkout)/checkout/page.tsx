@@ -210,25 +210,46 @@ async function getFulfillmentConfig(): Promise<
   }
 }
 
-async function getPickupCreditConfig(): Promise<PickupCreditConfig> {
+// #266: the Strapi-editable UPS free-shipping thresholds. Null → the cart /
+// checkout free-shipping surfaces fall back to IN_REGION_THRESHOLD /
+// NATIONAL_THRESHOLD constants.
+type CheckoutShippingSettings = {
+  pickupCredit: PickupCreditConfig
+  inRegionThreshold: number | null
+  nationalThreshold: number | null
+}
+
+const defaultCheckoutShippingSettings: CheckoutShippingSettings = {
+  pickupCredit: defaultPickupCreditConfig,
+  inRegionThreshold: null,
+  nationalThreshold: null,
+}
+
+// Single Strapi fetch that surfaces BOTH the plant-pickup credit config and
+// the UPS free-shipping thresholds, so checkout doesn't issue two requests.
+async function getCheckoutShippingSettings(): Promise<CheckoutShippingSettings> {
   try {
     const data = await strapiClient.request<ShippingSettingData>(
       ShippingSettingQuery
     )
     if (data?.shippingSetting) {
       return {
-        threshold:
-          data.shippingSetting.PlantPickupDiscountThreshold ??
-          defaultPickupCreditConfig.threshold,
-        creditAmount:
-          data.shippingSetting.PlantPickUpDiscount ??
-          defaultPickupCreditConfig.creditAmount,
-        promoCode: defaultPickupCreditConfig.promoCode,
+        pickupCredit: {
+          threshold:
+            data.shippingSetting.PlantPickupDiscountThreshold ??
+            defaultPickupCreditConfig.threshold,
+          creditAmount:
+            data.shippingSetting.PlantPickUpDiscount ??
+            defaultPickupCreditConfig.creditAmount,
+          promoCode: defaultPickupCreditConfig.promoCode,
+        },
+        inRegionThreshold: data.shippingSetting.UPSInRegionFreeThreshold ?? null,
+        nationalThreshold: data.shippingSetting.UPSNationalFreeThreshold ?? null,
       }
     }
-    return defaultPickupCreditConfig
+    return defaultCheckoutShippingSettings
   } catch {
-    return defaultPickupCreditConfig
+    return defaultCheckoutShippingSettings
   }
 }
 
@@ -288,12 +309,19 @@ export default async function Checkout({ params, searchParams }: PageProps) {
   const { syncFreeShippingPromotion } = await import(
     "@lib/data/free-shipping-promo"
   )
-  const appliedCode = await syncFreeShippingPromotion(cart)
-  const hadFreeShipBefore = (cart.promotions || []).some(
-    (p) =>
-      p.code === "GP_FREESHIP_INREGION" || p.code === "GP_FREESHIP_NATIONAL"
+  // syncFreeShippingPromotion returns the array of codes now on the cart.
+  // Boolean(array) is ALWAYS true, so compare actual free-ship presence before
+  // vs after — otherwise a free-ship promo that got REMOVED (e.g. eligible
+  // subtotal dropped below threshold once flagged SKUs are excluded) would not
+  // trigger a re-fetch and checkout would render stale free shipping/totals.
+  const appliedCodes = await syncFreeShippingPromotion(cart)
+  const isFreeShipCode = (code: string | null | undefined) =>
+    code === "GP_FREESHIP_INREGION" || code === "GP_FREESHIP_NATIONAL"
+  const hadFreeShipBefore = (cart.promotions || []).some((p) =>
+    isFreeShipCode(p.code)
   )
-  if (Boolean(appliedCode) !== hadFreeShipBefore) {
+  const hasFreeShipNow = appliedCodes.some(isFreeShipCode)
+  if (hasFreeShipNow !== hadFreeShipBefore) {
     const fresh = await retrieveCart(cart.id)
     if (fresh) cart = fresh
   }
@@ -304,12 +332,12 @@ export default async function Checkout({ params, searchParams }: PageProps) {
     getAddressBookDeliveryZip(customer?.addresses)
   const [
     fulfillmentConfig,
-    pickupCreditConfig,
+    shippingSettings,
     availableFulfillmentTypes,
     productDetailsMap,
   ] = await Promise.all([
     getFulfillmentConfig(),
-    getPickupCreditConfig(),
+    getCheckoutShippingSettings(),
     getAvailableFulfillmentTypes(cart.id),
     withTimeout(
       buildCartProductDetailsMap(cart.items),
@@ -318,6 +346,7 @@ export default async function Checkout({ params, searchParams }: PageProps) {
       "checkout product details"
     ),
   ])
+  const pickupCreditConfig = shippingSettings.pickupCredit
 
   return (
     <div className="relative min-h-[calc(100vh-8rem)]">
@@ -353,6 +382,8 @@ export default async function Checkout({ params, searchParams }: PageProps) {
             atlantaZipConfig={fulfillmentConfig.AtlantaDeliveryZipDays}
             productDetailsMap={productDetailsMap}
             deliveryZip={deliveryZip}
+            inRegionThreshold={shippingSettings.inRegionThreshold}
+            nationalThreshold={shippingSettings.nationalThreshold}
           />
         </div>
       </div>

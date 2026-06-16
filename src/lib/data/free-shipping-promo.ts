@@ -12,6 +12,9 @@ import {
 } from "@lib/util/free-shipping-codes"
 import { getAuthHeaders } from "./cookies"
 import { normalizeUpsServiceCode } from "@lib/util/eligible-arrival-dates"
+import { getFreeDeliveryEligibleSubtotal } from "@lib/util/free-delivery-eligibility"
+import { getFreeShippingThresholds } from "./strapi/checkout"
+import { withTimeout } from "@lib/util/promise-timeout"
 import { emitStorefrontOpsAlert } from "@lib/ops-alert"
 
 function selectedUpsServiceCode(cart: HttpTypes.StoreCart): string | null {
@@ -62,7 +65,27 @@ export async function syncFreeShippingPromotion(
   const selectedServiceCode = selectedUpsServiceCode(cart)
   // Medusa v2 store-API returns monetary fields as decimal dollars (e.g.
   // 1590.73), NOT cents. Do not divide by 100.
-  const subtotalDollars = cart.subtotal ?? 0
+  //
+  // #265: gate the free-ship / pickup-credit promos on the FREE-DELIVERY
+  // ELIGIBLE subtotal, not the raw cart subtotal. SKUs flagged
+  // `metadata.free_delivery_eligible = false` (bulk/institutional packs,
+  // large turkeys, etc.) must not advance the free-shipping threshold. This
+  // is the authoritative gate that actually mutates the cart, so it has to
+  // agree with the FulfillmentProgress UI (which already uses the eligible
+  // subtotal). Requires `cart.items` to be populated — the retrieve `fields`
+  // below request `*items`.
+  const subtotalDollars = getFreeDeliveryEligibleSubtotal(cart.items)
+  // #266: gate on the SAME Strapi-editable thresholds the UI shows, so the
+  // applied free-ship/credit discount can't diverge from the displayed "$X
+  // away". getFreeShippingThresholds safe-fails to {null,null} → constants.
+  // Hot path (runs on every cart mutation): never let a slow Strapi block the
+  // cart — time out fast and fall back to {null,null} → hardcoded constants.
+  const { inRegionThreshold, nationalThreshold } = await withTimeout(
+    getFreeShippingThresholds(),
+    400,
+    { inRegionThreshold: null, nationalThreshold: null },
+    "free-ship promo thresholds"
+  )
   const currentCodes = (cart.promotions || [])
     .map((p) => p.code)
     .filter(Boolean) as string[]
@@ -74,6 +97,8 @@ export async function syncFreeShippingPromotion(
       shipState,
       destinationZip,
       selectedUpsServiceCode: selectedServiceCode,
+      inRegionThreshold,
+      nationalThreshold,
     }),
     pickPlantPickupCredit({
       eligibleSubtotalDollars: subtotalDollars,
@@ -82,6 +107,7 @@ export async function syncFreeShippingPromotion(
     pickSoutheastPickupCredit({
       eligibleSubtotalDollars: subtotalDollars,
       fulfillmentType,
+      inRegionThreshold,
     }),
   ].filter(Boolean) as string[]
 
@@ -188,8 +214,11 @@ export async function syncFreeShippingPromotionByCartId(cartId: string) {
   const { cart } = await sdk.store.cart.retrieve(
     cartId,
     {
+      // #265: include `*items.metadata` and per-item price fields so the
+      // free-delivery-eligible subtotal can be computed (excluded SKUs are
+      // flagged via line-item metadata).
       fields:
-        "*items, *shipping_address, *promotions, *shipping_methods, +subtotal, *metadata",
+        "*items, *items.metadata, +items.subtotal, +items.unit_price, *shipping_address, *promotions, *shipping_methods, +subtotal, *metadata",
     },
     headers
   )
