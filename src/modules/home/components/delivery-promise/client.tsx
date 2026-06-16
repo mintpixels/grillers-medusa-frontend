@@ -6,6 +6,7 @@ import { lookupUpsGroundDays } from "@lib/util/eligible-arrival-dates"
 import {
   IN_REGION_THRESHOLD,
   NATIONAL_THRESHOLD,
+  resolveFreeShippingThreshold,
 } from "@lib/util/free-shipping"
 import {
   clearStoredDeliveryZip,
@@ -41,7 +42,9 @@ function pluralizeDays(days: number): string {
 function getPromise(
   zip: string,
   atlantaZipCodes: Set<string>,
-  isLoggedIn: boolean
+  isLoggedIn: boolean,
+  inRegionThreshold: number,
+  nationalThreshold: number
 ): PromiseResult {
   if (!zip) {
     return {
@@ -52,7 +55,7 @@ function getPromise(
         : "See your cold-chain options before you shop",
       detail: isLoggedIn
         ? "Save an address once and we will show local delivery, regional pickup, or UPS cold-chain transit before checkout."
-        : `Atlanta delivery and regional pickup can unlock free delivery at $${IN_REGION_THRESHOLD}. UPS cold-chain shipping is free nationwide at $${NATIONAL_THRESHOLD}.`,
+        : `Atlanta delivery and regional pickup can unlock free delivery at $${inRegionThreshold}. UPS cold-chain shipping is free nationwide at $${nationalThreshold}.`,
       badge: "Enter ZIP",
     }
   }
@@ -75,7 +78,7 @@ function getPromise(
       kind: "atlanta",
       eyebrow: "Local route likely available",
       headline: "Atlanta delivery available for this ZIP",
-      detail: `Free local delivery starts at $${IN_REGION_THRESHOLD}. Checkout confirms your exact delivery day and any route minimums before payment.`,
+      detail: `Free local delivery starts at $${inRegionThreshold}. Checkout confirms your exact delivery day and any route minimums before payment.`,
       badge: "Atlanta delivery",
     }
   }
@@ -85,7 +88,7 @@ function getPromise(
     kind: "ups",
     eyebrow: "UPS cold-chain estimate",
     headline: `About ${pluralizeDays(days)} in transit`,
-    detail: `Frozen orders ship insulated with dry ice where needed. Free nationwide UPS Ground starts at $${NATIONAL_THRESHOLD}.`,
+    detail: `Frozen orders ship insulated with dry ice where needed. Free nationwide UPS Ground starts at $${nationalThreshold}.`,
     ctaHref: "/shipping/ups",
     ctaLabel: "Shipping details",
     badge: "Ships nationwide",
@@ -123,13 +126,25 @@ export default function DeliveryPromiseClient({
   initialZip,
   initialZipSource = null,
   isLoggedIn = false,
+  inRegionThreshold,
+  nationalThreshold,
 }: {
   countryCode: string
   atlantaZipCodes: string[]
   initialZip?: string | null
   initialZipSource?: DeliveryZipSource
   isLoggedIn?: boolean
+  inRegionThreshold?: number | null
+  nationalThreshold?: number | null
 }) {
+  const inRegionT = resolveFreeShippingThreshold(
+    inRegionThreshold,
+    IN_REGION_THRESHOLD
+  )
+  const nationalT = resolveFreeShippingThreshold(
+    nationalThreshold,
+    NATIONAL_THRESHOLD
+  )
   const normalizedInitialZip = normalizeDeliveryZip(initialZip)
   const normalizedInitialSource = normalizedInitialZip
     ? initialZipSource || (isLoggedIn ? "address" : "saved")
@@ -167,8 +182,8 @@ export default function DeliveryPromiseClient({
   }, [isLoggedIn, normalizedInitialSource, normalizedInitialZip])
 
   const result = useMemo(
-    () => getPromise(submittedZip, atlantaSet, isLoggedIn),
-    [submittedZip, atlantaSet, isLoggedIn]
+    () => getPromise(submittedZip, atlantaSet, isLoggedIn, inRegionT, nationalT),
+    [submittedZip, atlantaSet, isLoggedIn, inRegionT, nationalT]
   )
 
   const submitZip = (event: React.FormEvent<HTMLFormElement>) => {
@@ -187,7 +202,13 @@ export default function DeliveryPromiseClient({
     }
     jitsuTrack("delivery_zip_checked", {
       zip_prefix: normalized.slice(0, 3),
-      result_kind: getPromise(normalized, atlantaSet, isLoggedIn).kind,
+      result_kind: getPromise(
+        normalized,
+        atlantaSet,
+        isLoggedIn,
+        inRegionT,
+        nationalT
+      ).kind,
       country_code: countryCode,
     })
   }

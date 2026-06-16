@@ -1,4 +1,5 @@
 import { getAtlantaDeliveryZipConfig } from "@lib/data/strapi/fulfillment"
+import { getFreeShippingThresholds } from "@lib/data/strapi/checkout"
 import { getDeliveryZipCookie } from "@lib/data/delivery-zip"
 import { normalizeDeliveryZip } from "@lib/util/delivery-zip"
 import DeliveryPromiseClient from "./client"
@@ -20,12 +21,16 @@ export default async function DeliveryPromiseSection({
   useStorefrontSession?: boolean
 }) {
   const atlantaZipConfig = await getAtlantaDeliveryZipConfig()
+  const { inRegionThreshold, nationalThreshold } =
+    await getFreeShippingThresholds()
 
   if (useStorefrontSession) {
     return (
       <DeliveryPromiseSession
         countryCode={countryCode}
         atlantaZipCodes={Object.keys(atlantaZipConfig)}
+        inRegionThreshold={inRegionThreshold}
+        nationalThreshold={nationalThreshold}
       />
     )
   }
@@ -47,6 +52,8 @@ export default async function DeliveryPromiseSection({
       initialZip={initialZip}
       initialZipSource={initialZipSource}
       isLoggedIn={isLoggedIn}
+      inRegionThreshold={inRegionThreshold}
+      nationalThreshold={nationalThreshold}
     />
   )
 }
