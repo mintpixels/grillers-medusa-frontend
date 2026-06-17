@@ -29,7 +29,6 @@ export type MerchandisingProductImage = {
   role: "featured" | "gallery"
   name: string
   url: string
-  displayUrl: string
   thumbnailUrl?: string
   alternativeText?: string | null
   caption?: string | null
@@ -244,22 +243,9 @@ function reviewCaption(
 }
 
 function imageUrl(image: RawImage) {
-  const formats = image.formats || {}
-  const thumbnail = formats.thumbnail?.url
-  // Prefer a Strapi-generated derivative (large/medium ~750-1000px) for the
-  // review grid: crisp at the ~600px display size but far lighter than the full
-  // original. Sourcing the full original made next/image choke on image-heavy
-  // pages (36 originals at once). All formats share the thumbnail's host, which
-  // is already allowed, so this loads where the original did not.
-  const display =
-    text(formats.large?.url) ||
-    text(formats.medium?.url) ||
-    text(formats.small?.url) ||
-    text(thumbnail) ||
-    text(image.url)
+  const thumbnail = image.formats?.thumbnail?.url
   return {
     url: text(image.url),
-    displayUrl: display,
     thumbnailUrl: text(thumbnail) || text(image.url),
   }
 }
@@ -279,7 +265,6 @@ function merchandisingImage(
     role,
     name: text(image.name) || `Image ${image.id}`,
     url: urls.url,
-    displayUrl: urls.displayUrl,
     thumbnailUrl: urls.thumbnailUrl,
     alternativeText: image.alternativeText || null,
     caption: image.caption || null,
