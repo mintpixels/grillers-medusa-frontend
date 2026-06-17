@@ -9,6 +9,7 @@ import FulfillmentProgress from "@modules/common/components/fulfillment-progress
 import Divider from "@modules/common/components/divider"
 import DiscountCode from "@modules/checkout/components/discount-code"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
+import { getItemsSubtotal } from "@lib/util/cart-totals"
 import InventoryResolutionNotice from "@modules/checkout/components/inventory-resolution-notice"
 import { HttpTypes } from "@medusajs/types"
 import { clearFulfillmentDetails, type FulfillmentType } from "@lib/data/cart"
@@ -106,11 +107,7 @@ const Summary = ({
       <DiscountCode cart={cart} />
       <FulfillmentProgress
         subtotal={eligibleSubtotal}
-        cartSubtotal={
-          (cart as any).item_subtotal ??
-          (cart as any).item_total ??
-          cart.subtotal
-        }
+        cartSubtotal={getItemsSubtotal(cart)}
         excludedSubtotal={excludedSubtotal}
         currencyCode={cart.currency_code}
         fulfillmentType={fulfillmentType}

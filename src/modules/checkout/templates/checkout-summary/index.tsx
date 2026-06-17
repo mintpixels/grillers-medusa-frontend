@@ -2,6 +2,7 @@
 
 import { HttpTypes } from "@medusajs/types"
 import { convertToLocale } from "@lib/util/money"
+import { getItemsSubtotal } from "@lib/util/cart-totals"
 import { useProductFeaturedImageSrc } from "@lib/hooks/use-product-featured-image"
 import { useProductTitle } from "@lib/hooks/use-product-title"
 import DiscountCode from "@modules/checkout/components/discount-code"
@@ -191,14 +192,7 @@ const CheckoutSummary = ({
           <span className="text-gray-400">Subtotal</span>
           <span className="text-white">
             {convertToLocale({
-              // Items only. Medusa's cart.subtotal already includes
-              // shipping_subtotal, so using it here double-counts shipping and
-              // makes the Subtotal equal the Total (shipping appears "missing").
-              amount:
-                (cart as any).item_subtotal ??
-                (cart as any).item_total ??
-                cart.subtotal ??
-                0,
+              amount: getItemsSubtotal(cart),
               currency_code: cart.currency_code,
             })}
           </span>
@@ -206,11 +200,7 @@ const CheckoutSummary = ({
 
         <FulfillmentProgress
           subtotal={eligibleSubtotal}
-          cartSubtotal={
-            (cart as any).item_subtotal ??
-            (cart as any).item_total ??
-            cart.subtotal
-          }
+          cartSubtotal={getItemsSubtotal(cart)}
           excludedSubtotal={excludedSubtotal}
           currencyCode={cart.currency_code}
           shipState={cart.shipping_address?.province}
