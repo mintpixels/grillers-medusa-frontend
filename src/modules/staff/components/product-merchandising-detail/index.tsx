@@ -268,7 +268,7 @@ function ImageCard({
           src={image.thumbnailUrl || image.url}
           alt={image.alternativeText || image.name}
           fill
-          sizes="(min-width: 1440px) 220px, (min-width: 1024px) 20vw, 50vw"
+          sizes="(min-width: 1024px) 600px, (min-width: 640px) 50vw, 100vw"
           className="object-cover"
         />
         <div className="absolute inset-0 flex items-end bg-gradient-to-t from-Charcoal/80 via-Charcoal/10 to-transparent p-3 opacity-0 transition group-hover:opacity-100">
@@ -564,7 +564,7 @@ export default function ProductMerchandisingDetailView({
                   )}
                 </div>
 
-                <div className="mt-5 grid grid-cols-2 gap-3 medium:grid-cols-3 large:grid-cols-4 xlarge:grid-cols-5">
+                <div className="mt-5 grid grid-cols-1 gap-3 small:grid-cols-[repeat(auto-fit,minmax(340px,1fr))]">
                   {product.images.length ? (
                     visibleImages.map((image) => (
                       <ImageCard
