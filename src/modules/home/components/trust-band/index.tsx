@@ -65,7 +65,7 @@ export default async function TrustBand({
 
   let shippingPill: string
   if (isInRegion) {
-    shippingPill = `Frozen with dry ice · free delivery over $${IN_REGION_THRESHOLD} in your area`
+    shippingPill = `Frozen with dry ice · free shipping over $${IN_REGION_THRESHOLD} in your area`
   } else if (isOutOfRegion) {
     shippingPill = `Frozen with dry ice · free shipping over $${NATIONAL_THRESHOLD} nationwide`
   } else {

@@ -351,7 +351,7 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
     {
       id: "southeast_pickup" as FulfillmentType,
       title: "Southeast Pickup",
-      subtitle: "Free over $250 + $15 credit",
+      subtitle: "Free over $350 + $20 credit",
       icon: <MapPinIcon />,
       available: availability.southeastPickup,
       amountAway: availability.southeastAmountAway,

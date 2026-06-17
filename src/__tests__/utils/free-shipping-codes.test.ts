@@ -94,9 +94,21 @@ describe("UPS free-shipping service selection", () => {
   })
 
   it("attaches the correct regional or national code to the cheapest valid UPS service", () => {
+    // In-region UPS Ground is now free at $350 (was $250) — a $250 order no
+    // longer qualifies.
     expect(
       pickFreeShippingCode({
         eligibleSubtotalDollars: 250,
+        fulfillmentType: "ups_shipping",
+        shipState: "GA",
+        destinationZip: "30340",
+        selectedUpsServiceCode: "GROUND",
+      })
+    ).toBeNull()
+
+    expect(
+      pickFreeShippingCode({
+        eligibleSubtotalDollars: 350,
         fulfillmentType: "ups_shipping",
         shipState: "GA",
         destinationZip: "30340",
@@ -113,6 +125,37 @@ describe("UPS free-shipping service selection", () => {
         selectedUpsServiceCode: "3_DAY_SELECT",
       })
     ).toBe(FREE_SHIP_NATIONAL_CODE)
+  })
+
+  it("keeps Atlanta home delivery free at $250 while in-region UPS / SE pickup move to $350", () => {
+    // Atlanta delivery: free at $250 (its own lower local threshold).
+    expect(
+      pickFreeShippingCode({
+        eligibleSubtotalDollars: 250,
+        fulfillmentType: "atlanta_delivery",
+      })
+    ).toBe(FREE_SHIP_IN_REGION_CODE)
+    // $249.99 Atlanta delivery does not qualify.
+    expect(
+      pickFreeShippingCode({
+        eligibleSubtotalDollars: 249.99,
+        fulfillmentType: "atlanta_delivery",
+      })
+    ).toBeNull()
+
+    // Southeast pickup: free at $350, NOT $250.
+    expect(
+      pickFreeShippingCode({
+        eligibleSubtotalDollars: 250,
+        fulfillmentType: "southeast_pickup",
+      })
+    ).toBeNull()
+    expect(
+      pickFreeShippingCode({
+        eligibleSubtotalDollars: 350,
+        fulfillmentType: "southeast_pickup",
+      })
+    ).toBe(FREE_SHIP_IN_REGION_CODE)
   })
 
   it("uses the documented Southeast Pickup credit amount", () => {
@@ -145,7 +188,7 @@ describe("UPS free-shipping service selection", () => {
   })
 
   it("ignores a 0/invalid Strapi threshold and falls back to the constant (#266 safety)", () => {
-    // A bogus 0 threshold must NOT make a sub-$250 order free.
+    // A bogus 0 threshold must NOT make a sub-$350 order free.
     expect(
       pickFreeShippingCode({
         eligibleSubtotalDollars: 100,
@@ -156,10 +199,10 @@ describe("UPS free-shipping service selection", () => {
         inRegionThreshold: 0,
       })
     ).toBeNull()
-    // At the constant $250 it qualifies again.
+    // At the constant $350 it qualifies again.
     expect(
       pickFreeShippingCode({
-        eligibleSubtotalDollars: 250,
+        eligibleSubtotalDollars: 350,
         fulfillmentType: "ups_shipping",
         shipState: "GA",
         destinationZip: "30340",
