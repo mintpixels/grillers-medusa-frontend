@@ -1,14 +1,13 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { Loader2, RefreshCw } from "lucide-react"
-import {
-  getProductMerchandisingTags,
-  type ProductMerchandisingTagSummary,
-} from "@lib/data/staff/product-merchandising"
+import type { ProductMerchandisingTagSummary } from "@lib/data/staff/product-merchandising"
 import ProductMerchandisingTable from "@modules/staff/components/product-merchandising-table"
 
 type LoadState = "loading" | "ready" | "error"
+
+const TAGS_ENDPOINT = "/api/staff/merchandising/tags"
 
 export default function StaffMerchandisingWorkspace() {
   const [tags, setTags] = useState<ProductMerchandisingTagSummary[]>([])
@@ -16,27 +15,39 @@ export default function StaffMerchandisingWorkspace() {
   const [error, setError] = useState<string | null>(null)
   const [reloadKey, setReloadKey] = useState(0)
 
+  // Load via a plain fetch (NOT a Server Action). Clicking the workspace tile
+  // triggers a client navigation on the force-dynamic staff console, and Next.js
+  // serializes Server Actions behind in-flight navigations — a Server Action
+  // here would be queued and never dispatch, hanging the spinner. A plain fetch
+  // dispatches immediately and is unaffected by the pending navigation.
   useEffect(() => {
-    let active = true
+    const controller = new AbortController()
     setState("loading")
     setError(null)
 
-    getProductMerchandisingTags()
-      .then((result) => {
-        if (!active) return
-        setTags(result)
+    fetch(TAGS_ENDPOINT, {
+      signal: controller.signal,
+      cache: "no-store",
+      headers: { Accept: "application/json" },
+    })
+      .then(async (res) => {
+        const body = await res.json().catch(() => ({}))
+        if (!res.ok) {
+          throw new Error(body?.error || `Request failed (${res.status}).`)
+        }
+        setTags(Array.isArray(body?.tags) ? body.tags : [])
         setState("ready")
       })
       .catch((err) => {
-        if (!active) return
+        if (controller.signal.aborted) return
         setError(err instanceof Error ? err.message : String(err))
         setState("error")
       })
 
-    return () => {
-      active = false
-    }
+    return () => controller.abort()
   }, [reloadKey])
+
+  const reload = useCallback(() => setReloadKey((key) => key + 1), [])
 
   return (
     <div className="space-y-5">
@@ -55,7 +66,7 @@ export default function StaffMerchandisingWorkspace() {
         </div>
         <button
           type="button"
-          onClick={() => setReloadKey((key) => key + 1)}
+          onClick={reload}
           disabled={state === "loading"}
           className="inline-flex min-h-[40px] w-fit items-center justify-center gap-2 rounded-md border border-Charcoal px-3.5 text-sm font-maison-neue font-semibold text-Charcoal transition hover:bg-Charcoal hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
         >
@@ -77,7 +88,7 @@ export default function StaffMerchandisingWorkspace() {
           {error && <p className="mt-1 text-red-700/80">{error}</p>}
           <button
             type="button"
-            onClick={() => setReloadKey((key) => key + 1)}
+            onClick={reload}
             className="mt-3 inline-flex min-h-[40px] items-center justify-center gap-2 rounded-md border border-red-300 bg-white px-3.5 text-sm font-rexton font-bold uppercase text-red-700 transition hover:bg-red-100"
           >
             <RefreshCw className="h-4 w-4" aria-hidden />
