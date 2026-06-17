@@ -1,6 +1,6 @@
 import { retrieveAuthenticatedCustomerForStaffAccess } from "@lib/data/customer"
 import { getCommunicationOverview } from "@lib/data/staff/communications"
-import { isStaffCustomer } from "@lib/util/staff-access"
+import { canUseOfficeConsole } from "@lib/util/staff-access"
 import StaffCommunicationsConsole from "@modules/staff/components/communications-console"
 import { Metadata } from "next"
 import { notFound, redirect } from "next/navigation"
@@ -28,7 +28,7 @@ export default async function StaffCommunicationsPage({
     redirect(`/${countryCode}/account`)
   }
 
-  if (!isStaffCustomer(customer)) {
+  if (!canUseOfficeConsole(customer)) {
     notFound()
   }
 

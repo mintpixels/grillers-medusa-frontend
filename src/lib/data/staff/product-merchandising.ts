@@ -4,7 +4,7 @@ import "server-only"
 
 import { revalidatePath } from "next/cache"
 import { retrieveAuthenticatedCustomerForStaffAccess } from "@lib/data/customer"
-import { isStaffCustomer, staffDisplayName } from "@lib/util/staff-access"
+import { canReviewMerchandising, staffDisplayName } from "@lib/util/staff-access"
 
 type AnyRecord = Record<string, any>
 
@@ -159,8 +159,8 @@ function strapiRewriteHeaders() {
 
 async function requireStaffCustomer() {
   const customer = await retrieveAuthenticatedCustomerForStaffAccess()
-  if (!customer || !isStaffCustomer(customer)) {
-    throw new Error("Staff access required.")
+  if (!customer || !canReviewMerchandising(customer)) {
+    throw new Error("Merchandising reviewer access required.")
   }
   return customer
 }

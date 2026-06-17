@@ -13,6 +13,7 @@ export type StaffAccessRole =
   | "picker"
   | "packer"
   | "manager"
+  | "merchandising_reviewer"
   | "super_admin"
 
 export const STAFF_ROLE_OPTIONS: Array<{
@@ -61,6 +62,13 @@ export const STAFF_ROLE_OPTIONS: Array<{
     description:
       "Office plus pick/pack access, exception review, and optional final charge permission.",
     confirmation: "MANAGER",
+  },
+  {
+    value: "merchandising_reviewer",
+    label: "Merchandising reviewer",
+    description:
+      "Product merchandising only: review L3 product photo groups and approve/reject images. No order, customer, or pick/pack access.",
+    confirmation: "MERCHANDISING",
   },
   {
     value: "super_admin",
@@ -154,6 +162,14 @@ export function staffMetadataRole(metadata: StaffMetadata): StaffAccessRole {
   }
 
   if (
+    role === "merchandising_reviewer" ||
+    role === "merchandising-reviewer" ||
+    role === "merchandising"
+  ) {
+    return "merchandising_reviewer"
+  }
+
+  if (
     role === "office" ||
     role === "picker" ||
     role === "packer" ||
@@ -204,6 +220,15 @@ export function isSuperAdminCustomer(customer: StaffCustomerLike): boolean {
 export function canChargeFinalOrders(customer: StaffCustomerLike): boolean {
   if (isSuperAdminCustomer(customer)) return true
 
+  // Final charge is a money action layered on top of a pick/pack role. A stray
+  // metadata flag must never grant it to office, merchandising, or customers.
+  if (
+    !canPickCatchWeightOrders(customer) &&
+    !canPackCatchWeightOrders(customer)
+  ) {
+    return false
+  }
+
   const metadata = (customer?.metadata || {}) as StaffMetadata
   return [
     metadata?.final_charge_enabled,
@@ -231,6 +256,11 @@ export function canPackCatchWeightOrders(customer: StaffCustomerLike): boolean {
 export function canManageOrderSupport(customer: StaffCustomerLike): boolean {
   const role = staffAccessRole(customer)
   return ["staff", "office", "manager", "super_admin"].includes(role)
+}
+
+export function canReviewMerchandising(customer: StaffCustomerLike): boolean {
+  const role = staffAccessRole(customer)
+  return ["merchandising_reviewer", "super_admin"].includes(role)
 }
 
 export function isExplicitStaffDeny(value: unknown): boolean {

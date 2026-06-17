@@ -2,7 +2,21 @@
 
 import "server-only"
 
+import { retrieveAuthenticatedCustomerForStaffAccess } from "@lib/data/customer"
+import { canUseOfficeConsole } from "@lib/util/staff-access"
 import { adminFetch } from "./admin"
+
+// Customer communications (timelines, campaigns, direct sends, imports, flow
+// runs) are an office-console capability. Gate every server action so narrow
+// roles (picker, packer, merchandising reviewer) and non-staff sessions cannot
+// reach these admin endpoints directly.
+async function requireCommunicationsStaff() {
+  const staff = await retrieveAuthenticatedCustomerForStaffAccess()
+  if (!staff || !canUseOfficeConsole(staff)) {
+    throw new Error("Office console access required.")
+  }
+  return staff
+}
 
 export type CommunicationOverview = {
   metrics: {
@@ -155,10 +169,12 @@ export type CommunicationTimeline = {
 }
 
 export async function getCommunicationOverview() {
+  await requireCommunicationsStaff()
   return adminFetch<CommunicationOverview>("/admin/grillers/communications")
 }
 
 export async function searchCommunicationProfiles(query: string) {
+  await requireCommunicationsStaff()
   return adminFetch<{ profiles: CommunicationProfile[] }>(
     "/admin/grillers/communications/profiles",
     { query: { q: query, limit: 25 } }
@@ -166,6 +182,7 @@ export async function searchCommunicationProfiles(query: string) {
 }
 
 export async function getCommunicationProfileTimeline(profileId: string) {
+  await requireCommunicationsStaff()
   return adminFetch<CommunicationTimeline>(
     `/admin/grillers/communications/profiles/${profileId}`
   )
@@ -181,6 +198,7 @@ export async function createCommunicationCampaign(input: {
   intro?: string
   scheduled_at?: string
 }) {
+  await requireCommunicationsStaff()
   return adminFetch<{ campaign: CommunicationCampaign }>(
     "/admin/grillers/communications/campaigns",
     {
@@ -194,6 +212,7 @@ export async function importConstantContactRows(input: {
   filename?: string
   rows: Record<string, unknown>[]
 }) {
+  await requireCommunicationsStaff()
   return adminFetch<{
     ok: boolean
     import_run_id: string
@@ -209,6 +228,7 @@ export async function sendCommunicationCampaign(
   campaignId: string,
   input: { test_email?: string } = {}
 ) {
+  await requireCommunicationsStaff()
   return adminFetch<{
     ok: boolean
     sent: number
@@ -231,6 +251,7 @@ export async function sendStaffCommunication(input: {
   order_id?: string
   profile_id?: string
 }) {
+  await requireCommunicationsStaff()
   return adminFetch<{ ok: boolean; skipped?: boolean; messageId?: string }>(
     "/admin/grillers/communications/send",
     {
@@ -241,6 +262,7 @@ export async function sendStaffCommunication(input: {
 }
 
 export async function runCommunicationFlowsNow() {
+  await requireCommunicationsStaff()
   return adminFetch<{
     ok: boolean
     lifecycle: { updated: number }

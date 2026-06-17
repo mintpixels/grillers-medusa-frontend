@@ -6,7 +6,7 @@ import { sdk } from "@lib/config"
 import { retrieveAuthenticatedCustomerForStaffAccess } from "@lib/data/customer"
 import { getRegion } from "@lib/data/regions"
 import { sendEmail } from "@lib/postmark"
-import { staffDisplayName, isStaffCustomer } from "@lib/util/staff-access"
+import { staffDisplayName, canUseOfficeConsole } from "@lib/util/staff-access"
 import { stripPhone } from "@lib/util/format-phone"
 import { buildSmsMarketingConsentMetadata } from "@lib/util/sms-consent"
 import medusaError from "@lib/util/medusa-error"
@@ -309,8 +309,10 @@ async function requireStaff() {
   if (!customer) {
     throw new Error("Sign in with a staff account to use phone order entry.")
   }
-  if (!isStaffCustomer(customer)) {
-    throw new Error("Staff access required.")
+  // Phone order entry, customer search/creation, and account actions are
+  // office-console capabilities — excludes picker/packer/merchandising roles.
+  if (!canUseOfficeConsole(customer)) {
+    throw new Error("Office console access required.")
   }
   return customer
 }
