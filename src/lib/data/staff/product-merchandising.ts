@@ -4,7 +4,7 @@ import "server-only"
 
 import { revalidatePath } from "next/cache"
 import { retrieveAuthenticatedCustomerForStaffAccess } from "@lib/data/customer"
-import { isStaffCustomer, staffDisplayName } from "@lib/util/staff-access"
+import { canReviewMerchandising, staffDisplayName } from "@lib/util/staff-access"
 
 type AnyRecord = Record<string, any>
 
@@ -29,6 +29,7 @@ export type MerchandisingProductImage = {
   role: "featured" | "gallery"
   name: string
   url: string
+  displayUrl: string
   thumbnailUrl?: string
   alternativeText?: string | null
   caption?: string | null
@@ -159,8 +160,8 @@ function strapiRewriteHeaders() {
 
 async function requireStaffCustomer() {
   const customer = await retrieveAuthenticatedCustomerForStaffAccess()
-  if (!customer || !isStaffCustomer(customer)) {
-    throw new Error("Staff access required.")
+  if (!customer || !canReviewMerchandising(customer)) {
+    throw new Error("Merchandising reviewer access required.")
   }
   return customer
 }
@@ -243,9 +244,21 @@ function reviewCaption(
 }
 
 function imageUrl(image: RawImage) {
-  const thumbnail = image.formats?.thumbnail?.url
+  const formats = image.formats || {}
+  const thumbnail = formats.thumbnail?.url
+  // Source a Strapi-generated derivative (large/medium ~750-1000px) for the
+  // review grid: crisp at the ~600px display size yet far lighter than the full
+  // original. All derivatives share the thumbnail's host (already allowed), and
+  // fall back to the thumbnail/original so this is never worse than before.
+  const display =
+    text(formats.large?.url) ||
+    text(formats.medium?.url) ||
+    text(formats.small?.url) ||
+    text(thumbnail) ||
+    text(image.url)
   return {
     url: text(image.url),
+    displayUrl: display,
     thumbnailUrl: text(thumbnail) || text(image.url),
   }
 }
@@ -265,6 +278,7 @@ function merchandisingImage(
     role,
     name: text(image.name) || `Image ${image.id}`,
     url: urls.url,
+    displayUrl: urls.displayUrl,
     thumbnailUrl: urls.thumbnailUrl,
     alternativeText: image.alternativeText || null,
     caption: image.caption || null,

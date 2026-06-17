@@ -3,7 +3,10 @@
 import "server-only"
 
 import { retrieveAuthenticatedCustomerForStaffAccess } from "@lib/data/customer"
-import { isStaffCustomer, staffDisplayName } from "@lib/util/staff-access"
+import {
+  canUseOfficeConsole,
+  staffDisplayName,
+} from "@lib/util/staff-access"
 import {
   clearStaffImpersonationCookie,
   readStaffImpersonationCookie,
@@ -13,8 +16,10 @@ import type { StaffImpersonationSession } from "./impersonation-types"
 
 async function requireStaffForImpersonation() {
   const staff = await retrieveAuthenticatedCustomerForStaffAccess()
-  if (!staff || !isStaffCustomer(staff)) {
-    throw new Error("Staff access required.")
+  // Impersonation is an office-console capability. Narrow roles (picker,
+  // packer, merchandising reviewer) must never enter a customer's session.
+  if (!staff || !canUseOfficeConsole(staff)) {
+    throw new Error("Office console access required.")
   }
   return staff
 }
@@ -26,7 +31,11 @@ export async function getStaffImpersonationSession(): Promise<StaffImpersonation
   const staff = await retrieveAuthenticatedCustomerForStaffAccess().catch(
     () => null
   )
-  if (!staff || !isStaffCustomer(staff) || staff.id !== session.staffCustomerId) {
+  if (
+    !staff ||
+    !canUseOfficeConsole(staff) ||
+    staff.id !== session.staffCustomerId
+  ) {
     return null
   }
 

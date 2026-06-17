@@ -2,6 +2,7 @@
 
 import { HttpTypes } from "@medusajs/types"
 import { convertToLocale } from "@lib/util/money"
+import { getItemsSubtotal } from "@lib/util/cart-totals"
 import { useProductFeaturedImageSrc } from "@lib/hooks/use-product-featured-image"
 import { useProductTitle } from "@lib/hooks/use-product-title"
 import DiscountCode from "@modules/checkout/components/discount-code"
@@ -25,6 +26,9 @@ type CheckoutSummaryProps = {
   atlantaZipConfig?: Record<string, AtlantaZipDayConfig>
   productDetailsMap?: CartProductDetailsMap
   deliveryZip?: string | null
+  /** #266: Strapi-editable UPS free-shipping thresholds. Null → constants. */
+  inRegionThreshold?: number | null
+  nationalThreshold?: number | null
 }
 
 // Item component that fetches Strapi image and title
@@ -120,6 +124,8 @@ const CheckoutSummary = ({
   atlantaZipConfig,
   productDetailsMap = {},
   deliveryZip,
+  inRegionThreshold,
+  nationalThreshold,
 }: CheckoutSummaryProps) => {
   const items = cart.items || []
   const totalItems = items.reduce((acc, item) => acc + item.quantity, 0)
@@ -186,7 +192,7 @@ const CheckoutSummary = ({
           <span className="text-gray-400">Subtotal</span>
           <span className="text-white">
             {convertToLocale({
-              amount: cart.subtotal ?? 0,
+              amount: getItemsSubtotal(cart),
               currency_code: cart.currency_code,
             })}
           </span>
@@ -194,7 +200,7 @@ const CheckoutSummary = ({
 
         <FulfillmentProgress
           subtotal={eligibleSubtotal}
-          cartSubtotal={cart.subtotal}
+          cartSubtotal={getItemsSubtotal(cart)}
           excludedSubtotal={excludedSubtotal}
           currencyCode={cart.currency_code}
           shipState={cart.shipping_address?.province}
@@ -202,6 +208,8 @@ const CheckoutSummary = ({
           fulfillmentType={fulfillmentType}
           variant="dark"
           atlantaZipConfig={atlantaZipConfig}
+          inRegionThreshold={inRegionThreshold}
+          nationalThreshold={nationalThreshold}
         />
 
         {/* Shipping line. When the free-shipping promo is on the cart, show

@@ -264,11 +264,20 @@ function ImageCard({
   return (
     <div className="group overflow-hidden rounded-md border border-gray-200 bg-white">
       <div className="relative aspect-square bg-Scroll">
+        {/*
+          Load Strapi's large/medium derivative directly (unoptimized) instead
+          of through Vercel's image optimizer. The optimizer reliably failed to
+          render these heavier sources for an image-heavy review page (~36 at
+          once) — the cards came up blank. The derivative is already ~750-1000px
+          (crisp at this ~600px display) and ~150KB, so it loads straight from
+          Strapi's CDN with no optimizer bottleneck.
+        */}
         <Image
-          src={image.thumbnailUrl || image.url}
+          src={image.displayUrl}
           alt={image.alternativeText || image.name}
           fill
-          sizes="(min-width: 1440px) 220px, (min-width: 1024px) 20vw, 50vw"
+          unoptimized
+          sizes="(min-width: 1024px) 600px, (min-width: 640px) 50vw, 100vw"
           className="object-cover"
         />
         <div className="absolute inset-0 flex items-end bg-gradient-to-t from-Charcoal/80 via-Charcoal/10 to-transparent p-3 opacity-0 transition group-hover:opacity-100">
@@ -419,7 +428,7 @@ export default function ProductMerchandisingDetailView({
       <div className="flex flex-col gap-4 large:flex-row large:items-start large:justify-between">
         <div>
           <LocalizedClientLink
-            href="/account/staff/merchandising"
+            href="/account/staff/orders?workspace=merchandising"
             className="inline-flex items-center gap-1.5 text-sm font-maison-neue font-semibold text-Charcoal/55 transition hover:text-Gold"
           >
             <ArrowLeft className="h-4 w-4" aria-hidden />

@@ -1,4 +1,6 @@
+import { cache } from "react"
 import { gql } from "graphql-request"
+import strapiClient from "@lib/strapi"
 import type { StrapiSEO } from "./seo"
 import type { AtlantaZipDayConfig } from "@lib/util/eligible-arrival-dates"
 export { ATLANTA_DELIVERY_ZIP_DAYS } from "@lib/util/atlanta-delivery-zips"
@@ -83,6 +85,11 @@ export type ShippingSettingData = {
   shippingSetting: {
     PlantPickupDiscountThreshold: number | null
     PlantPickUpDiscount: number | null
+    // #266: editable UPS free-shipping thresholds. Null until the Strapi
+    // fields are deployed/populated — callers must fall back to the
+    // hardcoded IN_REGION_THRESHOLD / NATIONAL_THRESHOLD constants.
+    UPSInRegionFreeThreshold: number | null
+    UPSNationalFreeThreshold: number | null
   } | null
 }
 
@@ -153,9 +160,43 @@ export const ShippingSettingQuery = gql`
     shippingSetting {
       PlantPickupDiscountThreshold
       PlantPickUpDiscount
+      UPSInRegionFreeThreshold
+      UPSNationalFreeThreshold
     }
   }
 `
+
+/**
+ * #266: the Strapi-editable UPS free-shipping thresholds. `null` means the
+ * field isn't populated (or the whole Strapi fetch failed) — every consumer
+ * MUST treat `null` as "use the hardcoded IN_REGION_THRESHOLD /
+ * NATIONAL_THRESHOLD default". This is intentionally a small, server-side
+ * fetch (callers invoke it once per request and prop-drill the result); it is
+ * NOT meant to run on every client render.
+ */
+export type FreeShippingThresholds = {
+  inRegionThreshold: number | null
+  nationalThreshold: number | null
+}
+
+export const getFreeShippingThresholds = cache(
+  async (): Promise<FreeShippingThresholds> => {
+    try {
+      const data = await strapiClient.request<ShippingSettingData>(
+        ShippingSettingQuery
+      )
+      return {
+        inRegionThreshold:
+          data?.shippingSetting?.UPSInRegionFreeThreshold ?? null,
+        nationalThreshold:
+          data?.shippingSetting?.UPSNationalFreeThreshold ?? null,
+      }
+    } catch {
+      // Strapi unavailable or fields not yet deployed → fall back to constants.
+      return { inRegionThreshold: null, nationalThreshold: null }
+    }
+  }
+)
 
 // ============================================
 // Existing Checkout Types

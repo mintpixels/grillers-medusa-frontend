@@ -4,7 +4,7 @@ import "server-only"
 
 import { retrieveAuthenticatedCustomerForStaffAccess } from "@lib/data/customer"
 import {
-  isStaffCustomer,
+  canManageOrderSupport,
   staffAccessRole,
   staffDisplayName,
 } from "@lib/util/staff-access"
@@ -509,6 +509,44 @@ function isoDateOnly(value: unknown): string {
   return new Date(parsed).toISOString().slice(0, 10)
 }
 
+// Convert a timestamp to the business-timezone (US Eastern) calendar date
+// (YYYY-MM-DD). Order createdAt is stored in UTC, but staff — and the
+// date-range bounds, which come from the browser's local "today" — think in
+// Eastern time. Slicing the raw UTC string off-by-ones late-evening orders
+// (an 11:30pm ET June 15 order is 03:30 UTC June 16, so a "through June 15"
+// filter would wrongly exclude it). #268 P2 (Codex review). Deterministic
+// regardless of whether this runs on the server (UTC) or the client.
+function businessCalendarDate(value: unknown): string {
+  const text = textValue(value)
+  if (!text) return ""
+  // A bare `YYYY-MM-DD` (no time component) is ALREADY a calendar date — it
+  // has no timezone, so reparsing it via Date.parse treats it as UTC midnight,
+  // which `toLocaleDateString('America/New_York', …)` then shifts back to the
+  // PRIOR ET date. Preserve date-only strings verbatim. #268 P2 (Codex
+  // review).
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text
+  const parsed = Date.parse(text)
+  if (!Number.isFinite(parsed)) return isoDateOnly(text)
+  try {
+    // Derive the Eastern-time calendar date from a full timestamp via
+    // formatToParts (deterministic across server-UTC and client-local),
+    // assembled as YYYY-MM-DD.
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/New_York",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(new Date(parsed))
+    const year = parts.find((p) => p.type === "year")?.value
+    const month = parts.find((p) => p.type === "month")?.value
+    const day = parts.find((p) => p.type === "day")?.value
+    if (year && month && day) return `${year}-${month}-${day}`
+    return isoDateOnly(text)
+  } catch {
+    return isoDateOnly(text)
+  }
+}
+
 function orderDisplayNumber(order: StaffExceptionOrderSummary): number {
   const match = order.displayId.match(/\d+/)
   return match ? Number(match[0]) : 0
@@ -571,8 +609,14 @@ function orderMatchesDateFilter(
   dateTo: string
 ): boolean {
   if (!dateFrom && !dateTo) return true
-  const date = isoDateOnly(order.fulfillmentDate)
-  if (!date) return false
+  // Filter on the order/invoice date (createdAt), which is populated for both
+  // Medusa (created_at) and legacy QuickBooks (placed_at || imported_at)
+  // orders. fulfillmentDate is undefined for legacy orders, which previously
+  // caused every legacy order to be silently dropped when a date range was set.
+  const date = businessCalendarDate(order.createdAt)
+  // If the order genuinely has no comparable date, don't drop it — a missing
+  // date should not silently hide an order from a date-filtered search.
+  if (!date) return true
   const from = isoDateOnly(dateFrom)
   const to = isoDateOnly(dateTo)
   if (from && date < from) return false
@@ -1248,8 +1292,10 @@ async function requireStaffOperator() {
   if (!staff) {
     throw new Error("Sign in with a staff account to use staff exceptions.")
   }
-  if (!isStaffCustomer(staff)) {
-    throw new Error("Staff access required.")
+  // Order support (lookups, notes, refunds, captures, cancellations, edits) is
+  // gated to office/manager/super-admin — never picker/packer/merchandising.
+  if (!canManageOrderSupport(staff)) {
+    throw new Error("Order support access required.")
   }
   return staff
 }
@@ -1911,7 +1957,13 @@ async function searchStaffExceptionOrderPage(
         {
           query: {
             q,
-            limit: 20,
+            // #268: legacy orders come back newest-first (placed_at desc) and
+            // the date filter is applied client-side. A `limit: 20` dropped
+            // older matching orders from a date-filtered search. The backend
+            // endpoint does NOT support date params and clamps `limit` to 100
+            // (server max), so request the full clamp window to give the
+            // client-side date filter enough rows without fetching unbounded.
+            limit: 100,
           },
         }
       )
@@ -1973,7 +2025,12 @@ async function searchStaffExceptionOrderPage(
                         }>("/admin/legacy-orders", {
                           query: {
                             customer_id: customer.id,
-                            limit: 10,
+                            // #268: same date-filter coverage fix as the
+                            // keyword search above — newest-first results need
+                            // a wider window (backend clamps to 100, no date
+                            // params) so a date-filtered search doesn't drop
+                            // older matching legacy orders for this customer.
+                            limit: 100,
                           },
                         })
                         addLegacyOrders(legacyByCustomer.orders)

@@ -6,7 +6,10 @@ import {
   getFreeShippingState,
   type FulfillmentType,
 } from "@lib/util/free-shipping"
-import { lookupUpsGroundDays } from "@lib/util/eligible-arrival-dates"
+import {
+  isUpsGroundAvailableForZip,
+  lookupUpsGroundDays,
+} from "@lib/util/eligible-arrival-dates"
 import { ATLANTA_DELIVERY_ZIP_DAYS } from "@lib/util/atlanta-delivery-zips"
 import {
   SE_PICKUP_CREDIT_AMOUNT,
@@ -35,6 +38,9 @@ type FulfillmentProgressProps = {
   className?: string
   context?: "cart" | "pdp"
   variant?: "light" | "dark"
+  /** #266: Strapi-editable UPS free-shipping thresholds. Null → constants. */
+  inRegionThreshold?: number | null
+  nationalThreshold?: number | null
 }
 
 const WEEKDAY_NAMES = [
@@ -89,8 +95,14 @@ function compactEtaText(
   }
 
   if (postalCode.length === 5) {
-    const days = lookupUpsGroundDays(postalCode)
-    return `UPS Ground · ~${days} business day${days === 1 ? "" : "s"}`
+    // Only advertise UPS Ground where it's actually offered (transit <= 3 business
+    // days; cold-chain-safe). Past that, Ground is filtered out of the delivery
+    // options, so the only national UPS service is Overnight — never imply Ground.
+    if (isUpsGroundAvailableForZip(postalCode)) {
+      const days = lookupUpsGroundDays(postalCode)
+      return `UPS Ground · ~${days} business day${days === 1 ? "" : "s"}`
+    }
+    return "UPS Overnight · next business day"
   }
 
   return ""
@@ -107,6 +119,8 @@ export default function FulfillmentProgress({
   atlantaZipConfig = ATLANTA_DELIVERY_ZIP_DAYS,
   className = "",
   variant = "light",
+  inRegionThreshold,
+  nationalThreshold,
 }: FulfillmentProgressProps) {
   const normalizedPropZip = normalizeDeliveryZip(postalCode)
   const [submittedZip, setSubmittedZip] = useState(normalizedPropZip)
@@ -130,6 +144,8 @@ export default function FulfillmentProgress({
     subtotal: baseSubtotal,
     fulfillmentType: effectiveFulfillmentType,
     shipState,
+    inRegionThreshold,
+    nationalThreshold,
   })
 
   const progress = state.threshold

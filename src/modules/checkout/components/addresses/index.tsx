@@ -1,6 +1,6 @@
 "use client"
 
-import { setAddresses, setOrderNotes } from "@lib/data/cart"
+import { setAddresses, setOrderNotes, clearFulfillmentDetails } from "@lib/data/cart"
 import type { FulfillmentType } from "@lib/data/cart"
 import compareAddresses from "@lib/util/compare-addresses"
 import { unscrambleAddress } from "@lib/util/format-address"
@@ -10,6 +10,7 @@ import { jitsuTrack } from "@lib/jitsu"
 import { useCartTitleMap } from "@lib/hooks/use-cart-title-map"
 import { ATLANTA_DELIVERY_ZIP_DAYS } from "@lib/util/atlanta-delivery-zips"
 import { normalizeDeliveryZip } from "@lib/util/delivery-zip"
+import { isFulfillmentTypeRegionValid } from "@lib/util/fulfillment-eligibility"
 import {
   getCheckoutAnalyticsItems,
   getCheckoutAnalyticsValue,
@@ -129,6 +130,9 @@ const Addresses = ({
   const matchesAtlantaDelivery =
     normalizedPostalCode.length === 5 &&
     activeAtlantaZipCodes.includes(normalizedPostalCode)
+  // atlanta_delivery chosen but the ZIP isn't in the local area → hard block
+  // (also enforced server-side in setAddresses): the customer must fix the ZIP
+  // or change the method.
   const addressMismatch =
     fulfillmentType === "atlanta_delivery" &&
     normalizedPostalCode.length === 5 &&
@@ -136,6 +140,14 @@ const Addresses = ({
   const addressMismatchMessage = addressMismatch
     ? "Atlanta Metro Delivery is available only for eligible Atlanta-area ZIP codes. Please update your ZIP code or change your delivery method."
     : null
+  // UPS chosen but the ZIP is inside our Atlanta delivery area → UPS isn't used
+  // locally. We DON'T block here (the customer's own address is valid); on
+  // submit we clear the method and send them back to the selector to choose
+  // local delivery or pickup. This notice just sets the expectation up front.
+  const upsInAtlantaArea =
+    fulfillmentType === "ups_shipping" &&
+    normalizedPostalCode.length === 5 &&
+    matchesAtlantaDelivery
 
   const handleEdit = () => {
     router.push(pathname + "?step=address")
@@ -147,6 +159,32 @@ const Addresses = ({
   useEffect(() => {
     if (typeof message === "string" && message.startsWith("__SUCCESS__")) {
       const countryCode = message.split(":")[1] || "us"
+
+      // The just-saved address can invalidate the chosen method (e.g. UPS to an
+      // Atlanta-area ZIP). Instead of advancing to a now-wrong delivery/payment
+      // step, clear the method and let the form collapse back to the
+      // fulfillment selector (clearing fulfillmentType drops `hasFulfillment`),
+      // so the customer re-picks a local option. FulfillmentStep also guards
+      // this on render — doing it here just avoids a flash of the delivery step.
+      const typeStillValid = isFulfillmentTypeRegionValid(
+        fulfillmentType,
+        postalCode,
+        { atlantaZipCodes: activeAtlantaZipCodes }
+      )
+      const cartId = cart?.id
+      if (!typeStillValid && cartId) {
+        ;(async () => {
+          try {
+            await clearFulfillmentDetails(cartId)
+          } catch {
+            /* best-effort — render-time guard still forces a re-pick */
+          }
+          router.replace(`/${countryCode}/checkout`, { scroll: false })
+          router.refresh()
+        })()
+        return
+      }
+
       const needsDeliveryStep = fulfillmentType === "ups_shipping"
       const nextStep = needsDeliveryStep ? "delivery" : "payment"
       router.replace(`/${countryCode}/checkout?step=${nextStep}`, {
@@ -154,6 +192,10 @@ const Addresses = ({
       })
       router.refresh()
     }
+    // Intentionally fire only on the success transition (and fulfillment type),
+    // reading postalCode/zip-list/cart from the closure. Adding `cart` to the
+    // deps would re-run this on every cart refresh and loop the routing.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [message, router, fulfillmentType])
 
   const [checkoutEmail, setCheckoutEmail] = useState(cart?.email || "")
@@ -398,6 +440,27 @@ const Addresses = ({
               <p className="text-sm text-amber-800">
                 Atlanta Metro Delivery is available only for eligible
                 Atlanta-area ZIP codes.
+              </p>
+            </div>
+          )}
+
+          {upsInAtlantaArea && (
+            <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex gap-2">
+              <svg
+                className="w-5 h-5 text-amber-600 shrink-0 mt-0.5"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              <p className="text-sm text-amber-800">
+                This address is in our Atlanta delivery area, where we use local
+                delivery or pickup instead of UPS. When you continue, we&apos;ll
+                bring you back to choose a local option.
               </p>
             </div>
           )}

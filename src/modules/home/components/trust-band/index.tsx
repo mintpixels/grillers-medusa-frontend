@@ -1,5 +1,7 @@
 import React from "react"
 import { HttpTypes } from "@medusajs/types"
+import { getFreeShippingThresholds } from "@lib/data/strapi/checkout"
+import { resolveFreeShippingThreshold } from "@lib/util/free-shipping"
 
 type TrustBandProps = {
   customer?: HttpTypes.StoreCustomer | null
@@ -8,13 +10,11 @@ type TrustBandProps = {
   phoneNumber?: string | null
 }
 
-// In-region states qualifying for the $250 free-delivery threshold
+// In-region states qualifying for the free-delivery threshold
 // (GA + neighboring Southeast). Eventually this should come from the
 // Strapi `shipping-setting` single type — see #19. Hardcoded here so the
 // trust band can ship before that schema work is done.
 const IN_REGION_STATES = ["GA", "TN", "TX", "NC", "FL", "SC", "AL"] as const
-const IN_REGION_THRESHOLD = 250
-const NATIONAL_THRESHOLD = 500
 
 const Pill: React.FC<{
   icon: React.ReactNode
@@ -46,7 +46,15 @@ const Pill: React.FC<{
   )
 }
 
-export default function TrustBand({ customer, phoneNumber }: TrustBandProps) {
+export default async function TrustBand({
+  customer,
+  phoneNumber,
+}: TrustBandProps) {
+  const { inRegionThreshold, nationalThreshold } =
+    await getFreeShippingThresholds()
+  const IN_REGION_THRESHOLD = resolveFreeShippingThreshold(inRegionThreshold, 250)
+  const NATIONAL_THRESHOLD = resolveFreeShippingThreshold(nationalThreshold, 500)
+
   const defaultShipping =
     customer?.addresses?.find((a) => a.is_default_shipping) ||
     customer?.addresses?.[0]
@@ -57,7 +65,7 @@ export default function TrustBand({ customer, phoneNumber }: TrustBandProps) {
 
   let shippingPill: string
   if (isInRegion) {
-    shippingPill = `Frozen with dry ice · free delivery over $${IN_REGION_THRESHOLD} in your area`
+    shippingPill = `Frozen with dry ice · free shipping over $${IN_REGION_THRESHOLD} in your area`
   } else if (isOutOfRegion) {
     shippingPill = `Frozen with dry ice · free shipping over $${NATIONAL_THRESHOLD} nationwide`
   } else {

@@ -4,10 +4,18 @@ import "server-only"
 
 import { retrieveAuthenticatedCustomerForStaffAccess } from "@lib/data/customer"
 import {
-  isStaffCustomer,
+  canManageOrderSupport,
   staffDisplayName,
 } from "@lib/util/staff-access"
 import { adminFetch } from "./admin"
+
+async function requireOrderSupportStaff() {
+  const staff = await retrieveAuthenticatedCustomerForStaffAccess()
+  if (!staff || !canManageOrderSupport(staff)) {
+    throw new Error("Order support access required.")
+  }
+  return staff
+}
 
 export type StaffQuickBooksSyncStatusFilter =
   | "open"
@@ -105,6 +113,7 @@ export async function getStaffQuickBooksSyncStatus(input?: {
   page?: number
   perPage?: number
 }) {
+  await requireOrderSupportStaff()
   return adminFetch<StaffQuickBooksSyncStatus>(
     "/admin/grillers/quickbooks-sync/status",
     {
@@ -123,10 +132,7 @@ export async function requeueStaffQuickBooksSyncOrder(
   orderId: number,
   reason = "Staff retry from Synchronization Status."
 ) {
-  const staff = await retrieveAuthenticatedCustomerForStaffAccess()
-  if (!staff || !isStaffCustomer(staff)) {
-    throw new Error("Staff access required.")
-  }
+  const staff = await requireOrderSupportStaff()
 
   const actor = `${staffDisplayName(staff)}${staff.email ? ` (${staff.email})` : ""}`
   return adminFetch<{ order: StaffQuickBooksSyncOrder }>(

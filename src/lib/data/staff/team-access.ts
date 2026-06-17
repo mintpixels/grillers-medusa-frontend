@@ -54,6 +54,7 @@ const VALID_ROLES = new Set<StaffAccessRole>([
   "picker",
   "packer",
   "manager",
+  "merchandising_reviewer",
   "super_admin",
 ])
 const LEGACY_STAFF_ROLES = new Set([

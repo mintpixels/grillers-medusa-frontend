@@ -15,6 +15,7 @@ import {
   BookOpenText,
   ClipboardList,
   DatabaseZap,
+  Images,
   MessageSquare,
   NotebookPen,
   PackageCheck,
@@ -63,6 +64,7 @@ import {
   canManageOrderSupport,
   canPackCatchWeightOrders,
   canPickCatchWeightOrders,
+  canReviewMerchandising,
   canUseOfficeConsole,
   isSuperAdminCustomer,
   staffAccessRole,
@@ -81,6 +83,7 @@ import StaffOrderExceptionConsole from "@modules/staff/components/order-exceptio
 import StaffTeamAccessConsole from "@modules/staff/components/team-access-console"
 import StaffCatchWeightFinalizationConsole from "@modules/staff/components/catch-weight-finalization-console"
 import StaffQuickBooksSyncStatusConsole from "@modules/staff/components/quickbooks-sync-status-console"
+import StaffMerchandisingWorkspace from "@modules/staff/components/merchandising-workspace"
 
 type Props = {
   countryCode: string
@@ -97,6 +100,7 @@ export type StaffWorkspace =
   | "exceptions"
   | "quickbooks_sync"
   | "team_access"
+  | "merchandising"
 
 type StaffWorkspaceAction = {
   id: StaffWorkspace | "communications"
@@ -421,6 +425,7 @@ export default function PhoneOrderCopilot({
   const canUseOrderSupport = canManageOrderSupport(staffCustomer)
   const canUsePickQueue = canPickCatchWeightOrders(staffCustomer)
   const canUsePackQueue = canPackCatchWeightOrders(staffCustomer)
+  const canReviewMerch = canReviewMerchandising(staffCustomer)
   const isCustomerWorkspace =
     activeWorkspace === "phone_order" || activeWorkspace === "new_customer"
   const hasSelectedCustomer = Boolean(draftCustomer.id)
@@ -1033,6 +1038,18 @@ export default function PhoneOrderCopilot({
           },
         ]
       : []),
+    ...(canReviewMerch
+      ? [
+          {
+            id: "merchandising" as const,
+            eyebrow: "Catalog",
+            title: "Merchandising",
+            body: "Review L3 product photo groups, track approval progress, and approve or reject product images.",
+            icon: Images,
+            onClick: () => selectWorkspace("merchandising"),
+          },
+        ]
+      : []),
     ...(canManageTeamAccess
       ? [
           {
@@ -1526,13 +1543,15 @@ export default function PhoneOrderCopilot({
               <BookOpenText className="h-4 w-4" aria-hidden />
               Guide
             </LocalizedClientLink>
-            <LocalizedClientLink
-              href="/account/staff/communications"
-              className="inline-flex min-h-[40px] items-center justify-center gap-2 rounded-md border border-Charcoal px-3.5 text-sm font-maison-neue font-semibold text-Charcoal transition hover:bg-Charcoal hover:text-white"
-            >
-              <MessageSquare className="h-4 w-4" aria-hidden />
-              Communications
-            </LocalizedClientLink>
+            {canUseOffice && (
+              <LocalizedClientLink
+                href="/account/staff/communications"
+                className="inline-flex min-h-[40px] items-center justify-center gap-2 rounded-md border border-Charcoal px-3.5 text-sm font-maison-neue font-semibold text-Charcoal transition hover:bg-Charcoal hover:text-white"
+              >
+                <MessageSquare className="h-4 w-4" aria-hidden />
+                Communications
+              </LocalizedClientLink>
+            )}
             <div className="rounded-md border border-Gold/35 bg-Gold/10 px-3.5 py-2.5">
               <p className="text-[11px] font-maison-neue-mono uppercase text-Charcoal/55">
                 Signed in
@@ -1584,7 +1603,9 @@ export default function PhoneOrderCopilot({
         </div>
       )}
 
-      {activeWorkspace === "team_access" && canManageTeamAccess ? (
+      {activeWorkspace === "merchandising" && canReviewMerch ? (
+        <StaffMerchandisingWorkspace />
+      ) : activeWorkspace === "team_access" && canManageTeamAccess ? (
         <StaffTeamAccessConsole />
       ) : activeWorkspace === "quickbooks_sync" && canUseOrderSupport ? (
         <StaffQuickBooksSyncStatusConsole />

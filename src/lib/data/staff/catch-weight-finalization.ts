@@ -10,8 +10,9 @@ import {
 } from "@lib/util/catch-weight-fulfillment"
 import {
   canChargeFinalOrders,
+  canPackCatchWeightOrders,
+  canPickCatchWeightOrders,
   isSuperAdminCustomer,
-  isStaffCustomer,
   staffDisplayName,
 } from "@lib/util/staff-access"
 import { revalidatePath } from "next/cache"
@@ -101,8 +102,13 @@ function revalidateStaffOrders() {
 
 async function requireStaffOperator() {
   const staff = await retrieveAuthenticatedCustomerForStaffAccess()
-  if (!staff || !isStaffCustomer(staff)) {
-    throw new Error("Staff access required.")
+  // Pick/pack & finalize is a warehouse-operator capability — excludes office,
+  // merchandising reviewers, and any non-operational staff.
+  if (
+    !staff ||
+    (!canPickCatchWeightOrders(staff) && !canPackCatchWeightOrders(staff))
+  ) {
+    throw new Error("Pick or pack access required.")
   }
   return staff
 }

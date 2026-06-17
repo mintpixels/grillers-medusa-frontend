@@ -3,12 +3,15 @@
 import { convertToLocale } from "@lib/util/money"
 import React, { useState } from "react"
 import { FreeShippingHelper } from "@modules/common/components/cart-helpers"
+import { getItemsSubtotal } from "@lib/util/cart-totals"
 import type { FulfillmentType } from "@lib/data/cart"
 
 type CartTotalsProps = {
   totals: {
     total?: number | null
     subtotal?: number | null
+    item_subtotal?: number | null
+    item_total?: number | null
     tax_total?: number | null
     shipping_total?: number | null
     discount_total?: number | null
@@ -19,6 +22,17 @@ type CartTotalsProps = {
   hasNetWeightItems?: boolean
   shipState?: string | null
   fulfillmentType?: FulfillmentType
+  /**
+   * Free-shipping-eligible subtotal (excludes SKUs flagged
+   * `QualifiesForFreeDeliveryOffers = false`). When provided, the free-shipping
+   * progress message uses this instead of the raw `subtotal` so excluded items
+   * (bulk/institutional packs, large turkeys, etc.) don't advance the threshold
+   * — issue #265. Falls back to `subtotal` when omitted.
+   */
+  freeShippingSubtotal?: number | null
+  /** #266: Strapi-editable UPS free-shipping thresholds. Null → constants. */
+  inRegionThreshold?: number | null
+  nationalThreshold?: number | null
 }
 
 // Net-weight info tooltip component
@@ -67,6 +81,9 @@ const CartTotals: React.FC<CartTotalsProps> = ({
   hasNetWeightItems = false,
   shipState,
   fulfillmentType,
+  freeShippingSubtotal,
+  inRegionThreshold,
+  nationalThreshold,
 }) => {
   const {
     currency_code,
@@ -79,23 +96,26 @@ const CartTotals: React.FC<CartTotalsProps> = ({
     shipping_subtotal,
   } = totals
   const shippingAmount = shipping_total ?? shipping_subtotal ?? 0
+  const itemsSubtotal = getItemsSubtotal(totals)
 
   return (
     <div>
       <div className="flex flex-col gap-y-2 txt-medium text-ui-fg-subtle ">
         <FreeShippingHelper
-          subtotal={subtotal}
+          subtotal={freeShippingSubtotal ?? itemsSubtotal}
           currencyCode={currency_code}
           shipState={shipState}
           fulfillmentType={fulfillmentType}
+          inRegionThreshold={inRegionThreshold}
+          nationalThreshold={nationalThreshold}
           className="mb-1"
         />
         <div className="flex items-center justify-between">
           <span className="flex gap-x-1 items-center">
             Subtotal (excl. shipping and taxes)
           </span>
-          <span data-testid="cart-subtotal" data-value={subtotal || 0}>
-            {convertToLocale({ amount: subtotal ?? 0, currency_code })}
+          <span data-testid="cart-subtotal" data-value={itemsSubtotal}>
+            {convertToLocale({ amount: itemsSubtotal, currency_code })}
           </span>
         </div>
         {!!discount_total && (

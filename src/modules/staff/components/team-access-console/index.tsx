@@ -36,6 +36,9 @@ function roleBadgeClass(role: StaffAccessRole) {
   if (role === "manager") {
     return "border-emerald-200 bg-emerald-50 text-emerald-800"
   }
+  if (role === "merchandising_reviewer") {
+    return "border-violet-200 bg-violet-50 text-violet-800"
+  }
   if (role === "picker" || role === "packer") {
     return "border-blue-200 bg-blue-50 text-blue-800"
   }

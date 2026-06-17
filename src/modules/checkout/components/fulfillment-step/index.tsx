@@ -1,16 +1,22 @@
 "use client"
 
-import { useState, useMemo, useEffect, useTransition } from "react"
+import { useState, useMemo, useEffect, useRef, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { HttpTypes } from "@medusajs/types"
-import { setFulfillmentDetails, setShippingMethod, type FulfillmentType } from "@lib/data/cart"
+import { setFulfillmentDetails, setShippingMethod, clearFulfillmentDetails, type FulfillmentType } from "@lib/data/cart"
 import { saveAddressToProfileAndCart } from "@lib/data/customer"
 import { findShippingOptionByType } from "@lib/data/fulfillment"
 import { convertToLocale } from "@lib/util/money"
 import {
+  isAtlantaZip as sharedIsAtlantaZip,
+  isFulfillmentTypeRegionValid,
+} from "@lib/util/fulfillment-eligibility"
+import { ATLANTA_DELIVERY_ZIP_DAYS } from "@lib/util/atlanta-delivery-zips"
+import {
   SE_PICKUP_CREDIT_AMOUNT,
   SE_PICKUP_CREDIT_THRESHOLD,
 } from "@lib/util/free-shipping-codes"
+import { getFreeDeliveryEligibleSubtotal } from "@lib/util/free-delivery-eligibility"
 import type { FulfillmentConfigData, PickupCreditConfig } from "@lib/data/strapi/checkout"
 import { useFulfillmentEdit } from "@modules/checkout/context/fulfillment-edit-context"
 import PlantPickupScheduling from "@modules/checkout/components/fulfillment-selector/scheduling/plant-pickup"
@@ -169,13 +175,25 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
   const [addressFormAddressId, setAddressFormAddressId] = useState<
     string | null
   >(null)
+  // Explains why the selector auto-reopened after an address change made the
+  // saved fulfillment method invalid (e.g. UPS chosen for an LA address, then
+  // the cart address switched to an Atlanta ZIP where we only do local
+  // delivery / pickup). Set by the region-mismatch effect below.
+  const [regionResetNotice, setRegionResetNotice] = useState<string | null>(
+    null
+  )
   // useTransition lets us treat router.refresh() as an awaitable pending
   // state — `isRefreshing` stays true until the new server-rendered tree
   // is committed, so we can hold a loading overlay across the entire
   // save-address → refresh → re-render cycle and the user never sees the
   // intermediate "old cart" flash.
   const [isRefreshing, startTransition] = useTransition()
-  const isBusy = savingAddress || isSubmitting || isRefreshing
+  // Covers the awaited clearFulfillmentDetails round-trip in the region-mismatch
+  // reset (below), so the loading overlay is up the whole time and the user
+  // can't click a card mid-clear (which would race the select vs the clear).
+  const [isResettingFulfillment, setIsResettingFulfillment] = useState(false)
+  const isBusy =
+    savingAddress || isSubmitting || isRefreshing || isResettingFulfillment
 
   const attachShippingMethod = async (type: FulfillmentType) => {
     if (type === "ups_shipping") return
@@ -210,7 +228,13 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
   }, [showSelection, setIsEditingFulfillment])
 
   const cartTotal = cart.total || 0
-  const cartSubtotal = cart.subtotal || 0
+  // #265: the plant-pickup and Southeast-pickup credits gate off the
+  // FREE-DELIVERY ELIGIBLE subtotal (excludes SKUs flagged
+  // `free_delivery_eligible = false`), matching FulfillmentProgress and the
+  // authoritative promo gate in syncFreeShippingPromotion. Using the raw
+  // cart subtotal here would let excluded bulk items push a customer over
+  // the credit threshold in the copy while the actual promo never applies.
+  const cartSubtotal = getFreeDeliveryEligibleSubtotal(cart.items)
 
   const normalizeMinimum = (value: number | undefined, defaultValue: number): number => {
     if (value === undefined || value === null) return defaultValue
@@ -253,8 +277,15 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
   const activeSavedAddress =
     savedAddresses.find((address) => address.id === activeAddressId) || null
 
+  // Mirror the Addresses component's fallback exactly: when the Strapi-owned
+  // list is absent OR present-but-empty, use the static table. This guarantees
+  // both components classify the same ZIPs as Atlanta, so one can never clear
+  // UPS while the other keeps offering it (a bounce-loop class).
+  const atlantaZipCodes = config?.AtlantaDeliveryZipCodes?.length
+    ? config.AtlantaDeliveryZipCodes
+    : Object.keys(ATLANTA_DELIVERY_ZIP_DAYS)
   const isAtlantaZip = (zip: string) =>
-    Boolean(zip) && (config?.AtlantaDeliveryZipCodes || []).includes(zip)
+    sharedIsAtlantaZip(zip, atlantaZipCodes)
 
   const isSoutheastPickupCity = (zip: string, city: string) => {
     if (!config?.SoutheastPickupLocations) return false
@@ -301,6 +332,55 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
     }
   }, [cartTotal, minimums, shipZip, shipCity, config])
 
+  // Re-validate the SAVED fulfillment method against the cart's CURRENT
+  // address. A customer can choose UPS for an out-of-region address, then edit
+  // the cart to an Atlanta ZIP (where UPS isn't offered) via Step 2's "Edit",
+  // a saved-address switch, or staff handoff. Nothing else re-checks the
+  // already-chosen method, so without this it stays "UPS Shipping" and the
+  // delivery/payment steps proceed with a method that doesn't apply. When the
+  // saved method is no longer region-valid we clear it (server) + refresh,
+  // which drops `hasFulfillment` and collapses the form back to this selector.
+  const savedTypeRegionValid = isFulfillmentTypeRegionValid(
+    fulfillmentType,
+    shipZip,
+    { atlantaZipCodes }
+  )
+  const regionMismatch =
+    hasFulfillment && Boolean(shipZip) && !savedTypeRegionValid
+  // Guard so the clear fires at most once per (type, ZIP) — after the refresh
+  // `fulfillmentType` is blank so the condition is false anyway, but this also
+  // protects against a re-render race re-triggering the server mutation.
+  const mismatchResetRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!regionMismatch) return
+    const key = `${fulfillmentType}:${shipZip}`
+    if (mismatchResetRef.current === key) return
+    mismatchResetRef.current = key
+
+    const label = fulfillmentType
+      ? fulfillmentLabels[fulfillmentType].label
+      : "your previous method"
+    const where = shipCity || `ZIP ${shipZip}`
+    setRegionResetNotice(
+      `Your delivery address changed to ${where}, where ${label} isn't available. Please choose how you'd like to receive your order.`
+    )
+    setError(null)
+    setIsEditing(true)
+    setSubStep("select")
+    setIsResettingFulfillment(true)
+    ;(async () => {
+      try {
+        await clearFulfillmentDetails(cart.id)
+      } catch {
+        /* best-effort — the collapsed selector still forces a re-pick */
+      }
+      // Hand the overlay off from isResettingFulfillment to isRefreshing in one
+      // commit so it never drops between the clear and the refresh.
+      startTransition(() => router.refresh())
+      setIsResettingFulfillment(false)
+    })()
+  }, [regionMismatch, fulfillmentType, shipZip, shipCity, cart.id, router])
+
   const pickupCreditQualifies = cartSubtotal >= pickupCreditConfig.threshold
   const pickupCreditAmountAway = Math.max(0, pickupCreditConfig.threshold - cartSubtotal)
 
@@ -344,7 +424,7 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
     {
       id: "southeast_pickup" as FulfillmentType,
       title: "Southeast Pickup",
-      subtitle: "Free over $250 + $15 credit",
+      subtitle: "Free over $350 + $20 credit",
       icon: <MapPinIcon />,
       available: availability.southeastPickup,
       amountAway: availability.southeastAmountAway,
@@ -488,6 +568,8 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
 
   const handleSelectOption = async (option: FulfillmentType) => {
     if (isSubmitting) return
+    // The customer is actively re-picking; retire any address-change notice.
+    setRegionResetNotice(null)
 
     if (option === "plant_pickup") {
       setPendingPickupDate("")
@@ -694,6 +776,25 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
         <p className="text-sm text-Charcoal/60 mb-4">
           Select your preferred fulfillment method.
         </p>
+
+        {/* Address-change reset notice — explains why the selector reopened
+            after the saved method became invalid for the new address. */}
+        {regionResetNotice && (
+          <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl flex gap-2">
+            <svg
+              className="w-5 h-5 text-amber-600 shrink-0 mt-0.5"
+              fill="currentColor"
+              viewBox="0 0 20 20"
+            >
+              <path
+                fillRule="evenodd"
+                d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                clipRule="evenodd"
+              />
+            </svg>
+            <p className="text-sm text-amber-800">{regionResetNotice}</p>
+          </div>
+        )}
 
         {/* CTA: address gate. Two flavors:
             (a) no address on file → invite the customer to add one

@@ -1,7 +1,9 @@
 import {
+  ATLANTA_THRESHOLD,
   IN_REGION_THRESHOLD,
   NATIONAL_THRESHOLD,
   isInRegionState,
+  resolveFreeShippingThreshold,
   type FulfillmentType,
 } from "@lib/util/free-shipping"
 import {
@@ -45,8 +47,10 @@ export function pickPlantPickupCredit(input: {
 /**
  * Southeast Pickup credit — a flat $20 incentive applied when the
  * customer picks Southeast Pickup AND the cart subtotal qualifies them
- * for the in-region free-ship promo ($250). The route is dramatically
- * cheaper than cold UPS, so we share part of the savings back.
+ * for the in-region free-ship promo ($350). The route is dramatically
+ * cheaper than cold UPS, so we share part of the savings back. The SE
+ * credit threshold tracks the in-region threshold (so it moved $250 → $350
+ * together).
  */
 export const SE_PICKUP_CREDIT_CODE = "GP_SE_PICKUP_CREDIT"
 export const SE_PICKUP_CREDIT_AMOUNT = 20
@@ -55,10 +59,16 @@ export const SE_PICKUP_CREDIT_THRESHOLD = IN_REGION_THRESHOLD
 export function pickSoutheastPickupCredit(input: {
   eligibleSubtotalDollars: number
   fulfillmentType?: FulfillmentType
+  /** #266: Strapi-editable in-region threshold; null/invalid → constant. */
+  inRegionThreshold?: number | null
 }): string | null {
   const sub = Math.max(0, input.eligibleSubtotalDollars || 0)
   if (input.fulfillmentType !== "southeast_pickup") return null
-  return sub >= SE_PICKUP_CREDIT_THRESHOLD ? SE_PICKUP_CREDIT_CODE : null
+  const threshold = resolveFreeShippingThreshold(
+    input.inRegionThreshold,
+    SE_PICKUP_CREDIT_THRESHOLD
+  )
+  return sub >= threshold ? SE_PICKUP_CREDIT_CODE : null
 }
 
 /**
@@ -102,6 +112,14 @@ export function pickFreeShippingCode(input: {
   shipState?: string | null
   destinationZip?: string | null
   selectedUpsServiceCode?: string | null
+  /** #266: Strapi-editable thresholds; null/invalid → constants. Threaded so
+   * the applied discount matches what the UI shows the customer. */
+  inRegionThreshold?: number | null
+  nationalThreshold?: number | null
+  /** Atlanta home-delivery threshold; null/invalid → ATLANTA_THRESHOLD ($250).
+   * Atlanta delivery keeps the lower local threshold, unlike southeast pickup /
+   * in-region UPS which use inRegionThreshold ($350). */
+  atlantaThreshold?: number | null
 }): string | null {
   const sub = Math.max(0, input.eligibleSubtotalDollars || 0)
   const {
@@ -110,22 +128,35 @@ export function pickFreeShippingCode(input: {
     destinationZip,
     selectedUpsServiceCode,
   } = input
+  const inRegionT = resolveFreeShippingThreshold(
+    input.inRegionThreshold,
+    IN_REGION_THRESHOLD
+  )
+  const nationalT = resolveFreeShippingThreshold(
+    input.nationalThreshold,
+    NATIONAL_THRESHOLD
+  )
+  const atlantaT = resolveFreeShippingThreshold(
+    input.atlantaThreshold,
+    ATLANTA_THRESHOLD
+  )
 
   // Plant Pickup is unconditionally free at the carrier level.
   if (fulfillmentType === "plant_pickup") {
     return null
   }
 
-  // Southeast Pickup carries a per-customer route share below $250. Above
-  // $250 the route fee is waived (in-region rule applies), and the $15
+  // Southeast Pickup carries a per-customer route share below $350. Above
+  // $350 the route fee is waived (in-region rule applies), and the $20
   // pickup credit (GP_SE_PICKUP_CREDIT) stacks on top via its own promo.
   if (fulfillmentType === "southeast_pickup") {
-    return sub >= IN_REGION_THRESHOLD ? FREE_SHIP_IN_REGION_CODE : null
+    return sub >= inRegionT ? FREE_SHIP_IN_REGION_CODE : null
   }
 
-  // Atlanta Delivery: in-region rule applies ($250).
+  // Atlanta Delivery: local-delivery rule applies ($250) — keeps the lower
+  // threshold rather than the in-region ($350) one.
   if (fulfillmentType === "atlanta_delivery") {
-    return sub >= IN_REGION_THRESHOLD ? FREE_SHIP_IN_REGION_CODE : null
+    return sub >= atlantaT ? FREE_SHIP_IN_REGION_CODE : null
   }
 
   // Overnight is never free.
@@ -146,11 +177,11 @@ export function pickFreeShippingCode(input: {
 
   // UPS Ground (or unspecified delivery): use the ship-state to pick threshold.
   if (isInRegionState(shipState)) {
-    return sub >= IN_REGION_THRESHOLD ? FREE_SHIP_IN_REGION_CODE : null
+    return sub >= inRegionT ? FREE_SHIP_IN_REGION_CODE : null
   }
 
   if (shipState) {
-    return sub >= NATIONAL_THRESHOLD ? FREE_SHIP_NATIONAL_CODE : null
+    return sub >= nationalT ? FREE_SHIP_NATIONAL_CODE : null
   }
 
   return null

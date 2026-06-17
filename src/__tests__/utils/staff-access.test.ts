@@ -1,7 +1,9 @@
 import {
+  canChargeFinalOrders,
   canManageOrderSupport,
   canPackCatchWeightOrders,
   canPickCatchWeightOrders,
+  canReviewMerchandising,
   canUseOfficeConsole,
   isStaffCustomer,
   isStaffMetadata,
@@ -25,8 +27,41 @@ describe("staff access helpers", () => {
     expect(staffMetadataRole({ gp_staff_role: "packer" })).toBe("packer")
     expect(staffMetadataRole({ gp_staff_role: "office" })).toBe("office")
     expect(staffMetadataRole({ gp_staff_role: "manager" })).toBe("manager")
+    expect(staffMetadataRole({ gp_staff_role: "merchandising_reviewer" })).toBe(
+      "merchandising_reviewer"
+    )
+    expect(staffMetadataRole({ gp_staff_role: "merchandising-reviewer" })).toBe(
+      "merchandising_reviewer"
+    )
     expect(staffMetadataRole({ gp_staff_role: "super_admin" })).toBe(
       "super_admin"
+    )
+  })
+
+  it("scopes merchandising review to the reviewer role and super admins", () => {
+    const reviewer = {
+      metadata: { gp_staff_role: "merchandising_reviewer" },
+    } as any
+    const office = { metadata: { gp_staff_role: "office" } } as any
+    const picker = { metadata: { gp_staff_role: "picker" } } as any
+    const avi = { email: "aviswerdlow@gmail.com" } as any
+
+    // A merchandising reviewer is staff and can review, but has no other access.
+    expect(isStaffCustomer(reviewer)).toBe(true)
+    expect(canReviewMerchandising(reviewer)).toBe(true)
+    expect(canUseOfficeConsole(reviewer)).toBe(false)
+    expect(canManageOrderSupport(reviewer)).toBe(false)
+    expect(canPickCatchWeightOrders(reviewer)).toBe(false)
+    expect(canPackCatchWeightOrders(reviewer)).toBe(false)
+
+    // Super admins (Avi/Peter) always retain merchandising access.
+    expect(canReviewMerchandising(avi)).toBe(true)
+
+    // Other staff roles do NOT get merchandising unless assigned the role.
+    expect(canReviewMerchandising(office)).toBe(false)
+    expect(canReviewMerchandising(picker)).toBe(false)
+    expect(canReviewMerchandising({ metadata: { role: "customer" } } as any)).toBe(
+      false
     )
   })
 
@@ -44,6 +79,28 @@ describe("staff access helpers", () => {
     expect(canPackCatchWeightOrders(office)).toBe(false)
     expect(canManageOrderSupport(manager)).toBe(true)
     expect(canPackCatchWeightOrders(manager)).toBe(true)
+  })
+
+  it("requires an operational role for final charge, not just a flag", () => {
+    const flag = { final_charge_enabled: true }
+    const packerCanCharge = {
+      metadata: { gp_staff_role: "packer", ...flag },
+    } as any
+    const officeWithFlag = {
+      metadata: { gp_staff_role: "office", ...flag },
+    } as any
+    const reviewerWithFlag = {
+      metadata: { gp_staff_role: "merchandising_reviewer", ...flag },
+    } as any
+    const avi = { email: "aviswerdlow@gmail.com" } as any
+
+    // Operational roles with the flag can charge; super admins always can.
+    expect(canChargeFinalOrders(packerCanCharge)).toBe(true)
+    expect(canChargeFinalOrders(avi)).toBe(true)
+
+    // A stray flag must NOT grant money access to non-operational roles.
+    expect(canChargeFinalOrders(officeWithFlag)).toBe(false)
+    expect(canChargeFinalOrders(reviewerWithFlag)).toBe(false)
   })
 
   it("rejects normal customer metadata", () => {

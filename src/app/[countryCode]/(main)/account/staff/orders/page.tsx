@@ -1,6 +1,15 @@
 import { retrieveAuthenticatedCustomerForStaffAccess } from "@lib/data/customer"
 import { getStaffImpersonationSession } from "@lib/data/staff/impersonation"
-import { isStaffCustomer } from "@lib/util/staff-access"
+import type { HttpTypes } from "@medusajs/types"
+import {
+  canManageOrderSupport,
+  canPackCatchWeightOrders,
+  canPickCatchWeightOrders,
+  canReviewMerchandising,
+  canUseOfficeConsole,
+  isStaffCustomer,
+  isSuperAdminCustomer,
+} from "@lib/util/staff-access"
 import {
   DEFAULT_SEO_DESCRIPTION,
   DEFAULT_SEO_TITLE,
@@ -45,15 +54,60 @@ const STAFF_WORKSPACES = new Set<StaffWorkspace>([
   "exceptions",
   "quickbooks_sync",
   "team_access",
+  "merchandising",
 ])
 
-function staffWorkspaceFromSearchParam(
+function requestedWorkspace(
   value?: string | string[]
-): StaffWorkspace {
+): StaffWorkspace | null {
   const candidate = Array.isArray(value) ? value[0] : value
   return STAFF_WORKSPACES.has(candidate as StaffWorkspace)
     ? (candidate as StaffWorkspace)
-    : "exceptions"
+    : null
+}
+
+// A workspace may only be entered if the staff member holds the matching
+// capability, so a hand-crafted ?workspace= URL can never render chrome the
+// role is not allowed to use.
+function canAccessWorkspace(
+  customer: HttpTypes.StoreCustomer,
+  workspace: StaffWorkspace
+): boolean {
+  switch (workspace) {
+    case "phone_order":
+    case "new_customer":
+    case "customer_account":
+      return canUseOfficeConsole(customer)
+    case "exceptions":
+    case "quickbooks_sync":
+      return canManageOrderSupport(customer)
+    case "finalization":
+      return (
+        canPickCatchWeightOrders(customer) ||
+        canPackCatchWeightOrders(customer)
+      )
+    case "merchandising":
+      return canReviewMerchandising(customer)
+    case "team_access":
+      return isSuperAdminCustomer(customer)
+    default:
+      return false
+  }
+}
+
+// When no explicit workspace is requested, land each staff member on a
+// workspace they can actually use. Without this, narrow roles (merchandising
+// reviewer, picker, packer) would briefly render the order-support fallback
+// before the client corrects itself.
+function defaultWorkspaceForCustomer(
+  customer: HttpTypes.StoreCustomer
+): StaffWorkspace {
+  if (canManageOrderSupport(customer)) return "exceptions"
+  if (canReviewMerchandising(customer)) return "merchandising"
+  if (canPickCatchWeightOrders(customer) || canPackCatchWeightOrders(customer)) {
+    return "finalization"
+  }
+  return "exceptions"
 }
 
 export default async function StaffPhoneOrdersPage({
@@ -65,9 +119,6 @@ export default async function StaffPhoneOrdersPage({
 }) {
   const { countryCode } = await params
   const resolvedSearchParams = searchParams ? await searchParams : {}
-  const initialWorkspace = staffWorkspaceFromSearchParam(
-    resolvedSearchParams.workspace
-  )
   const customer = await retrieveAuthenticatedCustomerForStaffAccess()
 
   if (!customer) {
@@ -77,6 +128,12 @@ export default async function StaffPhoneOrdersPage({
   if (!isStaffCustomer(customer)) {
     notFound()
   }
+
+  const requested = requestedWorkspace(resolvedSearchParams.workspace)
+  const initialWorkspace =
+    requested && canAccessWorkspace(customer, requested)
+      ? requested
+      : defaultWorkspaceForCustomer(customer)
 
   const impersonation = await getStaffImpersonationSession()
 

@@ -9,6 +9,7 @@ import FulfillmentProgress from "@modules/common/components/fulfillment-progress
 import Divider from "@modules/common/components/divider"
 import DiscountCode from "@modules/checkout/components/discount-code"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
+import { getItemsSubtotal } from "@lib/util/cart-totals"
 import InventoryResolutionNotice from "@modules/checkout/components/inventory-resolution-notice"
 import { HttpTypes } from "@medusajs/types"
 import { clearFulfillmentDetails, type FulfillmentType } from "@lib/data/cart"
@@ -24,6 +25,9 @@ type SummaryProps = {
   }
   deliveryZip?: string | null
   atlantaZipConfig?: Record<string, AtlantaZipDayConfig>
+  /** #266: Strapi-editable UPS free-shipping thresholds. Null → constants. */
+  inRegionThreshold?: number | null
+  nationalThreshold?: number | null
 }
 
 /**
@@ -39,7 +43,13 @@ function formatFulfillmentType(type: FulfillmentType): string {
   return labels[type] || type
 }
 
-const Summary = ({ cart, deliveryZip, atlantaZipConfig }: SummaryProps) => {
+const Summary = ({
+  cart,
+  deliveryZip,
+  atlantaZipConfig,
+  inRegionThreshold,
+  nationalThreshold,
+}: SummaryProps) => {
   const router = useRouter()
   const [isChanging, setIsChanging] = useState(false)
   const eligibleSubtotal = getFreeDeliveryEligibleSubtotal(cart.items)
@@ -97,19 +107,24 @@ const Summary = ({ cart, deliveryZip, atlantaZipConfig }: SummaryProps) => {
       <DiscountCode cart={cart} />
       <FulfillmentProgress
         subtotal={eligibleSubtotal}
-        cartSubtotal={cart.subtotal}
+        cartSubtotal={getItemsSubtotal(cart)}
         excludedSubtotal={excludedSubtotal}
         currencyCode={cart.currency_code}
         fulfillmentType={fulfillmentType}
         shipState={cart.shipping_address?.province}
         postalCode={cart.shipping_address?.postal_code || deliveryZip}
         atlantaZipConfig={atlantaZipConfig}
+        inRegionThreshold={inRegionThreshold}
+        nationalThreshold={nationalThreshold}
         context="cart"
       />
       <Divider />
       <InventoryResolutionNotice cart={cart} />
       <CartTotals
         totals={cart}
+        freeShippingSubtotal={eligibleSubtotal}
+        inRegionThreshold={inRegionThreshold}
+        nationalThreshold={nationalThreshold}
       />
       <LocalizedClientLink
         href="/checkout"
