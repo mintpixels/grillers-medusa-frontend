@@ -4,7 +4,7 @@ import "server-only"
 
 import { retrieveAuthenticatedCustomerForStaffAccess } from "@lib/data/customer"
 import {
-  isStaffCustomer,
+  canManageOrderSupport,
   staffAccessRole,
   staffDisplayName,
 } from "@lib/util/staff-access"
@@ -1292,8 +1292,10 @@ async function requireStaffOperator() {
   if (!staff) {
     throw new Error("Sign in with a staff account to use staff exceptions.")
   }
-  if (!isStaffCustomer(staff)) {
-    throw new Error("Staff access required.")
+  // Order support (lookups, notes, refunds, captures, cancellations, edits) is
+  // gated to office/manager/super-admin — never picker/packer/merchandising.
+  if (!canManageOrderSupport(staff)) {
+    throw new Error("Order support access required.")
   }
   return staff
 }

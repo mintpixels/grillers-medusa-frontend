@@ -419,7 +419,7 @@ export default function ProductMerchandisingDetailView({
       <div className="flex flex-col gap-4 large:flex-row large:items-start large:justify-between">
         <div>
           <LocalizedClientLink
-            href="/account/staff/merchandising"
+            href="/account/staff/orders?workspace=merchandising"
             className="inline-flex items-center gap-1.5 text-sm font-maison-neue font-semibold text-Charcoal/55 transition hover:text-Gold"
           >
             <ArrowLeft className="h-4 w-4" aria-hidden />

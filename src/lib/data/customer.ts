@@ -8,7 +8,7 @@ import {
   buildSmsMarketingConsentMetadata,
   formWantsSmsMarketing,
 } from "@lib/util/sms-consent"
-import { isStaffCustomer } from "@lib/util/staff-access"
+import { canUseOfficeConsole, isStaffCustomer } from "@lib/util/staff-access"
 import { HttpTypes } from "@medusajs/types"
 import { revalidateTag } from "next/cache"
 import { redirect } from "next/navigation"
@@ -454,9 +454,12 @@ export async function getActiveStaffImpersonation(): Promise<{
   if (!session) return null
 
   const staff = await retrieveAuthenticatedCustomerForStaffAccess()
+  // Reusing an impersonation session requires the same office capability used
+  // to start one. This invalidates a stale cookie if the staff member was
+  // downgraded (e.g. to merchandising reviewer) while a session was active.
   if (
     !staff ||
-    !isStaffCustomer(staff) ||
+    !canUseOfficeConsole(staff) ||
     staff.id !== session.staffCustomerId
   ) {
     return null

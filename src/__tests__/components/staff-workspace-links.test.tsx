@@ -75,6 +75,11 @@ jest.mock("@modules/staff/components/quickbooks-sync-status-console", () => ({
   default: () => <div>Synchronization status panel</div>,
 }))
 
+jest.mock("@modules/staff/components/merchandising-workspace", () => ({
+  __esModule: true,
+  default: () => <div>Merchandising panel</div>,
+}))
+
 describe("staff workspace navigation", () => {
   beforeEach(() => {
     jest.clearAllMocks()
@@ -119,6 +124,10 @@ describe("staff workspace navigation", () => {
     expect(cardLink("Team access")).toHaveAttribute(
       "href",
       "/us/account/staff/orders?workspace=team_access"
+    )
+    expect(cardLink("Merchandising")).toHaveAttribute(
+      "href",
+      "/us/account/staff/orders?workspace=merchandising"
     )
   })
 })

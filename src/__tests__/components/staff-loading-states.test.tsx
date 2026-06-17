@@ -82,6 +82,11 @@ jest.mock("@modules/staff/components/quickbooks-sync-status-console", () => ({
   default: () => <div>Synchronization status panel</div>,
 }))
 
+jest.mock("@modules/staff/components/merchandising-workspace", () => ({
+  __esModule: true,
+  default: () => <div>Merchandising panel</div>,
+}))
+
 const mockedSearchStaffCustomers = searchStaffCustomers as jest.MockedFunction<
   typeof searchStaffCustomers
 >
