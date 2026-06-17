@@ -265,7 +265,7 @@ function ImageCard({
     <div className="group overflow-hidden rounded-md border border-gray-200 bg-white">
       <div className="relative aspect-square bg-Scroll">
         <Image
-          src={image.thumbnailUrl || image.url}
+          src={image.displayUrl}
           alt={image.alternativeText || image.name}
           fill
           sizes="(min-width: 1024px) 600px, (min-width: 640px) 50vw, 100vw"
