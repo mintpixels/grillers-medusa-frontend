@@ -25,7 +25,7 @@ export default function ShippingEligibility({
   const lines = [
     {
       label: "Nationwide shipping",
-      sub: "UPS Ground with insulated, dry-ice packaging when frozen. Free over $500 nationally, free over $250 in our core region.",
+      sub: "UPS Ground with insulated, dry-ice packaging when frozen. Free over $500 nationally, free over $350 in our core region.",
     },
     {
       label: "Atlanta home delivery",
@@ -34,7 +34,7 @@ export default function ShippingEligibility({
     },
     {
       label: "Southeast Pickup",
-      sub: "If your city is on a Southeast route, choose pickup at checkout — free over $250 plus a $15 credit.",
+      sub: "If your city is on a Southeast route, choose pickup at checkout — free over $350 plus a $20 credit.",
     },
   ]
   const coldChainSteps = [

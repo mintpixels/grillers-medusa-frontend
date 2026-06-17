@@ -1,4 +1,5 @@
 import {
+  ATLANTA_THRESHOLD,
   IN_REGION_THRESHOLD,
   NATIONAL_THRESHOLD,
   isInRegionState,
@@ -46,8 +47,10 @@ export function pickPlantPickupCredit(input: {
 /**
  * Southeast Pickup credit — a flat $20 incentive applied when the
  * customer picks Southeast Pickup AND the cart subtotal qualifies them
- * for the in-region free-ship promo ($250). The route is dramatically
- * cheaper than cold UPS, so we share part of the savings back.
+ * for the in-region free-ship promo ($350). The route is dramatically
+ * cheaper than cold UPS, so we share part of the savings back. The SE
+ * credit threshold tracks the in-region threshold (so it moved $250 → $350
+ * together).
  */
 export const SE_PICKUP_CREDIT_CODE = "GP_SE_PICKUP_CREDIT"
 export const SE_PICKUP_CREDIT_AMOUNT = 20
@@ -113,6 +116,10 @@ export function pickFreeShippingCode(input: {
    * the applied discount matches what the UI shows the customer. */
   inRegionThreshold?: number | null
   nationalThreshold?: number | null
+  /** Atlanta home-delivery threshold; null/invalid → ATLANTA_THRESHOLD ($250).
+   * Atlanta delivery keeps the lower local threshold, unlike southeast pickup /
+   * in-region UPS which use inRegionThreshold ($350). */
+  atlantaThreshold?: number | null
 }): string | null {
   const sub = Math.max(0, input.eligibleSubtotalDollars || 0)
   const {
@@ -129,22 +136,27 @@ export function pickFreeShippingCode(input: {
     input.nationalThreshold,
     NATIONAL_THRESHOLD
   )
+  const atlantaT = resolveFreeShippingThreshold(
+    input.atlantaThreshold,
+    ATLANTA_THRESHOLD
+  )
 
   // Plant Pickup is unconditionally free at the carrier level.
   if (fulfillmentType === "plant_pickup") {
     return null
   }
 
-  // Southeast Pickup carries a per-customer route share below $250. Above
-  // $250 the route fee is waived (in-region rule applies), and the $15
+  // Southeast Pickup carries a per-customer route share below $350. Above
+  // $350 the route fee is waived (in-region rule applies), and the $20
   // pickup credit (GP_SE_PICKUP_CREDIT) stacks on top via its own promo.
   if (fulfillmentType === "southeast_pickup") {
     return sub >= inRegionT ? FREE_SHIP_IN_REGION_CODE : null
   }
 
-  // Atlanta Delivery: in-region rule applies ($250).
+  // Atlanta Delivery: local-delivery rule applies ($250) — keeps the lower
+  // threshold rather than the in-region ($350) one.
   if (fulfillmentType === "atlanta_delivery") {
-    return sub >= inRegionT ? FREE_SHIP_IN_REGION_CODE : null
+    return sub >= atlantaT ? FREE_SHIP_IN_REGION_CODE : null
   }
 
   // Overnight is never free.

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import { lookupUpsGroundDays } from "@lib/util/eligible-arrival-dates"
 import {
+  ATLANTA_THRESHOLD,
   IN_REGION_THRESHOLD,
   NATIONAL_THRESHOLD,
   resolveFreeShippingThreshold,
@@ -55,7 +56,7 @@ function getPromise(
         : "See your cold-chain options before you shop",
       detail: isLoggedIn
         ? "Save an address once and we will show local delivery, regional pickup, or UPS cold-chain transit before checkout."
-        : `Atlanta delivery and regional pickup can unlock free delivery at $${inRegionThreshold}. UPS cold-chain shipping is free nationwide at $${nationalThreshold}.`,
+        : `Atlanta home delivery is free at $${ATLANTA_THRESHOLD}; regional pickup and in-region UPS at $${inRegionThreshold}. UPS cold-chain shipping is free nationwide at $${nationalThreshold}.`,
       badge: "Enter ZIP",
     }
   }
@@ -78,7 +79,7 @@ function getPromise(
       kind: "atlanta",
       eyebrow: "Local route likely available",
       headline: "Atlanta delivery available for this ZIP",
-      detail: `Free local delivery starts at $${inRegionThreshold}. Checkout confirms your exact delivery day and any route minimums before payment.`,
+      detail: `Free local delivery starts at $${ATLANTA_THRESHOLD}. Checkout confirms your exact delivery day and any route minimums before payment.`,
       badge: "Atlanta delivery",
     }
   }

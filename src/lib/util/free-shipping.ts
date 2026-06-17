@@ -5,9 +5,11 @@
  *
  *   - **Plant Pickup (Doraville, GA)**: always free. Customer earns a
  *     $7.50 pickup credit on orders ≥ $150.
- *   - **Atlanta Delivery / Southeast Pickup / UPS shipping to in-region
- *     state**: free at $250+. The 7 in-region states are
- *     `GA, TN, TX, NC, FL, SC, AL`.
+ *   - **Atlanta Delivery**: free at $250+. This is the local-delivery
+ *     route and keeps the lower threshold even as the in-region UPS /
+ *     Southeast-pickup threshold rises (see `ATLANTA_THRESHOLD`).
+ *   - **Southeast Pickup / UPS shipping to an in-region state**: free at
+ *     $350+. The 7 in-region states are `GA, TN, TX, NC, FL, SC, AL`.
  *   - **UPS shipping to a national state**: free at $500+. The checkout
  *     service picker decides whether Ground or 3 Day Select is the baseline.
  *   - **UPS Overnight**: never free; charged at carrier rate.
@@ -39,7 +41,14 @@ export const IN_REGION_STATES = [
   "AL",
 ] as const
 
-export const IN_REGION_THRESHOLD = 250
+export const IN_REGION_THRESHOLD = 350
+/**
+ * Atlanta home-delivery keeps a separate, lower local-delivery threshold.
+ * When the in-region UPS / Southeast-pickup threshold rose to $350, Atlanta
+ * delivery stayed free at $250. `atlanta_delivery` resolves against this
+ * constant, NOT `IN_REGION_THRESHOLD`.
+ */
+export const ATLANTA_THRESHOLD = 250
 export const NATIONAL_THRESHOLD = 500
 export const PICKUP_BONUS_THRESHOLD = 150
 export const PICKUP_BONUS_AMOUNT = 7.5
@@ -130,6 +139,14 @@ export function getFreeShippingState(input: {
   /** Strapi-editable national free-shipping threshold (#266). Falls back to
    * `NATIONAL_THRESHOLD`. */
   nationalThreshold?: number | null
+  /**
+   * Atlanta home-delivery free-shipping threshold. Only consulted when
+   * `fulfillmentType === "atlanta_delivery"`. `null`/`undefined`/invalid falls
+   * back to the hardcoded `ATLANTA_THRESHOLD` ($250) — Atlanta delivery keeps
+   * the lower local threshold even though in-region UPS / Southeast pickup
+   * moved to $350.
+   */
+  atlantaThreshold?: number | null
 }): FreeShippingState {
   const sub = Math.max(0, input.subtotal ?? 0)
 
@@ -177,7 +194,8 @@ export function getFreeShippingState(input: {
     }
   }
 
-  // Atlanta delivery / Southeast pickup / in-region UPS shipping → $250.
+  // Atlanta delivery → $250 (its own lower local-delivery threshold).
+  // Southeast pickup / in-region UPS shipping → $350.
   // National UPS shipping → $500.
   const inRegion =
     input.fulfillmentType === "atlanta_delivery" ||
@@ -186,9 +204,20 @@ export function getFreeShippingState(input: {
 
   // #266: prefer the Strapi-editable thresholds when supplied; a null/0/invalid
   // value safely falls back to the hardcoded constant (see resolveFreeShippingThreshold).
-  const threshold = inRegion
-    ? resolveFreeShippingThreshold(input.inRegionThreshold, IN_REGION_THRESHOLD)
-    : resolveFreeShippingThreshold(input.nationalThreshold, NATIONAL_THRESHOLD)
+  // Atlanta home-delivery uses its own ($250) threshold; southeast pickup and
+  // in-region UPS keep the in-region ($350) threshold.
+  const threshold =
+    input.fulfillmentType === "atlanta_delivery"
+      ? resolveFreeShippingThreshold(input.atlantaThreshold, ATLANTA_THRESHOLD)
+      : inRegion
+        ? resolveFreeShippingThreshold(
+            input.inRegionThreshold,
+            IN_REGION_THRESHOLD
+          )
+        : resolveFreeShippingThreshold(
+            input.nationalThreshold,
+            NATIONAL_THRESHOLD
+          )
   const qualified = sub >= threshold
   const remaining = qualified ? 0 : Math.max(0, threshold - sub)
   const remainingPercentage = Math.min(
@@ -229,10 +258,13 @@ export function freeShippingPlainText(input: {
   shipState?: string | null
   inRegionThreshold?: number | null
   nationalThreshold?: number | null
+  /** Atlanta home-delivery threshold; null/invalid → ATLANTA_THRESHOLD ($250). */
+  atlantaThreshold?: number | null
 }): string {
   // `getFreeShippingState` already applies the threshold defaulting; this
   // helper renders off the resolved state (`s.remaining`/`s.threshold`), so it
-  // just needs to forward the optional Strapi thresholds. #266.
+  // just needs to forward the optional thresholds (Strapi in-region/national
+  // #266, plus the Atlanta local-delivery threshold).
   const s = getFreeShippingState(input)
   const fmt = (n: number) =>
     `$${n.toLocaleString(undefined, {

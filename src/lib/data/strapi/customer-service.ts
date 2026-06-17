@@ -65,7 +65,7 @@ const PLACEHOLDER: CustomerServiceData = {
     {
       Question: "What's your free-shipping threshold?",
       Answer:
-        "Free Atlanta-area delivery on orders over $250 (in-region: GA, TN, TX, NC, FL, SC, AL). Free nationwide shipping on orders over $500. Otherwise standard shipping rates apply at checkout.",
+        "Free Atlanta home delivery on orders over $250 in eligible Metro Atlanta ZIP codes. Free UPS Ground to our in-region states (GA, TN, TX, NC, FL, SC, AL) on orders over $350, and free nationwide shipping on orders over $500. Otherwise standard shipping rates apply at checkout.",
     },
     {
       Question: "How do I return an order?",
