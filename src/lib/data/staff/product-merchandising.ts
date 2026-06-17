@@ -107,6 +107,8 @@ type NormalizedProductTag = {
 
 const REVIEW_CAPTION_PREFIX = "GP_IMAGE_REVIEW_V1:"
 const GRAPHQL_PAGE_SIZE = 100
+const GRAPHQL_PAGE_BATCH_SIZE = 5
+const TAG_SUMMARY_CACHE_MS = 60 * 1000
 
 const METADATA_LABELS: Record<string, string> = {
   Brand: "Brand",
@@ -133,6 +135,12 @@ const METADATA_LABELS: Record<string, string> = {
   BulkPack: "Bulk pack",
   IQF: "IQF",
 }
+
+let tagSummaryCache: {
+  timestamp: number
+  tags: ProductMerchandisingTagSummary[]
+} | null = null
+let tagSummaryInflight: Promise<ProductMerchandisingTagSummary[]> | null = null
 
 function strapiEndpoint() {
   const endpoint = process.env.STRAPI_ENDPOINT?.replace(/\/+$/, "")
@@ -587,16 +595,27 @@ async function fetchGraphqlProducts(
   let start = 0
 
   while (true) {
-    const data = await strapiGraphql<{ products?: AnyRecord[] }>(query, {
-      ...variables,
-      limit: GRAPHQL_PAGE_SIZE,
-      start,
-    })
-    const page = data.products || []
-    products.push(...page)
+    const pageStarts = Array.from(
+      { length: GRAPHQL_PAGE_BATCH_SIZE },
+      (_, index) => start + index * GRAPHQL_PAGE_SIZE
+    )
+    const pages = await Promise.all(
+      pageStarts.map(async (pageStart) => {
+        const data = await strapiGraphql<{ products?: AnyRecord[] }>(query, {
+          ...variables,
+          limit: GRAPHQL_PAGE_SIZE,
+          start: pageStart,
+        })
+        return data.products || []
+      })
+    )
 
-    if (page.length < GRAPHQL_PAGE_SIZE) break
-    start += GRAPHQL_PAGE_SIZE
+    for (const page of pages) {
+      products.push(...page)
+    }
+
+    if (pages.some((page) => page.length < GRAPHQL_PAGE_SIZE)) break
+    start += GRAPHQL_PAGE_BATCH_SIZE * GRAPHQL_PAGE_SIZE
   }
 
   return products
@@ -682,6 +701,31 @@ export async function getProductMerchandisingTags(): Promise<
 > {
   await requireStaffCustomer()
 
+  if (
+    tagSummaryCache &&
+    Date.now() - tagSummaryCache.timestamp < TAG_SUMMARY_CACHE_MS
+  ) {
+    return tagSummaryCache.tags
+  }
+  if (tagSummaryInflight) return tagSummaryInflight
+
+  tagSummaryInflight = buildProductMerchandisingTags()
+
+  try {
+    const tags = await tagSummaryInflight
+    tagSummaryCache = {
+      timestamp: Date.now(),
+      tags,
+    }
+    return tags
+  } finally {
+    tagSummaryInflight = null
+  }
+}
+
+async function buildProductMerchandisingTags(): Promise<
+  ProductMerchandisingTagSummary[]
+> {
   const summaries = new Map<string, ProductMerchandisingTagSummary>()
   const products = (await fetchOverviewProducts()).map(summarizeProduct)
 
@@ -805,6 +849,8 @@ export async function reviewMerchandisingImage(
         }),
       }
     )
+
+    tagSummaryCache = null
 
     const json = await response.json().catch(() => null)
 
