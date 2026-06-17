@@ -400,29 +400,41 @@ async function strapiGet<T>(path: string): Promise<T> {
   return response.json()
 }
 
+type ProductsPage = {
+  data?: AnyRecord[]
+  meta?: { pagination?: { page?: number; pageCount?: number } }
+}
+
+function productsPagePath(page: number): string {
+  const params = new URLSearchParams()
+  params.set("pagination[page]", String(page))
+  params.set("pagination[pageSize]", String(PAGE_SIZE))
+  params.set("populate[FeaturedImage]", "true")
+  params.set("populate[GalleryImages]", "true")
+  params.set("populate[Metadata]", "true")
+  params.set("populate[Categorization][populate][ProductTags]", "true")
+  params.set("populate[MedusaProduct][populate][Variants]", "true")
+  return `/api/products?${params.toString()}`
+}
+
 async function fetchAllProducts(): Promise<AnyRecord[]> {
-  const products: AnyRecord[] = []
-  let page = 1
+  // Fetch page 1 to learn the total page count, then fetch the remaining pages
+  // concurrently. The previous sequential page-by-page loop made each page a
+  // serial Strapi round-trip (~5 heavily-populated pages × ~1.5s), which made
+  // the staff merchandising workspace feel like it was hanging on open.
+  const first = await strapiGet<ProductsPage>(productsPagePath(1))
+  const products: AnyRecord[] = [...(first.data || [])]
+  const pageCount = first.meta?.pagination?.pageCount || 1
 
-  while (true) {
-    const params = new URLSearchParams()
-    params.set("pagination[page]", String(page))
-    params.set("pagination[pageSize]", String(PAGE_SIZE))
-    params.set("populate[FeaturedImage]", "true")
-    params.set("populate[GalleryImages]", "true")
-    params.set("populate[Metadata]", "true")
-    params.set("populate[Categorization][populate][ProductTags]", "true")
-    params.set("populate[MedusaProduct][populate][Variants]", "true")
-
-    const json = await strapiGet<{
-      data?: AnyRecord[]
-      meta?: { pagination?: { page?: number; pageCount?: number } }
-    }>(`/api/products?${params.toString()}`)
-    products.push(...(json.data || []))
-
-    const pageCount = json.meta?.pagination?.pageCount || page
-    if (page >= pageCount || !json.data?.length) break
-    page += 1
+  if (pageCount > 1) {
+    const remaining = await Promise.all(
+      Array.from({ length: pageCount - 1 }, (_, index) =>
+        strapiGet<ProductsPage>(productsPagePath(index + 2))
+      )
+    )
+    for (const json of remaining) {
+      products.push(...(json.data || []))
+    }
   }
 
   return products
