@@ -4,7 +4,10 @@ import "server-only"
 
 import { revalidatePath } from "next/cache"
 import { retrieveAuthenticatedCustomerForStaffAccess } from "@lib/data/customer"
-import { canReviewMerchandising, staffDisplayName } from "@lib/util/staff-access"
+import {
+  canReviewMerchandising,
+  staffDisplayName,
+} from "@lib/util/staff-access"
 
 type AnyRecord = Record<string, any>
 
@@ -103,7 +106,7 @@ type NormalizedProductTag = {
 }
 
 const REVIEW_CAPTION_PREFIX = "GP_IMAGE_REVIEW_V1:"
-const PAGE_SIZE = 100
+const GRAPHQL_PAGE_SIZE = 100
 
 const METADATA_LABELS: Record<string, string> = {
   Brand: "Brand",
@@ -168,6 +171,14 @@ async function requireStaffCustomer() {
 
 function text(value: unknown) {
   return String(value || "").trim()
+}
+
+function numericHash(value: string) {
+  let hash = 0
+  for (let i = 0; i < value.length; i += 1) {
+    hash = (hash * 31 + value.charCodeAt(i)) >>> 0
+  }
+  return hash || 1
 }
 
 function stripLevelPrefix(name: string) {
@@ -267,16 +278,18 @@ function merchandisingImage(
   image: RawImage | null | undefined,
   role: "featured" | "gallery"
 ): MerchandisingProductImage | null {
-  if (!image?.id || !image.url) return null
+  if (!image?.url) return null
 
   const parsed = parseReviewCaption(image.caption)
   const urls = imageUrl(image)
+  const documentId = text(image.documentId)
+  const id = image.id || numericHash(documentId || urls.url)
 
   return {
-    id: image.id,
-    documentId: text(image.documentId),
+    id,
+    documentId,
     role,
-    name: text(image.name) || `Image ${image.id}`,
+    name: text(image.name) || `Image ${id}`,
     url: urls.url,
     displayUrl: urls.displayUrl,
     thumbnailUrl: urls.thumbnailUrl,
@@ -288,19 +301,20 @@ function merchandisingImage(
 
 function uniqueImages(product: AnyRecord): MerchandisingProductImage[] {
   const images: MerchandisingProductImage[] = []
-  const seen = new Set<number>()
+  const seen = new Set<string>()
   const featured = merchandisingImage(product.FeaturedImage, "featured")
 
   if (featured) {
     images.push(featured)
-    seen.add(featured.id)
+    seen.add(featured.documentId || featured.url)
   }
 
   for (const item of product.GalleryImages || []) {
     const image = merchandisingImage(item, "gallery")
-    if (!image || seen.has(image.id)) continue
+    const key = image?.documentId || image?.url
+    if (!image || !key || seen.has(key)) continue
     images.push(image)
-    seen.add(image.id)
+    seen.add(key)
   }
 
   return images
@@ -414,32 +428,253 @@ async function strapiGet<T>(path: string): Promise<T> {
   return response.json()
 }
 
-async function fetchAllProducts(): Promise<AnyRecord[]> {
+async function strapiGraphql<T>(
+  query: string,
+  variables: Record<string, unknown>
+): Promise<T> {
+  const response = await fetch(`${strapiEndpoint()}/graphql`, {
+    method: "POST",
+    headers: {
+      ...strapiHeaders(),
+      "Content-Type": "application/json",
+    },
+    cache: "no-store",
+    body: JSON.stringify({ query, variables }),
+  })
+
+  const json = await response.json().catch(() => null)
+
+  if (!response.ok || json?.errors) {
+    const message = json?.errors?.[0]?.message || response.status
+    throw new Error(`Strapi GraphQL request failed: ${message}`)
+  }
+
+  return json.data as T
+}
+
+const MERCHANDISING_OVERVIEW_PRODUCTS_QUERY = /* GraphQL */ `
+  query MerchandisingOverviewProducts($limit: Int, $start: Int) {
+    products(pagination: { limit: $limit, start: $start }) {
+      documentId
+      FeaturedImage {
+        documentId
+        caption
+        url
+      }
+      GalleryImages {
+        documentId
+        caption
+        url
+      }
+      Metadata {
+        Brand
+        Source
+        Origin
+        Supplier
+        AvgPackSize
+        AvgPackWeight
+        Serves
+        PiecesPerPack
+        KosherForPassover
+        GlutenFree
+        Organic
+        GrassFed
+        FreeRange
+        BoneIn
+        Boneless
+        Cooked
+        Uncooked
+        HeatAndServe
+        Smoked
+        Marinated
+        VacuumPacked
+        BulkPack
+        IQF
+      }
+      Categorization {
+        ProductTags {
+          documentId
+          Name
+          Description
+          SEODescription
+        }
+      }
+    }
+  }
+`
+
+const MERCHANDISING_DETAIL_PRODUCTS_QUERY = /* GraphQL */ `
+  query MerchandisingDetailProducts(
+    $tagName: String!
+    $limit: Int
+    $start: Int
+  ) {
+    products(
+      filters: {
+        Categorization: { ProductTags: { Name: { contains: $tagName } } }
+      }
+      pagination: { limit: $limit, start: $start }
+    ) {
+      documentId
+      Title
+      FeaturedImage {
+        documentId
+        name
+        url
+        formats
+        alternativeText
+        caption
+      }
+      GalleryImages {
+        documentId
+        name
+        url
+        formats
+        alternativeText
+        caption
+      }
+      Metadata {
+        Brand
+        Source
+        Origin
+        Supplier
+        AvgPackSize
+        AvgPackWeight
+        Serves
+        PiecesPerPack
+        KosherForPassover
+        GlutenFree
+        Organic
+        GrassFed
+        FreeRange
+        BoneIn
+        Boneless
+        Cooked
+        Uncooked
+        HeatAndServe
+        Smoked
+        Marinated
+        VacuumPacked
+        BulkPack
+        IQF
+      }
+      Categorization {
+        ProductTags {
+          documentId
+          Name
+          Description
+          SEODescription
+        }
+      }
+      MedusaProduct {
+        Title
+        Handle
+        Description
+        ShortDescription
+        Variants {
+          Sku
+        }
+      }
+    }
+  }
+`
+
+async function fetchGraphqlProducts(
+  query: string,
+  variables: Record<string, unknown> = {}
+): Promise<AnyRecord[]> {
   const products: AnyRecord[] = []
-  let page = 1
+  let start = 0
 
   while (true) {
-    const params = new URLSearchParams()
-    params.set("pagination[page]", String(page))
-    params.set("pagination[pageSize]", String(PAGE_SIZE))
-    params.set("populate[FeaturedImage]", "true")
-    params.set("populate[GalleryImages]", "true")
-    params.set("populate[Metadata]", "true")
-    params.set("populate[Categorization][populate][ProductTags]", "true")
-    params.set("populate[MedusaProduct][populate][Variants]", "true")
+    const data = await strapiGraphql<{ products?: AnyRecord[] }>(query, {
+      ...variables,
+      limit: GRAPHQL_PAGE_SIZE,
+      start,
+    })
+    const page = data.products || []
+    products.push(...page)
 
-    const json = await strapiGet<{
-      data?: AnyRecord[]
-      meta?: { pagination?: { page?: number; pageCount?: number } }
-    }>(`/api/products?${params.toString()}`)
-    products.push(...(json.data || []))
-
-    const pageCount = json.meta?.pagination?.pageCount || page
-    if (page >= pageCount || !json.data?.length) break
-    page += 1
+    if (page.length < GRAPHQL_PAGE_SIZE) break
+    start += GRAPHQL_PAGE_SIZE
   }
 
   return products
+}
+
+async function fetchOverviewProducts(): Promise<AnyRecord[]> {
+  return fetchGraphqlProducts(MERCHANDISING_OVERVIEW_PRODUCTS_QUERY)
+}
+
+async function fetchDetailProducts(tagName: string): Promise<AnyRecord[]> {
+  return fetchGraphqlProducts(MERCHANDISING_DETAIL_PRODUCTS_QUERY, { tagName })
+}
+
+async function uploadFilesByDocumentId(
+  documentIds: string[]
+): Promise<Map<string, RawImage>> {
+  const uniqueIds = Array.from(new Set(documentIds.filter(Boolean)))
+  const files = new Map<string, RawImage>()
+
+  for (let start = 0; start < uniqueIds.length; start += 50) {
+    const chunk = uniqueIds.slice(start, start + 50)
+    const params = new URLSearchParams()
+    chunk.forEach((documentId, index) => {
+      params.set(`filters[documentId][$in][${index}]`, documentId)
+    })
+
+    const uploads = await strapiGet<RawImage[]>(
+      `/api/upload/files?${params.toString()}`
+    )
+
+    for (const upload of uploads || []) {
+      const documentId = text(upload.documentId)
+      if (documentId) files.set(documentId, upload)
+    }
+  }
+
+  return files
+}
+
+async function uploadFileByDocumentId(
+  documentId?: string
+): Promise<RawImage | null> {
+  if (!documentId) return null
+  const uploads = await uploadFilesByDocumentId([documentId])
+  return uploads.get(documentId) || null
+}
+
+async function hydrateProductImagesWithUploadFiles(
+  products: ProductMerchandisingProduct[]
+): Promise<ProductMerchandisingProduct[]> {
+  const documentIds = products.flatMap((product) =>
+    product.images.map((image) => image.documentId).filter(Boolean)
+  )
+  if (!documentIds.length) return products
+
+  const uploads = await uploadFilesByDocumentId(documentIds)
+
+  return products.map((product) => ({
+    ...product,
+    images: product.images.map((image) => {
+      const upload = uploads.get(image.documentId)
+      if (!upload) return image
+      const parsed = parseReviewCaption(upload.caption)
+      const urls = imageUrl(upload)
+
+      return {
+        ...image,
+        id: upload.id || image.id,
+        name: text(upload.name) || image.name,
+        url: urls.url || image.url,
+        displayUrl: urls.displayUrl || image.displayUrl,
+        thumbnailUrl: urls.thumbnailUrl || image.thumbnailUrl,
+        alternativeText: upload.alternativeText || image.alternativeText,
+        caption: upload.caption || null,
+        review: parsed.review,
+      }
+    }),
+  }))
 }
 
 export async function getProductMerchandisingTags(): Promise<
@@ -448,7 +683,7 @@ export async function getProductMerchandisingTags(): Promise<
   await requireStaffCustomer()
 
   const summaries = new Map<string, ProductMerchandisingTagSummary>()
-  const products = (await fetchAllProducts()).map(summarizeProduct)
+  const products = (await fetchOverviewProducts()).map(summarizeProduct)
 
   for (const product of products) {
     for (const tagName of product.l3Tags) {
@@ -496,8 +731,11 @@ export async function getProductMerchandisingDetail(
   await requireStaffCustomer()
 
   const tagName = decodeTagKey(tagId)
-  const products = (await fetchAllProducts())
-    .map(summarizeProduct)
+  const products = (
+    await hydrateProductImagesWithUploadFiles(
+      (await fetchDetailProducts(tagName)).map(summarizeProduct)
+    )
+  )
     .filter((product) => product.l3Tags.includes(tagName))
     .sort((a, b) => a.title.localeCompare(b.title))
 
@@ -532,7 +770,10 @@ export async function reviewMerchandisingImage(
 ): Promise<{ ok: boolean; review?: MerchandisingImageReview; error?: string }> {
   try {
     const staff = await requireStaffCustomer()
-    if (!input.imageId || input.imageId < 1) {
+    const upload = await uploadFileByDocumentId(input.imageDocumentId)
+    const imageId = upload?.id || input.imageId
+
+    if (!imageId || imageId < 1) {
       throw new Error("Choose an image to review.")
     }
     if (input.status === "rejected" && !input.reason) {
@@ -550,7 +791,7 @@ export async function reviewMerchandisingImage(
     const caption = reviewCaption(input.currentCaption, review)
 
     const response = await fetch(
-      `${strapiEndpoint()}/api/upload?id=${input.imageId}`,
+      `${strapiEndpoint()}/api/upload?id=${imageId}`,
       {
         method: "POST",
         headers: {
