@@ -264,10 +264,19 @@ function ImageCard({
   return (
     <div className="group overflow-hidden rounded-md border border-gray-200 bg-white">
       <div className="relative aspect-square bg-Scroll">
+        {/*
+          Load Strapi's large/medium derivative directly (unoptimized) instead
+          of through Vercel's image optimizer. The optimizer reliably failed to
+          render these heavier sources for an image-heavy review page (~36 at
+          once) — the cards came up blank. The derivative is already ~750-1000px
+          (crisp at this ~600px display) and ~150KB, so it loads straight from
+          Strapi's CDN with no optimizer bottleneck.
+        */}
         <Image
           src={image.displayUrl}
           alt={image.alternativeText || image.name}
           fill
+          unoptimized
           sizes="(min-width: 1024px) 600px, (min-width: 640px) 50vw, 100vw"
           className="object-cover"
         />
