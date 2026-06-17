@@ -532,15 +532,28 @@ export default function ProductMerchandisingDetailView({
               className="overflow-hidden rounded-lg border border-gray-200 bg-white"
             >
               <div className="p-4 large:p-5">
-                <div className="flex flex-col gap-3 large:flex-row large:items-start large:justify-between">
-                  <div className="min-w-0">
-                    <h2 className="text-xl font-gyst font-bold text-Charcoal">
-                      {product.title}
-                    </h2>
-                    <p className="mt-2 max-w-4xl text-sm font-maison-neue leading-6 text-Charcoal/65">
-                      {product.description}
-                    </p>
-                    <div className="mt-3 flex flex-wrap gap-2">
+                <div className="grid gap-5 large:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] large:items-start">
+                  <div className="min-w-0 space-y-4">
+                    <div>
+                      <div className="flex items-start justify-between gap-3">
+                        <h2 className="text-xl font-gyst font-bold text-Charcoal">
+                          {product.title}
+                        </h2>
+                        {product.handle && (
+                          <LocalizedClientLink
+                            href={`/products/${product.handle}`}
+                            className="inline-flex min-h-[38px] shrink-0 items-center justify-center rounded-md border border-Charcoal px-3 text-xs font-rexton font-bold uppercase text-Charcoal transition hover:bg-Charcoal hover:text-white"
+                          >
+                            PDP
+                          </LocalizedClientLink>
+                        )}
+                      </div>
+                      <p className="mt-2 text-sm font-maison-neue leading-6 text-Charcoal/65">
+                        {product.description}
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
                       <span className="rounded-full border border-Charcoal/15 bg-Charcoal/5 px-2.5 py-1 text-xs font-maison-neue-mono uppercase text-Charcoal/65">
                         SKU {product.sku}
                       </span>
@@ -554,36 +567,28 @@ export default function ProductMerchandisingDetailView({
                       ))}
                     </div>
                   </div>
-                  {product.handle && (
-                    <LocalizedClientLink
-                      href={`/products/${product.handle}`}
-                      className="inline-flex min-h-[38px] shrink-0 items-center justify-center rounded-md border border-Charcoal px-3 text-xs font-rexton font-bold uppercase text-Charcoal transition hover:bg-Charcoal hover:text-white"
-                    >
-                      PDP
-                    </LocalizedClientLink>
-                  )}
-                </div>
 
-                <div className="mt-5 grid grid-cols-2 gap-3 medium:grid-cols-3 large:grid-cols-4 xlarge:grid-cols-5">
-                  {product.images.length ? (
-                    visibleImages.map((image) => (
-                      <ImageCard
-                        key={image.id}
-                        image={image}
-                        isPending={isPending && pendingImageId === image.id}
-                        onApprove={(item) => submitReview(item, "approved")}
-                        onReject={(item) =>
-                          setRejectDraft({
-                            image: item,
-                            reason: "looks_ai_or_synthetic",
-                            note: "",
-                          })
-                        }
-                      />
-                    ))
-                  ) : (
-                    <NoImagePlaceholder />
-                  )}
+                  <div className="grid grid-cols-1 gap-3 small:grid-cols-2">
+                    {product.images.length ? (
+                      visibleImages.map((image) => (
+                        <ImageCard
+                          key={image.id}
+                          image={image}
+                          isPending={isPending && pendingImageId === image.id}
+                          onApprove={(item) => submitReview(item, "approved")}
+                          onReject={(item) =>
+                            setRejectDraft({
+                              image: item,
+                              reason: "looks_ai_or_synthetic",
+                              note: "",
+                            })
+                          }
+                        />
+                      ))
+                    ) : (
+                      <NoImagePlaceholder />
+                    )}
+                  </div>
                 </div>
               </div>
               <ProductReviewRail product={product} />
