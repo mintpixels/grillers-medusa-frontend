@@ -8,6 +8,7 @@ import OrderItems from "@modules/order/components/items"
 import FulfillmentDetails from "@modules/order/components/fulfillment-details"
 import PurchaseTracker from "../../../components/purchase-tracker"
 import type { FulfillmentType } from "@lib/data/cart"
+import LocalizedClientLink from "@modules/common/components/localized-client-link"
 
 type OrderCompletedTemplateProps = {
   order: HttpTypes.StoreOrder
@@ -226,14 +227,14 @@ export default async function OrderCompletedTemplate({
         {/* Help / CTA */}
         <div className="text-center mt-10">
           <p className="text-sm font-maison-neue text-Charcoal/50 mb-4">
-            Questions about your order? <a href="/contact" className="text-Gold hover:underline font-semibold">Contact us</a>
+            Questions about your order? <LocalizedClientLink href="/contact" className="text-Gold hover:underline font-semibold">Contact us</LocalizedClientLink>
           </p>
-          <a
+          <LocalizedClientLink
             href="/store"
             className="inline-block px-8 py-3 rounded-[5px] border border-Charcoal bg-Gold text-Charcoal font-rexton text-sm font-bold uppercase tracking-wide text-center transition-opacity hover:opacity-90"
           >
             Continue Shopping
-          </a>
+          </LocalizedClientLink>
         </div>
       </div>
     </div>
