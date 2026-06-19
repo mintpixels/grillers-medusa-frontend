@@ -8,6 +8,7 @@ import medusaError from "@lib/util/medusa-error"
 import { getAuthHeaders, getCacheOptions } from "./cookies"
 import { HttpTypes } from "@medusajs/types"
 import { getRegion } from "./regions"
+import { reportServerSoftFailure } from "@lib/server-soft-failure"
 
 export const retrieveOrder = async (id: string) => {
   const active = await getActiveStaffImpersonation()
@@ -55,7 +56,14 @@ export const retrieveOrder = async (id: string) => {
       cache: "force-cache",
     })
     .then(({ order }) => order)
-    .catch((err) => medusaError(err))
+    .catch((err) => {
+      // Order path: order-confirmation read failed. Emit warn (the boundary
+      // still handles UX via the medusaError throw below).
+      reportServerSoftFailure("src/lib/data/orders.ts:retrieveOrder", err, {
+        order_id: id,
+      })
+      return medusaError(err)
+    })
 }
 
 type OrderListPageResponse = HttpTypes.StoreOrderListResponse & {

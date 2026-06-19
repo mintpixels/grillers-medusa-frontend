@@ -4,6 +4,7 @@ import { sdk } from "@lib/config"
 import { getAuthHeaders, getCacheOptions } from "./cookies"
 import { getActiveStaffImpersonation } from "./customer"
 import { HttpTypes } from "@medusajs/types"
+import { reportServerSoftFailure } from "@lib/server-soft-failure"
 
 export type SavedPaymentMethod = {
   id: string
@@ -170,7 +171,13 @@ export const listCartPaymentMethods = async (regionId: string) => {
         return a.id > b.id ? 1 : -1
       })
     )
-    .catch(() => {
+    .catch((e) => {
+      // Checkout path: no payment providers → checkout cannot proceed.
+      reportServerSoftFailure(
+        "src/lib/data/payment.ts:listCartPaymentMethods",
+        e,
+        { region_id: regionId }
+      )
       return null
     })
 }

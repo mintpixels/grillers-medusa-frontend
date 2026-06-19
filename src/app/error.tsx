@@ -8,6 +8,7 @@ import {
   isTransientNavigationError,
   shouldRetryTransientNavigationError,
 } from "@lib/util/transient-navigation-error"
+import { reportClientError } from "@lib/client-error-reporter"
 
 export default function Error({
   error,
@@ -23,7 +24,23 @@ export default function Error({
     // Log the error to an error reporting service
     console.error("Application error:", error)
 
-    if (!recoverable) return
+    if (!recoverable) {
+      // Request page severity for revenue-critical routes
+      // (checkout/cart/products), else warn. NOTE: the server allow-map clamps
+      // `route_segment_error` to a `warn` ceiling (an anon client can't mint a
+      // `page`); the checkout segment's own boundary emits the dedicated
+      // pageable `checkout_segment_error`. The reporter also drops self-healing
+      // transient nav errors so they never alert.
+      const path =
+        typeof window !== "undefined" ? window.location.pathname : ""
+      const revenueCritical = /\/(checkout|cart|products)(\/|$)/.test(path)
+      reportClientError({
+        kind: "route_segment_error",
+        severity: revenueCritical ? "page" : "warn",
+        error,
+      })
+      return
+    }
 
     if (!shouldRetryTransientNavigationError("route-error-reset", error)) {
       setRecoveryExhausted(true)

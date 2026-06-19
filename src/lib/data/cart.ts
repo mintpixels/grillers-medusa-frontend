@@ -30,6 +30,7 @@ import { getPaymentContextHeaders } from "./payment"
 import { findShippingOptionByType } from "./fulfillment"
 import { getRegion } from "./regions"
 import { medusaProductHasInternalRawMaterialSku } from "@lib/util/internal-products"
+import { reportServerSoftFailure } from "@lib/server-soft-failure"
 
 type ActiveStaffContext = Awaited<
   ReturnType<typeof getActiveStaffImpersonation>
@@ -195,7 +196,13 @@ export async function retrieveCart(
 
       return cart
     })
-    .catch(() => null)
+    .catch((e) => {
+      // Checkout/order path: a failed cart fetch silently blanks the cart.
+      reportServerSoftFailure("src/lib/data/cart.ts:retrieveCart", e, {
+        cart_id: id,
+      })
+      return null
+    })
 }
 
 export async function getOrSetCart(countryCode: string) {
@@ -807,6 +814,13 @@ export async function getCartInventoryReview(cartId?: string) {
       error: inventoryCheckoutError(availability.lines),
     }
   } catch (err: any) {
+    // Checkout path: inventory availability degraded — surface to ops so a
+    // backend availability outage is visible before it silently blocks orders.
+    reportServerSoftFailure(
+      "src/lib/data/inventory-allocation.ts:getCartInventoryReview",
+      err,
+      { cart_id: cart?.id }
+    )
     return {
       ok: false,
       lines: [],

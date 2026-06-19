@@ -1,6 +1,8 @@
 "use client"
 
+import { useEffect } from "react"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
+import { reportClientError } from "@lib/client-error-reporter"
 
 export default function CheckoutError({
   error,
@@ -9,6 +11,15 @@ export default function CheckoutError({
   error: Error & { digest?: string }
   reset: () => void
 }) {
+  useEffect(() => {
+    // Checkout failing to render is the highest-value pageable signal.
+    reportClientError({
+      kind: "checkout_segment_error",
+      severity: "page",
+      error,
+    })
+  }, [error])
+
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] px-4">
       <div className="w-full max-w-md text-center">
