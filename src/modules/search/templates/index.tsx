@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useParams } from "next/navigation"
 import Link from "next/link"
 import {
@@ -19,6 +19,7 @@ import {
 import type { StrapiCollectionProduct } from "@lib/data/strapi/collections"
 import type { ProductIngredientDisclosureMap } from "@lib/data/strapi/ingredient-disclosures"
 import { enrichStrapiProductsWithMedusaPrices } from "@lib/data/products"
+import { jitsuTrack } from "@lib/jitsu"
 import { ALGOLIA_COLLECTION_PRODUCT_ATTRIBUTES } from "@lib/util/collection-product"
 import StrapiProductGrid from "@modules/collections/components/strapi-product-grid"
 import CollectionFilters, {
@@ -251,6 +252,26 @@ function SearchBody({
   useEffect(() => {
     setCurrentPage(1)
   }, [rankedProducts.length, displayQuery])
+
+  // Emit the authoritative search-results analytics event with results_count
+  // so an ops-pager no-results-rate / funnel probe has the data. Fired once
+  // per distinct query (debounced) on the results page, where the full Algolia
+  // result set is known — the nav dropdown event fires before results settle.
+  const lastTrackedSearchRef = useRef<string>("")
+  useEffect(() => {
+    const term = displayQuery.trim()
+    if (term.length < 2) return
+    if (lastTrackedSearchRef.current === term) return
+    const timer = setTimeout(() => {
+      jitsuTrack("search_results_viewed", {
+        search_term: term,
+        results_count: rankedProducts.length,
+        no_results: rankedProducts.length === 0,
+      })
+      lastTrackedSearchRef.current = term
+    }, 600)
+    return () => clearTimeout(timer)
+  }, [displayQuery, rankedProducts.length])
 
   const showFilters = productsHaveFilters(rankedProductsWithDisclosures)
   const isEmpty = displayQuery.length > 0 && rankedProducts.length === 0

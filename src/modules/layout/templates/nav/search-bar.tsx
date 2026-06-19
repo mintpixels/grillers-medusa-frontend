@@ -74,19 +74,29 @@ function InstantComboboxInput({
   onSubmitQuery: (q: string) => void
 }) {
   const { query, refine, clear } = useSearchBox()
+  // Read the live hit set so the analytics event carries results_count for an
+  // ops-pager no-results-rate probe. `nbHits` is the total Algolia match count
+  // (not just the rendered page); fall back to rendered items if absent.
+  const { items, results } = useHits<Product>()
   const lastTrackedQuery = useRef<string>("")
 
   // Track search event with debounce (when query is at least 3 chars and different)
   useEffect(() => {
     if (query.length >= 3 && query !== lastTrackedQuery.current) {
       const timer = setTimeout(() => {
+        const resultsCount =
+          typeof results?.nbHits === "number" ? results.nbHits : items.length
         trackSearch(query)
-        jitsuTrack("search_performed", { search_term: query })
+        jitsuTrack("search_performed", {
+          search_term: query,
+          results_count: resultsCount,
+          no_results: resultsCount === 0,
+        })
         lastTrackedQuery.current = query
       }, 500) // 500ms debounce
       return () => clearTimeout(timer)
     }
-  }, [query])
+  }, [query, items, results])
 
   return (
     <div className="relative">

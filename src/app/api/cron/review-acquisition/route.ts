@@ -3,6 +3,24 @@ import {
   type ReviewAskKind,
   sendReviewAcquisitionEmail,
 } from "@lib/data/review-acquisition"
+import {
+  emitCronAlert,
+  planHeartbeat,
+  planMisconfiguredAlert,
+  planReviewAcquisitionAlert,
+} from "@lib/cron-ops-alerts"
+
+const ALERT_PATH = "src/app/api/cron/review-acquisition/route.ts"
+
+/**
+ * Required env for the review-ask flow. Missing Medusa creds makes
+ * `fetchRecentlyDelivered` return [] silently — the cron looks healthy
+ * (HTTP 200, scanned:0) but never sends, so we page on it.
+ */
+function missingReviewAcquisitionEnv(): string[] {
+  const required = ["MEDUSA_BACKEND_URL", "MEDUSA_ADMIN_API_TOKEN"]
+  return required.filter((name) => !process.env[name])
+}
 
 /**
  * Daily cron for the review-acquisition flow (#96).
@@ -298,6 +316,20 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   const dryRun = isDryRun(req)
+
+  // Misconfiguration guard: missing Medusa env => silent no-op for days.
+  const missingEnv = missingReviewAcquisitionEnv()
+  if (missingEnv.length > 0) {
+    await emitCronAlert(
+      planMisconfiguredAlert("review-acquisition", missingEnv),
+      ALERT_PATH
+    )
+    return NextResponse.json(
+      { ok: false, error: "misconfigured", missingEnv },
+      { status: 200 }
+    )
+  }
+
   const orders = await fetchRecentlyDelivered()
   const summary = {
     dryRun,
@@ -398,6 +430,20 @@ export async function POST(req: Request): Promise<Response> {
       summary.skipped++
     }
   }
+
+  // Emit a failure alert (warn, or page when eligible-but-nothing-sent) when
+  // review-ask sends failed, then a success heartbeat for silence detection.
+  // Both fire before returning and never alter the HTTP response.
+  await emitCronAlert(planReviewAcquisitionAlert(summary), ALERT_PATH)
+  await emitCronAlert(
+    planHeartbeat("review-acquisition", {
+      scanned: summary.scanned,
+      sent_google: summary.sentGoogle,
+      sent_yelp: summary.sentYelp,
+      dry_run: summary.dryRun,
+    }),
+    ALERT_PATH
+  )
 
   return NextResponse.json({ ok: true, ...summary })
 }
