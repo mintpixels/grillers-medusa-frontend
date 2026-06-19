@@ -14,6 +14,12 @@ const nextConfig = {
     STRAPI_API_TOKEN: process.env.STRAPI_API_TOKEN,
     ALGOLIA_APPLICATION_ID: process.env.ALGOLIA_APPLICATION_ID,
     ALGOLIA_SEARCH_API_KEY: process.env.ALGOLIA_SEARCH_API_KEY,
+    // Stamp ops_alert events with the deploy SHA so alerts are traceable to a
+    // build. Falls back to an existing override if set. (CommonJS config.)
+    NEXT_PUBLIC_RELEASE_SHA:
+      process.env.NEXT_PUBLIC_RELEASE_SHA ||
+      process.env.VERCEL_GIT_COMMIT_SHA ||
+      "",
   },
   reactStrictMode: true,
   productionBrowserSourceMaps: true,

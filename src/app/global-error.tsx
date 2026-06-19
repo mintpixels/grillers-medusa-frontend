@@ -5,6 +5,7 @@ import {
   isTransientNavigationError,
   shouldRetryTransientNavigationError,
 } from "@lib/util/transient-navigation-error"
+import { reportClientError } from "@lib/client-error-reporter"
 
 export default function GlobalError({
   error,
@@ -20,7 +21,16 @@ export default function GlobalError({
     // Log the error to an error reporting service
     console.error("Global application error:", error)
 
-    if (!recoverable) return
+    if (!recoverable) {
+      // Non-transient root-layout failure: page on-call. (The reporter drops
+      // transient/self-healing nav errors, so self-recoveries never page.)
+      reportClientError({
+        kind: "client_unhandled_error",
+        severity: "page",
+        error,
+      })
+      return
+    }
 
     if (!shouldRetryTransientNavigationError("global-error-reset", error)) {
       setRecoveryExhausted(true)

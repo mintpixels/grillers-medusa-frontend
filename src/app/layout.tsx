@@ -6,6 +6,7 @@ import NextTopLoader from "nextjs-toploader"
 import AnalyticsProvider from "../components/analytics-provider"
 import JitsuScript from "../components/jitsu-script"
 import CookieConsentProvider from "../components/cookie-consent-provider"
+import GlobalErrorListeners from "../components/global-error-listeners"
 import "styles/globals.css"
 import {
   DEFAULT_SEO_DESCRIPTION,
@@ -149,6 +150,7 @@ export default function RootLayout(props: { children: React.ReactNode }) {
         <Suspense fallback={null}>
           <CookieConsentProvider />
         </Suspense>
+        <GlobalErrorListeners />
         <NextTopLoader
           color="#1A1A1A"
           initialPosition={0.08}

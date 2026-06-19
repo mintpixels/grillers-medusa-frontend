@@ -19,7 +19,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "invalid_alert_kind" }, { status: 400 })
   }
 
-  await emitBrowserOpsAlertFromBody(body, req.headers)
+  // Severity clamping + per-IP+kind rate limit live in the helper so they're
+  // unit-testable. Anything other than 202 is surfaced with its status here.
+  const result = await emitBrowserOpsAlertFromBody(body, req.headers)
+  if (!result.ok) {
+    return NextResponse.json({ error: result.error }, { status: result.status })
+  }
 
+  // Fail-open happy path: we don't block the client on ingestion success.
   return NextResponse.json({ ok: true }, { status: 202 })
 }
