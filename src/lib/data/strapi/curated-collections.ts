@@ -244,7 +244,7 @@ const CuratedCollectionFields = gql`
       url
     }
     HeroImageAlt
-    Items {
+    Items(pagination: { limit: 100 }) {
       Quantity
       Required
       Role
@@ -435,7 +435,7 @@ const LegacyCuratedCollectionFields = gql`
       url
     }
     HeroImageAlt
-    Items {
+    Items(pagination: { limit: 100 }) {
       Quantity
       Required
       Role
