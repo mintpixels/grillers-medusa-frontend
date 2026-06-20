@@ -1,5 +1,30 @@
 import { NextResponse } from "next/server"
 import { runBackInStockTrigger } from "@lib/data/back-in-stock-trigger"
+import {
+  emitCronAlert,
+  planBackInStockAlert,
+  planHeartbeat,
+  planMisconfiguredAlert,
+} from "@lib/cron-ops-alerts"
+
+const ALERT_PATH =
+  "src/app/api/cron/back-in-stock-trigger/route.ts"
+
+/**
+ * Required env for the restock fan-out. Missing any of these makes the cron a
+ * silent no-op (e.g. `fetchPendingRequests` returns [] when Strapi env is
+ * absent), so we page rather than let it look "green" for days.
+ */
+function missingBackInStockEnv(): string[] {
+  const required = [
+    "STRAPI_ENDPOINT",
+    "STRAPI_API_TOKEN",
+    "MEDUSA_BACKEND_URL",
+    "MEDUSA_ADMIN_API_TOKEN",
+    "POSTMARK_SERVER_TOKEN",
+  ]
+  return required.filter((name) => !process.env[name])
+}
 
 /**
  * Cron entry point for #102 back-in-stock notification fan-out.
@@ -25,7 +50,34 @@ async function handle(request: Request) {
     }
   }
 
+  // Misconfiguration guard: a missing env makes the cron silently no-op.
+  const missingEnv = missingBackInStockEnv()
+  if (missingEnv.length > 0) {
+    await emitCronAlert(
+      planMisconfiguredAlert("back-in-stock-trigger", missingEnv),
+      ALERT_PATH
+    )
+    // Preserve HTTP behavior: still return so Vercel's cron sees a response.
+    return NextResponse.json(
+      { ok: false, error: "misconfigured", missingEnv },
+      { status: 200 }
+    )
+  }
+
   const summary = await runBackInStockTrigger()
+
+  // Emit a failure alert (warn, or page on total failure) when the summary
+  // carries errors/failed sends, then a success heartbeat for silence
+  // detection. Both fire before returning and never alter the HTTP response.
+  await emitCronAlert(planBackInStockAlert(summary), ALERT_PATH)
+  await emitCronAlert(
+    planHeartbeat("back-in-stock-trigger", {
+      products_back_in_stock: summary.productsBackInStock,
+      subscribers_notified: summary.subscribersNotified,
+    }),
+    ALERT_PATH
+  )
+
   return NextResponse.json(summary, {
     status: summary.ok ? 200 : 500,
   })
