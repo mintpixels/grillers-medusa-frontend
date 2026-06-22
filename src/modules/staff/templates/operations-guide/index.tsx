@@ -787,6 +787,29 @@ const sections: GuideSection[] = [
       "If a variant changes the shopping path, verify cart, checkout, PDP, and mobile before turning on traffic.",
     ],
   },
+  {
+    id: "gp-quick",
+    eyebrow: "Internal tools",
+    title: "GP Quick internal tools (Quick Pages)",
+    summary:
+      "GP Quick is a private hub for small internal web tools built for the team: dashboards, calculators, and one-off helpers. Anyone on staff can use them, but only signed-in Grillers Pride staff can see them. New tools can be stood up in minutes, so reach for it instead of a spreadsheet, a screenshot, or a one-off doc.",
+    useFor: [
+      "Internal dashboards, calculators, and reference tools that are staff-only and do not belong on the customer site.",
+      "Sharing a working prototype or tool with the team instead of an image or a document.",
+      "Quick helpers that a spreadsheet or a one-off page would otherwise handle.",
+    ],
+    howTo: [
+      "Go to gpq.aviswerdlow.com. This address is temporary while grillerspride.com is being moved over; the tools and your login carry to the permanent address with no change to how you use them.",
+      "Sign in with your Grillers Pride email. Cloudflare Access emails you a one-time code; enter it to get in. Only allow-listed staff can reach the tools, so do not treat the link as a way around that.",
+      "The home page lists the available tools. Open one and use it. Each tool is shared across the team, so notes or data a tool saves are visible to all staff, not just you.",
+      "To get a new tool, ask Avi or describe what you want in plain language; a working tool can be built and published to GP Quick in minutes.",
+    ],
+    watch: [
+      "GP Quick is internal only. The login gate keeps it private, but do not post the link or a tool's contents outside the team.",
+      "Tools are lightweight and can be experimental. Double-check anything that feeds a customer-facing or money decision against the systems of record (Medusa, Stripe, QuickBooks).",
+      "Saved data in a tool is shared, not per-person. Do not store customer personal data, card numbers, or secrets there.",
+    ],
+  },
 ]
 
 const playbooks: Playbook[] = [
