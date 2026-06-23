@@ -429,6 +429,25 @@ function subtractUpsDeliveryDays(start: Date, days: number): Date {
 }
 
 /**
+ * #288: a UPS arrival is only offerable if the shipment reaches the customer within `transit`
+ * CALENDAR days of dispatch. UPS business-transit skips weekends/holidays, but a frozen package
+ * physically sits in a hub over those days and the dry ice is sized for the business-transit
+ * count. So any arrival that would require the package to sit in transit across a weekend or
+ * holiday (calendar gap > business transit) would spoil and must not be offered. Example: a
+ * 2-business-day-transit ZIP cannot deliver Monday or Tuesday, because that requires shipping
+ * Thursday/Friday and sitting over the weekend.
+ */
+function upsArrivalIsTransitFeasible(
+  arrival: Date,
+  transit: number,
+  msPerDay: number
+): boolean {
+  const shipDate = subtractUpsDeliveryDays(arrival, transit)
+  const calendarGap = Math.round((arrival.getTime() - shipDate.getTime()) / msPerDay)
+  return calendarGap <= transit
+}
+
+/**
  * Look up Ground transit days from the hardcoded table by 3-digit zip prefix.
  * Falls back to 5 days for the conservative continental-US worst case if missing.
  */
@@ -585,8 +604,9 @@ export function computeEligibleArrivalDates(
     horizon.setDate(horizon.getDate() + lookAheadDays)
 
     const cursor = new Date(earliest)
+    const MS_PER_DAY = 24 * 60 * 60 * 1000
     while (cursor <= horizon) {
-      if (isAllowedUpsArrivalDay(cursor)) {
+      if (isAllowedUpsArrivalDay(cursor) && upsArrivalIsTransitFeasible(cursor, transit, MS_PER_DAY)) {
         out.push(new Date(cursor))
       }
       cursor.setDate(cursor.getDate() + 1)
@@ -601,7 +621,7 @@ export function computeEligibleArrivalDates(
             ? "UPS 3 Day Select"
             : "UPS Ground"
     const zipNote = destinationZip ? ` to ${destinationZip}` : ""
-    reason = `${methodLabel}${zipNote} needs ~${transit} business day${transit === 1 ? "" : "s"} of transit. We schedule frozen UPS arrivals Monday-Thursday.`
+    reason = `${methodLabel}${zipNote} needs ~${transit} business day${transit === 1 ? "" : "s"} of transit. We schedule frozen UPS arrivals Monday-Thursday, and only when the package won't sit in transit over a weekend.`
   } else if (method === "atlanta_delivery") {
     // Per-zip weekday + cutoff
     const cfg = atlantaZipConfig?.[destinationZip] ?? {

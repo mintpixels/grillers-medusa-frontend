@@ -85,7 +85,10 @@ describe("UPS Ground arrival eligibility — issue #72", () => {
     // Today Wed 4/29 must NOT be valid.
     expect(result.isoSet.has("2026-04-29")).toBe(false)
     expect(result.isoSet.has("2026-05-01")).toBe(false)
-    expect(result.isoSet.has("2026-05-04")).toBe(true)
+    // #288: Monday 5/4 would require shipping Friday 5/1 and sitting in transit over the
+    // weekend (dry ice spoils), so it is no longer offered. Earliest is Tuesday 5/5 (ship Mon).
+    expect(result.isoSet.has("2026-05-04")).toBe(false)
+    expect(result.isoSet.has("2026-05-05")).toBe(true)
   })
 
   it("does not offer Friday UPS arrivals", () => {
@@ -96,7 +99,9 @@ describe("UPS Ground arrival eligibility — issue #72", () => {
       now,
     })
     expect(result.isoSet.has("2026-05-01")).toBe(false)
-    expect(result.earliest && toIsoDate(result.earliest)).toBe("2026-05-04")
+    // #288: Monday 5/4 (which needs a Friday ship sitting over the weekend) is excluded;
+    // earliest weekend-safe arrival is Tuesday 5/5.
+    expect(result.earliest && toIsoDate(result.earliest)).toBe("2026-05-05")
   })
 
   it("normalizes UPS service codes from backend/carrier labels", () => {
@@ -308,5 +313,41 @@ describe("Holiday + Shabbos exclusions", () => {
       atlantaZipConfig: { "30328": { weekdays: [2], cutoffHour: 12 } },
     })
     expect(result.isoSet.has("2026-09-21")).toBe(false)
+  })
+})
+
+describe("UPS weekend-transit exclusion — issue #288", () => {
+  it("does not offer Mon/Tue arrivals for a 2-day-transit zip (Memphis 38120)", () => {
+    expect(lookupUpsGroundDays("38120")).toBe(2)
+    // Monday Jun 22 2026 10:30 PM (Peter's report): after the 3 PM cutoff -> pack-out Tue,
+    // dispatch Tue, 2-day transit -> earliest arrival Thursday Jun 25.
+    const now = new Date(2026, 5, 22, 22, 30)
+    const result = computeEligibleArrivalDates({
+      method: "ups_ground",
+      destinationZip: "38120",
+      now,
+    })
+    expect(result.earliest && toIsoDate(result.earliest)).toBe("2026-06-25")
+    // The impossible options Peter reported: Mon Jun 29 (needs Thu ship + weekend) and
+    // Tue Jun 30 (needs Fri ship + weekend) must NOT be offered.
+    expect(result.isoSet.has("2026-06-29")).toBe(false)
+    expect(result.isoSet.has("2026-06-30")).toBe(false)
+    // Weekend-safe 2-day arrivals are Wed (ship Mon) and Thu (ship Tue).
+    expect(result.isoSet.has("2026-07-01")).toBe(true)
+    expect(result.isoSet.has("2026-07-02")).toBe(true)
+    // Every offered date is a Wednesday or Thursday for this 2-day zip.
+    for (const d of result.dates) {
+      expect([3, 4]).toContain(d.getDay())
+    }
+  })
+
+  it("the server-side validator also rejects the impossible Mon/Tue dates (#288)", () => {
+    const now = new Date(2026, 5, 22, 22, 30)
+    expect(
+      isArrivalDateValid("6/29/2026", { method: "ups_ground", destinationZip: "38120", now })
+    ).toBe(false)
+    expect(
+      isArrivalDateValid("7/1/2026", { method: "ups_ground", destinationZip: "38120", now })
+    ).toBe(true)
   })
 })
