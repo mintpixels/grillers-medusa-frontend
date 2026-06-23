@@ -1,7 +1,7 @@
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import { convertToLocale } from "@lib/util/money"
 import { HttpTypes } from "@medusajs/types"
-import Image from "next/image"
+import OrderThumbnailStack from "@modules/account/components/order-thumbnail-stack"
 import type { LegacyCustomerOrder } from "@lib/data/orders"
 
 type OverviewProps = {
@@ -173,30 +173,7 @@ const Overview = ({
                     href={`/account/orders/details/${recent.order.id}`}
                     className="flex items-center gap-4 px-6 py-4 hover:bg-gray-50/50 transition-colors"
                   >
-                    <div className="flex -space-x-2 shrink-0">
-                      {recent.order.items?.slice(0, 3).map((item, idx) => (
-                        <div
-                          key={item.id}
-                          className="w-10 h-10 rounded-lg border-2 border-white bg-gray-100 overflow-hidden"
-                          style={{ zIndex: 3 - idx }}
-                        >
-                          {item.thumbnail && (
-                            <Image
-                              src={item.thumbnail}
-                              alt={item.product_title || ""}
-                              width={40}
-                              height={40}
-                              className="w-full h-full object-cover"
-                            />
-                          )}
-                        </div>
-                      ))}
-                      {(recent.order.items?.length || 0) > 3 && (
-                        <div className="w-10 h-10 rounded-lg border-2 border-white bg-gray-100 flex items-center justify-center text-xs font-maison-neue text-Charcoal/60">
-                          +{(recent.order.items?.length || 0) - 3}
-                        </div>
-                      )}
-                    </div>
+                    <OrderThumbnailStack items={recent.order.items ?? []} />
 
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
