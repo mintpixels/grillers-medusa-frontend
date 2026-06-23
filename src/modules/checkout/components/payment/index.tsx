@@ -89,6 +89,9 @@ const Payment = ({
     useState<string | null>(null)
   // #283: approved B2B accounts can switch to the no-card invoice path.
   const [payByInvoice, setPayByInvoice] = useState(false)
+  // #283 (Codex P2): true while any place-order submit is in flight, locking the payment-mode
+  // toggle so a card submit can't be switched to invoice (or vice versa) mid-flight.
+  const [submitting, setSubmitting] = useState(false)
 
   const hasPreparedSetupIntent = useRef(false)
   const hasAutoSelectedSavedCard = useRef(false)
@@ -331,9 +334,10 @@ const Payment = ({
               <div className="space-y-2">
                 <button
                   type="button"
+                  disabled={submitting}
                   onClick={() => setPayByInvoice(false)}
                   className={clx(
-                    "w-full min-h-[50px] px-4 py-3 rounded-lg border text-left text-sm font-medium transition-colors",
+                    "w-full min-h-[50px] px-4 py-3 rounded-lg border text-left text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
                     !payByInvoice
                       ? "border-Gold bg-Gold/5 text-Charcoal"
                       : "border-gray-200 text-gray-700 hover:border-Gold/60"
@@ -343,9 +347,10 @@ const Payment = ({
                 </button>
                 <button
                   type="button"
+                  disabled={submitting}
                   onClick={() => setPayByInvoice(true)}
                   className={clx(
-                    "w-full min-h-[50px] px-4 py-3 rounded-lg border text-left text-sm font-medium transition-colors",
+                    "w-full min-h-[50px] px-4 py-3 rounded-lg border text-left text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
                     payByInvoice
                       ? "border-Gold bg-Gold/5 text-Charcoal"
                       : "border-gray-200 text-gray-700 hover:border-Gold/60"
@@ -520,6 +525,7 @@ const Payment = ({
                 savedPaymentMethodId={selectedSavedPaymentMethodId}
                 setupIntentClientSecret={setupIntentClientSecret}
                 payByInvoice={payByInvoice}
+                onSubmittingChange={setSubmitting}
                 data-testid="submit-order-button"
               />
 

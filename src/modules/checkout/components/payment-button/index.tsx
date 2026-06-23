@@ -8,7 +8,7 @@ import {
 import { jitsuTrack } from "@lib/jitsu"
 import { HttpTypes } from "@medusajs/types"
 import { useElements, useStripe } from "@stripe/react-stripe-js"
-import React, { useRef, useState } from "react"
+import React, { useEffect, useRef, useState } from "react"
 import Spinner from "@modules/common/icons/spinner"
 
 // Custom gold button matching btn-primary style
@@ -50,6 +50,8 @@ type PaymentButtonProps = {
   setupIntentClientSecret?: string | null
   // #283: approved B2B accounts placing a no-card invoice order.
   payByInvoice?: boolean
+  // #283 (Codex P2): report submit-in-flight up so the payment-mode toggle can lock.
+  onSubmittingChange?: (submitting: boolean) => void
   "data-testid": string
 }
 
@@ -63,6 +65,7 @@ const PaymentButton: React.FC<PaymentButtonProps> = ({
   savedPaymentMethodId,
   setupIntentClientSecret,
   payByInvoice = false,
+  onSubmittingChange,
   "data-testid": dataTestId,
 }) => {
   // All fulfillment types (including pickup) now set a shipping method on the cart
@@ -78,6 +81,7 @@ const PaymentButton: React.FC<PaymentButtonProps> = ({
       <InvoicePaymentButton
         notReady={notReady}
         cart={cart}
+        onSubmittingChange={onSubmittingChange}
         data-testid={dataTestId}
       />
     )
@@ -89,6 +93,7 @@ const PaymentButton: React.FC<PaymentButtonProps> = ({
         notReady={notReady}
         cart={cart}
         savedPaymentMethodId={savedPaymentMethodId}
+        onSubmittingChange={onSubmittingChange}
         data-testid={dataTestId}
       />
     )
@@ -101,6 +106,7 @@ const PaymentButton: React.FC<PaymentButtonProps> = ({
         cart={cart}
         cardComplete={cardComplete}
         setupIntentClientSecret={setupIntentClientSecret}
+        onSubmittingChange={onSubmittingChange}
         data-testid={dataTestId}
       />
     )
@@ -138,16 +144,22 @@ const SavedPaymentMethodButton = ({
   cart,
   notReady,
   savedPaymentMethodId,
+  onSubmittingChange,
   "data-testid": dataTestId,
 }: {
   cart: HttpTypes.StoreCart
   notReady: boolean
   savedPaymentMethodId: string
+  onSubmittingChange?: (submitting: boolean) => void
   "data-testid"?: string
 }) => {
   const [submitting, setSubmitting] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const submittingRef = useRef(false)
+
+  useEffect(() => {
+    onSubmittingChange?.(submitting)
+  }, [submitting, onSubmittingChange])
 
   const handlePayment = async () => {
     if (submittingRef.current) return
@@ -192,17 +204,23 @@ const NewCardSetupPaymentButton = ({
   notReady,
   cardComplete = false,
   setupIntentClientSecret,
+  onSubmittingChange,
   "data-testid": dataTestId,
 }: {
   cart: HttpTypes.StoreCart
   notReady: boolean
   cardComplete?: boolean
   setupIntentClientSecret: string
+  onSubmittingChange?: (submitting: boolean) => void
   "data-testid"?: string
 }) => {
   const [submitting, setSubmitting] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const submittingRef = useRef(false)
+
+  useEffect(() => {
+    onSubmittingChange?.(submitting)
+  }, [submitting, onSubmittingChange])
 
   const stripe = useStripe()
   const elements = useElements()
@@ -320,15 +338,21 @@ const NewCardSetupPaymentButton = ({
 const InvoicePaymentButton = ({
   cart,
   notReady,
+  onSubmittingChange,
   "data-testid": dataTestId,
 }: {
   cart: HttpTypes.StoreCart
   notReady: boolean
+  onSubmittingChange?: (submitting: boolean) => void
   "data-testid"?: string
 }) => {
   const [submitting, setSubmitting] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const submittingRef = useRef(false)
+
+  useEffect(() => {
+    onSubmittingChange?.(submitting)
+  }, [submitting, onSubmittingChange])
 
   const handlePayment = async () => {
     if (submittingRef.current) return
