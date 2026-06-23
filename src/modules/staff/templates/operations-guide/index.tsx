@@ -314,6 +314,33 @@ const sections: GuideSection[] = [
     ],
   },
   {
+    id: "b2b-invoice",
+    eyebrow: "B2B invoice",
+    title: "Pay by invoice for approved business accounts",
+    summary:
+      "Approved business accounts can pay by invoice on Net terms instead of a card. The business applies online, an approver approves the account, and from then on that account sees a Pay by invoice option at checkout. The order ships and the unpaid invoice ages in the QuickBooks accounts receivable. No card is held for these accounts.",
+    useFor: [
+      "A synagogue, school, caterer, or other business that buys regularly and should be invoiced instead of paying by card every time.",
+      "Reviewing and approving, or declining, a business that applied for invoice terms.",
+      "Explaining why an approved account sees a Pay by invoice choice at checkout and a regular customer does not.",
+    ],
+    howTo: [
+      "A business applies from Account, then Invoice terms. They enter business name, tax ID, contact details, a requested credit limit, and preferred methods of Zelle, check, or wire.",
+      "The application appears on that customer's page in Medusa Admin under Pay by invoice (B2B) with an Application pending badge and the submitted business details.",
+      "Only the designated approvers can approve. Approving sets the accepted methods, the credit limit, and the QuickBooks terms, which default to Net 10, and flips the badge to Approved. Decline records the decision without setting terms.",
+      "The source of truth for who may pay by invoice is moving into QuickBooks. Peter flags the account and sets its credit limit on the QuickBooks customer record, and the website reads that. Until that sync is wired, the approval set in Medusa Admin is what gates checkout.",
+      "Once approved, that customer sees a How would you like to pay choice at checkout with Pay with card and Pay by invoice. Choosing invoice places the order with no card and no final-charge card hold.",
+      "The order still goes through Pack and Finalize for picking and weighing. The final weighed total is invoiced, not charged to a card.",
+    ],
+    watch: [
+      "Only approved accounts can pay by invoice. A regular customer never sees the option, and the checkout backend rejects an invoice attempt from a non-approved account.",
+      "There is no card on file for invoice accounts by design. Do not ask an invoice customer for a card as a backup.",
+      "Approving an account is a credit decision. Confirm the business and the credit limit before approving, and keep the limit and terms matched to what Peter set in QuickBooks.",
+      "The unpaid invoice sits in the QuickBooks accounts receivable and is collected by Zelle, check, or wire on the account's terms. Collection is manual in QuickBooks for now.",
+      "Approvals and declines are audited to the staff member who made them.",
+    ],
+  },
+  {
     id: "order-lifecycle",
     eyebrow: "Order lifecycle",
     title: "From checkout to QuickBooks, Stripe, and fulfillment",

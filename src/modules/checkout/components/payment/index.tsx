@@ -62,10 +62,13 @@ const Payment = ({
   cart,
   availablePaymentMethods,
   savedPaymentMethods = [],
+  invoiceApproved = false,
 }: {
   cart: any
   availablePaymentMethods: any[]
   savedPaymentMethods?: SavedPaymentMethod[]
+  // #283: when true, the customer is an approved B2B account and may pay by invoice.
+  invoiceApproved?: boolean
 }) => {
   const cartTitleMap = useCartTitleMap(cart?.items)
   const showsDeliveryStep = cart?.metadata?.fulfillmentType === "ups_shipping"
@@ -84,6 +87,8 @@ const Payment = ({
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("")
   const [selectedSavedPaymentMethodId, setSelectedSavedPaymentMethodId] =
     useState<string | null>(null)
+  // #283: approved B2B accounts can switch to the no-card invoice path.
+  const [payByInvoice, setPayByInvoice] = useState(false)
 
   const hasPreparedSetupIntent = useRef(false)
   const hasAutoSelectedSavedCard = useRef(false)
@@ -202,6 +207,10 @@ const Payment = ({
       (cart?.shipping_methods?.length ?? 0) > 0) ||
     paidByGiftcard
 
+  // #283: invoice path needs no card — just a shipping method on the cart.
+  const invoiceReady =
+    payByInvoice && (cart?.shipping_methods?.length ?? 0) > 0
+
   // Check if address step is complete (required before payment)
   const addressComplete = !!(
     cart?.shipping_address?.first_name && cart?.shipping_address?.address_1
@@ -314,7 +323,41 @@ const Payment = ({
 
       {isOpen && (
         <div>
-          {!paidByGiftcard && cardPaymentMethods.length > 0 && (
+          {invoiceApproved && !paidByGiftcard && (
+            <div className="mb-5">
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
+                How would you like to pay?
+              </p>
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={() => setPayByInvoice(false)}
+                  className={clx(
+                    "w-full min-h-[50px] px-4 py-3 rounded-lg border text-left text-sm font-medium transition-colors",
+                    !payByInvoice
+                      ? "border-Gold bg-Gold/5 text-Charcoal"
+                      : "border-gray-200 text-gray-700 hover:border-Gold/60"
+                  )}
+                >
+                  Pay with card
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPayByInvoice(true)}
+                  className={clx(
+                    "w-full min-h-[50px] px-4 py-3 rounded-lg border text-left text-sm font-medium transition-colors",
+                    payByInvoice
+                      ? "border-Gold bg-Gold/5 text-Charcoal"
+                      : "border-gray-200 text-gray-700 hover:border-Gold/60"
+                  )}
+                >
+                  Pay by invoice (Net terms)
+                </button>
+              </div>
+            </div>
+          )}
+
+          {!payByInvoice && !paidByGiftcard && cardPaymentMethods.length > 0 && (
             <>
               {stripeProviderId && savedPaymentMethods.length > 0 && (
                 <div className="mb-5">
@@ -419,12 +462,14 @@ const Payment = ({
             </>
           )}
 
-          {!paidByGiftcard && cardPaymentMethods.length === 0 && (
-            <div className="mb-4 rounded-lg border border-red-200/80 bg-red-50 p-4 text-sm text-red-700">
-              Credit card payments are currently unavailable. Please try again
-              shortly.
-            </div>
-          )}
+          {!payByInvoice &&
+            !paidByGiftcard &&
+            cardPaymentMethods.length === 0 && (
+              <div className="mb-4 rounded-lg border border-red-200/80 bg-red-50 p-4 text-sm text-red-700">
+                Credit card payments are currently unavailable. Please try again
+                shortly.
+              </div>
+            )}
 
           {paidByGiftcard && (
             <div className="mb-4">
@@ -452,16 +497,29 @@ const Payment = ({
           )}
 
           {/* Place Order section - shown when payment is set up */}
-          {(paymentReady || paidByGiftcard) && (
+          {(paymentReady || paidByGiftcard || invoiceReady) && (
             <div className="mt-6 pt-6 border-t border-gray-200">
               <InventoryResolutionNotice cart={cart} />
-              <NetWeightDisclaimer />
+              {payByInvoice ? (
+                <div className="bg-Gold/10 border border-Gold/20 rounded-lg p-4 mb-5">
+                  <p className="text-sm font-medium text-gray-900 mb-1">
+                    Pay by invoice
+                  </p>
+                  <p className="text-sm text-gray-600 leading-relaxed">
+                    No card needed. You&apos;ll be invoiced on your account
+                    terms, and the final total is set when your order is packed.
+                  </p>
+                </div>
+              ) : (
+                <NetWeightDisclaimer />
+              )}
 
               <PaymentButton
                 cart={cart}
                 cardComplete={cardComplete}
                 savedPaymentMethodId={selectedSavedPaymentMethodId}
                 setupIntentClientSecret={setupIntentClientSecret}
+                payByInvoice={payByInvoice}
                 data-testid="submit-order-button"
               />
 

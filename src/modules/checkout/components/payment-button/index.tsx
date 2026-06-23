@@ -1,6 +1,7 @@
 "use client"
 
 import {
+  submitOrderByInvoice,
   submitOrderWithSavedPaymentMethod,
   verifyCartInventoryForCheckout,
 } from "@lib/data/cart"
@@ -47,6 +48,8 @@ type PaymentButtonProps = {
   cardComplete?: boolean
   savedPaymentMethodId?: string | null
   setupIntentClientSecret?: string | null
+  // #283: approved B2B accounts placing a no-card invoice order.
+  payByInvoice?: boolean
   "data-testid": string
 }
 
@@ -59,6 +62,7 @@ const PaymentButton: React.FC<PaymentButtonProps> = ({
   cardComplete = false,
   savedPaymentMethodId,
   setupIntentClientSecret,
+  payByInvoice = false,
   "data-testid": dataTestId,
 }) => {
   // All fulfillment types (including pickup) now set a shipping method on the cart
@@ -68,6 +72,16 @@ const PaymentButton: React.FC<PaymentButtonProps> = ({
     !cart.billing_address ||
     !cart.email ||
     (cart.shipping_methods?.length ?? 0) < 1
+
+  if (payByInvoice) {
+    return (
+      <InvoicePaymentButton
+        notReady={notReady}
+        cart={cart}
+        data-testid={dataTestId}
+      />
+    )
+  }
 
   if (savedPaymentMethodId) {
     return (
@@ -298,6 +312,59 @@ const NewCardSetupPaymentButton = ({
         data-testid={dataTestId}
       >
         Save Card & Place Order
+      </GoldButton>
+    </>
+  )
+}
+
+const InvoicePaymentButton = ({
+  cart,
+  notReady,
+  "data-testid": dataTestId,
+}: {
+  cart: HttpTypes.StoreCart
+  notReady: boolean
+  "data-testid"?: string
+}) => {
+  const [submitting, setSubmitting] = useState(false)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const submittingRef = useRef(false)
+
+  const handlePayment = async () => {
+    if (submittingRef.current) return
+    submittingRef.current = true
+    setSubmitting(true)
+
+    try {
+      await verifyCartInventoryForCheckout(cart.id)
+      const result = await submitOrderByInvoice({ cartId: cart.id })
+      if (result?.error) {
+        setErrorMessage(result.error)
+      }
+    } catch (err: any) {
+      setErrorMessage(
+        err.message || "Could not place the order. Please try again."
+      )
+    } finally {
+      submittingRef.current = false
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <>
+      {errorMessage && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200/80 rounded-lg text-sm text-red-700">
+          {errorMessage}
+        </div>
+      )}
+      <GoldButton
+        disabled={notReady}
+        onClick={handlePayment}
+        isLoading={submitting}
+        data-testid={dataTestId}
+      >
+        Place Order (Invoice)
       </GoldButton>
     </>
   )

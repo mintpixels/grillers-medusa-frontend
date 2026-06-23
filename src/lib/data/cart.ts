@@ -1364,6 +1364,102 @@ export async function submitOrderWithSavedPaymentMethod(
 }
 
 /**
+ * #283 — place a no-card "pay by invoice" order for an approved B2B account. Mirrors
+ * placeOrderWithSavedPaymentMethod but sends `payment_method: "invoice"` and no card / consent.
+ * The backend route fails closed (403) if the customer is not approved.
+ */
+export async function placeOrderByInvoice({
+  cartId,
+}: { cartId?: string } = {}) {
+  const active = await getCartStaffContext()
+  const id = cartId || (await getCurrentCartId(active))
+
+  if (!id) {
+    throw new Error("No existing cart found when placing an order")
+  }
+
+  const headers = await cartHeadersForStaffContext(active)
+  const checkoutHeaders = active ? await getPaymentContextHeaders() : headers
+
+  await verifyCartInventoryForCheckout(id)
+
+  const cartRes = await sdk.client
+    .fetch<{
+      type: "order" | "cart"
+      order?: HttpTypes.StoreOrder
+      cart?: HttpTypes.StoreCart
+      error?: { message?: string }
+    }>("/store/grillers/checkout/place-order", {
+      method: "POST",
+      headers: checkoutHeaders,
+      body: {
+        cart_id: id,
+        payment_method: "invoice",
+      },
+    })
+    .then(async (result) => {
+      const cartCacheTag = await getCacheTag("carts")
+      revalidateTag(cartCacheTag)
+      return result
+    })
+    .catch((err) => {
+      const error = medusaError(err) as unknown
+      return {
+        type: "cart" as const,
+        error: {
+          message:
+            error instanceof Error
+              ? error.message
+              : "Could not place the order. Please try again.",
+        },
+      }
+    })
+
+  if (cartRes?.type === "order" && cartRes.order) {
+    const countryCode =
+      cartRes.order.shipping_address?.country_code?.toLowerCase() || "us"
+
+    const orderCacheTag = await getCacheTag("orders")
+    revalidateTag(orderCacheTag)
+
+    await persistOrderShippingAddressToAccount(cartRes.order)
+    await removeCurrentCartId(active)
+    redirect(`/${countryCode}/order/${cartRes.order.id}/confirmed`)
+  }
+
+  if (cartRes?.error?.message) {
+    return { error: cartRes.error.message }
+  }
+
+  return "cart" in cartRes ? cartRes.cart : null
+}
+
+export async function submitOrderByInvoice(
+  input: Parameters<typeof placeOrderByInvoice>[0] = {}
+) {
+  try {
+    const result = await placeOrderByInvoice(input)
+    if (
+      result &&
+      typeof result === "object" &&
+      "error" in result &&
+      typeof result.error === "string"
+    ) {
+      return { error: result.error }
+    }
+    return { error: null }
+  } catch (err: any) {
+    if (err?.digest?.startsWith?.("NEXT_REDIRECT")) {
+      throw err
+    }
+
+    return {
+      error: err?.message || "Could not place the order. Please try again.",
+    }
+  }
+}
+
+/**
  * Issue #74 — best-effort: copy the just-completed order's shipping address
  * into the logged-in customer's address book if it's not already there.
  * Silent on every failure mode (guest checkout, no-auth, network blip, etc.)

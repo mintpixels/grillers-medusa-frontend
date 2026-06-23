@@ -117,6 +117,11 @@ export default async function CheckoutForm({
                   cart={cart}
                   availablePaymentMethods={paymentMethods}
                   savedPaymentMethods={savedPaymentMethods}
+                  invoiceApproved={
+                    (customer?.metadata as
+                      | Record<string, unknown>
+                      | undefined)?.gp_offline_payment_approved === true
+                  }
                 />
               )}
           </CheckoutStepsGate>
