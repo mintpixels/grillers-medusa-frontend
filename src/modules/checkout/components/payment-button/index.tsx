@@ -8,7 +8,7 @@ import {
 import { jitsuTrack } from "@lib/jitsu"
 import { HttpTypes } from "@medusajs/types"
 import { useElements, useStripe } from "@stripe/react-stripe-js"
-import React, { useEffect, useRef, useState } from "react"
+import React, { useRef, useState } from "react"
 import Spinner from "@modules/common/icons/spinner"
 
 // Custom gold button matching btn-primary style
@@ -157,14 +157,17 @@ const SavedPaymentMethodButton = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const submittingRef = useRef(false)
 
-  useEffect(() => {
-    onSubmittingChange?.(submitting)
-  }, [submitting, onSubmittingChange])
+  // #283 (Codex round-3 P2): report submit state SYNCHRONOUSLY (not via a passive effect) so the
+  // parent locks the payment-mode toggle before the user can switch mode mid-submit.
+  const reportSubmitting = (value: boolean) => {
+    setSubmitting(value)
+    onSubmittingChange?.(value)
+  }
 
   const handlePayment = async () => {
     if (submittingRef.current) return
     submittingRef.current = true
-    setSubmitting(true)
+    reportSubmitting(true)
 
     try {
       await verifyAndPlaceOrder({
@@ -176,7 +179,7 @@ const SavedPaymentMethodButton = ({
       setErrorMessage(err.message || "Some items need inventory review.")
     } finally {
       submittingRef.current = false
-      setSubmitting(false)
+      reportSubmitting(false)
     }
   }
 
@@ -218,9 +221,12 @@ const NewCardSetupPaymentButton = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const submittingRef = useRef(false)
 
-  useEffect(() => {
-    onSubmittingChange?.(submitting)
-  }, [submitting, onSubmittingChange])
+  // #283 (Codex round-3 P2): report submit state SYNCHRONOUSLY so the parent toggle locks before
+  // the user can switch mode mid-submit.
+  const reportSubmitting = (value: boolean) => {
+    setSubmitting(value)
+    onSubmittingChange?.(value)
+  }
 
   const stripe = useStripe()
   const elements = useElements()
@@ -232,88 +238,88 @@ const NewCardSetupPaymentButton = ({
   const handlePayment = async () => {
     if (submittingRef.current) return
     submittingRef.current = true
-    setSubmitting(true)
+    reportSubmitting(true)
 
-    if (!cart || !stripe || !elements || !card) {
-      submittingRef.current = false
-      setSubmitting(false)
-      return
-    }
-
+    // Codex round-3 P2: wrap the WHOLE body so a Stripe.js rejection (which throws rather than
+    // returning result.error) can never leave submitting stuck-true and the toggles locked.
     try {
-      await verifyCartInventoryForCheckout(cart.id)
-    } catch (err: any) {
-      setErrorMessage(err.message || "Some items need inventory review.")
-      submittingRef.current = false
-      setSubmitting(false)
-      return
-    }
+      if (!cart || !stripe || !elements || !card) {
+        return
+      }
 
-    const result = await stripe!.confirmCardSetup(setupIntentClientSecret, {
-      payment_method: {
-        card: card!,
-        billing_details: {
-          name:
-            cart.billing_address?.first_name +
-            " " +
-            cart.billing_address?.last_name,
-          address: {
-            city: cart.billing_address?.city ?? undefined,
-            country: cart.billing_address?.country_code ?? undefined,
-            line1: cart.billing_address?.address_1 ?? undefined,
-            line2: cart.billing_address?.address_2 ?? undefined,
-            postal_code: cart.billing_address?.postal_code ?? undefined,
-            state: cart.billing_address?.province ?? undefined,
+      try {
+        await verifyCartInventoryForCheckout(cart.id)
+      } catch (err: any) {
+        setErrorMessage(err.message || "Some items need inventory review.")
+        return
+      }
+
+      const result = await stripe.confirmCardSetup(setupIntentClientSecret, {
+        payment_method: {
+          card,
+          billing_details: {
+            name:
+              cart.billing_address?.first_name +
+              " " +
+              cart.billing_address?.last_name,
+            address: {
+              city: cart.billing_address?.city ?? undefined,
+              country: cart.billing_address?.country_code ?? undefined,
+              line1: cart.billing_address?.address_1 ?? undefined,
+              line2: cart.billing_address?.address_2 ?? undefined,
+              postal_code: cart.billing_address?.postal_code ?? undefined,
+              state: cart.billing_address?.province ?? undefined,
+            },
+            email: cart.email,
+            phone: cart.billing_address?.phone ?? undefined,
           },
-          email: cart.email,
-          phone: cart.billing_address?.phone ?? undefined,
         },
-      },
-    })
-
-    if (result.error) {
-      jitsuTrack("payment_setup_failed", {
-        cart_id: cart.id,
-        error_message: result.error.message,
-        error_code: result.error.code,
-        payment_type: "stripe_card_setup",
       })
-      setErrorMessage(result.error.message || null)
+
+      if (result.error) {
+        jitsuTrack("payment_setup_failed", {
+          cart_id: cart.id,
+          error_message: result.error.message,
+          error_code: result.error.code,
+          payment_type: "stripe_card_setup",
+        })
+        setErrorMessage(result.error.message || null)
+        return
+      }
+
+      const setupIntent = result.setupIntent
+      const paymentMethodId =
+        typeof setupIntent?.payment_method === "string"
+          ? setupIntent.payment_method
+          : setupIntent?.payment_method?.id
+
+      if (
+        !setupIntent?.id ||
+        !paymentMethodId ||
+        setupIntent.status !== "succeeded"
+      ) {
+        setErrorMessage("Card setup did not complete. Please try again.")
+        return
+      }
+
+      const orderResult = await submitOrderWithSavedPaymentMethod({
+        paymentMethodId,
+        setupIntentId: setupIntent.id,
+        consentVersion: FINAL_CHARGE_CONSENT_VERSION,
+        consentText: FINAL_CHARGE_CONSENT_TEXT,
+      })
+
+      if (orderResult?.error) {
+        setErrorMessage(orderResult.error)
+      }
+    } catch (err: any) {
+      setErrorMessage(
+        err?.message || "Could not place the order. Please try again."
+      )
+    } finally {
       submittingRef.current = false
-      setSubmitting(false)
-      return
+      reportSubmitting(false)
     }
-
-    const setupIntent = result.setupIntent
-    const paymentMethodId =
-      typeof setupIntent?.payment_method === "string"
-        ? setupIntent.payment_method
-        : setupIntent?.payment_method?.id
-
-    if (
-      !setupIntent?.id ||
-      !paymentMethodId ||
-      setupIntent.status !== "succeeded"
-    ) {
-      setErrorMessage("Card setup did not complete. Please try again.")
-      submittingRef.current = false
-      setSubmitting(false)
-      return
-    }
-
-    const orderResult = await submitOrderWithSavedPaymentMethod({
-      paymentMethodId,
-      setupIntentId: setupIntent.id,
-      consentVersion: FINAL_CHARGE_CONSENT_VERSION,
-      consentText: FINAL_CHARGE_CONSENT_TEXT,
-    })
-
-    if (orderResult?.error) {
-      setErrorMessage(orderResult.error)
-    }
-
-    submittingRef.current = false
-    setSubmitting(false)
   }
 
   return (
@@ -350,14 +356,16 @@ const InvoicePaymentButton = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const submittingRef = useRef(false)
 
-  useEffect(() => {
-    onSubmittingChange?.(submitting)
-  }, [submitting, onSubmittingChange])
+  // #283 (Codex round-3 P2): report submit state synchronously so the parent toggle locks.
+  const reportSubmitting = (value: boolean) => {
+    setSubmitting(value)
+    onSubmittingChange?.(value)
+  }
 
   const handlePayment = async () => {
     if (submittingRef.current) return
     submittingRef.current = true
-    setSubmitting(true)
+    reportSubmitting(true)
 
     try {
       await verifyCartInventoryForCheckout(cart.id)
@@ -371,7 +379,7 @@ const InvoicePaymentButton = ({
       )
     } finally {
       submittingRef.current = false
-      setSubmitting(false)
+      reportSubmitting(false)
     }
   }
 
