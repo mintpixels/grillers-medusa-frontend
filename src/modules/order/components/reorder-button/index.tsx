@@ -36,7 +36,10 @@ export default function ReorderButton({
         }))
       )
       if (result.added > 0) {
-        dispatchCartUpdated({ action: "bundle-add", quantity: result.added })
+        dispatchCartUpdated({
+          action: "bundle-add",
+          quantity: result.addedQuantity,
+        })
         setState("success")
         setTimeout(() => setState("idle"), 3000)
       } else {

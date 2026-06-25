@@ -31,10 +31,40 @@ import { findShippingOptionByType } from "./fulfillment"
 import { getRegion } from "./regions"
 import { medusaProductHasInternalRawMaterialSku } from "@lib/util/internal-products"
 import { reportServerSoftFailure } from "@lib/server-soft-failure"
+import { emitStorefrontOpsAlert } from "@lib/ops-alert"
 
 type ActiveStaffContext = Awaited<
   ReturnType<typeof getActiveStaffImpersonation>
 >
+
+const CART_ACTION_SLOW_ALERT_MS = Number(
+  process.env.CART_ACTION_SLOW_ALERT_MS || 5_000
+)
+
+function reportSlowCartAction(
+  action: string,
+  startedAt: number,
+  meta: Record<string, unknown>
+) {
+  const durationMs = Date.now() - startedAt
+  if (durationMs < CART_ACTION_SLOW_ALERT_MS) return
+
+  void emitStorefrontOpsAlert({
+    alertKind: "revenue_action_slow",
+    severity: "warn",
+    title: `${action} took ${durationMs}ms`,
+    path: `src/lib/data/cart.ts:${action}`,
+    source: "medusa-server",
+    meta: {
+      ...meta,
+      action,
+      duration_ms: durationMs,
+      threshold_ms: CART_ACTION_SLOW_ALERT_MS,
+    },
+  }).catch(() => {
+    // Fail-open: alerting must never add risk to cart mutations.
+  })
+}
 
 async function getCartStaffContext(): Promise<ActiveStaffContext> {
   return getActiveStaffImpersonation().catch(() => null)
@@ -71,6 +101,60 @@ async function assertPublicVariantCanBeAddedToCart(
 
   if (medusaProductHasInternalRawMaterialSku(products?.[0])) {
     throw new Error("This item is not available for online ordering.")
+  }
+}
+
+async function assertPublicVariantsCanBeAddedToCart(
+  variantIds: string[],
+  headers: Record<string, string>
+) {
+  const uniqueVariantIds = Array.from(new Set(variantIds.filter(Boolean)))
+  if (!uniqueVariantIds.length) return
+  if (uniqueVariantIds.length === 1) {
+    await assertPublicVariantCanBeAddedToCart(uniqueVariantIds[0], headers)
+    return
+  }
+
+  try {
+    const { products } = await sdk.client.fetch<{
+      products: HttpTypes.StoreProduct[]
+    }>(`/store/products`, {
+      method: "GET",
+      query: {
+        limit: uniqueVariantIds.length,
+        fields: "*variants",
+        "variants[id]": uniqueVariantIds,
+      } as HttpTypes.FindParams & HttpTypes.StoreProductParams,
+      headers,
+      cache: "no-store",
+    })
+
+    const returnedProducts = products || []
+    if (returnedProducts.some(medusaProductHasInternalRawMaterialSku)) {
+      throw new Error("This item is not available for online ordering.")
+    }
+
+    const returnedVariantIds = new Set(
+      returnedProducts.flatMap((product) =>
+        (product.variants || []).map((variant) => variant.id)
+      )
+    )
+    if (
+      uniqueVariantIds.every((variantId) => returnedVariantIds.has(variantId))
+    ) {
+      return
+    }
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      /not available for online ordering/i.test(error.message)
+    ) {
+      throw error
+    }
+  }
+
+  for (const variantId of uniqueVariantIds) {
+    await assertPublicVariantCanBeAddedToCart(variantId, headers)
   }
 }
 
@@ -309,6 +393,10 @@ export async function addToCart({
     throw new Error("Missing variant ID when adding to cart")
   }
 
+  const startedAt = Date.now()
+  let completed = false
+  let cartId: string | null = null
+
   const active = await getCartStaffContext()
   const headers = await cartHeadersForStaffContext(active)
 
@@ -320,8 +408,10 @@ export async function addToCart({
     throw new Error("Error retrieving or creating cart")
   }
 
-  await sdk.store.cart
-    .createLineItem(
+  cartId = cart.id
+
+  try {
+    await sdk.store.cart.createLineItem(
       cart.id,
       {
         variant_id: variantId,
@@ -340,24 +430,32 @@ export async function addToCart({
       {},
       headers
     )
-    .then(async () => {
-      const cartCacheTag = await getCacheTag("carts")
-      revalidateTag(cartCacheTag)
+    const cartCacheTag = await getCacheTag("carts")
+    revalidateTag(cartCacheTag)
 
-      const fulfillmentCacheTag = await getCacheTag("fulfillment")
-      revalidateTag(fulfillmentCacheTag)
+    const fulfillmentCacheTag = await getCacheTag("fulfillment")
+    revalidateTag(fulfillmentCacheTag)
 
-      // Subtotal may have crossed a free-shipping threshold.
-      try {
-        const { syncFreeShippingPromotionByCartId } = await import(
-          "./free-shipping-promo"
-        )
-        await syncFreeShippingPromotionByCartId(cart.id)
-      } catch {
-        /* logged inside helper */
-      }
+    // Subtotal may have crossed a free-shipping threshold.
+    try {
+      const { syncFreeShippingPromotionByCartId } = await import(
+        "./free-shipping-promo"
+      )
+      await syncFreeShippingPromotionByCartId(cart.id)
+    } catch {
+      /* logged inside helper */
+    }
+    completed = true
+  } catch (error) {
+    medusaError(error)
+  } finally {
+    reportSlowCartAction("add_to_cart", startedAt, {
+      cart_id: cartId,
+      variant_id: variantId,
+      quantity,
+      success: completed,
     })
-    .catch(medusaError)
+  }
 }
 
 export async function updateLineItem({
@@ -542,9 +640,7 @@ export async function setRequestedDeliveryDate({
       const {
         computeQuickBooksDueDateForArrival,
         normalizeUpsServiceCode,
-      } = await import(
-        "@lib/util/eligible-arrival-dates"
-      )
+      } = await import("@lib/util/eligible-arrival-dates")
       const normalizedShippingService = normalizeUpsServiceCode(
         selectedShippingName
       )
@@ -1621,20 +1717,36 @@ export async function listCartOptions(options: { fresh?: boolean } = {}) {
  * Returns the count of successfully added items.
  */
 export async function addMultipleToCart(
-  items: Array<{ variantId: string; quantity: number; countryCode: string }>
-): Promise<{ added: number; failed: number }> {
+  items: Array<{
+    variantId: string
+    quantity: number
+    countryCode: string
+    metadata?: Record<string, unknown>
+  }>
+): Promise<{ added: number; failed: number; addedQuantity: number }> {
+  const startedAt = Date.now()
   const validItems = items.filter((item) => item.variantId && item.quantity > 0)
-  if (!validItems.length) return { added: 0, failed: items.length }
-
-  const cart = await getOrSetCart(validItems[0].countryCode)
-  if (!cart) {
-    return { added: 0, failed: validItems.length }
+  if (!validItems.length) {
+    return { added: 0, failed: items.length, addedQuantity: 0 }
   }
 
   const active = await getCartStaffContext()
   const headers = await cartHeadersForStaffContext(active)
+
+  await assertPublicVariantsCanBeAddedToCart(
+    validItems.map((item) => item.variantId),
+    headers
+  )
+
+  const cart = await getOrSetCart(validItems[0].countryCode)
+  if (!cart) {
+    return { added: 0, failed: validItems.length, addedQuantity: 0 }
+  }
+
   let added = 0
+  let addedQuantity = 0
   let failed = items.length - validItems.length
+  const batchId = `cart-batch-${Date.now().toString(36)}`
 
   for (const item of validItems) {
     try {
@@ -1643,19 +1755,24 @@ export async function addMultipleToCart(
         {
           variant_id: item.variantId,
           quantity: item.quantity,
-          metadata: active
-            ? staffAuditFields(active.session, "cart_line_add", {
-                variantId: item.variantId,
-                quantity: item.quantity,
-                source: "staff_impersonation",
-                batch: true,
-              })
-            : undefined,
+          metadata: {
+            ...(item.metadata || {}),
+            ...(active
+              ? staffAuditFields(active.session, "cart_line_add", {
+                  variantId: item.variantId,
+                  quantity: item.quantity,
+                  source: "staff_impersonation",
+                  batch: true,
+                  batchId,
+                })
+              : {}),
+          },
         },
         {},
         headers
       )
       added++
+      addedQuantity += item.quantity
     } catch {
       failed++
     }
@@ -1678,5 +1795,17 @@ export async function addMultipleToCart(
     }
   }
 
-  return { added, failed }
+  reportSlowCartAction("add_multiple_to_cart", startedAt, {
+    cart_id: cart.id,
+    sku_count_requested: validItems.length,
+    sku_count_added: added,
+    sku_count_failed: failed,
+    quantity_requested: validItems.reduce(
+      (sum, item) => sum + item.quantity,
+      0
+    ),
+    quantity_added: addedQuantity,
+  })
+
+  return { added, failed, addedQuantity }
 }

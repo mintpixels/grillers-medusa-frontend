@@ -2,10 +2,11 @@
 
 import { useState } from "react"
 import { toast } from "@medusajs/ui"
-import { addToCart } from "@lib/data/cart"
+import { addMultipleToCart } from "@lib/data/cart"
 import { jitsuTrack } from "@lib/jitsu"
 import { experimentCartMetadata } from "@lib/experiments/client-context"
 import { dispatchCartUpdated } from "@lib/util/cart-events"
+import { reportClientOpsAlert } from "@lib/client-error-reporter"
 
 type BundleItem = {
   variantId: string
@@ -13,6 +14,10 @@ type BundleItem = {
   quantity: number
   metadata?: Record<string, unknown>
 }
+
+const SLOW_COLLECTION_ADD_MS = Number(
+  process.env.NEXT_PUBLIC_CART_ACTION_SLOW_ALERT_MS || 5_000
+)
 
 export default function AddBundleButton({
   items,
@@ -46,11 +51,12 @@ export default function AddBundleButton({
   const addBundle = async () => {
     if (items.length === 0 || !acknowledged || disabledReason) return
     setIsAdding(true)
+    const startedAt = Date.now()
     let addedQuantity = 0
     try {
-      for (const item of items) {
-        const experimentMetadata = experimentCartMetadata()
-        await addToCart({
+      const experimentMetadata = experimentCartMetadata()
+      const result = await addMultipleToCart(
+        items.map((item) => ({
           variantId: item.variantId,
           quantity: item.quantity,
           countryCode,
@@ -64,20 +70,33 @@ export default function AddBundleButton({
             curated_collection_slug: bundleSlug,
             bundle_quantity: item.quantity,
           },
-        })
-        addedQuantity += item.quantity
+        }))
+      )
+
+      addedQuantity = result.addedQuantity
+      if (result.added === 0) {
+        throw new Error("No collection items were added.")
       }
+
       dispatchCartUpdated({ action: "bundle-add", quantity: addedQuantity })
-      toast.success("Collection added", {
-        description: `${totalQuantity} items added to cart.`,
-      })
+      if (result.failed > 0) {
+        toast.error("Some items could not be added", {
+          description: `${addedQuantity} items were added. Please review your cart before checkout.`,
+        })
+      } else {
+        toast.success("Collection added", {
+          description: `${totalQuantity} items added to cart.`,
+        })
+      }
       jitsuTrack("add_collection_to_cart", {
         collection_id: bundleId,
         collection_slug: bundleSlug,
         collection_title: bundleTitle,
         line_count: items.length,
         item_count: totalQuantity,
-        sku_count_added: items.length,
+        item_count_added: addedQuantity,
+        sku_count_added: result.added,
+        sku_count_failed: result.failed,
         items: items.map((item) => ({
           title: item.title,
           quantity: item.quantity,
@@ -92,6 +111,25 @@ export default function AddBundleButton({
         description: "Please try again in a moment.",
       })
     } finally {
+      const durationMs = Date.now() - startedAt
+      if (durationMs >= SLOW_COLLECTION_ADD_MS) {
+        reportClientOpsAlert({
+          kind: "revenue_action_slow",
+          severity: "warn",
+          title: `Collection add took ${durationMs}ms`,
+          message: `Collection add took ${durationMs}ms for ${items.length} SKUs.`,
+          extra: {
+            action: "add_collection_to_cart",
+            collection_id: bundleId,
+            collection_slug: bundleSlug || "",
+            sku_count: items.length,
+            quantity_requested: totalQuantity,
+            quantity_added: addedQuantity,
+            duration_ms: durationMs,
+            threshold_ms: SLOW_COLLECTION_ADD_MS,
+          },
+        })
+      }
       setIsAdding(false)
     }
   }

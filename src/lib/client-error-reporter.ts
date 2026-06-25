@@ -15,10 +15,24 @@ export type ClientErrorKind =
   | "route_segment_error"
   | "checkout_segment_error"
 
+export type ClientOpsAlertKind =
+  | ClientErrorKind
+  | "staff_module_load_failed"
+  | "revenue_action_slow"
+
 type ReportInput = {
   kind: ClientErrorKind
   error: unknown
   severity?: "page" | "warn" | "info"
+  extra?: Record<string, unknown>
+}
+
+type ReportOpsInput = {
+  kind: ClientOpsAlertKind
+  title: string
+  message?: string
+  severity?: "page" | "warn" | "info"
+  digest?: string | null
   extra?: Record<string, unknown>
 }
 
@@ -65,22 +79,34 @@ function fingerprint(kind: string, message: string): string {
 }
 
 export function reportClientError(input: ReportInput): void {
+  const { kind, error, severity, extra } = input
+
+  const errLike =
+    error instanceof Error
+      ? error
+      : ({ message: errorMessage(error), name: "Error" } as Error)
+  if (isTransientNavigationError(errLike)) return
+
+  const message = errorMessage(error).slice(0, 500)
+  reportClientOpsAlert({
+    kind,
+    severity,
+    title: message || "Client error",
+    message,
+    digest: errorDigest(error),
+    extra,
+  })
+}
+
+export function reportClientOpsAlert(input: ReportOpsInput): void {
   try {
     if (typeof window === "undefined") return
 
-    const { kind, error, severity, extra } = input
-
-    // Drop transient/navigation noise — these self-heal and would flood paging.
-    const errLike =
-      error instanceof Error
-        ? error
-        : ({ message: errorMessage(error), name: "Error" } as Error)
-    if (isTransientNavigationError(errLike)) return
-
     if (sentThisPageLoad >= PER_PAGELOAD_CAP) return
 
-    const message = errorMessage(error).slice(0, 500)
-    const fp = fingerprint(kind, message)
+    const title = String(input.title || "Storefront ops alert").slice(0, 500)
+    const message = input.message ? String(input.message).slice(0, 500) : title
+    const fp = fingerprint(input.kind, `${title}:${message}`)
     const now = Date.now()
     const last = lastSentByFingerprint.get(fp)
     if (last !== undefined && now - last < THROTTLE_MS) return
@@ -89,15 +115,15 @@ export function reportClientError(input: ReportInput): void {
     sentThisPageLoad += 1
 
     const body = JSON.stringify({
-      alert_kind: kind,
-      severity,
+      alert_kind: input.kind,
+      severity: input.severity,
       fingerprint: fp,
-      title: message || "Client error",
+      title,
       message,
-      digest: errorDigest(error),
+      digest: input.digest,
       url: window.location.href,
       path: window.location.pathname,
-      ...(extra ? { extra } : {}),
+      ...(input.extra ? { extra: input.extra } : {}),
     })
 
     fetch("/api/ops-alert", {

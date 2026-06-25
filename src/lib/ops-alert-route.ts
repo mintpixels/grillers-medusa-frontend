@@ -22,6 +22,8 @@ const ALLOWED_ALERTS: Record<string, OpsAlertSeverity> = {
   client_unhandled_error: "warn",
   client_unhandledrejection: "warn",
   route_segment_error: "warn",
+  staff_module_load_failed: "warn",
+  revenue_action_slow: "warn",
   // Checkout is the one browser-reportable kind allowed to page on-call.
   checkout_segment_error: "page",
 }
@@ -66,6 +68,35 @@ function sanitizeText(value: unknown, max: number): string | null {
   return stripped.slice(0, max)
 }
 
+function sanitizeMeta(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {}
+  }
+
+  const meta: Record<string, unknown> = {}
+  Object.entries(value as Record<string, unknown>)
+    .slice(0, 20)
+    .forEach(([rawKey, rawValue]) => {
+      const key = sanitizeText(rawKey, 80)
+      if (!key) return
+
+      if (
+        rawValue === null ||
+        typeof rawValue === "boolean" ||
+        (typeof rawValue === "number" && Number.isFinite(rawValue))
+      ) {
+        meta[key] = rawValue
+        return
+      }
+
+      if (typeof rawValue === "string") {
+        meta[key] = sanitizeText(rawValue, 500)
+      }
+    })
+
+  return meta
+}
+
 // ── Best-effort per-lambda token-bucket rate limit ──────────────────
 // NOTE: in-memory and per-lambda-instance only. Serverless fans out across
 // many instances, so this is a coarse self-DDoS guard, NOT a hard quota.
@@ -76,10 +107,7 @@ const RATE_TTL_MS = 10 * 60 * 1000
 type Bucket = { tokens: number; updated: number }
 const buckets = new Map<string, Bucket>()
 
-export function checkRateLimit(
-  key: string,
-  now: number = Date.now()
-): boolean {
+export function checkRateLimit(key: string, now: number = Date.now()): boolean {
   // Opportunistic GC so the Map can't grow unbounded across a warm lambda.
   if (buckets.size > 5000) {
     const stale: string[] = []
@@ -152,6 +180,7 @@ export async function emitBrowserOpsAlertFromBody(
     source: "client",
     url,
     meta: {
+      ...sanitizeMeta(body?.extra),
       digest: sanitizeText(body?.digest, 200),
       message,
       user_agent: sanitizeText(headers.get("user-agent"), 500),

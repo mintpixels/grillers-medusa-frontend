@@ -2,12 +2,30 @@
 
 import { useCallback, useEffect, useState } from "react"
 import { Loader2, RefreshCw } from "lucide-react"
+import { reportClientOpsAlert } from "@lib/client-error-reporter"
 import type { ProductMerchandisingTagSummary } from "@lib/data/staff/product-merchandising"
 import ProductMerchandisingTable from "@modules/staff/components/product-merchandising-table"
 
 type LoadState = "loading" | "ready" | "error"
 
 const TAGS_ENDPOINT = "/api/staff/merchandising/tags"
+
+function responseErrorMessage(
+  value: unknown,
+  fallback = "Could not load merchandising data."
+) {
+  if (typeof value === "string") return value
+  if (value && typeof value === "object") {
+    const record = value as Record<string, any>
+    return (
+      String(record.message || "").trim() ||
+      String(record.error?.message || "").trim() ||
+      String(record.error || "").trim() ||
+      fallback
+    )
+  }
+  return fallback
+}
 
 export default function StaffMerchandisingWorkspace() {
   const [tags, setTags] = useState<ProductMerchandisingTagSummary[]>([])
@@ -33,14 +51,27 @@ export default function StaffMerchandisingWorkspace() {
       .then(async (res) => {
         const body = await res.json().catch(() => ({}))
         if (!res.ok) {
-          throw new Error(body?.error || `Request failed (${res.status}).`)
+          throw new Error(
+            responseErrorMessage(body?.error, `Request failed (${res.status}).`)
+          )
         }
         setTags(Array.isArray(body?.tags) ? body.tags : [])
         setState("ready")
       })
       .catch((err) => {
         if (controller.signal.aborted) return
-        setError(err instanceof Error ? err.message : String(err))
+        const message = err instanceof Error ? err.message : String(err)
+        reportClientOpsAlert({
+          kind: "staff_module_load_failed",
+          severity: "warn",
+          title: "Staff merchandising module failed to load",
+          message,
+          extra: {
+            staff_module: "merchandising",
+            endpoint: TAGS_ENDPOINT,
+          },
+        })
+        setError(message)
         setState("error")
       })
 
@@ -78,7 +109,9 @@ export default function StaffMerchandisingWorkspace() {
       {state === "loading" && (
         <div className="flex min-h-[260px] flex-col items-center justify-center gap-3 rounded-lg border border-gray-200 bg-white text-Charcoal/55">
           <Loader2 className="h-6 w-6 animate-spin text-Gold" aria-hidden />
-          <p className="text-sm font-maison-neue">Loading merchandising data…</p>
+          <p className="text-sm font-maison-neue">
+            Loading merchandising data…
+          </p>
         </div>
       )}
 

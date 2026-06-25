@@ -4,6 +4,7 @@ import "server-only"
 
 import { revalidatePath } from "next/cache"
 import { retrieveAuthenticatedCustomerForStaffAccess } from "@lib/data/customer"
+import { reportServerSoftFailure } from "@lib/server-soft-failure"
 import {
   canReviewMerchandising,
   staffDisplayName,
@@ -179,6 +180,22 @@ async function requireStaffCustomer() {
 
 function text(value: unknown) {
   return String(value || "").trim()
+}
+
+function errorMessage(value: unknown, fallback = "Unknown error.") {
+  if (value instanceof Error) return value.message
+  if (typeof value === "string") return value
+  if (value && typeof value === "object") {
+    const record = value as AnyRecord
+    return (
+      text(record.message) ||
+      text(record.error?.message) ||
+      text(record.error) ||
+      text(record.details?.message) ||
+      fallback
+    )
+  }
+  return fallback
 }
 
 function numericHash(value: string) {
@@ -453,7 +470,7 @@ async function strapiGraphql<T>(
   const json = await response.json().catch(() => null)
 
   if (!response.ok || json?.errors) {
-    const message = json?.errors?.[0]?.message || response.status
+    const message = errorMessage(json?.errors?.[0], String(response.status))
     throw new Error(`Strapi GraphQL request failed: ${message}`)
   }
 
@@ -621,12 +638,65 @@ async function fetchGraphqlProducts(
   return products
 }
 
+async function fetchRestProducts(tagName?: string): Promise<AnyRecord[]> {
+  const products: AnyRecord[] = []
+  let page = 1
+
+  while (true) {
+    const params = new URLSearchParams()
+    params.set("pagination[page]", String(page))
+    params.set("pagination[pageSize]", String(GRAPHQL_PAGE_SIZE))
+    params.set("populate[FeaturedImage]", "true")
+    params.set("populate[GalleryImages]", "true")
+    params.set("populate[Metadata]", "true")
+    params.set("populate[Categorization][populate][ProductTags]", "true")
+    params.set("populate[MedusaProduct][populate][Variants]", "true")
+
+    if (tagName) {
+      params.set(
+        "filters[Categorization][ProductTags][Name][$contains]",
+        tagName
+      )
+    }
+
+    const json = await strapiGet<{
+      data?: AnyRecord[]
+      meta?: { pagination?: { pageCount?: number } }
+    }>(`/api/products?${params.toString()}`)
+
+    products.push(...(json.data || []))
+
+    const pageCount = json.meta?.pagination?.pageCount || page
+    if (page >= pageCount || !json.data?.length) break
+    page += 1
+  }
+
+  return products
+}
+
 async function fetchOverviewProducts(): Promise<AnyRecord[]> {
-  return fetchGraphqlProducts(MERCHANDISING_OVERVIEW_PRODUCTS_QUERY)
+  try {
+    return await fetchGraphqlProducts(MERCHANDISING_OVERVIEW_PRODUCTS_QUERY)
+  } catch (error) {
+    reportServerSoftFailure("staff-merchandising-overview-graphql", error, {
+      fallback: "rest",
+    })
+    return fetchRestProducts()
+  }
 }
 
 async function fetchDetailProducts(tagName: string): Promise<AnyRecord[]> {
-  return fetchGraphqlProducts(MERCHANDISING_DETAIL_PRODUCTS_QUERY, { tagName })
+  try {
+    return await fetchGraphqlProducts(MERCHANDISING_DETAIL_PRODUCTS_QUERY, {
+      tagName,
+    })
+  } catch (error) {
+    reportServerSoftFailure("staff-merchandising-detail-graphql", error, {
+      fallback: "rest",
+      tagName,
+    })
+    return fetchRestProducts(tagName)
+  }
 }
 
 async function uploadFilesByDocumentId(
