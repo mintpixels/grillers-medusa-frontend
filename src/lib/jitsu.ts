@@ -78,7 +78,9 @@ function setCookie(name: string, value: string, maxAgeSec: number) {
       typeof window !== "undefined" && window.location.protocol === "https:"
         ? ";Secure"
         : ""
-    document.cookie = `${name}=${encodeURIComponent(value)};path=/;max-age=${maxAgeSec};SameSite=Lax${secure}`
+    document.cookie = `${name}=${encodeURIComponent(
+      value
+    )};path=/;max-age=${maxAgeSec};SameSite=Lax${secure}`
   } catch {
     // Analytics identifiers are optional. Storage failures must not affect UX.
   }
@@ -94,6 +96,41 @@ function randomId(): string {
   }
 
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`
+}
+
+function isLocalDevelopmentHost(hostname: string): boolean {
+  return (
+    hostname === "localhost" ||
+    hostname === "0.0.0.0" ||
+    hostname === "::1" ||
+    hostname.startsWith("127.") ||
+    hostname.startsWith("10.") ||
+    hostname.startsWith("192.168.") ||
+    /^172\.(1[6-9]|2\d|3[0-1])\./.test(hostname)
+  )
+}
+
+function shouldSkipRemoteDevelopmentIngestion(endpoint: string): boolean {
+  if (
+    process.env.NODE_ENV !== "development" ||
+    process.env.NEXT_PUBLIC_COMMUNICATIONS_ALLOW_REMOTE_DEV_INGESTION ===
+      "true" ||
+    typeof window === "undefined"
+  ) {
+    return false
+  }
+
+  try {
+    const pageUrl = new URL(window.location.href)
+    const endpointUrl = new URL(endpoint, pageUrl.origin)
+    return (
+      isLocalDevelopmentHost(pageUrl.hostname) &&
+      !isLocalDevelopmentHost(endpointUrl.hostname) &&
+      endpointUrl.origin !== pageUrl.origin
+    )
+  } catch {
+    return false
+  }
 }
 
 // ── Anonymous ID (persists across sessions, 1-year expiry) ──────
@@ -131,7 +168,10 @@ export function getJitsuIdentityContext(): {
   }
 }
 
-export function getJitsuContextSnapshot(): Record<string, string | undefined> & {
+export function getJitsuContextSnapshot(): Record<
+  string,
+  string | undefined
+> & {
   anonymous_id: string
   session_id: string
   user_id?: string
@@ -174,7 +214,10 @@ function sendEvent(payload: Record<string, any>) {
   ).replace(/\/+$/, "")
   const communicationsKey = process.env.NEXT_PUBLIC_COMMUNICATIONS_API_KEY
 
-  if (communicationsUrl) {
+  if (
+    communicationsUrl &&
+    !shouldSkipRemoteDevelopmentIngestion(communicationsUrl)
+  ) {
     try {
       fetch(`${communicationsUrl}/api/track`, {
         method: "POST",
@@ -355,10 +398,7 @@ function buildEvent(
  * Track a named event with properties. Automatically injects global
  * parameters and context (anonymous_id, session_id, page, screen, etc.)
  */
-export function jitsuTrack(
-  event: string,
-  properties?: Record<string, any>
-) {
+export function jitsuTrack(event: string, properties?: Record<string, any>) {
   try {
     const payload = buildEvent(event, { src: "jitsu_track" })
     payload.event_type = event
@@ -375,10 +415,7 @@ export function jitsuTrack(
  * Identify a known user. Call on login or account creation.
  * Subsequent events will include the user_id.
  */
-export function jitsuIdentify(
-  id: string,
-  traits?: Record<string, any>
-) {
+export function jitsuIdentify(id: string, traits?: Record<string, any>) {
   try {
     // Persist user_id in a 1-year cookie so identity survives logout
     setCookie(COOKIE_USER_ID, id, 365 * 24 * 60 * 60)

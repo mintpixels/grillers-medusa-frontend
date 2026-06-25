@@ -12,6 +12,7 @@ import {
 } from "@lib/data/conversion"
 import { CART_UPDATED_EVENT } from "@lib/util/cart-events"
 import type { PurchaseHistoryItem } from "@lib/data/orders"
+import type { FreeShippingThresholdOverrides } from "@lib/util/free-shipping"
 
 import ProductDetail from "./components"
 
@@ -31,6 +32,7 @@ export default function ProductDetailContainer({
   strapiProductData,
   purchaseHistoryItem,
   pdpExperimentVariant,
+  freeShippingThresholds,
 }: {
   product: HttpTypes.StoreProduct
   region: HttpTypes.StoreRegion
@@ -38,6 +40,7 @@ export default function ProductDetailContainer({
   strapiProductData: any
   purchaseHistoryItem?: PurchaseHistoryItem | null
   pdpExperimentVariant?: string | null
+  freeShippingThresholds?: FreeShippingThresholdOverrides
 }) {
   const {
     quantity,
@@ -164,6 +167,7 @@ export default function ProductDetailContainer({
       cartConversion={cartConversion}
       purchaseHistoryItem={purchaseHistoryItem}
       pdpExperimentVariant={pdpExperimentVariant}
+      freeShippingThresholds={freeShippingThresholds}
     />
   )
 }

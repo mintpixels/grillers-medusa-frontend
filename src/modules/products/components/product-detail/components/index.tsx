@@ -27,6 +27,7 @@ import {
 import type { StrapiProductData } from "types/strapi"
 import type { CartConversionState } from "@lib/data/conversion"
 import type { PurchaseHistoryItem } from "@lib/data/orders"
+import type { FreeShippingThresholdOverrides } from "@lib/util/free-shipping"
 
 type ProductTemplateProps = {
   product: HttpTypes.StoreProduct
@@ -48,6 +49,7 @@ type ProductTemplateProps = {
   cartConversion?: CartConversionState | null
   purchaseHistoryItem?: PurchaseHistoryItem | null
   pdpExperimentVariant?: string | null
+  freeShippingThresholds?: FreeShippingThresholdOverrides
 }
 
 export default function ProductDetail({
@@ -70,6 +72,7 @@ export default function ProductDetail({
   cartConversion,
   purchaseHistoryItem,
   pdpExperimentVariant,
+  freeShippingThresholds,
 }: ProductTemplateProps) {
   const heroTag = strapiProductData?.Metadata?.KosherForPassover
     ? "Kosher for Passover"
@@ -134,7 +137,9 @@ export default function ProductDetail({
   const stickyAddToCartPrice = stickyDisplay
     ? stickyDisplay.mode === "per_lb"
       ? `Est. $${(stickyDisplay.estimatedPackPrice * quantity).toFixed(2)}`
-      : `$${((stickyPrice?.calculated_price_number ?? 0) * quantity).toFixed(2)}`
+      : `$${((stickyPrice?.calculated_price_number ?? 0) * quantity).toFixed(
+          2
+        )}`
     : null
   const optionSummary =
     Object.values(options).filter(Boolean).join(" / ") || "Select Options"
@@ -341,7 +346,10 @@ export default function ProductDetail({
               How-It-Works trust zone (#128 attempt) and the rendered
               page looked off (small chip-style card stretching a wide
               gap), so we reverted to buybox-inline per Peter's call. */}
-          <ShippingEligibility countryCode={countryCode} />
+          <ShippingEligibility
+            countryCode={countryCode}
+            freeShippingThresholds={freeShippingThresholds}
+          />
 
           {/* Social Share */}
           <div className="mb-8">

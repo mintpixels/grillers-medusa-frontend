@@ -10,6 +10,7 @@ import {
   generateProductJsonLd,
   getProductIngredientDisclosures,
 } from "@lib/data/strapi/pdp"
+import { getFreeShippingThresholds } from "@lib/data/strapi/checkout"
 import { getBaseURL } from "@lib/util/env"
 import { withTimeout } from "@lib/util/promise-timeout"
 import { retrieveCustomer } from "@lib/data/customer"
@@ -87,19 +88,21 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
   // Use Strapi SEO data if available, otherwise fallback to Medusa
   const seo = strapiProduct?.SEO
   const socialMeta = strapiProduct?.SocialMeta
-  
+
   // Build title - always append " | Grillers Pride" if not already present
   const baseTitle = seo?.metaTitle || strapiProduct?.Title || product.title
-  const title = baseTitle.includes("Grillers Pride") 
-    ? baseTitle 
+  const title = baseTitle.includes("Grillers Pride")
+    ? baseTitle
     : `${baseTitle} | Grillers Pride`
-  
+
   const description =
     seo?.metaDescription ||
     strapiProduct?.MedusaProduct?.Description ||
     product.description ||
-    `Shop ${strapiProduct?.Title || product.title} at Grillers Pride. Premium kosher meats delivered fresh to your door.`
-  
+    `Shop ${
+      strapiProduct?.Title || product.title
+    } at Grillers Pride. Premium kosher meats delivered fresh to your door.`
+
   const imageUrl = strapiProduct?.FeaturedImage?.url || product.thumbnail
 
   return {
@@ -121,7 +124,8 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
         ? [
             {
               url: socialMeta.ogImage.url,
-              alt: socialMeta.ogImageAlt || strapiProduct?.Title || product.title,
+              alt:
+                socialMeta.ogImageAlt || strapiProduct?.Title || product.title,
             },
           ]
         : imageUrl
@@ -160,19 +164,26 @@ export default async function ProductPage(props: Props) {
     `Common PDP data for ${params.handle}`
   ).then((data: any) => data?.pdp || null)
 
-  const [region, productResult, customer] = await Promise.all([
-    getRegion(params.countryCode),
-    listProducts({
-      countryCode: params.countryCode,
-      queryParams: { handle: params.handle, limit: 1 } as any,
-    }),
-    withTimeout(
-      retrieveCustomer().catch(() => null),
-      1200,
-      null,
-      `PDP customer lookup for ${params.handle}`
-    ),
-  ])
+  const [region, productResult, customer, freeShippingThresholds] =
+    await Promise.all([
+      getRegion(params.countryCode),
+      listProducts({
+        countryCode: params.countryCode,
+        queryParams: { handle: params.handle, limit: 1 } as any,
+      }),
+      withTimeout(
+        retrieveCustomer().catch(() => null),
+        1200,
+        null,
+        `PDP customer lookup for ${params.handle}`
+      ),
+      withTimeout(
+        getFreeShippingThresholds(),
+        1200,
+        { inRegionThreshold: null, nationalThreshold: null },
+        `PDP free-shipping thresholds for ${params.handle}`
+      ),
+    ])
 
   if (!region) {
     notFound()
@@ -240,14 +251,13 @@ export default async function ProductPage(props: Props) {
     purchaseHistoryItem,
     pdpExperiment,
     pdpRecommendationExperiment,
-  ] =
-    await Promise.all([
-      strapiProductDataPromise,
-      ingredientDisclosuresPromise,
-      purchaseHistoryItemPromise,
-      pdpExperimentPromise,
-      pdpRecommendationExperimentPromise,
-    ])
+  ] = await Promise.all([
+    strapiProductDataPromise,
+    ingredientDisclosuresPromise,
+    purchaseHistoryItemPromise,
+    pdpExperimentPromise,
+    pdpRecommendationExperimentPromise,
+  ])
   const productFromStrapi = strapiProductData?.products?.[0]
   const resolvedIngredientDisclosures = Array.isArray(
     productFromStrapi?.IngredientDisclosures
@@ -293,6 +303,7 @@ export default async function ProductPage(props: Props) {
             ? pdpRecommendationExperiment.variantKey
             : "control"
         }
+        freeShippingThresholds={freeShippingThresholds}
       />
     </>
   )

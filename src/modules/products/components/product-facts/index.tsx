@@ -399,10 +399,7 @@ function FactList({ highlights }: { highlights: ProductFactHighlight[] }) {
   if (!highlights.length) return null
 
   return (
-    <ul
-      className="grid grid-cols-2 gap-x-5 gap-y-4 sm:grid-cols-3"
-      role="list"
-    >
+    <ul className="grid grid-cols-2 gap-x-5 gap-y-4 sm:grid-cols-3" role="list">
       {highlights.map((highlight) => (
         <li key={highlight.key} className="flex min-w-0 items-center gap-3">
           <span className="block h-10 w-10 shrink-0">
@@ -416,7 +413,7 @@ function FactList({ highlights }: { highlights: ProductFactHighlight[] }) {
             />
           </span>
           <span className="block min-w-0">
-            <span className="block break-words font-maison-neue-mono text-[9px] font-bold uppercase leading-tight text-Charcoal/55">
+            <span className="block break-words font-maison-neue-mono text-[9px] font-bold uppercase leading-tight text-Charcoal/70">
               {highlight.label}
             </span>
             {highlight.value && (

@@ -1,20 +1,19 @@
 import React from "react"
 import { HttpTypes } from "@medusajs/types"
+import {
+  formatFreeShippingThreshold,
+  getResolvedFreeShippingThresholds,
+  IN_REGION_STATES,
+  type FreeShippingThresholdOverrides,
+} from "@lib/util/free-shipping"
 
 type TrustBandProps = {
   customer?: HttpTypes.StoreCustomer | null
   // Phone is plumbed from the same Strapi header config the desktop nav uses,
   // so a single source of truth for the brand phone number.
   phoneNumber?: string | null
+  freeShippingThresholds?: FreeShippingThresholdOverrides
 }
-
-// In-region states qualifying for the $250 free-delivery threshold
-// (GA + neighboring Southeast). Eventually this should come from the
-// Strapi `shipping-setting` single type — see #19. Hardcoded here so the
-// trust band can ship before that schema work is done.
-const IN_REGION_STATES = ["GA", "TN", "TX", "NC", "FL", "SC", "AL"] as const
-const IN_REGION_THRESHOLD = 250
-const NATIONAL_THRESHOLD = 500
 
 const Pill: React.FC<{
   icon: React.ReactNode
@@ -46,7 +45,11 @@ const Pill: React.FC<{
   )
 }
 
-export default function TrustBand({ customer, phoneNumber }: TrustBandProps) {
+export default function TrustBand({
+  customer,
+  phoneNumber,
+  freeShippingThresholds,
+}: TrustBandProps) {
   const defaultShipping =
     customer?.addresses?.find((a) => a.is_default_shipping) ||
     customer?.addresses?.[0]
@@ -54,14 +57,23 @@ export default function TrustBand({ customer, phoneNumber }: TrustBandProps) {
   const isInRegion =
     !!shipState && (IN_REGION_STATES as readonly string[]).includes(shipState)
   const isOutOfRegion = !!shipState && !isInRegion
+  const resolvedThresholds = getResolvedFreeShippingThresholds(
+    freeShippingThresholds
+  )
+  const inRegionThresholdLabel = formatFreeShippingThreshold(
+    resolvedThresholds.inRegionThreshold
+  )
+  const nationalThresholdLabel = formatFreeShippingThreshold(
+    resolvedThresholds.nationalThreshold
+  )
 
   let shippingPill: string
   if (isInRegion) {
-    shippingPill = `Frozen with dry ice · free delivery over $${IN_REGION_THRESHOLD} in your area`
+    shippingPill = `Frozen with dry ice · free delivery over ${inRegionThresholdLabel} in your area`
   } else if (isOutOfRegion) {
-    shippingPill = `Frozen with dry ice · free shipping over $${NATIONAL_THRESHOLD} nationwide`
+    shippingPill = `Frozen with dry ice · free shipping over ${nationalThresholdLabel} nationwide`
   } else {
-    shippingPill = `Frozen with dry ice · free over $${IN_REGION_THRESHOLD} regionally / $${NATIONAL_THRESHOLD} nationally`
+    shippingPill = `Frozen with dry ice · free over ${inRegionThresholdLabel} regionally / ${nationalThresholdLabel} nationally`
   }
 
   const phoneDigits = phoneNumber?.replace(/\D/g, "") || "7704548108"

@@ -25,11 +25,13 @@ import {
   generateOrganizationJsonLd,
   generateWebSiteJsonLd,
 } from "@lib/data/strapi/global"
+import { getFreeShippingThresholds } from "@lib/data/strapi/checkout"
 import { generateAlternates } from "@lib/util/seo"
 import { getBaseURL } from "@lib/util/env"
 import { withTimeout } from "@lib/util/promise-timeout"
 import { resolveHomeSections } from "@lib/util/home-sections"
 import { emitFallbackHomepageOpsAlert } from "@lib/homepage-ops-alerts"
+import type { FreeShippingThresholdOverrides } from "@lib/util/free-shipping"
 
 type PageProps = {
   params: Promise<{ countryCode: string }>
@@ -63,9 +65,19 @@ async function ShopCollectionsBlock({
   )
 }
 
-async function DeliveryPromiseBlock({ countryCode }: { countryCode: string }) {
+async function DeliveryPromiseBlock({
+  countryCode,
+  freeShippingThresholds,
+}: {
+  countryCode: string
+  freeShippingThresholds?: FreeShippingThresholdOverrides
+}) {
   return (
-    <DeliveryPromiseSection countryCode={countryCode} useStorefrontSession />
+    <DeliveryPromiseSection
+      countryCode={countryCode}
+      useStorefrontSession
+      freeShippingThresholds={freeShippingThresholds}
+    />
   )
 }
 
@@ -138,7 +150,7 @@ export default async function Home(props: {
 
   const { countryCode } = params
 
-  const [strapiData, globalData] = await Promise.all([
+  const [strapiData, globalData, freeShippingThresholds] = await Promise.all([
     withTimeout(
       strapiClient.request<HomePageData>(GetHomePageQuery).catch(() => null),
       3000,
@@ -150,6 +162,12 @@ export default async function Home(props: {
       1500,
       null,
       "home global data"
+    ),
+    withTimeout(
+      getFreeShippingThresholds(),
+      1500,
+      { inRegionThreshold: null, nationalThreshold: null },
+      "home free-shipping thresholds"
     ),
   ])
 
@@ -224,7 +242,10 @@ export default async function Home(props: {
             return (
               <React.Fragment key={section.__typename}>
                 <Hero data={section} countryCode={countryCode} />
-                <TrustBand phoneNumber={null} />
+                <TrustBand
+                  phoneNumber={null}
+                  freeShippingThresholds={freeShippingThresholds}
+                />
                 <HolidayBanner />
               </React.Fragment>
             )
@@ -248,7 +269,10 @@ export default async function Home(props: {
                       />
                     </React.Suspense>
                     <React.Suspense fallback={null}>
-                      <DeliveryPromiseBlock countryCode={countryCode} />
+                      <DeliveryPromiseBlock
+                        countryCode={countryCode}
+                        freeShippingThresholds={freeShippingThresholds}
+                      />
                     </React.Suspense>
                   </>
                 )}
@@ -262,7 +286,10 @@ export default async function Home(props: {
                       />
                     </React.Suspense>
                     <React.Suspense fallback={null}>
-                      <DeliveryPromiseBlock countryCode={countryCode} />
+                      <DeliveryPromiseBlock
+                        countryCode={countryCode}
+                        freeShippingThresholds={freeShippingThresholds}
+                      />
                     </React.Suspense>
                     {!shouldDeferStory && storySupportSections}
                   </>
@@ -295,7 +322,10 @@ export default async function Home(props: {
                   />
                 </React.Suspense>
                 <React.Suspense fallback={null}>
-                  <DeliveryPromiseBlock countryCode={countryCode} />
+                  <DeliveryPromiseBlock
+                    countryCode={countryCode}
+                    freeShippingThresholds={freeShippingThresholds}
+                  />
                 </React.Suspense>
                 {!shouldDeferStory && storySupportSections}
               </React.Fragment>

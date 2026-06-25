@@ -152,6 +152,16 @@ describe("jitsu first-party communications ingestion", () => {
     expect(global.fetch).not.toHaveBeenCalled()
   })
 
+  it("skips remote communications ingestion from local development by default", () => {
+    process.env.NODE_ENV = "development"
+
+    jitsuTrack("product_viewed", {
+      product_id: "prod_123",
+    })
+
+    expect(global.fetch).not.toHaveBeenCalled()
+  })
+
   it("warns without throwing when the GP analytics mirror returns non-2xx", async () => {
     process.env.NEXT_PUBLIC_GP_ANALYTICS_ENDPOINT =
       "https://analytics.example.com/"

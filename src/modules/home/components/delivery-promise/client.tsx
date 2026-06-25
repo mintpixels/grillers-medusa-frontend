@@ -4,8 +4,9 @@ import { useEffect, useMemo, useState } from "react"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import { lookupUpsGroundDays } from "@lib/util/eligible-arrival-dates"
 import {
-  IN_REGION_THRESHOLD,
-  NATIONAL_THRESHOLD,
+  formatFreeShippingThreshold,
+  getResolvedFreeShippingThresholds,
+  type FreeShippingThresholdOverrides,
 } from "@lib/util/free-shipping"
 import {
   clearStoredDeliveryZip,
@@ -41,8 +42,19 @@ function pluralizeDays(days: number): string {
 function getPromise(
   zip: string,
   atlantaZipCodes: Set<string>,
-  isLoggedIn: boolean
+  isLoggedIn: boolean,
+  freeShippingThresholds?: FreeShippingThresholdOverrides
 ): PromiseResult {
+  const resolvedThresholds = getResolvedFreeShippingThresholds(
+    freeShippingThresholds
+  )
+  const inRegionThresholdLabel = formatFreeShippingThreshold(
+    resolvedThresholds.inRegionThreshold
+  )
+  const nationalThresholdLabel = formatFreeShippingThreshold(
+    resolvedThresholds.nationalThreshold
+  )
+
   if (!zip) {
     return {
       kind: "empty",
@@ -52,7 +64,7 @@ function getPromise(
         : "See your cold-chain options before you shop",
       detail: isLoggedIn
         ? "Save an address once and we will show local delivery, regional pickup, or UPS cold-chain transit before checkout."
-        : `Atlanta delivery and regional pickup can unlock free delivery at $${IN_REGION_THRESHOLD}. UPS cold-chain shipping is free nationwide at $${NATIONAL_THRESHOLD}.`,
+        : `Atlanta delivery and regional pickup can unlock free delivery at ${inRegionThresholdLabel}. UPS cold-chain shipping is free nationwide at ${nationalThresholdLabel}.`,
       badge: "Enter ZIP",
     }
   }
@@ -75,7 +87,7 @@ function getPromise(
       kind: "atlanta",
       eyebrow: "Local route likely available",
       headline: "Atlanta delivery available for this ZIP",
-      detail: `Free local delivery starts at $${IN_REGION_THRESHOLD}. Checkout confirms your exact delivery day and any route minimums before payment.`,
+      detail: `Free local delivery starts at ${inRegionThresholdLabel}. Checkout confirms your exact delivery day and any route minimums before payment.`,
       badge: "Atlanta delivery",
     }
   }
@@ -85,7 +97,7 @@ function getPromise(
     kind: "ups",
     eyebrow: "UPS cold-chain estimate",
     headline: `About ${pluralizeDays(days)} in transit`,
-    detail: `Frozen orders ship insulated with dry ice where needed. Free nationwide UPS Ground starts at $${NATIONAL_THRESHOLD}.`,
+    detail: `Frozen orders ship insulated with dry ice where needed. Free nationwide UPS Ground starts at ${nationalThresholdLabel}.`,
     ctaHref: "/shipping/ups",
     ctaLabel: "Shipping details",
     badge: "Ships nationwide",
@@ -123,12 +135,14 @@ export default function DeliveryPromiseClient({
   initialZip,
   initialZipSource = null,
   isLoggedIn = false,
+  freeShippingThresholds,
 }: {
   countryCode: string
   atlantaZipCodes: string[]
   initialZip?: string | null
   initialZipSource?: DeliveryZipSource
   isLoggedIn?: boolean
+  freeShippingThresholds?: FreeShippingThresholdOverrides
 }) {
   const normalizedInitialZip = normalizeDeliveryZip(initialZip)
   const normalizedInitialSource = normalizedInitialZip
@@ -167,8 +181,9 @@ export default function DeliveryPromiseClient({
   }, [isLoggedIn, normalizedInitialSource, normalizedInitialZip])
 
   const result = useMemo(
-    () => getPromise(submittedZip, atlantaSet, isLoggedIn),
-    [submittedZip, atlantaSet, isLoggedIn]
+    () =>
+      getPromise(submittedZip, atlantaSet, isLoggedIn, freeShippingThresholds),
+    [submittedZip, atlantaSet, isLoggedIn, freeShippingThresholds]
   )
 
   const submitZip = (event: React.FormEvent<HTMLFormElement>) => {
@@ -187,7 +202,12 @@ export default function DeliveryPromiseClient({
     }
     jitsuTrack("delivery_zip_checked", {
       zip_prefix: normalized.slice(0, 3),
-      result_kind: getPromise(normalized, atlantaSet, isLoggedIn).kind,
+      result_kind: getPromise(
+        normalized,
+        atlantaSet,
+        isLoggedIn,
+        freeShippingThresholds
+      ).kind,
       country_code: countryCode,
     })
   }

@@ -6,9 +6,9 @@
  *   - **Plant Pickup (Doraville, GA)**: always free. Customer earns a
  *     $7.50 pickup credit on orders ≥ $150.
  *   - **Atlanta Delivery / Southeast Pickup / UPS shipping to in-region
- *     state**: free at $250+. The 7 in-region states are
+ *     state**: defaults to free at $250+. The 7 in-region states are
  *     `GA, TN, TX, NC, FL, SC, AL`.
- *   - **UPS shipping to a national state**: free at $500+. The checkout
+ *   - **UPS shipping to a national state**: defaults to free at $500+. The checkout
  *     service picker decides whether Ground or 3 Day Select is the baseline.
  *   - **UPS Overnight**: never free; charged at carrier rate.
  *
@@ -22,6 +22,8 @@
  *   - `isInRegionState(state)` — boolean
  *   - `getFreeShippingState(input)` — pure decision function used by
  *     every UI surface that needs to render shipping copy.
+ *   - `getResolvedFreeShippingThresholds(input)` — resolves optional
+ *     Strapi overrides to the same defaults used by `getFreeShippingState`.
  *
  * The React-flavored helper `<FreeShippingHelper>` in
  * `modules/common/components/cart-helpers` consumes
@@ -44,6 +46,16 @@ export const NATIONAL_THRESHOLD = 500
 export const PICKUP_BONUS_THRESHOLD = 150
 export const PICKUP_BONUS_AMOUNT = 7.5
 
+export type FreeShippingThresholdOverrides = {
+  inRegionThreshold?: number | null
+  nationalThreshold?: number | null
+}
+
+export type ResolvedFreeShippingThresholds = {
+  inRegionThreshold: number
+  nationalThreshold: number
+}
+
 /**
  * #266: a Strapi-editable threshold override is honored only when it's a finite
  * POSITIVE number. `null`/`undefined` (field not deployed/populated) — and also
@@ -61,6 +73,28 @@ export function resolveFreeShippingThreshold(
     override > 0
     ? override
     : fallback
+}
+
+export function getResolvedFreeShippingThresholds(
+  overrides: FreeShippingThresholdOverrides = {}
+): ResolvedFreeShippingThresholds {
+  return {
+    inRegionThreshold: resolveFreeShippingThreshold(
+      overrides.inRegionThreshold,
+      IN_REGION_THRESHOLD
+    ),
+    nationalThreshold: resolveFreeShippingThreshold(
+      overrides.nationalThreshold,
+      NATIONAL_THRESHOLD
+    ),
+  }
+}
+
+export function formatFreeShippingThreshold(amount: number): string {
+  return `$${amount.toLocaleString(undefined, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  })}`
 }
 
 export type FulfillmentType =
@@ -201,12 +235,12 @@ export function getFreeShippingState(input: {
       input.fulfillmentType === "atlanta_delivery"
         ? "atlanta_delivery"
         : input.fulfillmentType === "southeast_pickup"
-          ? "southeast_pickup"
-          : inRegion
-            ? "in_region_ups"
-            : input.shipState
-              ? "national_ups"
-              : "ambiguous",
+        ? "southeast_pickup"
+        : inRegion
+        ? "in_region_ups"
+        : input.shipState
+        ? "national_ups"
+        : "ambiguous",
     threshold,
     qualified,
     remaining,
@@ -245,15 +279,20 @@ export function freeShippingPlainText(input: {
       ? `Pickup is always free. You've earned a $${PICKUP_BONUS_AMOUNT.toFixed(
           2
         )} pickup credit.`
-      : `Pickup is always free. ${fmt(s.pickupBonusRemaining)} away from a $${PICKUP_BONUS_AMOUNT.toFixed(2)} credit.`
+      : `Pickup is always free. ${fmt(
+          s.pickupBonusRemaining
+        )} away from a $${PICKUP_BONUS_AMOUNT.toFixed(2)} credit.`
   }
   if (s.kind === "overnight") {
     return "UPS Overnight is charged at the carrier rate."
   }
   if (s.qualified) {
-    if (s.kind === "atlanta_delivery") return "Your order qualifies for free local delivery."
-    if (s.kind === "southeast_pickup") return "Your order qualifies for free regional pickup."
-    if (s.kind === "in_region_ups") return "Your order qualifies for the regional free-delivery threshold."
+    if (s.kind === "atlanta_delivery")
+      return "Your order qualifies for free local delivery."
+    if (s.kind === "southeast_pickup")
+      return "Your order qualifies for free regional pickup."
+    if (s.kind === "in_region_ups")
+      return "Your order qualifies for the regional free-delivery threshold."
     return "Your order qualifies for free UPS cold-chain shipping."
   }
   if (s.kind === "ambiguous") {
@@ -263,9 +302,9 @@ export function freeShippingPlainText(input: {
     s.kind === "national_ups"
       ? "free UPS cold-chain shipping"
       : s.kind === "southeast_pickup"
-        ? "free regional pickup"
-        : s.kind === "atlanta_delivery"
-          ? "free local delivery"
-          : "the regional free-delivery threshold"
+      ? "free regional pickup"
+      : s.kind === "atlanta_delivery"
+      ? "free local delivery"
+      : "the regional free-delivery threshold"
   return `You're ${fmt(s.remaining)} away from ${label}.`
 }

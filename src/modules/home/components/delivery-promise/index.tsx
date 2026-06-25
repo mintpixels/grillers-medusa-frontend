@@ -1,8 +1,10 @@
 import { getAtlantaDeliveryZipConfig } from "@lib/data/strapi/fulfillment"
+import { getFreeShippingThresholds } from "@lib/data/strapi/checkout"
 import { getDeliveryZipCookie } from "@lib/data/delivery-zip"
 import { normalizeDeliveryZip } from "@lib/util/delivery-zip"
 import DeliveryPromiseClient from "./client"
 import DeliveryPromiseSession from "@modules/home/components/delivery-promise-session"
+import type { FreeShippingThresholdOverrides } from "@lib/util/free-shipping"
 
 export type DeliveryZipSource = "cart" | "address" | "recent_order" | "saved"
 
@@ -12,20 +14,28 @@ export default async function DeliveryPromiseSection({
   customerZipSource,
   isLoggedIn = false,
   useStorefrontSession = false,
+  freeShippingThresholds,
 }: {
   countryCode: string
   customerZip?: string | null
   customerZipSource?: DeliveryZipSource | null
   isLoggedIn?: boolean
   useStorefrontSession?: boolean
+  freeShippingThresholds?: FreeShippingThresholdOverrides
 }) {
-  const atlantaZipConfig = await getAtlantaDeliveryZipConfig()
+  const [atlantaZipConfig, resolvedThresholds] = await Promise.all([
+    getAtlantaDeliveryZipConfig(),
+    freeShippingThresholds
+      ? Promise.resolve(freeShippingThresholds)
+      : getFreeShippingThresholds(),
+  ])
 
   if (useStorefrontSession) {
     return (
       <DeliveryPromiseSession
         countryCode={countryCode}
         atlantaZipCodes={Object.keys(atlantaZipConfig)}
+        freeShippingThresholds={resolvedThresholds}
       />
     )
   }
@@ -47,6 +57,7 @@ export default async function DeliveryPromiseSection({
       initialZip={initialZip}
       initialZipSource={initialZipSource}
       isLoggedIn={isLoggedIn}
+      freeShippingThresholds={resolvedThresholds}
     />
   )
 }

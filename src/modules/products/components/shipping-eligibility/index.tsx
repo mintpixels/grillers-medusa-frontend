@@ -1,4 +1,9 @@
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
+import {
+  formatFreeShippingThreshold,
+  getResolvedFreeShippingThresholds,
+  type FreeShippingThresholdOverrides,
+} from "@lib/util/free-shipping"
 
 /**
  * PDP shipping-eligibility callout (#39).
@@ -19,22 +24,33 @@ import LocalizedClientLink from "@modules/common/components/localized-client-lin
 
 export default function ShippingEligibility({
   countryCode,
+  freeShippingThresholds,
 }: {
   countryCode: string
+  freeShippingThresholds?: FreeShippingThresholdOverrides
 }) {
+  const resolvedThresholds = getResolvedFreeShippingThresholds(
+    freeShippingThresholds
+  )
+  const inRegionThresholdLabel = formatFreeShippingThreshold(
+    resolvedThresholds.inRegionThreshold
+  )
+  const nationalThresholdLabel = formatFreeShippingThreshold(
+    resolvedThresholds.nationalThreshold
+  )
   const lines = [
     {
       label: "Nationwide shipping",
-      sub: "UPS Ground with insulated, dry-ice packaging when frozen. Free over $500 nationally, free over $250 in our core region.",
+      sub: `UPS Ground with insulated, dry-ice packaging when frozen. Free over ${nationalThresholdLabel} nationally, free over ${inRegionThresholdLabel} in our core region.`,
     },
     {
       label: "Atlanta home delivery",
       href: "/shipping/atlanta#delivery-zip-codes-and-rates",
-      sub: "Available only for eligible Atlanta-area ZIP codes. Selectable at checkout, free over $250.",
+      sub: `Available only for eligible Atlanta-area ZIP codes. Selectable at checkout, free over ${inRegionThresholdLabel}.`,
     },
     {
       label: "Southeast Pickup",
-      sub: "If your city is on a Southeast route, choose pickup at checkout — free over $250 plus a $15 credit.",
+      sub: `If your city is on a Southeast route, choose pickup at checkout — free over ${inRegionThresholdLabel} plus a $15 credit.`,
     },
   ]
   const coldChainSteps = [

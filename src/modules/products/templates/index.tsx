@@ -11,6 +11,7 @@ import PairsWellWith from "@modules/products/components/pairs-well-with"
 import RelatedProducts from "@modules/products/components/related-products"
 import SkeletonRelatedProducts from "@modules/skeletons/templates/skeleton-related-products"
 import type { PurchaseHistoryItem } from "@lib/data/orders"
+import type { FreeShippingThresholdOverrides } from "@lib/util/free-shipping"
 
 type ProductTemplateProps = {
   product: HttpTypes.StoreProduct
@@ -21,6 +22,7 @@ type ProductTemplateProps = {
   purchaseHistoryItem?: PurchaseHistoryItem | null
   pdpExperimentVariant?: string | null
   pdpRecommendationVariant?: string | null
+  freeShippingThresholds?: FreeShippingThresholdOverrides
 }
 
 async function PdpEducationSections({
@@ -50,6 +52,7 @@ const ProductTemplate: React.FC<ProductTemplateProps> = ({
   purchaseHistoryItem,
   pdpExperimentVariant,
   pdpRecommendationVariant,
+  freeShippingThresholds,
 }) => {
   if (!product || !product.id) {
     return notFound()
@@ -65,6 +68,7 @@ const ProductTemplate: React.FC<ProductTemplateProps> = ({
           strapiProductData={strapiProductData}
           purchaseHistoryItem={purchaseHistoryItem}
           pdpExperimentVariant={pdpExperimentVariant}
+          freeShippingThresholds={freeShippingThresholds}
         />
       </Suspense>
       <Suspense fallback={null}>
