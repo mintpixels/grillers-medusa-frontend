@@ -5,6 +5,7 @@ import "server-only"
 import { retrieveAuthenticatedCustomerForStaffAccess } from "@lib/data/customer"
 import {
   canChargeFinalOrders,
+  canRoleReceiveFinalChargeAccess,
   isBootstrapSuperAdminEmail,
   isSuperAdminCustomer,
   staffAccessRole,
@@ -138,9 +139,12 @@ function roleMetadata(
   metadata.staff_super_admin = role === "super_admin"
   metadata.staff_access_revoked = role === "customer"
   metadata.staff_access_updated_at = now
-  metadata.final_charge_enabled =
+  const finalChargeEnabled =
     role === "super_admin" ||
-    (hasStaffAccess && Boolean(options.finalChargeEnabled))
+    (canRoleReceiveFinalChargeAccess(role) &&
+      Boolean(options.finalChargeEnabled))
+  metadata.final_charge_enabled =
+    finalChargeEnabled
   metadata.can_charge_final_orders = metadata.final_charge_enabled
 
   if (role === "customer") {
@@ -270,7 +274,8 @@ export async function updateStaffTeamRole(
         role,
         final_charge_enabled:
           role === "super_admin" ||
-          (role !== "customer" && Boolean(input.finalChargeEnabled)),
+          (canRoleReceiveFinalChargeAccess(role) &&
+            Boolean(input.finalChargeEnabled)),
         reason,
       }
     )

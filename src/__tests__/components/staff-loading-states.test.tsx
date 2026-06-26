@@ -255,10 +255,10 @@ describe("staff loading states", () => {
     await user.type(screen.getByLabelText("Customer lookup"), "office")
     await user.click(screen.getByRole("button", { name: /search/i }))
     await user.click(await screen.findByText("Office User"))
-    await user.click(screen.getByLabelText(/Manager/i))
+    await user.click(screen.getByRole("radio", { name: /^Manager/i }))
     await user.click(screen.getByLabelText(/Can charge final orders/i))
     await user.type(
-      screen.getByLabelText("Reason"),
+      screen.getByLabelText(/Reason required/i),
       "Peter approved manager access"
     )
     await user.type(
@@ -281,5 +281,77 @@ describe("staff loading states", () => {
     })
     expect(saveButton).toHaveTextContent("Update Staff Access")
     expect(saveButton).toHaveAttribute("aria-busy", "false")
+  })
+
+  it("clears final charge and explains required audit input for merchandising reviewers", async () => {
+    const user = userEvent.setup()
+    const generalStaffUser = {
+      ...peterTeamUser,
+      id: "cus_efraim",
+      email: "efraimd7@gmail.com",
+      firstName: "Efraim",
+      lastName: "Davidson",
+      role: "staff" as const,
+      finalChargeEnabled: true,
+      isBootstrapSuperAdmin: false,
+    }
+    mockedSearchStaffTeamUsers.mockResolvedValue({
+      ok: true,
+      users: [generalStaffUser],
+    })
+    mockedUpdateStaffTeamRole.mockResolvedValue({
+      ok: true,
+      user: {
+        ...generalStaffUser,
+        role: "merchandising_reviewer",
+        finalChargeEnabled: false,
+      },
+    })
+
+    render(<StaffTeamAccessConsole />)
+
+    await user.type(screen.getByLabelText("Customer lookup"), "efraim")
+    await user.click(screen.getByRole("button", { name: /search/i }))
+    await user.click(await screen.findByText("Efraim Davidson"))
+    await user.click(
+      screen.getByRole("radio", { name: /^Merchandising reviewer/i })
+    )
+
+    const finalChargeCheckbox = screen.getByLabelText(
+      /Can charge final orders/i
+    ) as HTMLInputElement
+    expect(finalChargeCheckbox).not.toBeChecked()
+    expect(finalChargeCheckbox).toBeDisabled()
+
+    const saveButton = screen.getByRole("button", {
+      name: "Update Staff Access",
+    })
+    expect(saveButton).toBeDisabled()
+    expect(
+      screen.getByText(/Add a short audit reason/i)
+    ).toBeInTheDocument()
+
+    await user.type(
+      screen.getByLabelText(/Reason required/i),
+      "Avi approved merchandising reviewer access"
+    )
+    await user.type(
+      screen.getByLabelText(/Type MERCHANDISING to confirm/i),
+      "MERCHANDISING"
+    )
+
+    expect(saveButton).not.toBeDisabled()
+    await user.click(saveButton)
+
+    await waitFor(() => {
+      expect(mockedUpdateStaffTeamRole).toHaveBeenCalledWith(
+        expect.objectContaining({
+          customerId: "cus_efraim",
+          role: "merchandising_reviewer",
+          finalChargeEnabled: false,
+          confirmation: "MERCHANDISING",
+        })
+      )
+    })
   })
 })

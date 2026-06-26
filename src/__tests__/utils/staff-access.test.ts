@@ -3,6 +3,7 @@ import {
   canManageOrderSupport,
   canPackCatchWeightOrders,
   canPickCatchWeightOrders,
+  canRoleReceiveFinalChargeAccess,
   canReviewMerchandising,
   canUseOfficeConsole,
   isStaffCustomer,
@@ -107,6 +108,20 @@ describe("staff access helpers", () => {
     // A stray flag must NOT grant money access to non-operational roles.
     expect(canChargeFinalOrders(officeWithFlag)).toBe(false)
     expect(canChargeFinalOrders(reviewerWithFlag)).toBe(false)
+  })
+
+  it("limits final-charge assignment to operational roles", () => {
+    expect(canRoleReceiveFinalChargeAccess("staff")).toBe(true)
+    expect(canRoleReceiveFinalChargeAccess("picker")).toBe(true)
+    expect(canRoleReceiveFinalChargeAccess("packer")).toBe(true)
+    expect(canRoleReceiveFinalChargeAccess("manager")).toBe(true)
+    expect(canRoleReceiveFinalChargeAccess("super_admin")).toBe(true)
+
+    expect(canRoleReceiveFinalChargeAccess("customer")).toBe(false)
+    expect(canRoleReceiveFinalChargeAccess("office")).toBe(false)
+    expect(canRoleReceiveFinalChargeAccess("merchandising_reviewer")).toBe(
+      false
+    )
   })
 
   it("rejects normal customer metadata", () => {

@@ -238,6 +238,12 @@ export function canChargeFinalOrders(customer: StaffCustomerLike): boolean {
   ].some(truthyStaffValue)
 }
 
+export function canRoleReceiveFinalChargeAccess(
+  role: StaffAccessRole
+): boolean {
+  return ["staff", "picker", "packer", "manager", "super_admin"].includes(role)
+}
+
 export function canUseOfficeConsole(customer: StaffCustomerLike): boolean {
   const role = staffAccessRole(customer)
   return ["staff", "office", "manager", "super_admin"].includes(role)

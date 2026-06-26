@@ -11,6 +11,7 @@ import {
 import Button from "@modules/common/components/button"
 import {
   STAFF_ROLE_OPTIONS,
+  canRoleReceiveFinalChargeAccess,
   staffRoleConfirmation,
   staffRoleLabel,
   type StaffAccessRole,
@@ -80,12 +81,29 @@ export default function StaffTeamAccessConsole() {
     () => staffRoleConfirmation(roleDraft),
     [roleDraft]
   )
+  const roleCanReceiveFinalCharge = useMemo(
+    () => canRoleReceiveFinalChargeAccess(roleDraft),
+    [roleDraft]
+  )
+  const finalChargeChecked =
+    roleDraft === "super_admin" ||
+    (roleCanReceiveFinalCharge && finalChargeDraft)
+  const submitBlockReason = useMemo(() => {
+    if (!selected) return "Select a customer first."
+    if (selected.isBootstrapSuperAdmin && roleDraft !== "super_admin") {
+      return "Bootstrap super admins cannot be demoted in the UI."
+    }
+    if (reason.trim().length < 8) {
+      return "Add a short audit reason before updating staff access."
+    }
+    if (confirmation.trim().toUpperCase() !== requiredConfirmation) {
+      return `Type ${requiredConfirmation} to confirm this change.`
+    }
+    return ""
+  }, [confirmation, reason, requiredConfirmation, roleDraft, selected])
 
   const canSubmit =
-    selected &&
-    reason.trim().length >= 8 &&
-    confirmation.trim().toUpperCase() === requiredConfirmation &&
-    !(selected.isBootstrapSuperAdmin && roleDraft !== "super_admin")
+    Boolean(selected) && !submitBlockReason
 
   async function runSearch() {
     const requestId = searchRequestId.current + 1
@@ -340,7 +358,7 @@ export default function StaffTeamAccessConsole() {
                       }
                       onChange={() => {
                         setRoleDraft(option.value)
-                        if (option.value === "customer") {
+                        if (!canRoleReceiveFinalChargeAccess(option.value)) {
                           setFinalChargeDraft(false)
                         }
                         if (option.value === "super_admin") {
@@ -364,16 +382,16 @@ export default function StaffTeamAccessConsole() {
 
               <label
                 className={`flex gap-3 rounded-md border p-3 ${
-                  roleDraft === "customer"
+                  !roleCanReceiveFinalCharge
                     ? "border-gray-100 bg-gray-50 text-Charcoal/45"
                     : "border-emerald-200 bg-emerald-50/60 text-Charcoal"
                 }`}
               >
                 <input
-                  checked={roleDraft === "super_admin" || finalChargeDraft}
+                  checked={finalChargeChecked}
                   className="mt-1"
                   disabled={
-                    roleDraft === "customer" || roleDraft === "super_admin"
+                    !roleCanReceiveFinalCharge || roleDraft === "super_admin"
                   }
                   onChange={(event) =>
                     setFinalChargeDraft(event.target.checked)
@@ -385,20 +403,24 @@ export default function StaffTeamAccessConsole() {
                     Can charge final orders
                   </span>
                   <span className="mt-1 block text-xs font-maison-neue text-Charcoal/60">
-                    Allows this staff member to press Charge Card & Release in
-                    Pack & Finalize. Super admins always have this permission.
+                    {roleCanReceiveFinalCharge
+                      ? "Allows this staff member to press Charge Card & Release in Pack & Finalize. Super admins always have this permission."
+                      : "Only pick, pack, manager, general staff, and super admin roles can receive final-charge access."}
                   </span>
                 </span>
               </label>
 
               <label className="flex flex-col gap-1">
-                <span className={labelClass()}>Reason</span>
+                <span className={labelClass()}>Reason required</span>
                 <textarea
                   className={`${fieldClass()} min-h-[92px]`}
                   value={reason}
                   onChange={(event) => setReason(event.target.value)}
-                  placeholder="Example: Peter approved phone-order access for this support rep."
+                  placeholder="Example: Avi approved merchandising review access for photo QA."
                 />
+                <span className="text-xs font-maison-neue text-Charcoal/50">
+                  Required for the staff access audit log.
+                </span>
               </label>
 
               <label className="flex flex-col gap-1">
@@ -421,6 +443,11 @@ export default function StaffTeamAccessConsole() {
               >
                 Update Staff Access
               </Button>
+              {!canSubmit && !isSavingRole && submitBlockReason ? (
+                <p className="text-xs font-maison-neue text-Charcoal/55">
+                  {submitBlockReason}
+                </p>
+              ) : null}
             </div>
           ) : (
             <p className="mt-4 text-sm font-maison-neue text-Charcoal/55">
