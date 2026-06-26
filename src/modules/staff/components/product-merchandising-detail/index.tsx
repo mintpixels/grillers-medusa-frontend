@@ -16,7 +16,10 @@ import {
 } from "lucide-react"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import {
+  claimMerchandisingImage,
+  releaseMerchandisingImageClaim,
   reviewMerchandisingImage,
+  type MerchandisingImageActionResult,
   type MerchandisingImageReview,
   type MerchandisingProductImage,
   type MerchandisingRejectReason,
@@ -27,12 +30,22 @@ import {
 type Props = {
   countryCode: string
   detail: ProductMerchandisingDetail
+  staffEmail: string
+  staffName: string
 }
 
 type RejectDraft = {
   image: MerchandisingProductImage
   reason: MerchandisingRejectReason
   note: string
+} | null
+
+type OverwriteDraft = {
+  image: MerchandisingProductImage
+  status: "approved" | "rejected"
+  reason?: MerchandisingRejectReason
+  note?: string
+  latestReview?: MerchandisingImageReview
 } | null
 
 const rejectOptions: Array<{
@@ -82,6 +95,31 @@ function reviewClass(review: MerchandisingImageReview) {
 
 function reasonLabel(reason?: MerchandisingRejectReason) {
   return rejectOptions.find((option) => option.value === reason)?.label || ""
+}
+
+function normalizedEmail(value?: string | null) {
+  return String(value || "").trim().toLowerCase()
+}
+
+function claimOwner(image: MerchandisingProductImage) {
+  return image.claim?.staffName || image.claim?.staffEmail || ""
+}
+
+function claimIsMine(image: MerchandisingProductImage, staffEmail: string) {
+  return (
+    Boolean(image.claim?.staffEmail) &&
+    normalizedEmail(image.claim?.staffEmail) === normalizedEmail(staffEmail)
+  )
+}
+
+function resultImagePatch(result: MerchandisingImageActionResult) {
+  if (!("caption" in result)) return null
+  return {
+    ...(result.review ? { review: result.review } : {}),
+    claim: result.claim,
+    ...(result.auditHistory ? { auditHistory: result.auditHistory } : {}),
+    caption: result.caption || null,
+  }
 }
 
 function productProgress(product: ProductMerchandisingProduct) {
@@ -246,13 +284,19 @@ function CollapsedProductRow({
 function ImageCard({
   image,
   isPending,
+  staffEmail,
   onApprove,
   onReject,
+  onClaim,
+  onReleaseClaim,
 }: {
   image: MerchandisingProductImage
   isPending: boolean
+  staffEmail: string
   onApprove: (image: MerchandisingProductImage) => void
   onReject: (image: MerchandisingProductImage) => void
+  onClaim: (image: MerchandisingProductImage) => void
+  onReleaseClaim: (image: MerchandisingProductImage) => void
 }) {
   const Icon =
     image.review.status === "approved"
@@ -260,9 +304,16 @@ function ImageCard({
       : image.review.status === "rejected"
       ? XCircle
       : ShieldCheck
+  const claimedByMe = claimIsMine(image, staffEmail)
+  const claimedByOther = Boolean(image.claim && !claimedByMe)
+  const reviewDisabled = isPending || claimedByOther
 
   return (
-    <div className="group overflow-hidden rounded-md border border-gray-200 bg-white">
+    <div
+      className={`group overflow-hidden rounded-md border bg-white ${
+        claimedByOther ? "border-amber-300" : "border-gray-200"
+      }`}
+    >
       <div className="relative aspect-square bg-Scroll">
         {/*
           Load Strapi's large/medium derivative directly (unoptimized) instead
@@ -284,7 +335,7 @@ function ImageCard({
           <div className="grid w-full grid-cols-2 gap-2">
             <button
               type="button"
-              disabled={isPending}
+              disabled={reviewDisabled}
               onClick={() => onApprove(image)}
               className="inline-flex min-h-[38px] items-center justify-center gap-1.5 rounded-md bg-white px-3 text-xs font-rexton font-bold uppercase text-Charcoal transition hover:bg-emerald-50 disabled:opacity-50"
             >
@@ -293,7 +344,7 @@ function ImageCard({
             </button>
             <button
               type="button"
-              disabled={isPending}
+              disabled={reviewDisabled}
               onClick={() => onReject(image)}
               className="inline-flex min-h-[38px] items-center justify-center gap-1.5 rounded-md bg-white px-3 text-xs font-rexton font-bold uppercase text-Charcoal transition hover:bg-red-50 disabled:opacity-50"
             >
@@ -305,6 +356,18 @@ function ImageCard({
         <span className="absolute left-2 top-2 rounded-full bg-white/95 px-2 py-1 text-[10px] font-maison-neue-mono uppercase text-Charcoal/65 shadow-sm">
           {image.role}
         </span>
+        {image.claim && (
+          <span
+            className={`absolute right-2 top-2 max-w-[calc(100%-5rem)] truncate rounded-full px-2 py-1 text-[10px] font-maison-neue-mono uppercase shadow-sm ${
+              claimedByMe
+                ? "bg-emerald-50 text-emerald-800"
+                : "bg-amber-50 text-amber-800"
+            }`}
+            title={`Claimed by ${claimOwner(image)}`}
+          >
+            {claimedByMe ? "Your claim" : `Claimed: ${claimOwner(image)}`}
+          </span>
+        )}
       </div>
       <div className="space-y-2 p-3">
         <div
@@ -331,6 +394,43 @@ function ImageCard({
             {shortDate(image.review.reviewedAt)}
           </p>
         )}
+        {image.claim && (
+          <p className="text-xs font-maison-neue text-amber-800">
+            Claimed by {claimOwner(image)}
+            {image.claim.expiresAt
+              ? ` until ${shortDate(image.claim.expiresAt)}`
+              : ""}
+          </p>
+        )}
+        {image.auditHistory.length > 0 && (
+          <p className="text-[11px] font-maison-neue-mono uppercase text-Charcoal/35">
+            {image.auditHistory.length} audit{" "}
+            {image.auditHistory.length === 1 ? "entry" : "entries"}
+          </p>
+        )}
+        {image.review.status === "unreviewed" && (
+          <div className="flex gap-2 pt-1">
+            {claimedByMe ? (
+              <button
+                type="button"
+                disabled={isPending}
+                onClick={() => onReleaseClaim(image)}
+                className="min-h-[34px] flex-1 rounded-md border border-gray-200 px-2 text-[11px] font-rexton font-bold uppercase text-Charcoal transition hover:border-Charcoal disabled:opacity-50"
+              >
+                Release
+              </button>
+            ) : (
+              <button
+                type="button"
+                disabled={isPending || claimedByOther}
+                onClick={() => onClaim(image)}
+                className="min-h-[34px] flex-1 rounded-md border border-Gold bg-Gold/10 px-2 text-[11px] font-rexton font-bold uppercase text-Charcoal transition hover:bg-Gold/20 disabled:opacity-50"
+              >
+                Claim
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )
@@ -339,9 +439,12 @@ function ImageCard({
 export default function ProductMerchandisingDetailView({
   countryCode,
   detail,
+  staffEmail,
+  staffName,
 }: Props) {
   const [products, setProducts] = useState(detail.products)
   const [rejectDraft, setRejectDraft] = useState<RejectDraft>(null)
+  const [overwriteDraft, setOverwriteDraft] = useState<OverwriteDraft>(null)
   const [feedback, setFeedback] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [pendingImageId, setPendingImageId] = useState<number | null>(null)
@@ -364,14 +467,27 @@ export default function ProductMerchandisingDetailView({
           acc.rejected += product.images.filter(
             (image) => image.review.status === "rejected"
           ).length
+          acc.claimed += product.images.filter(
+            (image) => image.claim && image.review.status === "unreviewed"
+          ).length
           return acc
         },
-        { products: 0, images: 0, reviewed: 0, approved: 0, rejected: 0 }
+        {
+          products: 0,
+          images: 0,
+          reviewed: 0,
+          approved: 0,
+          rejected: 0,
+          claimed: 0,
+        }
       ),
     [products]
   )
 
-  function updateLocalImage(imageId: number, review: MerchandisingImageReview) {
+  function patchLocalImage(
+    imageId: number,
+    patch: Partial<MerchandisingProductImage>
+  ) {
     setProducts((current) =>
       current.map((product) => ({
         ...product,
@@ -379,7 +495,7 @@ export default function ProductMerchandisingDetailView({
           image.id === imageId
             ? {
                 ...image,
-                review,
+                ...patch,
               }
             : image
         ),
@@ -387,14 +503,54 @@ export default function ProductMerchandisingDetailView({
     )
   }
 
+  function imageWithResult(
+    image: MerchandisingProductImage,
+    result: MerchandisingImageActionResult
+  ) {
+    const patch = resultImagePatch(result)
+    return patch ? { ...image, ...patch } : image
+  }
+
+  function applyActionResult(
+    image: MerchandisingProductImage,
+    result: MerchandisingImageActionResult
+  ) {
+    const patch = resultImagePatch(result)
+    if (patch) patchLocalImage(image.id, patch)
+  }
+
+  function handleActionFailure(
+    image: MerchandisingProductImage,
+    result: MerchandisingImageActionResult,
+    attempted: {
+      status: "approved" | "rejected"
+      reason?: MerchandisingRejectReason
+      note?: string
+    }
+  ) {
+    applyActionResult(image, result)
+    if (result.canOverwrite && result.latestReview) {
+      setOverwriteDraft({
+        image: imageWithResult(image, result),
+        status: attempted.status,
+        reason: attempted.reason,
+        note: attempted.note,
+        latestReview: result.latestReview,
+      })
+    }
+    setError(result.error || "Could not save review.")
+  }
+
   function submitReview(
     image: MerchandisingProductImage,
     status: "approved" | "rejected",
     reason?: MerchandisingRejectReason,
-    note?: string
+    note?: string,
+    overwriteExistingReview = false
   ) {
     setError(null)
     setFeedback(null)
+    setOverwriteDraft(null)
     setPendingImageId(image.id)
     startTransition(async () => {
       const result = await reviewMerchandisingImage({
@@ -405,21 +561,72 @@ export default function ProductMerchandisingDetailView({
         reason,
         note,
         currentCaption: image.caption,
+        overwriteExistingReview,
       })
 
       setPendingImageId(null)
       if (!result.ok || !result.review) {
-        setError(result.error || "Could not save review.")
+        handleActionFailure(image, result, { status, reason, note })
         return
       }
 
-      updateLocalImage(image.id, result.review)
+      applyActionResult(image, result)
       setRejectDraft(null)
       setFeedback(
         `${image.name} marked ${
           status === "approved" ? "approved" : "rejected"
         }.`
       )
+    })
+  }
+
+  function claimImage(image: MerchandisingProductImage) {
+    setError(null)
+    setFeedback(null)
+    setPendingImageId(image.id)
+    startTransition(async () => {
+      const result = await claimMerchandisingImage({
+        imageId: image.id,
+        imageDocumentId: image.documentId,
+        countryCode,
+        tagId: detail.documentId,
+        tagName: detail.name,
+        currentCaption: image.caption,
+      })
+
+      setPendingImageId(null)
+      applyActionResult(image, result)
+      if (!result.ok) {
+        setError(result.error || "Could not claim image.")
+        return
+      }
+
+      setFeedback(`${image.name} claimed for ${staffName || staffEmail}.`)
+    })
+  }
+
+  function releaseClaim(image: MerchandisingProductImage) {
+    setError(null)
+    setFeedback(null)
+    setPendingImageId(image.id)
+    startTransition(async () => {
+      const result = await releaseMerchandisingImageClaim({
+        imageId: image.id,
+        imageDocumentId: image.documentId,
+        countryCode,
+        tagId: detail.documentId,
+        tagName: detail.name,
+        currentCaption: image.caption,
+      })
+
+      setPendingImageId(null)
+      applyActionResult(image, result)
+      if (!result.ok) {
+        setError(result.error || "Could not release claim.")
+        return
+      }
+
+      setFeedback(`${image.name} claim released.`)
     })
   }
 
@@ -441,13 +648,13 @@ export default function ProductMerchandisingDetailView({
             {detail.displayName}
           </h1>
           <p className="mt-2 max-w-3xl text-sm font-maison-neue text-Charcoal/60">
-            Review every Strapi product image in this L3 group. Approvals and
-            rejection notes are stored on the Strapi media record with the
-            latest staff reviewer.
+            Review every Strapi product image in this L3 group. Claims,
+            approvals, rejections, and audit history are stored on the Strapi
+            media record with staff attribution.
           </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 small:min-w-[360px]">
+        <div className="grid grid-cols-2 gap-2 small:min-w-[420px]">
           <div className="rounded-md border border-gray-200 bg-white p-3">
             <p className="text-[11px] font-maison-neue-mono uppercase text-Charcoal/45">
               Products
@@ -476,6 +683,14 @@ export default function ProductMerchandisingDetailView({
             </p>
             <p className="mt-1 text-2xl font-gyst font-bold">
               {stats.rejected}
+            </p>
+          </div>
+          <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-amber-800">
+            <p className="text-[11px] font-maison-neue-mono uppercase opacity-70">
+              Claimed
+            </p>
+            <p className="mt-1 text-2xl font-gyst font-bold">
+              {stats.claimed}
             </p>
           </div>
         </div>
@@ -584,6 +799,7 @@ export default function ProductMerchandisingDetailView({
                           key={image.id}
                           image={image}
                           isPending={isPending && pendingImageId === image.id}
+                          staffEmail={staffEmail}
                           onApprove={(item) => submitReview(item, "approved")}
                           onReject={(item) =>
                             setRejectDraft({
@@ -592,6 +808,8 @@ export default function ProductMerchandisingDetailView({
                               note: "",
                             })
                           }
+                          onClaim={claimImage}
+                          onReleaseClaim={releaseClaim}
                         />
                       ))
                     ) : (
@@ -697,6 +915,81 @@ export default function ProductMerchandisingDetailView({
                   <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
                 )}
                 Submit rejection
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {overwriteDraft && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-Charcoal/55 p-4 small:items-center">
+          <div className="w-full max-w-lg rounded-lg bg-white p-5 shadow-xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-maison-neue-mono uppercase text-red-700">
+                  Already reviewed
+                </p>
+                <h2 className="mt-2 text-2xl font-gyst font-bold text-Charcoal">
+                  Replace the existing review?
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setOverwriteDraft(null)}
+                className="rounded-md p-2 text-Charcoal/45 transition hover:bg-gray-100 hover:text-Charcoal"
+                aria-label="Close overwrite warning"
+              >
+                <XCircle className="h-5 w-5" aria-hidden />
+              </button>
+            </div>
+
+            <div className="mt-5 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm font-maison-neue text-amber-900">
+              <p>
+                {overwriteDraft.latestReview?.reviewerName ||
+                  overwriteDraft.latestReview?.reviewerEmail ||
+                  "Another staff member"}{" "}
+                already marked this image{" "}
+                {overwriteDraft.latestReview?.status || "reviewed"}.
+              </p>
+              {overwriteDraft.latestReview?.reviewedAt && (
+                <p className="mt-2 text-xs font-maison-neue-mono uppercase">
+                  {shortDate(overwriteDraft.latestReview.reviewedAt)}
+                </p>
+              )}
+            </div>
+
+            <p className="mt-4 text-sm font-maison-neue text-Charcoal/65">
+              Confirm only if you intentionally want your decision to become the
+              latest review. The previous decision will stay in the audit
+              history.
+            </p>
+
+            <div className="mt-5 flex flex-col-reverse gap-2 small:flex-row small:justify-end">
+              <button
+                type="button"
+                onClick={() => setOverwriteDraft(null)}
+                className="min-h-[42px] rounded-md border border-gray-200 px-4 text-xs font-rexton font-bold uppercase text-Charcoal"
+              >
+                Keep existing
+              </button>
+              <button
+                type="button"
+                disabled={isPending}
+                onClick={() =>
+                  submitReview(
+                    overwriteDraft.image,
+                    overwriteDraft.status,
+                    overwriteDraft.reason,
+                    overwriteDraft.note,
+                    true
+                  )
+                }
+                className="inline-flex min-h-[42px] items-center justify-center gap-2 rounded-md bg-red-700 px-4 text-xs font-rexton font-bold uppercase text-white disabled:opacity-50"
+              >
+                {isPending && (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                )}
+                Replace review
               </button>
             </div>
           </div>

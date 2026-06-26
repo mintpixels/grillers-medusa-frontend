@@ -25,6 +25,7 @@ type SortKey =
   | "approvedImageCount"
   | "reviewedImageCount"
   | "rejectedImageCount"
+  | "claimedImageCount"
   | "notReviewedImageCount"
 
 type SortDirection = "asc" | "desc"
@@ -36,6 +37,7 @@ const sortLabels: Record<SortKey, string> = {
   approvedImageCount: "Approved",
   reviewedImageCount: "Reviewed",
   rejectedImageCount: "Rejected",
+  claimedImageCount: "Claimed",
   notReviewedImageCount: "Not reviewed",
 }
 
@@ -94,6 +96,7 @@ export default function ProductMerchandisingTable({ tags }: Props) {
           acc.reviewed += tag.reviewedImageCount
           acc.approved += tag.approvedImageCount
           acc.rejected += tag.rejectedImageCount
+          acc.claimed += tag.claimedImageCount
           acc.notReviewed += tag.imageCount - tag.reviewedImageCount
           return acc
         },
@@ -103,6 +106,7 @@ export default function ProductMerchandisingTable({ tags }: Props) {
           reviewed: 0,
           approved: 0,
           rejected: 0,
+          claimed: 0,
           notReviewed: 0,
         }
       ),
@@ -156,7 +160,7 @@ export default function ProductMerchandisingTable({ tags }: Props) {
 
   return (
     <div className="space-y-5">
-      <section className="grid gap-3 medium:grid-cols-4">
+      <section className="grid gap-3 medium:grid-cols-5">
         <div className={`rounded-md border p-4 ${metricClass("info")}`}>
           <p className="text-[11px] font-maison-neue-mono uppercase opacity-65">
             Total images
@@ -182,6 +186,12 @@ export default function ProductMerchandisingTable({ tags }: Props) {
           <p className="mt-2 text-3xl font-gyst font-bold">
             {totals.notReviewed}
           </p>
+        </div>
+        <div className={`rounded-md border p-4 ${metricClass("neutral")}`}>
+          <p className="text-[11px] font-maison-neue-mono uppercase opacity-65">
+            Total claimed
+          </p>
+          <p className="mt-2 text-3xl font-gyst font-bold">{totals.claimed}</p>
         </div>
       </section>
 
@@ -225,7 +235,7 @@ export default function ProductMerchandisingTable({ tags }: Props) {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[980px] border-collapse">
+          <table className="w-full min-w-[1080px] border-collapse">
             <thead>
               <tr className="border-b border-gray-200 bg-Scroll/45">
                 <th className="px-4 py-3 text-left">
@@ -268,6 +278,15 @@ export default function ProductMerchandisingTable({ tags }: Props) {
                   <SortButton
                     label="Rejected"
                     sortKey="rejectedImageCount"
+                    activeKey={sortKey}
+                    direction={direction}
+                    onSort={updateSort}
+                  />
+                </th>
+                <th className="px-4 py-3 text-center">
+                  <SortButton
+                    label="Claimed"
+                    sortKey="claimedImageCount"
                     activeKey={sortKey}
                     direction={direction}
                     onSort={updateSort}
@@ -335,6 +354,9 @@ export default function ProductMerchandisingTable({ tags }: Props) {
                   <td className="px-4 py-4 text-center align-top text-lg font-maison-neue font-semibold text-red-700">
                     {tag.rejectedImageCount}
                   </td>
+                  <td className="px-4 py-4 text-center align-top text-lg font-maison-neue font-semibold text-amber-700">
+                    {tag.claimedImageCount}
+                  </td>
                   <td className="px-4 py-4 text-center align-top text-lg font-maison-neue font-semibold text-Charcoal">
                     {tag.imageCount - tag.reviewedImageCount}
                   </td>
@@ -373,6 +395,15 @@ export default function ProductMerchandisingTable({ tags }: Props) {
                           />
                           {tag.imageCount - tag.reviewedImageCount} open
                         </span>
+                        {tag.claimedImageCount > 0 && (
+                          <span className="inline-flex items-center gap-1">
+                            <ShieldCheck
+                              className="h-3.5 w-3.5 text-blue-600"
+                              aria-hidden
+                            />
+                            {tag.claimedImageCount} claimed
+                          </span>
+                        )}
                         <span>
                           {percent(tag.reviewedImageCount, tag.imageCount)} done
                         </span>

@@ -1,6 +1,6 @@
 import { retrieveAuthenticatedCustomerForStaffAccess } from "@lib/data/customer"
 import { getProductMerchandisingDetail } from "@lib/data/staff/product-merchandising"
-import { canReviewMerchandising } from "@lib/util/staff-access"
+import { canReviewMerchandising, staffDisplayName } from "@lib/util/staff-access"
 import ProductMerchandisingDetailView from "@modules/staff/components/product-merchandising-detail"
 import { Metadata } from "next"
 import { notFound, redirect } from "next/navigation"
@@ -39,6 +39,11 @@ export default async function StaffProductMerchandisingDetailPage({
   }
 
   return (
-    <ProductMerchandisingDetailView countryCode={countryCode} detail={detail} />
+    <ProductMerchandisingDetailView
+      countryCode={countryCode}
+      detail={detail}
+      staffEmail={customer.email || ""}
+      staffName={staffDisplayName(customer)}
+    />
   )
 }

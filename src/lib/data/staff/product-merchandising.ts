@@ -9,23 +9,31 @@ import {
   canReviewMerchandising,
   staffDisplayName,
 } from "@lib/util/staff-access"
+import {
+  buildMerchandisingClaim,
+  isClaimActive,
+  isClaimOwnedBy,
+  parseReviewCaption,
+  reviewSummary,
+  serializeReviewCaption,
+} from "./product-merchandising-review-payload"
+import type {
+  MerchandisingImageClaim,
+  MerchandisingImageReview,
+  MerchandisingRejectReason,
+  MerchandisingReviewAuditEntry,
+  MerchandisingReviewStatus,
+} from "./product-merchandising-review-payload"
 
 type AnyRecord = Record<string, any>
 
-export type MerchandisingReviewStatus = "unreviewed" | "approved" | "rejected"
-export type MerchandisingRejectReason =
-  | "looks_ai_or_synthetic"
-  | "human_in_image"
-  | "other"
-
-export type MerchandisingImageReview = {
-  status: MerchandisingReviewStatus
-  reason?: MerchandisingRejectReason
-  note?: string
-  reviewerEmail?: string
-  reviewerName?: string
-  reviewedAt?: string
-}
+export type {
+  MerchandisingImageClaim,
+  MerchandisingImageReview,
+  MerchandisingRejectReason,
+  MerchandisingReviewAuditEntry,
+  MerchandisingReviewStatus,
+} from "./product-merchandising-review-payload"
 
 export type MerchandisingProductImage = {
   id: number
@@ -38,6 +46,8 @@ export type MerchandisingProductImage = {
   alternativeText?: string | null
   caption?: string | null
   review: MerchandisingImageReview
+  claim?: MerchandisingImageClaim
+  auditHistory: MerchandisingReviewAuditEntry[]
 }
 
 export type ProductMerchandisingProduct = {
@@ -63,6 +73,7 @@ export type ProductMerchandisingTagSummary = {
   reviewedImageCount: number
   approvedImageCount: number
   rejectedImageCount: number
+  claimedImageCount: number
   noImageProductCount: number
   metadata: string[]
   l2Parents: string[]
@@ -80,6 +91,29 @@ export type ReviewMerchandisingImageInput = {
   reason?: MerchandisingRejectReason
   note?: string
   currentCaption?: string | null
+  overwriteExistingReview?: boolean
+}
+
+export type ClaimMerchandisingImageInput = {
+  imageId: number
+  imageDocumentId?: string
+  countryCode: string
+  tagId?: string
+  tagName?: string
+  currentCaption?: string | null
+}
+
+export type MerchandisingImageActionResult = {
+  ok: boolean
+  review?: MerchandisingImageReview
+  claim?: MerchandisingImageClaim
+  auditHistory?: MerchandisingReviewAuditEntry[]
+  caption?: string | null
+  conflict?: boolean
+  canOverwrite?: boolean
+  latestReview?: MerchandisingImageReview
+  latestClaim?: MerchandisingImageClaim
+  error?: string
 }
 
 type RawProductTag = {
@@ -106,7 +140,6 @@ type NormalizedProductTag = {
   seoDescription: string
 }
 
-const REVIEW_CAPTION_PREFIX = "GP_IMAGE_REVIEW_V1:"
 const GRAPHQL_PAGE_SIZE = 100
 const GRAPHQL_PAGE_BATCH_SIZE = 5
 const TAG_SUMMARY_CACHE_MS = 60 * 1000
@@ -230,55 +263,6 @@ function isL3Tag(name: string) {
   return /^L3:\s*/i.test(name)
 }
 
-function parseReviewCaption(caption?: string | null): {
-  review: MerchandisingImageReview
-  originalCaption?: string | null
-} {
-  if (!caption?.startsWith(REVIEW_CAPTION_PREFIX)) {
-    return {
-      review: { status: "unreviewed" },
-      originalCaption: caption || null,
-    }
-  }
-
-  try {
-    const parsed = JSON.parse(caption.slice(REVIEW_CAPTION_PREFIX.length))
-    const review = parsed?.review || {}
-    const status =
-      review.status === "approved" || review.status === "rejected"
-        ? review.status
-        : "unreviewed"
-
-    return {
-      review: {
-        status,
-        reason: review.reason,
-        note: review.note,
-        reviewerEmail: review.reviewerEmail,
-        reviewerName: review.reviewerName,
-        reviewedAt: review.reviewedAt,
-      },
-      originalCaption: parsed?.originalCaption || null,
-    }
-  } catch (error) {
-    return {
-      review: { status: "unreviewed" },
-      originalCaption: caption,
-    }
-  }
-}
-
-function reviewCaption(
-  currentCaption: string | null | undefined,
-  review: MerchandisingImageReview
-) {
-  const parsed = parseReviewCaption(currentCaption)
-  return `${REVIEW_CAPTION_PREFIX}${JSON.stringify({
-    originalCaption: parsed.originalCaption || null,
-    review,
-  })}`
-}
-
 function imageUrl(image: RawImage) {
   const formats = image.formats || {}
   const thumbnail = formats.thumbnail?.url
@@ -321,6 +305,8 @@ function merchandisingImage(
     alternativeText: image.alternativeText || null,
     caption: image.caption || null,
     review: parsed.review,
+    claim: isClaimActive(parsed.claim) ? parsed.claim : undefined,
+    auditHistory: parsed.auditHistory,
   }
 }
 
@@ -430,6 +416,9 @@ function addSummaryProduct(
   summary.rejectedImageCount += product.images.filter(
     (image) => image.review.status === "rejected"
   ).length
+  summary.claimedImageCount += product.images.filter((image) =>
+    isClaimActive(image.claim)
+  ).length
   if (product.images.length === 0) summary.noImageProductCount += 1
 
   summary.metadata = Array.from(
@@ -475,6 +464,66 @@ async function strapiGraphql<T>(
   }
 
   return json.data as T
+}
+
+async function fetchStrapiUploadFile(imageId: number): Promise<RawImage> {
+  return strapiGet<RawImage>(`/api/upload/files/${imageId}`)
+}
+
+async function writeStrapiUploadCaption(imageId: number, caption: string) {
+  const response = await fetch(`${strapiEndpoint()}/api/upload?id=${imageId}`, {
+    method: "POST",
+    headers: {
+      ...strapiRewriteHeaders(),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      fileInfo: {
+        caption,
+      },
+    }),
+  })
+
+  tagSummaryCache = null
+
+  const json = await response.json().catch(() => null)
+
+  if (!response.ok || json?.errors) {
+    const message = json?.error?.message || json?.errors?.[0]?.message
+    throw new Error(
+      `Strapi image review write failed: ${message || response.status}`
+    )
+  }
+}
+
+function staffIdentity(staff: Awaited<ReturnType<typeof requireStaffCustomer>>) {
+  return {
+    staffEmail: staff.email || undefined,
+    staffName: staffDisplayName(staff),
+  }
+}
+
+function claimConflictMessage(claim: MerchandisingImageClaim) {
+  const owner = claim.staffName || claim.staffEmail || "another staff member"
+  const expires = claim.expiresAt
+    ? ` until ${new Date(claim.expiresAt).toLocaleString()}`
+    : ""
+  return `${owner} has claimed this image${expires}.`
+}
+
+function actionResultFromCaption(
+  caption: string | null | undefined
+): Pick<
+  MerchandisingImageActionResult,
+  "review" | "claim" | "auditHistory" | "caption"
+> {
+  const parsed = parseReviewCaption(caption)
+  return {
+    review: parsed.review,
+    claim: isClaimActive(parsed.claim) ? parsed.claim : undefined,
+    auditHistory: parsed.auditHistory,
+    caption: caption || null,
+  }
 }
 
 const MERCHANDISING_OVERVIEW_PRODUCTS_QUERY = /* GraphQL */ `
@@ -761,6 +810,8 @@ async function hydrateProductImagesWithUploadFiles(
         alternativeText: upload.alternativeText || image.alternativeText,
         caption: upload.caption || null,
         review: parsed.review,
+        claim: isClaimActive(parsed.claim) ? parsed.claim : undefined,
+        auditHistory: parsed.auditHistory,
       }
     }),
   }))
@@ -824,6 +875,7 @@ async function buildProductMerchandisingTags(): Promise<
           reviewedImageCount: 0,
           approvedImageCount: 0,
           rejectedImageCount: 0,
+          claimedImageCount: 0,
           noImageProductCount: 0,
           metadata: [],
           l2Parents: [],
@@ -864,6 +916,7 @@ export async function getProductMerchandisingDetail(
     reviewedImageCount: 0,
     approvedImageCount: 0,
     rejectedImageCount: 0,
+    claimedImageCount: 0,
     noImageProductCount: 0,
     metadata: [],
     l2Parents: [],
@@ -879,13 +932,21 @@ export async function getProductMerchandisingDetail(
   }
 }
 
+async function latestUploadForImage(input: {
+  imageId: number
+  imageDocumentId?: string
+}) {
+  const upload = await uploadFileByDocumentId(input.imageDocumentId)
+  return upload || fetchStrapiUploadFile(input.imageId)
+}
+
 export async function reviewMerchandisingImage(
   input: ReviewMerchandisingImageInput
-): Promise<{ ok: boolean; review?: MerchandisingImageReview; error?: string }> {
+): Promise<MerchandisingImageActionResult> {
   try {
     const staff = await requireStaffCustomer()
-    const upload = await uploadFileByDocumentId(input.imageDocumentId)
-    const imageId = upload?.id || input.imageId
+    const latest = await latestUploadForImage(input)
+    const imageId = latest.id || input.imageId
 
     if (!imageId || imageId < 1) {
       throw new Error("Choose an image to review.")
@@ -894,45 +955,82 @@ export async function reviewMerchandisingImage(
       throw new Error("Choose a rejection reason.")
     }
 
+    const latestCaption = latest.caption || null
+    const parsed = parseReviewCaption(latestCaption)
+    const activeClaim = isClaimActive(parsed.claim) ? parsed.claim : undefined
+    const identity = staffIdentity(staff)
+
+    if (activeClaim && !isClaimOwnedBy(activeClaim, staff.email)) {
+      return {
+        ok: false,
+        conflict: true,
+        latestClaim: activeClaim,
+        ...actionResultFromCaption(latestCaption),
+        error: claimConflictMessage(activeClaim),
+      }
+    }
+
+    const existingReview = parsed.review
+    const hasExistingReview = existingReview.status !== "unreviewed"
+    if (hasExistingReview && !input.overwriteExistingReview) {
+      return {
+        ok: false,
+        conflict: true,
+        canOverwrite: true,
+        latestReview: existingReview,
+        ...actionResultFromCaption(latestCaption),
+        error: reviewSummary(existingReview),
+      }
+    }
+
+    if (
+      latestCaption !== (input.currentCaption || null) &&
+      !input.overwriteExistingReview
+    ) {
+      return {
+        ok: false,
+        conflict: true,
+        canOverwrite: hasExistingReview,
+        latestReview: existingReview,
+        latestClaim: activeClaim,
+        ...actionResultFromCaption(latestCaption),
+        error: hasExistingReview
+          ? reviewSummary(existingReview)
+          : "This image changed since you loaded the page. Refresh or try again.",
+      }
+    }
+
+    const reviewedAt = new Date().toISOString()
     const review: MerchandisingImageReview = {
       status: input.status,
       reason: input.status === "rejected" ? input.reason : undefined,
       note: text(input.note) || undefined,
-      reviewerEmail: staff.email || undefined,
-      reviewerName: staffDisplayName(staff),
-      reviewedAt: new Date().toISOString(),
+      reviewerEmail: identity.staffEmail,
+      reviewerName: identity.staffName,
+      reviewedAt,
     }
-    const caption = reviewCaption(input.currentCaption, review)
 
-    const response = await fetch(
-      `${strapiEndpoint()}/api/upload?id=${imageId}`,
-      {
-        method: "POST",
-        headers: {
-          ...strapiRewriteHeaders(),
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          fileInfo: {
-            caption,
-          },
-        }),
-      }
-    )
-
-    tagSummaryCache = null
-
-    const json = await response.json().catch(() => null)
-
-    if (!response.ok || json?.errors) {
-      const message = json?.error?.message || json?.errors?.[0]?.message
-      throw new Error(
-        `Strapi image review write failed: ${message || response.status}`
-      )
+    const auditEntry: MerchandisingReviewAuditEntry = {
+      action: hasExistingReview ? "overwritten_review" : "reviewed",
+      at: reviewedAt,
+      ...identity,
+      previousReview: hasExistingReview ? existingReview : undefined,
+      previousClaim: activeClaim,
+      review,
     }
+    const caption = serializeReviewCaption(latestCaption, {
+      review,
+      claim: null,
+      auditEntry,
+    })
+
+    await writeStrapiUploadCaption(imageId, caption)
 
     revalidatePath(`/${input.countryCode}/account/staff/merchandising`)
-    return { ok: true, review }
+    return {
+      ok: true,
+      ...actionResultFromCaption(caption),
+    }
   } catch (error) {
     console.error("[product-merchandising] review failed", error)
     return {
@@ -941,6 +1039,157 @@ export async function reviewMerchandisingImage(
         error instanceof Error
           ? error.message
           : "Could not save the image review.",
+    }
+  }
+}
+
+export async function claimMerchandisingImage(
+  input: ClaimMerchandisingImageInput
+): Promise<MerchandisingImageActionResult> {
+  try {
+    const staff = await requireStaffCustomer()
+    const latest = await latestUploadForImage(input)
+    const imageId = latest.id || input.imageId
+
+    if (!imageId || imageId < 1) {
+      throw new Error("Choose an image to claim.")
+    }
+
+    const latestCaption = latest.caption || null
+    const parsed = parseReviewCaption(latestCaption)
+    const existingReview = parsed.review
+    const activeClaim = isClaimActive(parsed.claim) ? parsed.claim : undefined
+    const identity = staffIdentity(staff)
+
+    if (existingReview.status !== "unreviewed") {
+      return {
+        ok: false,
+        conflict: true,
+        latestReview: existingReview,
+        ...actionResultFromCaption(latestCaption),
+        error: reviewSummary(existingReview),
+      }
+    }
+
+    if (activeClaim && !isClaimOwnedBy(activeClaim, staff.email)) {
+      return {
+        ok: false,
+        conflict: true,
+        latestClaim: activeClaim,
+        ...actionResultFromCaption(latestCaption),
+        error: claimConflictMessage(activeClaim),
+      }
+    }
+
+    if (latestCaption !== (input.currentCaption || null) && !activeClaim) {
+      return {
+        ok: false,
+        conflict: true,
+        ...actionResultFromCaption(latestCaption),
+        error: "This image changed since you loaded the page. Refresh or try again.",
+      }
+    }
+
+    const claim = buildMerchandisingClaim({
+      ...identity,
+      tagId: input.tagId,
+      tagName: input.tagName,
+    })
+    const auditEntry: MerchandisingReviewAuditEntry = {
+      action: "claimed",
+      at: claim.claimedAt,
+      ...identity,
+      tagId: input.tagId,
+      tagName: input.tagName,
+      previousClaim: activeClaim,
+      claim,
+    }
+    const caption = serializeReviewCaption(latestCaption, {
+      claim,
+      auditEntry,
+    })
+
+    await writeStrapiUploadCaption(imageId, caption)
+
+    revalidatePath(`/${input.countryCode}/account/staff/merchandising`)
+    return {
+      ok: true,
+      ...actionResultFromCaption(caption),
+    }
+  } catch (error) {
+    console.error("[product-merchandising] claim failed", error)
+    return {
+      ok: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Could not claim the image.",
+    }
+  }
+}
+
+export async function releaseMerchandisingImageClaim(
+  input: ClaimMerchandisingImageInput
+): Promise<MerchandisingImageActionResult> {
+  try {
+    const staff = await requireStaffCustomer()
+    const latest = await latestUploadForImage(input)
+    const imageId = latest.id || input.imageId
+
+    if (!imageId || imageId < 1) {
+      throw new Error("Choose an image to release.")
+    }
+
+    const latestCaption = latest.caption || null
+    const parsed = parseReviewCaption(latestCaption)
+    const activeClaim = isClaimActive(parsed.claim) ? parsed.claim : undefined
+    const identity = staffIdentity(staff)
+
+    if (!activeClaim) {
+      return {
+        ok: true,
+        ...actionResultFromCaption(latestCaption),
+      }
+    }
+
+    if (!isClaimOwnedBy(activeClaim, staff.email)) {
+      return {
+        ok: false,
+        conflict: true,
+        latestClaim: activeClaim,
+        ...actionResultFromCaption(latestCaption),
+        error: claimConflictMessage(activeClaim),
+      }
+    }
+
+    const auditEntry: MerchandisingReviewAuditEntry = {
+      action: "released_claim",
+      at: new Date().toISOString(),
+      ...identity,
+      tagId: input.tagId,
+      tagName: input.tagName,
+      previousClaim: activeClaim,
+    }
+    const caption = serializeReviewCaption(latestCaption, {
+      claim: null,
+      auditEntry,
+    })
+
+    await writeStrapiUploadCaption(imageId, caption)
+
+    revalidatePath(`/${input.countryCode}/account/staff/merchandising`)
+    return {
+      ok: true,
+      ...actionResultFromCaption(caption),
+    }
+  } catch (error) {
+    console.error("[product-merchandising] claim release failed", error)
+    return {
+      ok: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Could not release the image claim.",
     }
   }
 }
