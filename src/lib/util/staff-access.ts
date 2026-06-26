@@ -260,7 +260,13 @@ export function canManageOrderSupport(customer: StaffCustomerLike): boolean {
 
 export function canReviewMerchandising(customer: StaffCustomerLike): boolean {
   const role = staffAccessRole(customer)
-  return ["merchandising_reviewer", "super_admin"].includes(role)
+  return [
+    "staff",
+    "office",
+    "manager",
+    "merchandising_reviewer",
+    "super_admin",
+  ].includes(role)
 }
 
 export function isExplicitStaffDeny(value: unknown): boolean {

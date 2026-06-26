@@ -38,12 +38,15 @@ describe("staff access helpers", () => {
     )
   })
 
-  it("scopes merchandising review to the reviewer role and super admins", () => {
+  it("allows operational staff and scoped reviewers into merchandising", () => {
     const reviewer = {
       metadata: { gp_staff_role: "merchandising_reviewer" },
     } as any
+    const staff = { metadata: { gp_staff_role: "staff" } } as any
     const office = { metadata: { gp_staff_role: "office" } } as any
+    const manager = { metadata: { gp_staff_role: "manager" } } as any
     const picker = { metadata: { gp_staff_role: "picker" } } as any
+    const packer = { metadata: { gp_staff_role: "packer" } } as any
     const avi = { email: "aviswerdlow@gmail.com" } as any
 
     // A merchandising reviewer is staff and can review, but has no other access.
@@ -57,9 +60,12 @@ describe("staff access helpers", () => {
     // Super admins (Avi/Peter) always retain merchandising access.
     expect(canReviewMerchandising(avi)).toBe(true)
 
-    // Other staff roles do NOT get merchandising unless assigned the role.
-    expect(canReviewMerchandising(office)).toBe(false)
+    // Staff privileges include merchandising review; pick/pack roles stay scoped.
+    expect(canReviewMerchandising(staff)).toBe(true)
+    expect(canReviewMerchandising(office)).toBe(true)
+    expect(canReviewMerchandising(manager)).toBe(true)
     expect(canReviewMerchandising(picker)).toBe(false)
+    expect(canReviewMerchandising(packer)).toBe(false)
     expect(canReviewMerchandising({ metadata: { role: "customer" } } as any)).toBe(
       false
     )
