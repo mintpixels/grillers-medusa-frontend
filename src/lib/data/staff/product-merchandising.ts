@@ -526,57 +526,6 @@ function actionResultFromCaption(
   }
 }
 
-const MERCHANDISING_OVERVIEW_PRODUCTS_QUERY = /* GraphQL */ `
-  query MerchandisingOverviewProducts($limit: Int, $start: Int) {
-    products(pagination: { limit: $limit, start: $start }) {
-      documentId
-      FeaturedImage {
-        documentId
-        caption
-        url
-      }
-      GalleryImages {
-        documentId
-        caption
-        url
-      }
-      Metadata {
-        Brand
-        Source
-        Origin
-        Supplier
-        AvgPackSize
-        AvgPackWeight
-        Serves
-        PiecesPerPack
-        KosherForPassover
-        GlutenFree
-        Organic
-        GrassFed
-        FreeRange
-        BoneIn
-        Boneless
-        Cooked
-        Uncooked
-        HeatAndServe
-        Smoked
-        Marinated
-        VacuumPacked
-        BulkPack
-        IQF
-      }
-      Categorization {
-        ProductTags {
-          documentId
-          Name
-          Description
-          SEODescription
-        }
-      }
-    }
-  }
-`
-
 const MERCHANDISING_DETAIL_PRODUCTS_QUERY = /* GraphQL */ `
   query MerchandisingDetailProducts(
     $tagName: String!
@@ -687,7 +636,39 @@ async function fetchGraphqlProducts(
   return products
 }
 
-async function fetchRestProducts(tagName?: string): Promise<AnyRecord[]> {
+type RestProductLoadMode = "overview" | "detail"
+
+function addOverviewProductFields(params: URLSearchParams) {
+  params.set("fields[0]", "documentId")
+  params.set("populate[FeaturedImage][fields][0]", "documentId")
+  params.set("populate[FeaturedImage][fields][1]", "url")
+  params.set("populate[FeaturedImage][fields][2]", "caption")
+  params.set("populate[GalleryImages][fields][0]", "documentId")
+  params.set("populate[GalleryImages][fields][1]", "url")
+  params.set("populate[GalleryImages][fields][2]", "caption")
+  params.set("populate[Categorization][populate][ProductTags][fields][0]", "Name")
+  params.set(
+    "populate[Categorization][populate][ProductTags][fields][1]",
+    "Description"
+  )
+  params.set(
+    "populate[Categorization][populate][ProductTags][fields][2]",
+    "SEODescription"
+  )
+}
+
+function addDetailProductFields(params: URLSearchParams) {
+  params.set("populate[FeaturedImage]", "true")
+  params.set("populate[GalleryImages]", "true")
+  params.set("populate[Metadata]", "true")
+  params.set("populate[Categorization][populate][ProductTags]", "true")
+  params.set("populate[MedusaProduct][populate][Variants]", "true")
+}
+
+async function fetchRestProducts(
+  tagName?: string,
+  mode: RestProductLoadMode = "detail"
+): Promise<AnyRecord[]> {
   const products: AnyRecord[] = []
   let page = 1
 
@@ -695,11 +676,11 @@ async function fetchRestProducts(tagName?: string): Promise<AnyRecord[]> {
     const params = new URLSearchParams()
     params.set("pagination[page]", String(page))
     params.set("pagination[pageSize]", String(GRAPHQL_PAGE_SIZE))
-    params.set("populate[FeaturedImage]", "true")
-    params.set("populate[GalleryImages]", "true")
-    params.set("populate[Metadata]", "true")
-    params.set("populate[Categorization][populate][ProductTags]", "true")
-    params.set("populate[MedusaProduct][populate][Variants]", "true")
+    if (mode === "overview") {
+      addOverviewProductFields(params)
+    } else {
+      addDetailProductFields(params)
+    }
 
     if (tagName) {
       params.set(
@@ -724,14 +705,7 @@ async function fetchRestProducts(tagName?: string): Promise<AnyRecord[]> {
 }
 
 async function fetchOverviewProducts(): Promise<AnyRecord[]> {
-  try {
-    return await fetchGraphqlProducts(MERCHANDISING_OVERVIEW_PRODUCTS_QUERY)
-  } catch (error) {
-    reportServerSoftFailure("staff-merchandising-overview-graphql", error, {
-      fallback: "rest",
-    })
-    return fetchRestProducts()
-  }
+  return fetchRestProducts(undefined, "overview")
 }
 
 async function fetchDetailProducts(tagName: string): Promise<AnyRecord[]> {
