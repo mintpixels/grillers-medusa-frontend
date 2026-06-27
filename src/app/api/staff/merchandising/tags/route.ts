@@ -1,5 +1,6 @@
 import { getProductMerchandisingTags } from "@lib/data/staff/product-merchandising"
 import { emitStorefrontOpsAlert } from "@lib/ops-alert"
+import { emitSlowStaffMerchandisingDataAlert } from "@lib/staff-merchandising-ops-alerts"
 import { NextResponse } from "next/server"
 
 export const dynamic = "force-dynamic"
@@ -31,8 +32,16 @@ function errorMessage(
 // dispatches immediately. Auth is enforced by getProductMerchandisingTags()
 // itself (requires the merchandising-reviewer or super-admin capability).
 export async function GET() {
+  const startedAt = Date.now()
+
   try {
     const tags = await getProductMerchandisingTags()
+    void emitSlowStaffMerchandisingDataAlert({
+      startedAt,
+      tags,
+    }).catch(() => {
+      // Fail-open: alerting should not delay the staff response.
+    })
     return NextResponse.json({ tags })
   } catch (error) {
     const message = errorMessage(error)

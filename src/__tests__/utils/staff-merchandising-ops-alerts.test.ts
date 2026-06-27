@@ -1,0 +1,125 @@
+import {
+  emitSlowStaffMerchandisingDataAlert,
+  summarizeMerchandisingTagTelemetry,
+} from "@lib/staff-merchandising-ops-alerts"
+import { emitStorefrontOpsAlert } from "@lib/ops-alert"
+import type { ProductMerchandisingTagSummary } from "@lib/data/staff/product-merchandising"
+
+jest.mock("@lib/ops-alert", () => ({
+  emitStorefrontOpsAlert: jest.fn(async () => ({ ok: true, skipped: false })),
+}))
+
+const emitStorefrontOpsAlertMock =
+  emitStorefrontOpsAlert as jest.MockedFunction<typeof emitStorefrontOpsAlert>
+
+function tag(
+  overrides: Partial<ProductMerchandisingTagSummary>
+): ProductMerchandisingTagSummary {
+  return {
+    documentId: overrides.documentId || "tag",
+    name: overrides.name || "L3: Test",
+    displayName: overrides.displayName || "Test",
+    description: overrides.description,
+    seoDescription: overrides.seoDescription,
+    productCount: overrides.productCount || 0,
+    imageCount: overrides.imageCount || 0,
+    reviewedImageCount: overrides.reviewedImageCount || 0,
+    approvedImageCount: overrides.approvedImageCount || 0,
+    rejectedImageCount: overrides.rejectedImageCount || 0,
+    claimedImageCount: overrides.claimedImageCount || 0,
+    noImageProductCount: overrides.noImageProductCount || 0,
+    metadata: overrides.metadata || [],
+    l2Parents: overrides.l2Parents || [],
+  }
+}
+
+describe("staff merchandising ops alerts", () => {
+  beforeEach(() => {
+    jest.clearAllMocks()
+  })
+
+  it("summarizes tag volume and review progress for telemetry", () => {
+    expect(
+      summarizeMerchandisingTagTelemetry([
+        tag({
+          productCount: 2,
+          imageCount: 5,
+          reviewedImageCount: 3,
+          approvedImageCount: 2,
+          rejectedImageCount: 1,
+          claimedImageCount: 1,
+          noImageProductCount: 0,
+        }),
+        tag({
+          productCount: 1,
+          imageCount: 0,
+          noImageProductCount: 1,
+        }),
+      ])
+    ).toEqual({
+      productCount: 3,
+      imageCount: 5,
+      reviewedImageCount: 3,
+      approvedImageCount: 2,
+      rejectedImageCount: 1,
+      claimedImageCount: 1,
+      noImageProductCount: 1,
+    })
+  })
+
+  it("does not alert below the slow-load threshold", async () => {
+    const result = await emitSlowStaffMerchandisingDataAlert({
+      startedAt: 1_000,
+      now: 3_000,
+      thresholdMs: 5_000,
+      tags: [tag({ productCount: 1 })],
+    })
+
+    expect(result).toEqual({ emitted: false, durationMs: 2_000 })
+    expect(emitStorefrontOpsAlertMock).not.toHaveBeenCalled()
+  })
+
+  it("emits a warn alert when merchandising data loads slowly", async () => {
+    const result = await emitSlowStaffMerchandisingDataAlert({
+      startedAt: 1_000,
+      now: 7_200,
+      thresholdMs: 5_000,
+      tags: [
+        tag({
+          documentId: "tag_a",
+          productCount: 4,
+          imageCount: 9,
+          reviewedImageCount: 6,
+          approvedImageCount: 5,
+          rejectedImageCount: 1,
+          claimedImageCount: 2,
+          noImageProductCount: 1,
+        }),
+      ],
+    })
+
+    expect(result).toEqual({ emitted: true, durationMs: 6_200 })
+    expect(emitStorefrontOpsAlertMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        alertKind: "staff_merchandising_data_slow",
+        severity: "warn",
+        title: "Staff merchandising data loaded in 6200ms",
+        path: "src/app/api/staff/merchandising/tags/route.ts",
+        source: "medusa-server",
+        meta: expect.objectContaining({
+          staff_module: "merchandising",
+          duration_ms: 6_200,
+          threshold_ms: 5_000,
+          l3_group_count: 1,
+          product_count: 4,
+          image_count: 9,
+          reviewed_image_count: 6,
+          approved_image_count: 5,
+          rejected_image_count: 1,
+          claimed_image_count: 2,
+          no_image_product_count: 1,
+        }),
+      })
+    )
+  })
+})
