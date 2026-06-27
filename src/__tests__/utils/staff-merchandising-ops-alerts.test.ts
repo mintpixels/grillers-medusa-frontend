@@ -104,7 +104,7 @@ describe("staff merchandising ops alerts", () => {
         alertKind: "staff_merchandising_data_slow",
         severity: "warn",
         title: "Staff merchandising data loaded in 6200ms",
-        path: "src/app/api/staff/merchandising/tags/route.ts",
+        path: "src/app/api/staff/catalog-review/groups/route.ts",
         source: "medusa-server",
         meta: expect.objectContaining({
           staff_module: "merchandising",

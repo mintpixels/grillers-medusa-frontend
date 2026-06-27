@@ -7,6 +7,7 @@ type SlowStaffMerchandisingDataInput = {
   startedAt: number
   tags: ProductMerchandisingTagSummary[]
   now?: number
+  path?: string
   thresholdMs?: number
 }
 
@@ -54,6 +55,7 @@ export async function emitSlowStaffMerchandisingDataAlert({
   startedAt,
   tags,
   now = Date.now(),
+  path = "src/app/api/staff/catalog-review/groups/route.ts",
   thresholdMs = slowAlertThresholdMs(),
 }: SlowStaffMerchandisingDataInput) {
   const durationMs = now - startedAt
@@ -67,7 +69,7 @@ export async function emitSlowStaffMerchandisingDataAlert({
     alertKind: "staff_merchandising_data_slow",
     severity: "warn",
     title: `Staff merchandising data loaded in ${durationMs}ms`,
-    path: "src/app/api/staff/merchandising/tags/route.ts",
+    path,
     source: "medusa-server",
     meta: {
       staff_module: "merchandising",

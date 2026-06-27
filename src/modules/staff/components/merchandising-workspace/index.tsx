@@ -8,7 +8,7 @@ import ProductMerchandisingTable from "@modules/staff/components/product-merchan
 
 type LoadState = "loading" | "ready" | "error"
 
-const TAGS_ENDPOINT = "/api/staff/merchandising/tags"
+const TAGS_ENDPOINT = "/api/staff/catalog-review/groups"
 
 function responseErrorMessage(
   value: unknown,

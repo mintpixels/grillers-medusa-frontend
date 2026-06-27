@@ -55,10 +55,32 @@ describe("StaffMerchandisingWorkspace", () => {
         message: "Strapi GraphQL request failed: Cannot query field products",
         extra: expect.objectContaining({
           staff_module: "merchandising",
-          endpoint: "/api/staff/merchandising/tags",
+          endpoint: "/api/staff/catalog-review/groups",
         }),
       })
     )
+  })
+
+  it("uses the neutral catalog-review endpoint instead of the blocked merchandising URL", async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        tags: [],
+      }),
+    })
+
+    render(<StaffMerchandisingWorkspace />)
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith(
+        "/api/staff/catalog-review/groups",
+        expect.objectContaining({
+          cache: "no-store",
+          headers: { Accept: "application/json" },
+        })
+      )
+    })
   })
 
   it("renders the merchandising table after a successful load", async () => {
