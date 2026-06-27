@@ -61,6 +61,34 @@ const STAFF_WORKSPACES = new Set<StaffWorkspace>([
   "merchandising",
 ])
 
+const DEFAULT_MERCHANDISING_PRELOAD_TIMEOUT_MS = 3500
+
+function merchandisingPreloadTimeoutMs() {
+  const configured = Number(process.env.STAFF_MERCHANDISING_PRELOAD_TIMEOUT_MS)
+  return Number.isFinite(configured) && configured > 0
+    ? configured
+    : DEFAULT_MERCHANDISING_PRELOAD_TIMEOUT_MS
+}
+
+function merchandisingPreloadTimeout() {
+  return new Promise<ProductMerchandisingTagSummary[]>((_resolve, reject) => {
+    setTimeout(() => {
+      reject(
+        new Error(
+          "Merchandising data is still loading; retrying through the staff feed."
+        )
+      )
+    }, merchandisingPreloadTimeoutMs())
+  })
+}
+
+function loadInitialMerchandisingTags(customer: HttpTypes.StoreCustomer) {
+  return Promise.race([
+    getProductMerchandisingTagsForStaff(customer),
+    merchandisingPreloadTimeout(),
+  ])
+}
+
 function requestedWorkspace(
   value?: string | string[]
 ): StaffWorkspace | null {
@@ -163,9 +191,7 @@ export default async function StaffPhoneOrdersPage({
 
   if (initialWorkspace === "merchandising" && canReviewMerchandising(customer)) {
     try {
-      initialMerchandisingTags = await getProductMerchandisingTagsForStaff(
-        customer
-      )
+      initialMerchandisingTags = await loadInitialMerchandisingTags(customer)
     } catch (error) {
       initialMerchandisingError = staffPageErrorMessage(error)
     }

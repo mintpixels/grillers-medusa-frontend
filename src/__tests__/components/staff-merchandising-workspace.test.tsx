@@ -118,6 +118,37 @@ describe("StaffMerchandisingWorkspace", () => {
     expect(mockFetch).not.toHaveBeenCalled()
   })
 
+  it("falls back to the JSON feed when the server preload reports an error", async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        tags: [{ id: "tag_1" }],
+      }),
+    })
+
+    render(
+      <StaffMerchandisingWorkspace
+        countryCode="us"
+        initialError="An error occurred with your deployment"
+      />
+    )
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith(
+        "/us/api/staff/catalog-review/groups",
+        expect.objectContaining({
+          cache: "no-store",
+          headers: { Accept: "application/json" },
+        })
+      )
+      expect(screen.getByTestId("merchandising-table")).toHaveTextContent("1")
+    })
+    expect(
+      screen.queryByText("An error occurred with your deployment")
+    ).not.toBeInTheDocument()
+  })
+
   it("renders the merchandising table after a successful load", async () => {
     mockFetch.mockResolvedValue({
       ok: true,

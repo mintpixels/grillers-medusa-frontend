@@ -52,7 +52,7 @@ export default function StaffMerchandisingWorkspace({
     () => initialTags || []
   )
   const [state, setState] = useState<LoadState>(() =>
-    initialTags ? "ready" : initialError ? "error" : "loading"
+    initialTags ? "ready" : "loading"
   )
   const [error, setError] = useState<string | null>(initialError)
   const [reloadKey, setReloadKey] = useState(0)
@@ -65,13 +65,6 @@ export default function StaffMerchandisingWorkspace({
       setTags(initialTags)
       setError(null)
       setState("ready")
-      return
-    }
-
-    if (reloadKey === 0 && initialError) {
-      setTags([])
-      setError(initialError)
-      setState("error")
       return
     }
 
@@ -97,7 +90,10 @@ export default function StaffMerchandisingWorkspace({
       })
       .catch((err) => {
         if (controller.signal.aborted) return
-        const message = err instanceof Error ? err.message : String(err)
+        const message =
+          err instanceof Error
+            ? err.message
+            : String(err || initialError || "Could not load merchandising data.")
         reportClientOpsAlert({
           kind: "staff_module_load_failed",
           severity: "warn",
@@ -116,7 +112,7 @@ export default function StaffMerchandisingWorkspace({
   }, [countryCode, initialError, initialTags, reloadKey])
 
   const reload = useCallback(() => {
-    if (initialTags || initialError) {
+    if (initialTags) {
       setState("loading")
       setError(null)
       router.refresh()
@@ -124,7 +120,7 @@ export default function StaffMerchandisingWorkspace({
     }
 
     setReloadKey((key) => key + 1)
-  }, [initialError, initialTags, router])
+  }, [initialTags, router])
 
   return (
     <div className="space-y-5">
