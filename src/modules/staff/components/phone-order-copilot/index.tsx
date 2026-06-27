@@ -84,11 +84,14 @@ import StaffTeamAccessConsole from "@modules/staff/components/team-access-consol
 import StaffCatchWeightFinalizationConsole from "@modules/staff/components/catch-weight-finalization-console"
 import StaffQuickBooksSyncStatusConsole from "@modules/staff/components/quickbooks-sync-status-console"
 import StaffMerchandisingWorkspace from "@modules/staff/components/merchandising-workspace"
+import type { ProductMerchandisingTagSummary } from "@lib/data/staff/product-merchandising"
 
 type Props = {
   countryCode: string
   staffCustomer: HttpTypes.StoreCustomer
   initialImpersonation: StaffImpersonationSession | null
+  initialMerchandisingError?: string | null
+  initialMerchandisingTags?: ProductMerchandisingTagSummary[] | null
   initialWorkspace?: StaffWorkspace
 }
 
@@ -340,6 +343,8 @@ export default function PhoneOrderCopilot({
   countryCode,
   staffCustomer,
   initialImpersonation,
+  initialMerchandisingError = null,
+  initialMerchandisingTags = null,
   initialWorkspace = "phone_order",
 }: Props) {
   const router = useRouter()
@@ -418,6 +423,9 @@ export default function PhoneOrderCopilot({
     },
     [pathname, router, searchParams]
   )
+  useEffect(() => {
+    setActiveWorkspace(initialWorkspace)
+  }, [initialWorkspace])
   const canManageTeamAccess = isSuperAdminCustomer(staffCustomer)
   const staffRole = staffAccessRole(staffCustomer)
   const canChargeFinalizedOrders = canChargeFinalOrders(staffCustomer)
@@ -1046,7 +1054,6 @@ export default function PhoneOrderCopilot({
             title: "Merchandising",
             body: "Review L3 product photo groups, track approval progress, and approve or reject product images.",
             icon: Images,
-            onClick: () => selectWorkspace("merchandising"),
           },
         ]
       : []),
@@ -1604,7 +1611,11 @@ export default function PhoneOrderCopilot({
       )}
 
       {activeWorkspace === "merchandising" && canReviewMerch ? (
-        <StaffMerchandisingWorkspace countryCode={countryCode} />
+        <StaffMerchandisingWorkspace
+          countryCode={countryCode}
+          initialError={initialMerchandisingError}
+          initialTags={initialMerchandisingTags}
+        />
       ) : activeWorkspace === "team_access" && canManageTeamAccess ? (
         <StaffTeamAccessConsole />
       ) : activeWorkspace === "quickbooks_sync" && canUseOrderSupport ? (

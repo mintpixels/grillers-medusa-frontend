@@ -3,6 +3,7 @@
 import "server-only"
 
 import { revalidatePath } from "next/cache"
+import type { HttpTypes } from "@medusajs/types"
 import { retrieveAuthenticatedCustomerForStaffAccess } from "@lib/data/customer"
 import { reportServerSoftFailure } from "@lib/server-soft-failure"
 import {
@@ -886,7 +887,17 @@ async function hydrateProductImagesWithUploadFiles(
 export async function getProductMerchandisingTags(): Promise<
   ProductMerchandisingTagSummary[]
 > {
-  await requireStaffCustomer()
+  const staff = await requireStaffCustomer()
+
+  return getProductMerchandisingTagsForStaff(staff)
+}
+
+export async function getProductMerchandisingTagsForStaff(
+  staff: HttpTypes.StoreCustomer
+): Promise<ProductMerchandisingTagSummary[]> {
+  if (!canReviewMerchandising(staff)) {
+    throw new Error("Merchandising reviewer access required.")
+  }
 
   if (
     tagSummaryCache &&

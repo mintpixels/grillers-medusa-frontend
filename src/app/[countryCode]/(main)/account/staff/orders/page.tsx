@@ -1,5 +1,9 @@
 import { retrieveAuthenticatedCustomerForStaffAccess } from "@lib/data/customer"
 import { getStaffImpersonationSession } from "@lib/data/staff/impersonation"
+import {
+  getProductMerchandisingTagsForStaff,
+  type ProductMerchandisingTagSummary,
+} from "@lib/data/staff/product-merchandising"
 import type { HttpTypes } from "@medusajs/types"
 import {
   canManageOrderSupport,
@@ -110,6 +114,24 @@ function defaultWorkspaceForCustomer(
   return "exceptions"
 }
 
+function staffPageErrorMessage(
+  value: unknown,
+  fallback = "Could not load merchandising data."
+) {
+  if (value instanceof Error) return value.message
+  if (typeof value === "string") return value
+  if (value && typeof value === "object") {
+    const record = value as Record<string, any>
+    return (
+      String(record.message || "").trim() ||
+      String(record.error?.message || "").trim() ||
+      String(record.error || "").trim() ||
+      fallback
+    )
+  }
+  return fallback
+}
+
 export default async function StaffPhoneOrdersPage({
   params,
   searchParams,
@@ -136,12 +158,26 @@ export default async function StaffPhoneOrdersPage({
       : defaultWorkspaceForCustomer(customer)
 
   const impersonation = await getStaffImpersonationSession()
+  let initialMerchandisingTags: ProductMerchandisingTagSummary[] | null = null
+  let initialMerchandisingError: string | null = null
+
+  if (initialWorkspace === "merchandising" && canReviewMerchandising(customer)) {
+    try {
+      initialMerchandisingTags = await getProductMerchandisingTagsForStaff(
+        customer
+      )
+    } catch (error) {
+      initialMerchandisingError = staffPageErrorMessage(error)
+    }
+  }
 
   return (
     <PhoneOrderCopilot
       countryCode={countryCode}
       staffCustomer={customer}
       initialImpersonation={impersonation}
+      initialMerchandisingError={initialMerchandisingError}
+      initialMerchandisingTags={initialMerchandisingTags}
       initialWorkspace={initialWorkspace}
     />
   )

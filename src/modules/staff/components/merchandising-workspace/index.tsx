@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import { Loader2, RefreshCw } from "lucide-react"
 import { reportClientOpsAlert } from "@lib/client-error-reporter"
 import type { ProductMerchandisingTagSummary } from "@lib/data/staff/product-merchandising"
@@ -10,6 +11,8 @@ type LoadState = "loading" | "ready" | "error"
 
 type Props = {
   countryCode: string
+  initialError?: string | null
+  initialTags?: ProductMerchandisingTagSummary[] | null
 }
 
 function catalogReviewGroupsEndpoint(countryCode: string) {
@@ -39,18 +42,39 @@ function responseErrorMessage(
   return fallback
 }
 
-export default function StaffMerchandisingWorkspace({ countryCode }: Props) {
-  const [tags, setTags] = useState<ProductMerchandisingTagSummary[]>([])
-  const [state, setState] = useState<LoadState>("loading")
-  const [error, setError] = useState<string | null>(null)
+export default function StaffMerchandisingWorkspace({
+  countryCode,
+  initialError = null,
+  initialTags = null,
+}: Props) {
+  const router = useRouter()
+  const [tags, setTags] = useState<ProductMerchandisingTagSummary[]>(
+    () => initialTags || []
+  )
+  const [state, setState] = useState<LoadState>(() =>
+    initialTags ? "ready" : initialError ? "error" : "loading"
+  )
+  const [error, setError] = useState<string | null>(initialError)
   const [reloadKey, setReloadKey] = useState(0)
 
-  // Load via a plain fetch (NOT a Server Action). Clicking the workspace tile
-  // triggers a client navigation on the force-dynamic staff console, and Next.js
-  // serializes Server Actions behind in-flight navigations — a Server Action
-  // here would be queued and never dispatch, hanging the spinner. A plain fetch
-  // dispatches immediately and is unaffected by the pending navigation.
+  // Prefer server-loaded tags from the staff page. Keep the plain fetch fallback
+  // for direct client remounts without fresh server props; do not switch this to
+  // a Server Action because actions can queue behind in-flight staff navigation.
   useEffect(() => {
+    if (reloadKey === 0 && initialTags) {
+      setTags(initialTags)
+      setError(null)
+      setState("ready")
+      return
+    }
+
+    if (reloadKey === 0 && initialError) {
+      setTags([])
+      setError(initialError)
+      setState("error")
+      return
+    }
+
     const controller = new AbortController()
     const endpoint = catalogReviewGroupsEndpoint(countryCode)
     setState("loading")
@@ -89,9 +113,18 @@ export default function StaffMerchandisingWorkspace({ countryCode }: Props) {
       })
 
     return () => controller.abort()
-  }, [countryCode, reloadKey])
+  }, [countryCode, initialError, initialTags, reloadKey])
 
-  const reload = useCallback(() => setReloadKey((key) => key + 1), [])
+  const reload = useCallback(() => {
+    if (initialTags || initialError) {
+      setState("loading")
+      setError(null)
+      router.refresh()
+      return
+    }
+
+    setReloadKey((key) => key + 1)
+  }, [initialError, initialTags, router])
 
   return (
     <div className="space-y-5">

@@ -1,6 +1,14 @@
 import { render, screen, waitFor } from "@testing-library/react"
 import StaffMerchandisingWorkspace from "@modules/staff/components/merchandising-workspace"
 
+const mockRefresh = jest.fn()
+
+jest.mock("next/navigation", () => ({
+  useRouter: () => ({
+    refresh: mockRefresh,
+  }),
+}))
+
 jest.mock("@modules/staff/components/product-merchandising-table", () => ({
   __esModule: true,
   default: ({ tags }: { tags: unknown[] }) => (
@@ -81,6 +89,33 @@ describe("StaffMerchandisingWorkspace", () => {
         })
       )
     })
+  })
+
+  it("renders server-loaded merchandising tags without an initial API fetch", async () => {
+    render(
+      <StaffMerchandisingWorkspace
+        countryCode="us"
+        initialTags={[
+          {
+            documentId: "L3%3A%20Brisket",
+            name: "L3: Brisket",
+            displayName: "Brisket",
+            productCount: 2,
+            imageCount: 4,
+            reviewedImageCount: 1,
+            approvedImageCount: 1,
+            rejectedImageCount: 0,
+            claimedImageCount: 0,
+            noImageProductCount: 0,
+            metadata: [],
+            l2Parents: ["Beef"],
+          },
+        ]}
+      />
+    )
+
+    expect(screen.getByTestId("merchandising-table")).toHaveTextContent("1")
+    expect(mockFetch).not.toHaveBeenCalled()
   })
 
   it("renders the merchandising table after a successful load", async () => {
