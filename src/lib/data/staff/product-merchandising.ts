@@ -142,6 +142,7 @@ type NormalizedProductTag = {
 
 const GRAPHQL_PAGE_SIZE = 100
 const GRAPHQL_PAGE_BATCH_SIZE = 5
+const REST_PAGE_BATCH_SIZE = 4
 const TAG_SUMMARY_CACHE_MS = 60 * 1000
 
 const METADATA_LABELS: Record<string, string> = {
@@ -637,6 +638,10 @@ async function fetchGraphqlProducts(
 }
 
 type RestProductLoadMode = "overview" | "detail"
+type RestProductsPage = {
+  data?: AnyRecord[]
+  meta?: { pagination?: { pageCount?: number } }
+}
 
 function addOverviewProductFields(params: URLSearchParams) {
   params.set("fields[0]", "documentId")
@@ -669,10 +674,7 @@ async function fetchRestProducts(
   tagName?: string,
   mode: RestProductLoadMode = "detail"
 ): Promise<AnyRecord[]> {
-  const products: AnyRecord[] = []
-  let page = 1
-
-  while (true) {
+  function pagePath(page: number) {
     const params = new URLSearchParams()
     params.set("pagination[page]", String(page))
     params.set("pagination[pageSize]", String(GRAPHQL_PAGE_SIZE))
@@ -689,16 +691,27 @@ async function fetchRestProducts(
       )
     }
 
-    const json = await strapiGet<{
-      data?: AnyRecord[]
-      meta?: { pagination?: { pageCount?: number } }
-    }>(`/api/products?${params.toString()}`)
+    return `/api/products?${params.toString()}`
+  }
 
-    products.push(...(json.data || []))
+  const first = await strapiGet<RestProductsPage>(pagePath(1))
+  const products: AnyRecord[] = [...(first.data || [])]
+  const pageCount = first.meta?.pagination?.pageCount || 1
 
-    const pageCount = json.meta?.pagination?.pageCount || page
-    if (page >= pageCount || !json.data?.length) break
-    page += 1
+  for (let page = 2; page <= pageCount; page += REST_PAGE_BATCH_SIZE) {
+    const batchPages = Array.from(
+      { length: Math.min(REST_PAGE_BATCH_SIZE, pageCount - page + 1) },
+      (_, index) => page + index
+    )
+    const pages = await Promise.all(
+      batchPages.map((batchPage) =>
+        strapiGet<RestProductsPage>(pagePath(batchPage))
+      )
+    )
+
+    for (const json of pages) {
+      products.push(...(json.data || []))
+    }
   }
 
   return products
@@ -822,19 +835,15 @@ async function buildProductMerchandisingTags(): Promise<
   ProductMerchandisingTagSummary[]
 > {
   const summaries = new Map<string, ProductMerchandisingTagSummary>()
-  const products = (await fetchOverviewProducts()).map(summarizeProduct)
+  const products = (await fetchOverviewProducts()).map((rawProduct) => ({
+    product: summarizeProduct(rawProduct),
+    tags: productTags(rawProduct),
+  }))
 
-  for (const product of products) {
+  for (const { product, tags } of products) {
     for (const tagName of product.l3Tags) {
       const displayName = stripLevelPrefix(tagName)
-      const tag = productTags({
-        Categorization: {
-          ProductTags: [
-            ...product.l2Tags.map((name) => ({ Name: name })),
-            ...product.l3Tags.map((name) => ({ Name: name })),
-          ],
-        },
-      }).find((candidate) => candidate.name === tagName)
+      const tag = tags.find((candidate) => candidate.name === tagName)
       const key = tagName
 
       if (!summaries.has(key)) {
