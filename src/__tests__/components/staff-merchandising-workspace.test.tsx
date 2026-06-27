@@ -37,7 +37,7 @@ describe("StaffMerchandisingWorkspace", () => {
       }),
     })
 
-    render(<StaffMerchandisingWorkspace />)
+    render(<StaffMerchandisingWorkspace countryCode="us" />)
 
     await waitFor(() => {
       expect(
@@ -55,13 +55,13 @@ describe("StaffMerchandisingWorkspace", () => {
         message: "Strapi GraphQL request failed: Cannot query field products",
         extra: expect.objectContaining({
           staff_module: "merchandising",
-          endpoint: "/api/staff/catalog-review/groups",
+          endpoint: "/us/api/staff/catalog-review/groups",
         }),
       })
     )
   })
 
-  it("uses the neutral catalog-review endpoint instead of the blocked merchandising URL", async () => {
+  it("uses the country-scoped neutral catalog-review endpoint instead of the blocked merchandising URL", async () => {
     mockFetch.mockResolvedValue({
       ok: true,
       status: 200,
@@ -70,11 +70,11 @@ describe("StaffMerchandisingWorkspace", () => {
       }),
     })
 
-    render(<StaffMerchandisingWorkspace />)
+    render(<StaffMerchandisingWorkspace countryCode="us" />)
 
     await waitFor(() => {
       expect(mockFetch).toHaveBeenCalledWith(
-        "/api/staff/catalog-review/groups",
+        "/us/api/staff/catalog-review/groups",
         expect.objectContaining({
           cache: "no-store",
           headers: { Accept: "application/json" },
@@ -92,7 +92,7 @@ describe("StaffMerchandisingWorkspace", () => {
       }),
     })
 
-    render(<StaffMerchandisingWorkspace />)
+    render(<StaffMerchandisingWorkspace countryCode="us" />)
 
     await waitFor(() => {
       expect(screen.getByTestId("merchandising-table")).toHaveTextContent("2")

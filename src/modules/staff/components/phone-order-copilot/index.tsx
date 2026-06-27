@@ -1604,7 +1604,7 @@ export default function PhoneOrderCopilot({
       )}
 
       {activeWorkspace === "merchandising" && canReviewMerch ? (
-        <StaffMerchandisingWorkspace />
+        <StaffMerchandisingWorkspace countryCode={countryCode} />
       ) : activeWorkspace === "team_access" && canManageTeamAccess ? (
         <StaffTeamAccessConsole />
       ) : activeWorkspace === "quickbooks_sync" && canUseOrderSupport ? (

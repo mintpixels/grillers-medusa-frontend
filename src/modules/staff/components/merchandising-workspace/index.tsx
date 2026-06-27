@@ -8,7 +8,19 @@ import ProductMerchandisingTable from "@modules/staff/components/product-merchan
 
 type LoadState = "loading" | "ready" | "error"
 
-const TAGS_ENDPOINT = "/api/staff/catalog-review/groups"
+type Props = {
+  countryCode: string
+}
+
+function catalogReviewGroupsEndpoint(countryCode: string) {
+  const normalizedCountryCode = String(countryCode || "us")
+    .replace(/^\/+|\/+$/g, "")
+    .toLowerCase()
+
+  return `/${encodeURIComponent(
+    normalizedCountryCode || "us"
+  )}/api/staff/catalog-review/groups`
+}
 
 function responseErrorMessage(
   value: unknown,
@@ -27,7 +39,7 @@ function responseErrorMessage(
   return fallback
 }
 
-export default function StaffMerchandisingWorkspace() {
+export default function StaffMerchandisingWorkspace({ countryCode }: Props) {
   const [tags, setTags] = useState<ProductMerchandisingTagSummary[]>([])
   const [state, setState] = useState<LoadState>("loading")
   const [error, setError] = useState<string | null>(null)
@@ -40,10 +52,11 @@ export default function StaffMerchandisingWorkspace() {
   // dispatches immediately and is unaffected by the pending navigation.
   useEffect(() => {
     const controller = new AbortController()
+    const endpoint = catalogReviewGroupsEndpoint(countryCode)
     setState("loading")
     setError(null)
 
-    fetch(TAGS_ENDPOINT, {
+    fetch(endpoint, {
       signal: controller.signal,
       cache: "no-store",
       headers: { Accept: "application/json" },
@@ -68,7 +81,7 @@ export default function StaffMerchandisingWorkspace() {
           message,
           extra: {
             staff_module: "merchandising",
-            endpoint: TAGS_ENDPOINT,
+            endpoint,
           },
         })
         setError(message)
@@ -76,7 +89,7 @@ export default function StaffMerchandisingWorkspace() {
       })
 
     return () => controller.abort()
-  }, [reloadKey])
+  }, [countryCode, reloadKey])
 
   const reload = useCallback(() => setReloadKey((key) => key + 1), [])
 
