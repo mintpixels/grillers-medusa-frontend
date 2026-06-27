@@ -146,6 +146,7 @@ describe("getProductMerchandisingTags", () => {
     ).toEqual(["1", "2", "3"])
     expect(brisket).toEqual(
       expect.objectContaining({
+        documentId: "L3%3A%20Brisket",
         displayName: "Brisket",
         description: "Brisket cuts",
         seoDescription: "Brisket SEO",
@@ -161,10 +162,78 @@ describe("getProductMerchandisingTags", () => {
     )
     expect(salami).toEqual(
       expect.objectContaining({
+        documentId: "L3%3A%20Salami",
         productCount: 1,
         imageCount: 0,
         noImageProductCount: 1,
         l2Parents: ["Deli"],
+      })
+    )
+  })
+
+  it("retries transient Strapi page failures while building L3 summaries", async () => {
+    let pageTwoAttempts = 0
+    const productsByPage: Record<number, unknown[]> = {
+      1: [
+        {
+          documentId: "product-1",
+          FeaturedImage: {
+            documentId: "image-1",
+            url: "/uploads/image-1.jpg",
+          },
+          GalleryImages: [],
+          Categorization: {
+            ProductTags: [{ Name: "L2: Beef" }, { Name: "L3: Brisket" }],
+          },
+        },
+      ],
+      2: [
+        {
+          documentId: "product-2",
+          FeaturedImage: {
+            documentId: "image-2",
+            url: "/uploads/image-2.jpg",
+          },
+          GalleryImages: [],
+          Categorization: {
+            ProductTags: [{ Name: "L2: Beef" }, { Name: "L3: Brisket" }],
+          },
+        },
+      ],
+    }
+
+    const fetchMock = jest.fn(async (url: string) => {
+      const parsed = new URL(url)
+      const page = Number(parsed.searchParams.get("pagination[page]"))
+
+      if (page === 2 && pageTwoAttempts === 0) {
+        pageTwoAttempts += 1
+        return {
+          ok: false,
+          status: 502,
+          text: async () =>
+            JSON.stringify({ error: { message: "Temporary Strapi gateway" } }),
+        } as unknown as Response
+      }
+
+      if (page === 2) pageTwoAttempts += 1
+      return strapiPage(productsByPage[page] || [], 2) as unknown as Response
+    })
+    global.fetch = fetchMock as unknown as typeof fetch
+
+    const { getProductMerchandisingTags } = await import(
+      "@lib/data/staff/product-merchandising"
+    )
+
+    const tags = await getProductMerchandisingTags()
+    const brisket = tags.find((tag) => tag.name === "L3: Brisket")
+
+    expect(pageTwoAttempts).toBe(2)
+    expect(brisket).toEqual(
+      expect.objectContaining({
+        productCount: 2,
+        imageCount: 2,
+        reviewedImageCount: 0,
       })
     )
   })

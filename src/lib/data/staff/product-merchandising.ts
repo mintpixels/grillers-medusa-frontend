@@ -143,6 +143,7 @@ type NormalizedProductTag = {
 const GRAPHQL_PAGE_SIZE = 100
 const GRAPHQL_PAGE_BATCH_SIZE = 5
 const REST_PAGE_BATCH_SIZE = 4
+const STRAPI_READ_RETRY_DELAYS_MS = [250, 750]
 const TAG_SUMMARY_CACHE_MS = 60 * 1000
 
 const METADATA_LABELS: Record<string, string> = {
@@ -245,15 +246,30 @@ function stripLevelPrefix(name: string) {
 }
 
 function encodeTagKey(name: string) {
-  return Buffer.from(name, "utf8").toString("base64url")
+  return encodeURIComponent(name)
 }
 
 function decodeTagKey(key: string) {
+  let decodedUri = key
   try {
-    return Buffer.from(key, "base64url").toString("utf8")
-  } catch (error) {
-    return decodeURIComponent(key)
+    decodedUri = decodeURIComponent(key)
+  } catch {
+    decodedUri = key
   }
+
+  if (isL3Tag(decodedUri)) return decodedUri
+
+  try {
+    const nodeBuffer = (globalThis as AnyRecord).Buffer
+    if (nodeBuffer?.from) {
+      const legacyDecoded = nodeBuffer.from(key, "base64url").toString("utf8")
+      if (isL3Tag(legacyDecoded)) return legacyDecoded
+    }
+  } catch {
+    // Ignore legacy base64url decode failures; current ids use URI encoding.
+  }
+
+  return decodedUri
 }
 
 function isL2Tag(name: string) {
@@ -430,17 +446,80 @@ function addSummaryProduct(
   ).sort((a, b) => a.localeCompare(b))
 }
 
-async function strapiGet<T>(path: string): Promise<T> {
-  const response = await fetch(`${strapiEndpoint()}${path}`, {
-    headers: strapiHeaders(),
-    cache: "no-store",
-  })
+function isRetryableStrapiStatus(status: number) {
+  return status === 408 || status === 429 || status >= 500
+}
 
-  if (!response.ok) {
-    throw new Error(`Strapi request failed: ${response.status}`)
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+async function strapiErrorDetail(response: Response) {
+  const body = await response.text().catch(() => "")
+  if (!body) return ""
+
+  try {
+    const json = JSON.parse(body)
+    return errorMessage(json?.error || json?.errors?.[0] || json, "")
+  } catch {
+    return body.replace(/\s+/g, " ").trim().slice(0, 300)
+  }
+}
+
+async function strapiGet<T>(path: string): Promise<T> {
+  let lastError: unknown
+
+  for (
+    let attempt = 0;
+    attempt <= STRAPI_READ_RETRY_DELAYS_MS.length;
+    attempt += 1
+  ) {
+    let response: Response
+
+    try {
+      response = await fetch(`${strapiEndpoint()}${path}`, {
+        headers: strapiHeaders(),
+        cache: "no-store",
+      })
+    } catch (error) {
+      lastError = error
+      if (attempt >= STRAPI_READ_RETRY_DELAYS_MS.length) {
+        throw error
+      }
+      await sleep(STRAPI_READ_RETRY_DELAYS_MS[attempt])
+      continue
+    }
+
+    if (response.ok) {
+      try {
+        return await response.json()
+      } catch (error) {
+        lastError = error
+        if (attempt >= STRAPI_READ_RETRY_DELAYS_MS.length) {
+          throw error
+        }
+        await sleep(STRAPI_READ_RETRY_DELAYS_MS[attempt])
+        continue
+      }
+    }
+
+    const detail = await strapiErrorDetail(response)
+    const error = new Error(
+      `Strapi request failed: ${response.status}${detail ? ` ${detail}` : ""}`
+    )
+    lastError = error
+
+    if (
+      !isRetryableStrapiStatus(response.status) ||
+      attempt >= STRAPI_READ_RETRY_DELAYS_MS.length
+    ) {
+      throw error
+    }
+
+    await sleep(STRAPI_READ_RETRY_DELAYS_MS[attempt])
   }
 
-  return response.json()
+  throw lastError
 }
 
 async function strapiGraphql<T>(
