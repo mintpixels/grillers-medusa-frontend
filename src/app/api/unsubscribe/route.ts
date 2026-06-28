@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual } from "crypto"
 import { NextResponse } from "next/server"
+import { emitCustomerConsentFailureAlert } from "@lib/customer-demand-ops-alerts"
 
 /**
  * Token-authenticated unsubscribe endpoint for any flow that needs to
@@ -39,7 +40,16 @@ function timingSafeStringEq(a: string, b: string): boolean {
 }
 
 async function recordSuppression(email: string, type: string): Promise<boolean> {
-  if (!STRAPI_BASE) return false
+  if (!STRAPI_BASE) {
+    await emitCustomerConsentFailureAlert({
+      flow: "email_unsubscribe",
+      stage: "configuration",
+      path: "src/app/api/unsubscribe/route.ts",
+      missingEnv: ["STRAPI_ENDPOINT"],
+      type,
+    })
+    return false
+  }
   try {
     const res = await fetch(
       `${STRAPI_BASE}/api/email-suppressions`,
@@ -57,9 +67,27 @@ async function recordSuppression(email: string, type: string): Promise<boolean> 
         cache: "no-store",
       }
     )
-    return res.ok
+    if (!res.ok) {
+      await emitCustomerConsentFailureAlert({
+        flow: "email_unsubscribe",
+        stage: "strapi_record",
+        path: "src/app/api/unsubscribe/route.ts",
+        status: res.status,
+        statusText: res.statusText,
+        type,
+      })
+      return false
+    }
+    return true
   } catch (err) {
     console.error("[unsubscribe] Strapi record threw", err)
+    await emitCustomerConsentFailureAlert({
+      flow: "email_unsubscribe",
+      stage: "strapi_record",
+      path: "src/app/api/unsubscribe/route.ts",
+      type,
+      error: err,
+    })
     return false
   }
 }
@@ -126,8 +154,8 @@ export async function GET(req: Request): Promise<Response> {
     })
   }
 
-  await recordSuppression(email, type)
-  return new NextResponse(renderHtml({ ok: true, type }), {
+  const recorded = await recordSuppression(email, type)
+  return new NextResponse(renderHtml({ ok: recorded, type }), {
     status: 200,
     headers: { "Content-Type": "text/html; charset=utf-8" },
   })

@@ -1,5 +1,6 @@
 import {
   emitBackInStockCaptureFailureAlert,
+  emitCustomerConsentFailureAlert,
   emitWholesaleInquiryFailureAlert,
 } from "@lib/customer-demand-ops-alerts"
 import { emitStorefrontOpsAlert } from "@lib/ops-alert"
@@ -77,6 +78,34 @@ describe("customer demand ops alerts", () => {
           source: "pdp",
           waitlist_reason: "out_of_stock",
           error_message: "failed for [email]",
+        }),
+      })
+    )
+  })
+
+  it("emits customer consent failure alerts without token or email metadata", async () => {
+    await emitCustomerConsentFailureAlert({
+      flow: "email_unsubscribe",
+      stage: "strapi_record",
+      path: "src/app/api/unsubscribe/route.ts",
+      status: 503,
+      type: "reviews",
+      error: "could not record shopper@example.com",
+    })
+
+    expect(emitStorefrontOpsAlertMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        alertKind: "customer_consent_update_failed",
+        severity: "warn",
+        path: "src/app/api/unsubscribe/route.ts",
+        source: "storefront-server",
+        fingerprint: "customer_consent:email_unsubscribe:strapi_record:503",
+        meta: expect.objectContaining({
+          consent_flow: "email_unsubscribe",
+          stage: "strapi_record",
+          status: 503,
+          type: "reviews",
+          error_message: "could not record [email]",
         }),
       })
     )

@@ -13,6 +13,12 @@ type BackInStockCaptureFailureStage =
   | "strapi_persist"
   | "confirmation_email"
 
+type CustomerConsentFailureStage =
+  | "configuration"
+  | "strapi_lookup"
+  | "strapi_update"
+  | "strapi_record"
+
 type WholesaleInquiryFailureInput = {
   stage: WholesaleInquiryFailureStage
   missingEnv?: string[]
@@ -35,6 +41,18 @@ type BackInStockCaptureFailureInput = {
   sku?: string
   source?: "pdp" | "side_cart" | "search"
   waitlistReason?: "out_of_stock" | "allocated_out" | "future_unavailable"
+  strapiId?: string | number | null
+}
+
+type CustomerConsentFailureInput = {
+  flow: "back_in_stock_unsubscribe" | "email_unsubscribe"
+  stage: CustomerConsentFailureStage
+  path: string
+  status?: number
+  statusText?: string
+  error?: unknown
+  missingEnv?: string[]
+  type?: string
   strapiId?: string | number | null
 }
 
@@ -141,6 +159,37 @@ export async function emitBackInStockCaptureFailureAlert({
       sku: sku || null,
       source: source || null,
       waitlist_reason: waitlistReason || null,
+      strapi_id: strapiId || null,
+      error_message: redactedMessage(error),
+    },
+  })
+}
+
+export async function emitCustomerConsentFailureAlert({
+  flow,
+  stage,
+  path,
+  status,
+  statusText,
+  error,
+  missingEnv = [],
+  type,
+  strapiId,
+}: CustomerConsentFailureInput) {
+  await safeEmitStorefrontOpsAlert({
+    alertKind: "customer_consent_update_failed",
+    severity: "warn",
+    title: `Customer consent ${flow} ${stage} failed`,
+    path,
+    source: "storefront-server",
+    fingerprint: `customer_consent:${flow}:${stage}:${status || "unknown"}`,
+    meta: {
+      consent_flow: flow,
+      stage,
+      missing_env: missingEnv,
+      status: status || null,
+      status_text: statusText || null,
+      type: type || null,
       strapi_id: strapiId || null,
       error_message: redactedMessage(error),
     },

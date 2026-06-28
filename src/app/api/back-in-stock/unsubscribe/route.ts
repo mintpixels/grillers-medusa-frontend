@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { emitCustomerConsentFailureAlert } from "@lib/customer-demand-ops-alerts"
 
 /**
  * Unsubscribe endpoint for back-in-stock requests (#102). The
@@ -29,7 +30,15 @@ async function findRequestByToken(token: string): Promise<{
   email?: string
   productTitle?: string
 } | null> {
-  if (!STRAPI_BASE) return null
+  if (!STRAPI_BASE) {
+    await emitCustomerConsentFailureAlert({
+      flow: "back_in_stock_unsubscribe",
+      stage: "configuration",
+      path: "src/app/api/back-in-stock/unsubscribe/route.ts",
+      missingEnv: ["STRAPI_ENDPOINT"],
+    })
+    return null
+  }
   try {
     const url = `${STRAPI_BASE}/api/back-in-stock-requests?filters[UnsubscribeToken][$eq]=${encodeURIComponent(
       token
@@ -40,7 +49,16 @@ async function findRequestByToken(token: string): Promise<{
         : {},
       cache: "no-store",
     })
-    if (!res.ok) return null
+    if (!res.ok) {
+      await emitCustomerConsentFailureAlert({
+        flow: "back_in_stock_unsubscribe",
+        stage: "strapi_lookup",
+        path: "src/app/api/back-in-stock/unsubscribe/route.ts",
+        status: res.status,
+        statusText: res.statusText,
+      })
+      return null
+    }
     const json = (await res.json()) as {
       data?: Array<{
         documentId?: string
@@ -57,12 +75,27 @@ async function findRequestByToken(token: string): Promise<{
     }
   } catch (err) {
     console.error("[back-in-stock/unsubscribe] Strapi lookup threw", err)
+    await emitCustomerConsentFailureAlert({
+      flow: "back_in_stock_unsubscribe",
+      stage: "strapi_lookup",
+      path: "src/app/api/back-in-stock/unsubscribe/route.ts",
+      error: err,
+    })
     return null
   }
 }
 
 async function markUnsubscribed(documentId: string): Promise<boolean> {
-  if (!STRAPI_BASE) return false
+  if (!STRAPI_BASE) {
+    await emitCustomerConsentFailureAlert({
+      flow: "back_in_stock_unsubscribe",
+      stage: "configuration",
+      path: "src/app/api/back-in-stock/unsubscribe/route.ts",
+      missingEnv: ["STRAPI_ENDPOINT"],
+      strapiId: documentId,
+    })
+    return false
+  }
   try {
     const res = await fetch(
       `${STRAPI_BASE}/api/back-in-stock-requests/${encodeURIComponent(documentId)}`,
@@ -80,9 +113,27 @@ async function markUnsubscribed(documentId: string): Promise<boolean> {
         cache: "no-store",
       }
     )
-    return res.ok
+    if (!res.ok) {
+      await emitCustomerConsentFailureAlert({
+        flow: "back_in_stock_unsubscribe",
+        stage: "strapi_update",
+        path: "src/app/api/back-in-stock/unsubscribe/route.ts",
+        status: res.status,
+        statusText: res.statusText,
+        strapiId: documentId,
+      })
+      return false
+    }
+    return true
   } catch (err) {
     console.error("[back-in-stock/unsubscribe] Strapi update threw", err)
+    await emitCustomerConsentFailureAlert({
+      flow: "back_in_stock_unsubscribe",
+      stage: "strapi_update",
+      path: "src/app/api/back-in-stock/unsubscribe/route.ts",
+      strapiId: documentId,
+      error: err,
+    })
     return false
   }
 }
