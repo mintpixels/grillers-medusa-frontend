@@ -1048,7 +1048,7 @@ export const GetStoreProductsQuery = gql`
 `
 
 const LegacyGetStoreProductsQuery = legacyProductQuery(GetStoreProductsQuery)
-const DEFAULT_STORE_CATALOG_TIMEOUT_MS = 8_000
+const DEFAULT_STORE_CATALOG_TIMEOUT_MS = 25_000
 
 export type StoreCatalogLoadFailure = {
   stage: "primary" | "legacy"

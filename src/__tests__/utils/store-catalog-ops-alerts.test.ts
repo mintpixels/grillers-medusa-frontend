@@ -1,4 +1,7 @@
-import { emitStoreCatalogLoadFailureAlert } from "@lib/store-catalog-ops-alerts"
+import {
+  emitStoreCatalogEmptyAlert,
+  emitStoreCatalogLoadFailureAlert,
+} from "@lib/store-catalog-ops-alerts"
 import { emitStorefrontOpsAlert } from "@lib/ops-alert"
 
 jest.mock("@lib/ops-alert", () => ({
@@ -56,6 +59,27 @@ describe("store catalog ops alerts", () => {
           stage: "legacy",
           recovered: false,
           primary_error_message: "Error: primary unavailable",
+        }),
+      })
+    )
+  })
+
+  it("emits a page alert when the store catalog resolves empty", async () => {
+    await emitStoreCatalogEmptyAlert({
+      rawCount: 0,
+      visibleCount: 0,
+    })
+
+    expect(mockEmitStorefrontOpsAlert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        alertKind: "store_catalog_empty",
+        severity: "page",
+        fingerprint: "store_catalog:empty",
+        path: "src/app/[countryCode]/(main)/store/page.tsx",
+        meta: expect.objectContaining({
+          catalog_surface: "store",
+          raw_product_count: 0,
+          visible_product_count: 0,
         }),
       })
     )

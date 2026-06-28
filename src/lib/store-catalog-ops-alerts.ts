@@ -10,6 +10,11 @@ type StoreCatalogFailureAlertInput = {
   primaryError?: unknown
 }
 
+type StoreCatalogEmptyAlertInput = {
+  rawCount: number
+  visibleCount: number
+}
+
 function errorMessage(error: unknown) {
   if (error instanceof Error) return `${error.name}: ${error.message}`
   if (typeof error === "string") return error
@@ -51,6 +56,25 @@ export async function emitStoreCatalogLoadFailureAlert({
       primary_error_message: primaryError
         ? errorMessage(primaryError).slice(0, 500)
         : null,
+    },
+  })
+}
+
+export async function emitStoreCatalogEmptyAlert({
+  rawCount,
+  visibleCount,
+}: StoreCatalogEmptyAlertInput) {
+  await emitStorefrontOpsAlert({
+    alertKind: "store_catalog_empty",
+    severity: "page",
+    title: "Store catalog resolved with no visible products",
+    path: "src/app/[countryCode]/(main)/store/page.tsx",
+    source: "medusa-server",
+    fingerprint: "store_catalog:empty",
+    meta: {
+      catalog_surface: "store",
+      raw_product_count: rawCount,
+      visible_product_count: visibleCount,
     },
   })
 }

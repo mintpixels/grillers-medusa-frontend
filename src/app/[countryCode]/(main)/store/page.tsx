@@ -9,7 +9,10 @@ import ExperimentExposure from "@lib/experiments/exposure"
 import { getExperimentAssignment } from "@lib/experiments/server"
 import { itemListJsonLd, webPageJsonLd } from "@lib/util/structured-data"
 import strapiClient from "@lib/strapi"
-import { emitStoreCatalogLoadFailureAlert } from "@lib/store-catalog-ops-alerts"
+import {
+  emitStoreCatalogEmptyAlert,
+  emitStoreCatalogLoadFailureAlert,
+} from "@lib/store-catalog-ops-alerts"
 
 type Params = {
   params: Promise<{ countryCode: string }>
@@ -47,6 +50,17 @@ export default async function StorePage(props: Params) {
   // Cards collapse without an image, so require FeaturedImage at minimum
   // (matches the prior Strapi-fetched implementation's filter).
   const visibleProducts = rawProducts.filter((p) => p.FeaturedImage?.url)
+  if (visibleProducts.length === 0) {
+    await emitStoreCatalogEmptyAlert({
+      rawCount: rawProducts.length,
+      visibleCount: visibleProducts.length,
+    }).catch(() => {
+      // Fail-open for alert delivery, but not for rendering an empty store.
+    })
+    throw new Error(
+      `Store catalog resolved with no visible products (${rawProducts.length} raw products)`
+    )
+  }
   const plpExperiment = await getExperimentAssignment("plp_merchandising_v1", {
     routeMarket: countryCode,
     customerType: "unknown",
