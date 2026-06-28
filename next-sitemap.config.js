@@ -1,5 +1,9 @@
 /** @type {import('next-sitemap').IConfig} */
 
+const fs = require("node:fs")
+const path = require("node:path")
+const { createHash, randomUUID } = require("node:crypto")
+
 const privatePaths = [
   "/checkout",
   "/checkout/*",
@@ -97,6 +101,194 @@ const isInternalRawMaterialProduct = (product) =>
   Array.isArray(product?.variants) &&
   product.variants.some((variant) => isInternalRawMaterialSku(variant?.sku))
 
+function errorMessage(error) {
+  if (error instanceof Error) return error.message
+  if (typeof error === "string") return error
+  try {
+    return JSON.stringify(error)
+  } catch {
+    return String(error)
+  }
+}
+
+function buildOpsAlertFingerprint(source, alertKind, title) {
+  const normalizedTitle = String(title || "")
+    .toLowerCase()
+    .replace(/[0-9a-f]{8,}/g, "#")
+    .replace(/\d+/g, "#")
+    .replace(/\s+/g, " ")
+    .trim()
+
+  return createHash("sha1")
+    .update(`${source}:${alertKind}:${normalizedTitle}`)
+    .digest("hex")
+}
+
+function resolveOpsAlertIngestion() {
+  const endpoint = (
+    process.env.GP_ANALYTICS_ENDPOINT ||
+    process.env.NEXT_PUBLIC_GP_ANALYTICS_ENDPOINT ||
+    ""
+  ).replace(/\/+$/, "")
+  const key =
+    process.env.GP_ANALYTICS_SERVER_KEY ||
+    process.env.NEXT_PUBLIC_GP_ANALYTICS_CLIENT_KEY ||
+    ""
+
+  if (!endpoint || !key) return null
+  return { url: `${endpoint}/v1/track`, key }
+}
+
+async function emitSitemapSourceFailureAlert({
+  source,
+  error,
+  fallbackCount,
+  willThrow,
+}) {
+  const ingestion = resolveOpsAlertIngestion()
+  if (!ingestion) return
+
+  const alertKind = willThrow
+    ? "sitemap_source_failed"
+    : "sitemap_source_degraded"
+  const title = willThrow
+    ? `Sitemap ${source} source failed without fallback`
+    : `Sitemap ${source} source failed; using previous entries`
+  const alertSource = "storefront-build"
+
+  try {
+    await fetch(ingestion.url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${ingestion.key}`,
+      },
+      body: JSON.stringify({
+        event: "ops_alert",
+        event_id: randomUUID(),
+        event_timestamp_ms: Date.now(),
+        source: alertSource,
+        properties: {
+          alert_kind: alertKind,
+          severity: willThrow ? "page" : "warn",
+          fingerprint: buildOpsAlertFingerprint(alertSource, alertKind, title),
+          path: "next-sitemap.config.js",
+          title,
+          url: null,
+          release: process.env.NEXT_PUBLIC_RELEASE_SHA || null,
+          env: process.env.VERCEL_ENV || process.env.NODE_ENV || "unknown",
+          sitemap_source: source,
+          fallback_entry_count: fallbackCount,
+          error_message: errorMessage(error).slice(0, 300),
+        },
+        context: {
+          library: {
+            name: "grillers-medusa-frontend-sitemap-alert",
+            version: "0.1.0",
+          },
+        },
+      }),
+    })
+  } catch (alertError) {
+    console.warn("[next-sitemap] Sitemap source alert failed:", alertError)
+  }
+}
+
+function sitemapFallbackPath() {
+  return (
+    process.env.NEXT_SITEMAP_FALLBACK_FILE ||
+    path.join(process.cwd(), "public", "sitemap-0.xml")
+  )
+}
+
+function existingSitemapEntries(kind) {
+  const filePath = sitemapFallbackPath()
+  if (!fs.existsSync(filePath)) return []
+
+  const xml = fs.readFileSync(filePath, "utf8")
+  const entryPattern = /<url>([\s\S]*?)<\/url>/g
+  const entries = []
+  let match
+
+  while ((match = entryPattern.exec(xml))) {
+    const block = match[1]
+    const loc = block.match(/<loc>([\s\S]*?)<\/loc>/)?.[1] || ""
+    let pathname = loc
+    try {
+      pathname = new URL(loc).pathname
+    } catch {
+      pathname = loc.replace(siteUrl, "")
+    }
+
+    const isMatch =
+      kind === "products"
+        ? pathname.startsWith("/us/products/")
+        : pathname.startsWith("/us/recipes/")
+
+    if (!isMatch) continue
+
+    const lastmod = block.match(/<lastmod>([\s\S]*?)<\/lastmod>/)?.[1]
+    const changefreq =
+      block.match(/<changefreq>([\s\S]*?)<\/changefreq>/)?.[1] ||
+      (kind === "products" ? "weekly" : "weekly")
+    const priorityText = block.match(/<priority>([\s\S]*?)<\/priority>/)?.[1]
+    const priority =
+      priorityText && Number.isFinite(Number(priorityText))
+        ? Number(priorityText)
+        : kind === "products"
+        ? 0.8
+        : 0.75
+
+    entries.push({
+      loc: pathname,
+      changefreq,
+      priority,
+      ...(lastmod ? { lastmod } : {}),
+    })
+  }
+
+  return entries
+}
+
+function shouldFailClosedWithoutSitemapFallback() {
+  if (process.env.NEXT_SITEMAP_FAIL_CLOSED === "false") return false
+  return (
+    process.env.NEXT_SITEMAP_FAIL_CLOSED === "true" ||
+    process.env.VERCEL_ENV === "production"
+  )
+}
+
+async function dynamicSitemapEntries({ source, load, fallbackKind }) {
+  try {
+    return await load()
+  } catch (error) {
+    const fallbackEntries = existingSitemapEntries(fallbackKind)
+    const willThrow =
+      fallbackEntries.length === 0 && shouldFailClosedWithoutSitemapFallback()
+
+    console.warn(`[next-sitemap] ${source} sitemap fetch failed:`, error)
+    await emitSitemapSourceFailureAlert({
+      source,
+      error,
+      fallbackCount: fallbackEntries.length,
+      willThrow,
+    })
+
+    if (fallbackEntries.length > 0) {
+      console.warn(
+        `[next-sitemap] Using ${fallbackEntries.length} previous ${source} sitemap entries.`
+      )
+      return fallbackEntries
+    }
+
+    if (willThrow) {
+      throw error
+    }
+
+    return []
+  }
+}
+
 async function fetchJson(url, headers) {
   const response = await fetch(url, { headers })
 
@@ -110,7 +302,11 @@ async function fetchJson(url, headers) {
 async function fetchGraphql(query, variables) {
   const endpoint = process.env.STRAPI_ENDPOINT
   const token = process.env.STRAPI_API_TOKEN
-  if (!endpoint || !token) return null
+  if (!endpoint || !token) {
+    throw new Error(
+      "Recipe sitemap source not configured: STRAPI_ENDPOINT/STRAPI_API_TOKEN missing."
+    )
+  }
 
   const response = await fetch(`${endpoint.replace(/\/$/, "")}/graphql`, {
     method: "POST",
@@ -150,7 +346,9 @@ async function getProductSitemapEntries() {
   const publishableKey = process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY
 
   if (!backendUrl || !publishableKey) {
-    return []
+    throw new Error(
+      "Product sitemap source not configured: MEDUSA_BACKEND_URL/NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY missing."
+    )
   }
 
   const headers = { "x-publishable-api-key": publishableKey }
@@ -280,19 +478,16 @@ module.exports = {
       lastmod: now,
     }))
 
-    let productEntries = []
-    try {
-      productEntries = await getProductSitemapEntries()
-    } catch (error) {
-      console.warn("[next-sitemap] Product sitemap fetch failed:", error)
-    }
-
-    let recipeEntries = []
-    try {
-      recipeEntries = await getRecipeSitemapEntries()
-    } catch (error) {
-      console.warn("[next-sitemap] Recipe sitemap fetch failed:", error)
-    }
+    const productEntries = await dynamicSitemapEntries({
+      source: "product",
+      load: getProductSitemapEntries,
+      fallbackKind: "products",
+    })
+    const recipeEntries = await dynamicSitemapEntries({
+      source: "recipe",
+      load: getRecipeSitemapEntries,
+      fallbackKind: "recipes",
+    })
 
     return [
       ...staticEntries,
