@@ -11,6 +11,12 @@ import {
   isAtlantaZip as sharedIsAtlantaZip,
   isFulfillmentTypeRegionValid,
 } from "@lib/util/fulfillment-eligibility"
+import {
+  formatFulfillmentAddressLine,
+  fulfillmentAddressesMatch,
+  getActiveFulfillmentAddress,
+  normalizeFulfillmentAddress,
+} from "@lib/util/fulfillment-address"
 import { ATLANTA_DELIVERY_ZIP_DAYS } from "@lib/util/atlanta-delivery-zips"
 import {
   SE_PICKUP_CREDIT_AMOUNT,
@@ -107,14 +113,6 @@ function getPreferredAddress(customer: HttpTypes.StoreCustomer | null) {
   )
 }
 
-function formatAddressLine(address: { address_1?: string | null; city?: string | null; province?: string | null; postal_code?: string | null } | null | undefined) {
-  if (!address) return ""
-  return [address.address_1, address.city, address.province]
-    .filter(Boolean)
-    .join(", ")
-    .concat(address.postal_code ? ` ${address.postal_code}` : "")
-}
-
 function addressMatchesSavedAddress(
   address:
     | HttpTypes.StoreCartAddress
@@ -123,27 +121,7 @@ function addressMatchesSavedAddress(
     | undefined,
   savedAddress: HttpTypes.StoreCustomerAddress
 ) {
-  const normalize = (value: unknown) =>
-    String(value || "")
-      .trim()
-      .toLowerCase()
-
-  return (
-    normalize(address?.address_1) === normalize(savedAddress.address_1) &&
-    normalize(address?.postal_code) === normalize(savedAddress.postal_code) &&
-    normalize(address?.city) === normalize(savedAddress.city) &&
-    normalize(address?.province) === normalize(savedAddress.province)
-  )
-}
-
-function hasUsableAddress(
-  address:
-    | HttpTypes.StoreCartAddress
-    | HttpTypes.StoreCustomerAddress
-    | null
-    | undefined
-) {
-  return Boolean(address?.address_1 && address?.postal_code)
+  return fulfillmentAddressesMatch(address, savedAddress)
 }
 
 function friendlyFulfillmentError(message?: string) {
@@ -253,11 +231,10 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
   // ZIP-only cart address during staff/customer handoff; that should not mask
   // a complete address that exists in the profile.
   const preferredCustomerAddress = getPreferredAddress(customer)
-  const activeAddress = hasUsableAddress(cart.shipping_address)
-    ? cart.shipping_address
-    : hasUsableAddress(preferredCustomerAddress)
-      ? preferredCustomerAddress
-      : cart.shipping_address || preferredCustomerAddress
+  const activeAddress = getActiveFulfillmentAddress(
+    cart.shipping_address,
+    preferredCustomerAddress
+  )
   const shipZip = (activeAddress?.postal_code || "").trim()
   const shipCity = (activeAddress?.city || "").trim()
   const savedAddresses = customer?.addresses || []
@@ -470,7 +447,9 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
   const addressBeingEdited =
     savedAddresses.find((address) => address.id === addressFormAddressId) ||
     null
-  const editableAddress = addressBeingEdited || activeSavedAddress || activeAddress
+  const editableAddress = normalizeFulfillmentAddress(
+    addressBeingEdited || activeSavedAddress || activeAddress
+  )
   const editableFormAddress: DeliveryAddress | null = editableAddress
     ? {
         firstName: editableAddress.first_name || customer?.first_name || "",
@@ -542,17 +521,18 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
 
   const handlePickSavedAddress = async (address: HttpTypes.StoreCustomerAddress) => {
     if (isBusy) return
+    const fixedAddress = normalizeFulfillmentAddress(address)
     setSavingAddress(true)
     setSaveAddressError(null)
     const res = await saveAddressToProfileAndCart({
-      first_name: address.first_name || customer?.first_name || "",
-      last_name: address.last_name || customer?.last_name || "",
-      address_1: address.address_1 || "",
-      city: address.city || "",
-      province: address.province || "",
-      postal_code: address.postal_code || "",
-      phone: address.phone || customer?.phone || "",
-      country_code: address.country_code || undefined,
+      first_name: fixedAddress.first_name || customer?.first_name || "",
+      last_name: fixedAddress.last_name || customer?.last_name || "",
+      address_1: fixedAddress.address_1 || "",
+      city: fixedAddress.city || "",
+      province: fixedAddress.province || "",
+      postal_code: fixedAddress.postal_code || "",
+      phone: fixedAddress.phone || customer?.phone || "",
+      country_code: fixedAddress.country_code || undefined,
     })
     if (!res.success) {
       setSavingAddress(false)
@@ -814,7 +794,7 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
               </svg>
               <p className="text-xs text-Charcoal/70 leading-snug min-w-0 truncate">
                 <span className="font-semibold text-Charcoal">Shipping to:</span>{" "}
-                {formatAddressLine(activeAddress)}
+                {formatFulfillmentAddressLine(activeAddress)}
               </p>
             </div>
             <button
@@ -841,7 +821,7 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
                       Local delivery and pickup aren't available for this address
                     </p>
                     <p className="text-xs text-Charcoal/65 mt-1 leading-snug">
-                      Currently using <span className="font-medium">{[activeAddress?.address_1, activeAddress?.city, activeAddress?.province].filter(Boolean).join(", ")} {activeAddress?.postal_code}</span>. Try a different address to see more options.
+                      Currently using <span className="font-medium">{formatFulfillmentAddressLine(activeAddress)}</span>. Try a different address to see more options.
                     </p>
                   </>
                 ) : (
@@ -1005,7 +985,7 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
                         {[address.first_name, address.last_name].filter(Boolean).join(" ") || "Saved address"}
                       </p>
                       <p className="text-xs text-Charcoal/65 mt-0.5 leading-snug">
-                        {formatAddressLine(address)}
+                        {formatFulfillmentAddressLine(address)}
                       </p>
                     </div>
                     <div className="flex flex-shrink-0 items-center gap-2">
