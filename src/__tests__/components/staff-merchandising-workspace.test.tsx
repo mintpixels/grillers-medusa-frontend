@@ -31,6 +31,7 @@ describe("StaffMerchandisingWorkspace", () => {
 
   beforeEach(() => {
     jest.clearAllMocks()
+    window.localStorage.clear()
     global.fetch = mockFetch as unknown as typeof fetch
   })
 
@@ -65,6 +66,7 @@ describe("StaffMerchandisingWorkspace", () => {
           staff_module: "merchandising",
           attempted_endpoints: [
             "/us/account/photo-groups/data",
+            "/us/account/photo-groups/snapshot",
             "/us/api/catalog-review/groups",
             "/us/api/staff/catalog-review/groups",
           ],
@@ -152,7 +154,52 @@ describe("StaffMerchandisingWorkspace", () => {
     expect(mockReportClientOpsAlert).not.toHaveBeenCalled()
   })
 
-  it("retries the account feed again when API fallbacks are blocked", async () => {
+  it("tries the account snapshot before blocked API fallbacks", async () => {
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        json: async () => ({
+          error: "An error occurred with your deployment",
+        }),
+      })
+    }
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      text: async () =>
+        '<!doctype html><script id="__gp_merchandising_tags" type="application/json">{"tags":[{"id":"tag_1"}]}</script>',
+    })
+
+    render(<StaffMerchandisingWorkspace countryCode="us" />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId("merchandising-table")).toHaveTextContent("1")
+    })
+
+    expect(mockFetch).toHaveBeenCalledTimes(7)
+    for (let call = 1; call <= 6; call += 1) {
+      expect(mockFetch).toHaveBeenNthCalledWith(
+        call,
+        "/us/account/photo-groups/data",
+        expect.objectContaining({
+          cache: "no-store",
+          headers: { Accept: "application/json" },
+        })
+      )
+    }
+    expect(mockFetch).toHaveBeenNthCalledWith(
+      7,
+      "/us/account/photo-groups/snapshot",
+      expect.objectContaining({
+        cache: "no-store",
+        headers: { Accept: "application/json" },
+      })
+    )
+    expect(mockReportClientOpsAlert).not.toHaveBeenCalled()
+  })
+
+  it("retries the account feed again when account and API fallbacks are blocked", async () => {
     for (let attempt = 0; attempt < 6; attempt += 1) {
       mockFetch.mockResolvedValueOnce({
         ok: false,
@@ -163,6 +210,7 @@ describe("StaffMerchandisingWorkspace", () => {
       })
     }
     mockFetch
+      .mockRejectedValueOnce(new Error("Blocked by client"))
       .mockRejectedValueOnce(new Error("Blocked by client"))
       .mockRejectedValueOnce(new Error("ERR_BLOCKED_BY_CLIENT"))
       .mockResolvedValueOnce({
@@ -178,7 +226,7 @@ describe("StaffMerchandisingWorkspace", () => {
       expect(screen.getByTestId("merchandising-table")).toHaveTextContent("1")
     })
 
-    expect(mockFetch).toHaveBeenCalledTimes(9)
+    expect(mockFetch).toHaveBeenCalledTimes(10)
     for (let call = 1; call <= 6; call += 1) {
       expect(mockFetch).toHaveBeenNthCalledWith(
         call,
@@ -191,7 +239,7 @@ describe("StaffMerchandisingWorkspace", () => {
     }
     expect(mockFetch).toHaveBeenNthCalledWith(
       7,
-      "/us/api/catalog-review/groups",
+      "/us/account/photo-groups/snapshot",
       expect.objectContaining({
         cache: "no-store",
         headers: { Accept: "application/json" },
@@ -199,7 +247,7 @@ describe("StaffMerchandisingWorkspace", () => {
     )
     expect(mockFetch).toHaveBeenNthCalledWith(
       8,
-      "/us/api/staff/catalog-review/groups",
+      "/us/api/catalog-review/groups",
       expect.objectContaining({
         cache: "no-store",
         headers: { Accept: "application/json" },
@@ -207,6 +255,14 @@ describe("StaffMerchandisingWorkspace", () => {
     )
     expect(mockFetch).toHaveBeenNthCalledWith(
       9,
+      "/us/api/staff/catalog-review/groups",
+      expect.objectContaining({
+        cache: "no-store",
+        headers: { Accept: "application/json" },
+      })
+    )
+    expect(mockFetch).toHaveBeenNthCalledWith(
+      10,
       "/us/account/photo-groups/data",
       expect.objectContaining({
         cache: "no-store",
@@ -274,9 +330,10 @@ describe("StaffMerchandisingWorkspace", () => {
     ).not.toBeInTheDocument()
   })
 
-  it("falls back to API feeds when a browser filter blocks the account feed", async () => {
+  it("falls back to API feeds when browser filters block the account feeds", async () => {
     mockFetch
       .mockRejectedValueOnce(new Error("Blocked by client"))
+      .mockRejectedValueOnce(new Error("ERR_BLOCKED_BY_CLIENT"))
       .mockResolvedValueOnce({
         ok: true,
         status: 200,
@@ -301,6 +358,14 @@ describe("StaffMerchandisingWorkspace", () => {
     )
     expect(mockFetch).toHaveBeenNthCalledWith(
       2,
+      "/us/account/photo-groups/snapshot",
+      expect.objectContaining({
+        cache: "no-store",
+        headers: { Accept: "application/json" },
+      })
+    )
+    expect(mockFetch).toHaveBeenNthCalledWith(
+      3,
       "/us/api/catalog-review/groups",
       expect.objectContaining({
         cache: "no-store",
@@ -308,6 +373,35 @@ describe("StaffMerchandisingWorkspace", () => {
       })
     )
     expect(mockReportClientOpsAlert).not.toHaveBeenCalled()
+  })
+
+  it("renders recently cached tags if every live feed fails", async () => {
+    window.localStorage.setItem(
+      "gp_staff_merchandising_tags:us",
+      JSON.stringify({
+        savedAt: Date.now(),
+        tags: [{ id: "cached_tag" }],
+        version: 1,
+      })
+    )
+    mockFetch.mockRejectedValue(new Error("Blocked by client"))
+
+    render(<StaffMerchandisingWorkspace countryCode="us" />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId("merchandising-table")).toHaveTextContent("1")
+      expect(
+        screen.getByText(
+          "Showing recently cached merchandising data while the live feed recovers."
+        )
+      ).toBeInTheDocument()
+    })
+    expect(mockReportClientOpsAlert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: "staff_module_load_failed",
+        message: "Blocked by client",
+      })
+    )
   })
 
   it("renders the merchandising table after a successful load", async () => {

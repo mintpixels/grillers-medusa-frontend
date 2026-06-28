@@ -21,6 +21,19 @@ type Props = {
 
 const PRIMARY_ENDPOINT_RETRY_DELAYS_MS = [300, 900, 1800, 3200, 5000]
 const PRIMARY_ENDPOINT_RECOVERY_RETRY_DELAYS_MS = [1500, 3000]
+const TAG_CACHE_VERSION = 1
+const TAG_CACHE_TTL_MS = 24 * 60 * 60 * 1000
+
+type MerchandisingEndpoint = {
+  kind: "account" | "api"
+  url: string
+}
+
+type CachedTagsPayload = {
+  savedAt: number
+  tags: ProductMerchandisingTagSummary[]
+  version: number
+}
 
 class MerchandisingLoadError extends Error {
   endpoint: string
@@ -34,17 +47,36 @@ class MerchandisingLoadError extends Error {
   }
 }
 
-function catalogReviewGroupsEndpoints(countryCode: string) {
+function catalogReviewGroupsEndpoints(
+  countryCode: string
+): MerchandisingEndpoint[] {
   const normalizedCountryCode = String(countryCode || "us")
     .replace(/^\/+|\/+$/g, "")
     .toLowerCase()
   const encodedCountryCode = encodeURIComponent(normalizedCountryCode || "us")
 
   return [
-    `/${encodedCountryCode}/account/photo-groups/data`,
-    `/${encodedCountryCode}/api/catalog-review/groups`,
-    `/${encodedCountryCode}/api/staff/catalog-review/groups`,
+    {
+      kind: "account",
+      url: `/${encodedCountryCode}/account/photo-groups/data`,
+    },
+    {
+      kind: "account",
+      url: `/${encodedCountryCode}/account/photo-groups/snapshot`,
+    },
+    {
+      kind: "api",
+      url: `/${encodedCountryCode}/api/catalog-review/groups`,
+    },
+    {
+      kind: "api",
+      url: `/${encodedCountryCode}/api/staff/catalog-review/groups`,
+    },
   ]
+}
+
+function endpointUrls(endpoints: MerchandisingEndpoint[]) {
+  return endpoints.map((endpoint) => endpoint.url)
 }
 
 function responseErrorMessage(
@@ -71,8 +103,7 @@ function retryDelay(ms: number) {
 }
 
 function isRetryablePrimaryEndpointError(error: unknown) {
-  const status =
-    error instanceof MerchandisingLoadError ? error.status || 0 : 0
+  const status = error instanceof MerchandisingLoadError ? error.status || 0 : 0
   const message =
     error instanceof Error ? error.message.toLowerCase() : String(error || "")
 
@@ -144,6 +175,57 @@ function parseResponseBody(raw: string): Record<string, any> {
   }
 }
 
+function tagCacheKey(countryCode: string) {
+  const normalizedCountryCode = String(countryCode || "us")
+    .replace(/^\/+|\/+$/g, "")
+    .toLowerCase()
+
+  return `gp_staff_merchandising_tags:${normalizedCountryCode || "us"}`
+}
+
+function readCachedTags(countryCode: string) {
+  try {
+    const raw = window.localStorage.getItem(tagCacheKey(countryCode))
+    if (!raw) return null
+
+    const parsed = JSON.parse(raw) as Partial<CachedTagsPayload>
+    if (
+      parsed.version !== TAG_CACHE_VERSION ||
+      !Array.isArray(parsed.tags) ||
+      !parsed.tags.length ||
+      typeof parsed.savedAt !== "number" ||
+      Date.now() - parsed.savedAt > TAG_CACHE_TTL_MS
+    ) {
+      return null
+    }
+
+    return parsed.tags
+  } catch {
+    return null
+  }
+}
+
+function writeCachedTags(
+  countryCode: string,
+  tags: ProductMerchandisingTagSummary[]
+) {
+  if (!tags.length) return
+
+  try {
+    const payload: CachedTagsPayload = {
+      savedAt: Date.now(),
+      tags,
+      version: TAG_CACHE_VERSION,
+    }
+    window.localStorage.setItem(
+      tagCacheKey(countryCode),
+      JSON.stringify(payload)
+    )
+  } catch {
+    // Browser storage is best-effort only. A failed write must not block staff.
+  }
+}
+
 export default function StaffMerchandisingWorkspace({
   countryCode,
   initialError = null,
@@ -157,6 +239,7 @@ export default function StaffMerchandisingWorkspace({
     initialTags ? "ready" : "loading"
   )
   const [error, setError] = useState<string | null>(initialError)
+  const [fallbackNotice, setFallbackNotice] = useState<string | null>(null)
   const [reloadKey, setReloadKey] = useState(0)
 
   // Prefer server-loaded tags from the staff page. Keep the plain fetch fallback
@@ -165,23 +248,30 @@ export default function StaffMerchandisingWorkspace({
   useEffect(() => {
     if (reloadKey === 0 && initialTags) {
       setTags(initialTags)
+      writeCachedTags(countryCode, initialTags)
       setError(null)
+      setFallbackNotice(null)
       setState("ready")
       return
     }
 
     const controller = new AbortController()
     const endpoints = catalogReviewGroupsEndpoints(countryCode)
+    const accountEndpoints = endpoints.filter(
+      (endpoint) => endpoint.kind === "account"
+    )
+    const apiEndpoints = endpoints.filter((endpoint) => endpoint.kind === "api")
     setState("loading")
     setError(null)
+    setFallbackNotice(null)
 
     async function loadTags() {
       let lastError: unknown = null
       let primaryError: unknown = null
       let blockedFallbackCount = 0
 
-      async function fetchTagsFromEndpoint(endpoint: string) {
-        const res = await fetch(endpoint, {
+      async function fetchTagsFromEndpoint(endpoint: MerchandisingEndpoint) {
+        const res = await fetch(endpoint.url, {
           signal: controller.signal,
           cache: "no-store",
           headers: { Accept: "application/json" },
@@ -194,20 +284,21 @@ export default function StaffMerchandisingWorkspace({
               `Request failed (${res.status}).`
             ),
             {
-              endpoint,
+              endpoint: endpoint.url,
               status: res.status,
             }
           )
         }
 
         return {
-          endpoint,
-          tags: responseTags(body, endpoint),
+          endpoint: endpoint.url,
+          tags: responseTags(body, endpoint.url),
         }
       }
 
       async function tryPrimaryEndpoint(delays: number[]) {
-        const endpoint = endpoints[0]
+        const endpoint = accountEndpoints[0]
+        if (!endpoint) return null
 
         for (let attempt = 0; attempt <= delays.length; attempt += 1) {
           try {
@@ -218,8 +309,7 @@ export default function StaffMerchandisingWorkspace({
             primaryError = err
 
             const shouldRetry =
-              attempt < delays.length &&
-              isRetryablePrimaryEndpointError(err)
+              attempt < delays.length && isRetryablePrimaryEndpointError(err)
 
             if (!shouldRetry) break
 
@@ -235,7 +325,16 @@ export default function StaffMerchandisingWorkspace({
       )
       if (primaryResult) return primaryResult
 
-      for (const endpoint of endpoints.slice(1)) {
+      for (const endpoint of accountEndpoints.slice(1)) {
+        try {
+          return await fetchTagsFromEndpoint(endpoint)
+        } catch (err) {
+          if (controller.signal.aborted) throw err
+          lastError = err
+        }
+      }
+
+      for (const endpoint of apiEndpoints) {
         try {
           return await fetchTagsFromEndpoint(endpoint)
         } catch (err) {
@@ -268,7 +367,9 @@ export default function StaffMerchandisingWorkspace({
 
     loadTags()
       .then(({ tags }) => {
+        writeCachedTags(countryCode, tags)
         setTags(tags)
+        setFallbackNotice(null)
         setState("ready")
       })
       .catch((err) => {
@@ -276,7 +377,9 @@ export default function StaffMerchandisingWorkspace({
         const message =
           err instanceof Error
             ? err.message
-            : String(err || initialError || "Could not load merchandising data.")
+            : String(
+                err || initialError || "Could not load merchandising data."
+              )
         reportClientOpsAlert({
           kind: "staff_module_load_failed",
           severity: "warn",
@@ -284,9 +387,18 @@ export default function StaffMerchandisingWorkspace({
           message,
           extra: {
             staff_module: "merchandising",
-            attempted_endpoints: endpoints,
+            attempted_endpoints: endpointUrls(endpoints),
           },
         })
+        const cachedTags = readCachedTags(countryCode)
+        if (cachedTags) {
+          setTags(cachedTags)
+          setFallbackNotice(
+            "Showing recently cached merchandising data while the live feed recovers."
+          )
+          setState("ready")
+          return
+        }
         setError(message)
         setState("error")
       })
@@ -298,6 +410,7 @@ export default function StaffMerchandisingWorkspace({
     if (initialTags) {
       setState("loading")
       setError(null)
+      setFallbackNotice(null)
       router.refresh()
       return
     }
@@ -352,6 +465,12 @@ export default function StaffMerchandisingWorkspace({
             <RefreshCw className="h-4 w-4" aria-hidden />
             Try again
           </button>
+        </div>
+      )}
+
+      {state === "ready" && fallbackNotice && (
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-maison-neue text-amber-800">
+          {fallbackNotice}
         </div>
       )}
 
