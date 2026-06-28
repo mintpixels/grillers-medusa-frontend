@@ -27,6 +27,7 @@ import {
 } from "@lib/data/orders"
 import { addToCart } from "@lib/data/cart"
 import { experimentCartMetadata } from "@lib/experiments/client-context"
+import { reportClientOpsAlert } from "@lib/client-ops-alert"
 import { dispatchCartUpdated } from "@lib/util/cart-events"
 import {
   freeDeliveryEligibilityMetadata,
@@ -1402,6 +1403,16 @@ export default function ReorderBrowser({
       setAddStates((states) => ({ ...states, [key]: "added" }))
     } catch (error) {
       console.error("Failed to add history item to cart:", error)
+      reportClientOpsAlert({
+        alertKind: "client_add_to_cart_failed",
+        title: "Storefront client add-to-cart failed",
+        surface: "account_reorder_history_item",
+        action: "add_to_cart",
+        error,
+        productId: item.strapiProduct.MedusaProduct?.ProductId,
+        variantId,
+        productHandle: itemHandle(item),
+      })
       setAddStates((states) => ({ ...states, [key]: "error" }))
       throw error
     }
@@ -1470,6 +1481,15 @@ export default function ReorderBrowser({
       setAddStates((states) => ({ ...states, [stateKey]: "added" }))
     } catch (error) {
       console.error("Failed to add legacy order line to cart:", error)
+      reportClientOpsAlert({
+        alertKind: "client_add_to_cart_failed",
+        title: "Storefront client add-to-cart failed",
+        surface: "account_legacy_order_line",
+        action: "add_to_cart",
+        error,
+        productId: line.medusa_product_id,
+        variantId: line.medusa_variant_id,
+      })
       setAddStates((states) => ({ ...states, [stateKey]: "error" }))
       throw error
     }

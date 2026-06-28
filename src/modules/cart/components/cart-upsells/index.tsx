@@ -8,6 +8,7 @@ import { addToCart } from "@lib/data/cart"
 import { trackSelectItem } from "@lib/gtm"
 import { jitsuTrack } from "@lib/jitsu"
 import { experimentCartMetadata } from "@lib/experiments/client-context"
+import { reportClientOpsAlert } from "@lib/client-ops-alert"
 import { dispatchCartUpdated } from "@lib/util/cart-events"
 import type { CartUpsellProduct } from "./types"
 
@@ -99,6 +100,16 @@ export default function CartUpsells({
       })
     } catch (error) {
       console.error("Failed to add cart upsell:", error)
+      reportClientOpsAlert({
+        alertKind: "client_add_to_cart_failed",
+        title: "Storefront client add-to-cart failed",
+        surface: `${surface}_upsell`,
+        action: "add_to_cart",
+        error,
+        productId: product.id,
+        variantId: product.variantId,
+        productHandle: product.handle,
+      })
       toast.error("Couldn't add to cart", {
         description: "Please try again in a moment.",
       })

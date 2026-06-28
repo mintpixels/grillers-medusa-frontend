@@ -11,6 +11,7 @@ import { RecipeDetailAnalytics } from "@modules/recipes/components/recipe-analyt
 import { addToCart } from "@lib/data/cart"
 import { experimentCartMetadata } from "@lib/experiments/client-context"
 import { trackRecipePrintOrSave } from "@lib/gtm"
+import { reportClientOpsAlert } from "@lib/client-ops-alert"
 import { dispatchCartUpdated } from "@lib/util/cart-events"
 import {
   freeDeliveryEligibilityMetadata,
@@ -153,6 +154,16 @@ const RecipeHeroProduct = ({
       toast.success("Added to cart", { description: productTitle })
     } catch (error) {
       console.error("Failed to add recipe product to cart:", error)
+      reportClientOpsAlert({
+        alertKind: "client_add_to_cart_failed",
+        title: "Storefront client add-to-cart failed",
+        surface: "recipe_hero_product",
+        action: "add_to_cart",
+        error,
+        productId: product.MedusaProduct?.ProductId,
+        variantId: variant.VariantId,
+        productHandle: handle,
+      })
       toast.error("Couldn't add to cart", {
         description: "Please try again in a moment.",
       })

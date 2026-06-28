@@ -34,6 +34,9 @@ describe("browser ops alert allow-map", () => {
     expect(isAllowedBrowserOpsAlert("route_segment_error")).toBe(true)
     expect(isAllowedBrowserOpsAlert("client_unhandled_error")).toBe(true)
     expect(isAllowedBrowserOpsAlert("client_unhandledrejection")).toBe(true)
+    expect(isAllowedBrowserOpsAlert("client_add_to_cart_failed")).toBe(true)
+    expect(isAllowedBrowserOpsAlert("client_cart_mutation_failed")).toBe(true)
+    expect(isAllowedBrowserOpsAlert("client_profile_action_failed")).toBe(true)
     expect(isAllowedBrowserOpsAlert("staff_module_load_failed")).toBe(true)
     expect(isAllowedBrowserOpsAlert("revenue_action_slow")).toBe(true)
     expect(isAllowedBrowserOpsAlert("other")).toBe(false)
@@ -175,6 +178,45 @@ describe("emitBrowserOpsAlertFromBody", () => {
     )
     const call = (emitStorefrontOpsAlert as jest.Mock).mock.calls[0][0]
     expect(call.meta.nested).toBeUndefined()
+  })
+
+  it("accepts sanitized client add-to-cart failures", async () => {
+    const result = await emitBrowserOpsAlertFromBody(
+      {
+        alert_kind: "client_add_to_cart_failed",
+        severity: "page",
+        title: "Storefront client add-to-cart failed",
+        path: "browser:product_card:add_to_cart",
+        message: "raw exception text should be ignored",
+        extra: {
+          surface: "product_card",
+          action: "add_to_cart",
+          reason: "client_exception",
+          product_id: "prod_123",
+          variant_id: "variant_456",
+          product_handle: "brisket-first-cut",
+        },
+      },
+      makeHeaders()
+    )
+
+    expect(result).toEqual({ ok: true, status: 202 })
+    expect(emitStorefrontOpsAlert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        alertKind: "client_add_to_cart_failed",
+        severity: "warn",
+        path: "browser:product_card:add_to_cart",
+        source: "client",
+        meta: expect.objectContaining({
+          surface: "product_card",
+          action: "add_to_cart",
+          reason: "client_exception",
+          product_id: "prod_123",
+          variant_id: "variant_456",
+          product_handle: "brisket-first-cut",
+        }),
+      })
+    )
   })
 
   it("rejects unknown alert kinds with 400", async () => {

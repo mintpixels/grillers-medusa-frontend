@@ -6,6 +6,7 @@ import { toast } from "@medusajs/ui"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import { addToCart } from "@lib/data/cart"
 import { experimentCartMetadata } from "@lib/experiments/client-context"
+import { reportClientOpsAlert } from "@lib/client-ops-alert"
 import { dispatchCartUpdated } from "@lib/util/cart-events"
 import { isVariantPurchasable } from "@lib/util/product-availability"
 import type { StrapiProductData } from "types/strapi"
@@ -20,6 +21,7 @@ const ProductListItem = ({ hit }: { hit: StrapiProductData }) => {
   const handleAddToCart = async () => {
     const variantId = variant?.VariantId
     if (!variantId || !canAddToCart) return
+    const itemId = hit?.MedusaProduct?.ProductId || hit.objectID
 
     setIsAdding(true)
     try {
@@ -33,6 +35,16 @@ const ProductListItem = ({ hit }: { hit: StrapiProductData }) => {
       toast.success("Added to cart", { description: hit.Title })
     } catch (error) {
       console.error("Failed to add to cart:", error)
+      reportClientOpsAlert({
+        alertKind: "client_add_to_cart_failed",
+        title: "Storefront client add-to-cart failed",
+        surface: "algolia_product_list_item",
+        action: "add_to_cart",
+        error,
+        productId: itemId,
+        variantId,
+        productHandle: hit?.MedusaProduct?.Handle,
+      })
       toast.error("Couldn't add to cart", {
         description: "Please try again in a moment.",
       })
