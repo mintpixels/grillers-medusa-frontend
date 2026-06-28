@@ -1,6 +1,7 @@
 import type { HttpTypes } from "@medusajs/types"
 
 import { getProductsByMedusaIds } from "@lib/data/strapi/collections"
+import { emitCartProductDetailsFailureAlert } from "@lib/cart-enrichment-ops-alerts"
 import strapiClient from "@lib/strapi"
 
 export type CartProductDetails = {
@@ -67,7 +68,14 @@ export async function buildCartProductDetailsMap(
     }
 
     return details
-  } catch {
+  } catch (error) {
+    void emitCartProductDetailsFailureAlert({
+      stage: "strapi_lookup",
+      productIds,
+      error,
+    }).catch(() => {
+      // Fail open: cart rendering should not depend on alert delivery.
+    })
     return {}
   }
 }

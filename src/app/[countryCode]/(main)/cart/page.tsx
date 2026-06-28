@@ -4,7 +4,11 @@ import { getDeliveryZipCookie } from "@lib/data/delivery-zip"
 import { getAtlantaDeliveryZipConfig } from "@lib/data/strapi/fulfillment"
 import { getFreeShippingThresholds } from "@lib/data/strapi/checkout"
 import { getAddressBookDeliveryZip } from "@lib/util/delivery-zip"
-import { buildCartProductDetailsMap } from "@lib/util/cart-product-details"
+import {
+  buildCartProductDetailsMap,
+  getUniqueCartProductIds,
+} from "@lib/util/cart-product-details"
+import { withCartProductDetailsTimeoutAlert } from "@lib/cart-enrichment-ops-alerts"
 import { withTimeout } from "@lib/util/promise-timeout"
 import CartTemplate from "@modules/cart/templates"
 import { Metadata } from "next"
@@ -70,12 +74,13 @@ export default async function Cart({ params }: PageProps) {
     return notFound()
   }
 
-  const productDetailsMap = await withTimeout(
-    buildCartProductDetailsMap(cart?.items),
-    1000,
-    {},
-    "cart page product details"
-  )
+  const cartProductIds = getUniqueCartProductIds(cart?.items)
+  const productDetailsMap = await withCartProductDetailsTimeoutAlert({
+    promise: buildCartProductDetailsMap(cartProductIds),
+    fallback: {},
+    productIds: cartProductIds,
+    timeoutMs: 1000,
+  })
 
   const defaultDeliveryZip =
     deliveryZip || getAddressBookDeliveryZip(customer?.addresses)
