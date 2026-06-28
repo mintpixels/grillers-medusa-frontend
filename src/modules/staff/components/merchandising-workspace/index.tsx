@@ -8,11 +8,29 @@ import type { ProductMerchandisingTagSummary } from "@lib/data/staff/product-mer
 import ProductMerchandisingTable from "@modules/staff/components/product-merchandising-table"
 
 type LoadState = "loading" | "ready" | "error"
+type MerchandisingLoadErrorOptions = {
+  endpoint: string
+  status?: number
+}
 
 type Props = {
   countryCode: string
   initialError?: string | null
   initialTags?: ProductMerchandisingTagSummary[] | null
+}
+
+const PRIMARY_ENDPOINT_RETRY_DELAYS_MS = [300, 900]
+
+class MerchandisingLoadError extends Error {
+  endpoint: string
+  status?: number
+
+  constructor(message: string, options: MerchandisingLoadErrorOptions) {
+    super(message)
+    this.name = "MerchandisingLoadError"
+    this.endpoint = options.endpoint
+    this.status = options.status
+  }
 }
 
 function catalogReviewGroupsEndpoints(countryCode: string) {
@@ -45,6 +63,35 @@ function responseErrorMessage(
   return fallback
 }
 
+function retryDelay(ms: number) {
+  return new Promise((resolve) =>
+    window.setTimeout(resolve, process.env.NODE_ENV === "test" ? 0 : ms)
+  )
+}
+
+function isRetryablePrimaryEndpointError(error: unknown) {
+  const status =
+    error instanceof MerchandisingLoadError ? error.status || 0 : 0
+  const message =
+    error instanceof Error ? error.message.toLowerCase() : String(error || "")
+
+  if (status === 408 || status === 429 || status >= 500) {
+    return (
+      !message.includes("cannot query field") &&
+      !message.includes("access required")
+    )
+  }
+
+  return (
+    message.includes("an error occurred with your deployment") ||
+    message.includes("request failed (500)") ||
+    message.includes("networkerror") ||
+    message.includes("load failed") ||
+    message.includes("temporarily unavailable") ||
+    message.includes("timeout")
+  )
+}
+
 async function responseBody(res: Response) {
   if (typeof res.text === "function") {
     const raw = await res.text().catch(() => "")
@@ -56,6 +103,14 @@ async function responseBody(res: Response) {
   }
 
   return {}
+}
+
+function responseTags(body: Record<string, any>, endpoint: string) {
+  if (Array.isArray(body?.tags)) return body.tags
+
+  throw new MerchandisingLoadError("Malformed merchandising response.", {
+    endpoint,
+  })
 }
 
 function parseResponseBody(raw: string): Record<string, any> {
@@ -111,30 +166,55 @@ export default function StaffMerchandisingWorkspace({
     async function loadTags() {
       let lastError: unknown = null
 
-      for (const endpoint of endpoints) {
-        try {
-          const res = await fetch(endpoint, {
-            signal: controller.signal,
-            cache: "no-store",
-            headers: { Accept: "application/json" },
-          })
-          const body = await responseBody(res)
-          if (!res.ok) {
-            throw new Error(
-              responseErrorMessage(
-                body?.error,
-                `Request failed (${res.status}).`
-              )
-            )
-          }
+      for (
+        let endpointIndex = 0;
+        endpointIndex < endpoints.length;
+        endpointIndex += 1
+      ) {
+        const endpoint = endpoints[endpointIndex]
+        const isPrimaryEndpoint = endpointIndex === 0
+        const maxAttempts = isPrimaryEndpoint
+          ? PRIMARY_ENDPOINT_RETRY_DELAYS_MS.length + 1
+          : 1
 
-          return {
-            endpoint,
-            tags: Array.isArray(body?.tags) ? body.tags : [],
+        for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+          try {
+            const res = await fetch(endpoint, {
+              signal: controller.signal,
+              cache: "no-store",
+              headers: { Accept: "application/json" },
+            })
+            const body = await responseBody(res)
+            if (!res.ok) {
+              throw new MerchandisingLoadError(
+                responseErrorMessage(
+                  body?.error || body,
+                  `Request failed (${res.status}).`
+                ),
+                {
+                  endpoint,
+                  status: res.status,
+                }
+              )
+            }
+
+            return {
+              endpoint,
+              tags: responseTags(body, endpoint),
+            }
+          } catch (err) {
+            if (controller.signal.aborted) throw err
+            lastError = err
+
+            const shouldRetry =
+              isPrimaryEndpoint &&
+              attempt < PRIMARY_ENDPOINT_RETRY_DELAYS_MS.length &&
+              isRetryablePrimaryEndpointError(err)
+
+            if (!shouldRetry) break
+
+            await retryDelay(PRIMARY_ENDPOINT_RETRY_DELAYS_MS[attempt])
           }
-        } catch (err) {
-          if (controller.signal.aborted) throw err
-          lastError = err
         }
       }
 

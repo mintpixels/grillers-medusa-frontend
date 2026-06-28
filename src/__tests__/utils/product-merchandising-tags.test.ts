@@ -260,7 +260,7 @@ describe("getProductMerchandisingTags", () => {
     )
   })
 
-  it("discards stale in-flight summary loads before retrying", async () => {
+  it("keeps slow in-flight summary loads but discards genuinely stale hangs", async () => {
     const dateNowSpy = jest.spyOn(Date, "now")
     dateNowSpy.mockReturnValue(1_000)
 
@@ -278,6 +278,18 @@ describe("getProductMerchandisingTags", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1)
 
     dateNowSpy.mockReturnValue(17_000)
+    void getProductMerchandisingTags()
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(mockReportServerSoftFailure).not.toHaveBeenCalledWith(
+      "staff-merchandising-tags-stale-inflight",
+      expect.any(Error),
+      expect.any(Object)
+    )
+
+    dateNowSpy.mockReturnValue(57_000)
     fetchMock.mockResolvedValueOnce(
       strapiPage([
         {
@@ -307,8 +319,8 @@ describe("getProductMerchandisingTags", () => {
       "staff-merchandising-tags-stale-inflight",
       expect.any(Error),
       expect.objectContaining({
-        stale_inflight_age_ms: 16_000,
-        stale_inflight_threshold_ms: 15_000,
+        stale_inflight_age_ms: 56_000,
+        stale_inflight_threshold_ms: 55_000,
       })
     )
 

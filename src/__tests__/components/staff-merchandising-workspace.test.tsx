@@ -110,6 +110,48 @@ describe("StaffMerchandisingWorkspace", () => {
     })
   })
 
+  it("retries transient account feed deployment errors before trying blocked API fallbacks", async () => {
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        json: async () => ({
+          error: "An error occurred with your deployment",
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        text: async () =>
+          '<!doctype html><script id="__gp_merchandising_tags" type="application/json">{"tags":[{"id":"tag_1"}]}</script>',
+      })
+
+    render(<StaffMerchandisingWorkspace countryCode="us" />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId("merchandising-table")).toHaveTextContent("1")
+    })
+
+    expect(mockFetch).toHaveBeenCalledTimes(2)
+    expect(mockFetch).toHaveBeenNthCalledWith(
+      1,
+      "/us/account/photo-groups/data",
+      expect.objectContaining({
+        cache: "no-store",
+        headers: { Accept: "application/json" },
+      })
+    )
+    expect(mockFetch).toHaveBeenNthCalledWith(
+      2,
+      "/us/account/photo-groups/data",
+      expect.objectContaining({
+        cache: "no-store",
+        headers: { Accept: "application/json" },
+      })
+    )
+    expect(mockReportClientOpsAlert).not.toHaveBeenCalled()
+  })
+
   it("renders server-loaded merchandising tags without an initial API fetch", async () => {
     render(
       <StaffMerchandisingWorkspace

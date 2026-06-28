@@ -146,11 +146,11 @@ const GRAPHQL_PAGE_SIZE = 100
 const GRAPHQL_PAGE_BATCH_SIZE = 5
 const REST_PAGE_BATCH_SIZE = 4
 const STRAPI_READ_RETRY_DELAYS_MS = [250, 750]
-const TAG_SUMMARY_CACHE_MS = 60 * 1000
+const TAG_SUMMARY_CACHE_MS = 5 * 60 * 1000
 const TAG_SUMMARY_NEXT_CACHE_SECONDS = 5 * 60
 const TAG_SUMMARY_NEXT_CACHE_KEY = "staff-merchandising-tag-summary-v2"
 const TAG_SUMMARY_NEXT_CACHE_TAG = "staff-merchandising-tag-summary"
-const TAG_SUMMARY_INFLIGHT_STALE_MS = 15 * 1000
+const TAG_SUMMARY_INFLIGHT_STALE_MS = 55 * 1000
 
 const METADATA_LABELS: Record<string, string> = {
   Brand: "Brand",
