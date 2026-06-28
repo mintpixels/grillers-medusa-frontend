@@ -7,6 +7,7 @@ import {
   canManageOrderSupport,
   staffDisplayName,
 } from "@lib/util/staff-access"
+import { emitStorefrontOpsAlert } from "@lib/ops-alert"
 import { adminFetch } from "./admin"
 
 async function requireOrderSupportStaff() {
@@ -15,6 +16,62 @@ async function requireOrderSupportStaff() {
     throw new Error("Order support access required.")
   }
   return staff
+}
+
+function quickBooksSyncErrorMessage(error: unknown) {
+  if (error instanceof Error) return error.message
+  if (typeof error === "string") return error
+  try {
+    return JSON.stringify(error)
+  } catch {
+    return String(error)
+  }
+}
+
+async function emitQuickBooksSyncStatusFailureAlert(input: {
+  status: StaffQuickBooksSyncStatusFilter
+  search?: string
+  page: number
+  perPage: number
+  error: unknown
+}) {
+  await emitStorefrontOpsAlert({
+    alertKind: "staff_quickbooks_sync_status_failed",
+    severity: "warn",
+    title: "Staff QuickBooks sync status load failed",
+    path: "src/lib/data/staff/quickbooks-sync.ts",
+    source: "medusa-server",
+    fingerprint: "staff_quickbooks_sync:status:failed",
+    meta: {
+      staff_module: "quickbooks_sync",
+      action: "load_status",
+      status_filter: input.status,
+      search_present: Boolean(input.search?.trim()),
+      page: input.page,
+      per_page: input.perPage,
+      error_message: quickBooksSyncErrorMessage(input.error).slice(0, 300),
+    },
+  })
+}
+
+async function emitQuickBooksSyncRequeueFailureAlert(input: {
+  orderId: number
+  error: unknown
+}) {
+  await emitStorefrontOpsAlert({
+    alertKind: "staff_quickbooks_sync_requeue_failed",
+    severity: "warn",
+    title: "Staff QuickBooks sync requeue failed",
+    path: "src/lib/data/staff/quickbooks-sync.ts",
+    source: "medusa-server",
+    fingerprint: "staff_quickbooks_sync:requeue:failed",
+    meta: {
+      staff_module: "quickbooks_sync",
+      action: "requeue_order",
+      sync_order_id: input.orderId,
+      error_message: quickBooksSyncErrorMessage(input.error).slice(0, 300),
+    },
+  })
 }
 
 export type StaffQuickBooksSyncStatusFilter =
@@ -114,18 +171,31 @@ export async function getStaffQuickBooksSyncStatus(input?: {
   perPage?: number
 }) {
   await requireOrderSupportStaff()
-  return adminFetch<StaffQuickBooksSyncStatus>(
-    "/admin/grillers/quickbooks-sync/status",
-    {
-      method: "GET",
-      query: {
-        status: input?.status || "open",
-        search: input?.search?.trim() || undefined,
-        page: input?.page || 1,
-        per_page: input?.perPage || 25,
-      },
-    }
-  )
+  const query = {
+    status: input?.status || "open",
+    search: input?.search?.trim() || undefined,
+    page: input?.page || 1,
+    per_page: input?.perPage || 25,
+  }
+
+  try {
+    return await adminFetch<StaffQuickBooksSyncStatus>(
+      "/admin/grillers/quickbooks-sync/status",
+      {
+        method: "GET",
+        query,
+      }
+    )
+  } catch (error) {
+    await emitQuickBooksSyncStatusFailureAlert({
+      status: query.status,
+      search: query.search,
+      page: query.page,
+      perPage: query.per_page,
+      error,
+    })
+    throw error
+  }
 }
 
 export async function requeueStaffQuickBooksSyncOrder(
@@ -135,13 +205,21 @@ export async function requeueStaffQuickBooksSyncOrder(
   const staff = await requireOrderSupportStaff()
 
   const actor = `${staffDisplayName(staff)}${staff.email ? ` (${staff.email})` : ""}`
-  return adminFetch<{ order: StaffQuickBooksSyncOrder }>(
-    `/admin/grillers/quickbooks-sync/orders/${orderId}/requeue`,
-    {
-      method: "POST",
-      body: JSON.stringify({
-        reason: `${reason} Staff: ${actor}`,
-      }),
-    }
-  )
+  try {
+    return await adminFetch<{ order: StaffQuickBooksSyncOrder }>(
+      `/admin/grillers/quickbooks-sync/orders/${orderId}/requeue`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          reason: `${reason} Staff: ${actor}`,
+        }),
+      }
+    )
+  } catch (error) {
+    await emitQuickBooksSyncRequeueFailureAlert({
+      orderId,
+      error,
+    })
+    throw error
+  }
 }
