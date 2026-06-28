@@ -5,6 +5,10 @@ import medusaError from "@lib/util/medusa-error"
 import { isSameAddressKey } from "@lib/util/compare-addresses"
 import { isValidUSPhone, stripPhone } from "@lib/util/format-phone"
 import {
+  repairCheckoutAddressForWrite,
+  reportCheckoutAddressRepair,
+} from "@lib/checkout-address-quality"
+import {
   buildSmsMarketingConsentMetadata,
   formWantsSmsMarketing,
 } from "@lib/util/sms-consent"
@@ -831,7 +835,7 @@ export async function saveAddressToProfileAndCart(input: {
 }): Promise<{ success: boolean; error: string | null }> {
   const headers = { ...(await getAuthHeaders()) }
   const country = (input.country_code || "us").toLowerCase()
-  const addressPayload = {
+  const repairResult = repairCheckoutAddressForWrite({
     first_name: input.first_name,
     last_name: input.last_name,
     address_1: input.address_1,
@@ -842,10 +846,19 @@ export async function saveAddressToProfileAndCart(input: {
     // Single normalization point used for both address-book + cart writes
     // below — phones save as canonical digits regardless of input shape (#68).
     phone: input.phone ? stripPhone(input.phone) : "",
-  }
+  })
+  const addressPayload = repairResult.address
 
   try {
     const active = await getActiveStaffImpersonation()
+    reportCheckoutAddressRepair({
+      surface: "profile_cart",
+      path: "src/lib/data/customer.ts:saveAddressToProfileAndCart",
+      result: repairResult,
+      addressId: input.address_id || null,
+      targetCustomerId: active?.session.targetCustomerId || null,
+      staffContext: Boolean(active),
+    })
     if (active) {
       const staffCartHeaders = {
         ...(await getAuthHeaders()),
@@ -860,8 +873,8 @@ export async function saveAddressToProfileAndCart(input: {
       const alreadyOnFile = (current.addresses || []).some(
         (a: any) =>
           (a.address_1 || "").trim().toLowerCase() ===
-            input.address_1.trim().toLowerCase() &&
-          (a.postal_code || "").trim() === input.postal_code.trim()
+            addressPayload.address_1.trim().toLowerCase() &&
+          (a.postal_code || "").trim() === addressPayload.postal_code.trim()
       )
       const customerHadNoAddresses = (current.addresses || []).length === 0
 
@@ -952,8 +965,8 @@ export async function saveAddressToProfileAndCart(input: {
     const alreadyOnFile = (me?.addresses || []).some(
       (a) =>
         (a.address_1 || "").trim().toLowerCase() ===
-          input.address_1.trim().toLowerCase() &&
-        (a.postal_code || "").trim() === input.postal_code.trim()
+          addressPayload.address_1.trim().toLowerCase() &&
+        (a.postal_code || "").trim() === addressPayload.postal_code.trim()
     )
     const customerHadNoAddresses = (me?.addresses || []).length === 0
 

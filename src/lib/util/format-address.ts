@@ -52,13 +52,18 @@ function looksLikeCityName(s?: string | null): boolean {
   return /[A-Za-z]/.test(v)
 }
 
-export function unscrambleAddress<T extends Partial<Addr>>(addr: T): T {
-  if (!addr) return addr
-  const swapped =
+export function isHistoricallyScrambledAddress(addr: Partial<Addr>): boolean {
+  if (!addr) return false
+  return (
     looksLikeStateCode(addr.city as string | null) &&
     looksLikeZip(addr.province as string | null) &&
     looksLikeCityName(addr.postal_code as string | null)
-  if (!swapped) return addr
+  )
+}
+
+export function unscrambleAddress<T extends Partial<Addr>>(addr: T): T {
+  if (!addr) return addr
+  if (!isHistoricallyScrambledAddress(addr)) return addr
   return {
     ...addr,
     city: addr.postal_code,

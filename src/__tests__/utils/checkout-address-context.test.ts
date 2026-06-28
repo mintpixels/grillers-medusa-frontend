@@ -4,6 +4,7 @@ import { getAuthHeaders, getCacheTag, getStaffImpersonationCartId } from "@lib/d
 import { readStaffImpersonationCookie } from "@lib/data/staff/session-cookie"
 import { adminFetch, retrieveAdminCustomer } from "@lib/data/staff/admin"
 import { revalidateTag } from "next/cache"
+import { emitStorefrontOpsAlert } from "@lib/ops-alert"
 
 jest.mock("next/cache", () => ({
   revalidateTag: jest.fn(),
@@ -55,6 +56,10 @@ jest.mock("@lib/data/staff/admin", () => ({
   }),
 }))
 
+jest.mock("@lib/ops-alert", () => ({
+  emitStorefrontOpsAlert: jest.fn(async () => ({ ok: true, skipped: false })),
+}))
+
 const mockedSdk = sdk as jest.Mocked<typeof sdk>
 const mockedClientFetch = mockedSdk.client.fetch as jest.Mock
 const mockedCartUpdate = mockedSdk.store.cart.update as jest.Mock
@@ -76,6 +81,8 @@ const mockedRetrieveAdminCustomer =
 const mockedRevalidateTag = revalidateTag as jest.MockedFunction<
   typeof revalidateTag
 >
+const mockedEmitStorefrontOpsAlert =
+  emitStorefrontOpsAlert as jest.MockedFunction<typeof emitStorefrontOpsAlert>
 
 describe("checkout address customer context", () => {
   beforeEach(() => {
@@ -159,5 +166,73 @@ describe("checkout address customer context", () => {
     expect(mockedRevalidateTag).toHaveBeenCalledWith("customers")
     expect(mockedRevalidateTag).toHaveBeenCalledWith("carts")
     expect(mockedRevalidateTag).toHaveBeenCalledWith("fulfillment")
+  })
+
+  it("repairs scrambled city/state/ZIP fields before writing staff checkout addresses", async () => {
+    const result = await saveAddressToProfileAndCart({
+      address_id: "addr_1",
+      first_name: "Avi",
+      last_name: "Swerdlow",
+      address_1: "220 Glen Meadow Ct",
+      city: "GA",
+      province: "30328",
+      postal_code: "Sandy Springs",
+      phone: "(404) 643-1567",
+    })
+
+    expect(result).toEqual({ success: true, error: null })
+    expect(mockedAdminFetch).toHaveBeenCalledWith(
+      "/admin/customers/cus_target/addresses/addr_1",
+      expect.objectContaining({
+        method: "POST",
+        body: expect.stringContaining("\"city\":\"Sandy Springs\""),
+      })
+    )
+    expect(mockedAdminFetch).toHaveBeenCalledWith(
+      "/admin/customers/cus_target/addresses/addr_1",
+      expect.objectContaining({
+        body: expect.stringContaining("\"province\":\"GA\""),
+      })
+    )
+    expect(mockedAdminFetch).toHaveBeenCalledWith(
+      "/admin/customers/cus_target/addresses/addr_1",
+      expect.objectContaining({
+        body: expect.stringContaining("\"postal_code\":\"30328\""),
+      })
+    )
+    expect(mockedCartUpdate).toHaveBeenCalledWith(
+      "cart_staff",
+      expect.objectContaining({
+        shipping_address: expect.objectContaining({
+          city: "Sandy Springs",
+          province: "GA",
+          postal_code: "30328",
+        }),
+        billing_address: expect.objectContaining({
+          city: "Sandy Springs",
+          province: "GA",
+          postal_code: "30328",
+        }),
+      }),
+      {},
+      expect.any(Object)
+    )
+    expect(mockedEmitStorefrontOpsAlert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        alertKind: "checkout_address_scramble_repaired",
+        severity: "info",
+        meta: expect.objectContaining({
+          surface: "profile_cart",
+          staff_context: true,
+          target_customer_id: "cus_target",
+          raw_city: "GA",
+          raw_province: "30328",
+          raw_postal_code: "Sandy Springs",
+          normalized_city: "Sandy Springs",
+          normalized_province: "GA",
+          normalized_postal_code: "30328",
+        }),
+      })
+    )
   })
 })

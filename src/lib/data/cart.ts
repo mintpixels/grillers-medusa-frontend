@@ -32,6 +32,10 @@ import { getRegion } from "./regions"
 import { medusaProductHasInternalRawMaterialSku } from "@lib/util/internal-products"
 import { reportServerSoftFailure } from "@lib/server-soft-failure"
 import { emitStorefrontOpsAlert } from "@lib/ops-alert"
+import {
+  repairCheckoutAddressForWrite,
+  reportCheckoutAddressRepair,
+} from "@lib/checkout-address-quality"
 
 type ActiveStaffContext = Awaited<
   ReturnType<typeof getActiveStaffImpersonation>
@@ -1119,9 +1123,20 @@ export async function setAddresses(currentState: unknown, formData: FormData) {
     } as any
 
     const sameAsBilling = formData.get("same_as_billing")
+    const shippingRepair = repairCheckoutAddressForWrite(data.shipping_address)
+    data.shipping_address = shippingRepair.address
+    reportCheckoutAddressRepair({
+      surface: "checkout_submit_shipping",
+      path: "src/lib/data/cart.ts:setAddresses",
+      result: shippingRepair,
+      cartId,
+      staffContext: Boolean(active),
+      targetCustomerId: active?.session.targetCustomerId || null,
+    })
+
     if (sameAsBilling === "on") data.billing_address = data.shipping_address
 
-    if (sameAsBilling !== "on")
+    if (sameAsBilling !== "on") {
       data.billing_address = {
         first_name: formData.get("billing_address.first_name"),
         last_name: formData.get("billing_address.last_name"),
@@ -1134,6 +1149,17 @@ export async function setAddresses(currentState: unknown, formData: FormData) {
         province: formData.get("billing_address.province"),
         phone: billingPhone ? stripPhone(billingPhone) : "",
       }
+      const billingRepair = repairCheckoutAddressForWrite(data.billing_address)
+      data.billing_address = billingRepair.address
+      reportCheckoutAddressRepair({
+        surface: "checkout_submit_billing",
+        path: "src/lib/data/cart.ts:setAddresses",
+        result: billingRepair,
+        cartId,
+        staffContext: Boolean(active),
+        targetCustomerId: active?.session.targetCustomerId || null,
+      })
+    }
 
     // Validate address matches the selected fulfillment type
     const selectedFulfillment = formData.get("fulfillmentType") as string
