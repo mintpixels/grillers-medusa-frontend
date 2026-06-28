@@ -1,5 +1,6 @@
 import { sdk } from "@lib/config"
 import { verifyStaffCartHandoff } from "@lib/data/staff/order-token"
+import { emitStorefrontOpsAlert } from "@lib/ops-alert"
 import { HttpTypes } from "@medusajs/types"
 import { NextRequest, NextResponse } from "next/server"
 
@@ -28,17 +29,53 @@ function isStaffPhoneOrderCart(cart: HttpTypes.StoreCart) {
   )
 }
 
+function errorMessage(error: unknown) {
+  if (error instanceof Error) return error.message
+  if (typeof error === "string") return error
+  try {
+    return JSON.stringify(error)
+  } catch {
+    return String(error)
+  }
+}
+
+function emitHandoffCartLookupFailure(cartId: string, error: unknown): void {
+  const message = errorMessage(error)
+  void emitStorefrontOpsAlert({
+    alertKind: "staff_handoff_cart_lookup_failed",
+    severity: "warn",
+    title: "Staff checkout handoff cart lookup failed",
+    path: "src/app/api/staff/phone-order/handoff/route.ts",
+    source: "medusa-server",
+    fingerprint: "staff_handoff:cart_lookup_failed",
+    meta: {
+      staff_module: "phone_order",
+      cart_id: cartId,
+      error_message: message.slice(0, 300),
+    },
+  }).catch(() => {
+    // Fail-open: alerting must never block the handoff response.
+  })
+}
+
 async function retrieveHandoffCart(cartId: string) {
-  return sdk.client
-    .fetch<HttpTypes.StoreCartResponse>(`/store/carts/${cartId}`, {
-      method: "GET",
-      query: {
-        fields: "id,email,customer_id,metadata,completed_at",
-      },
-      cache: "no-store",
-    })
-    .then(({ cart }) => cart)
-    .catch(() => null)
+  try {
+    const { cart } = await sdk.client.fetch<HttpTypes.StoreCartResponse>(
+      `/store/carts/${cartId}`,
+      {
+        method: "GET",
+        query: {
+          fields: "id,email,customer_id,metadata,completed_at",
+        },
+        cache: "no-store",
+      }
+    )
+
+    return cart
+  } catch (error) {
+    emitHandoffCartLookupFailure(cartId, error)
+    return null
+  }
 }
 
 function handoffError(error: string, status: number) {
