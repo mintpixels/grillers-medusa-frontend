@@ -3,6 +3,7 @@
 import "server-only"
 
 import { retrieveAuthenticatedCustomerForStaffAccess } from "@lib/data/customer"
+import { emitStorefrontOpsAlert } from "@lib/ops-alert"
 import {
   canChargeFinalOrders,
   canRoleReceiveFinalChargeAccess,
@@ -121,6 +122,63 @@ function requiredConfirmation(role: StaffAccessRole): string {
   return staffRoleConfirmation(role)
 }
 
+function teamAccessErrorMessage(error: unknown) {
+  if (error instanceof Error) return error.message
+  if (typeof error === "string") return error
+  try {
+    return JSON.stringify(error)
+  } catch {
+    return String(error)
+  }
+}
+
+async function emitTeamAccessSearchFailureAlert(query: string, error: unknown) {
+  await emitStorefrontOpsAlert({
+    alertKind: "staff_team_access_search_failed",
+    severity: "warn",
+    title: "Staff team access customer search failed",
+    path: "src/lib/data/staff/team-access.ts",
+    source: "medusa-server",
+    fingerprint: "staff_team_access:search_failed",
+    meta: {
+      staff_module: "team_access",
+      query_length: query.trim().length,
+      query_has_at: query.includes("@"),
+      query_has_plus: query.includes("+"),
+      error_message: teamAccessErrorMessage(error).slice(0, 300),
+    },
+  })
+}
+
+async function emitTeamAccessUpdateFailureAlert(
+  input: {
+    actorId: string
+    targetCustomerId: string
+    previousRole: StaffAccessRole
+    requestedRole: StaffAccessRole
+    finalChargeEnabled: boolean
+  },
+  error: unknown
+) {
+  await emitStorefrontOpsAlert({
+    alertKind: "staff_team_access_update_failed",
+    severity: "page",
+    title: "Staff team access update failed",
+    path: "src/lib/data/staff/team-access.ts",
+    source: "medusa-server",
+    fingerprint: "staff_team_access:update_failed",
+    meta: {
+      staff_module: "team_access",
+      staff_actor_customer_id: input.actorId,
+      target_customer_id: input.targetCustomerId,
+      previous_role: input.previousRole,
+      requested_role: input.requestedRole,
+      final_charge_enabled: input.finalChargeEnabled,
+      error_message: teamAccessErrorMessage(error).slice(0, 300),
+    },
+  })
+}
+
 function roleMetadata(
   current: AnyRecord | null | undefined,
   role: StaffAccessRole,
@@ -204,6 +262,7 @@ export async function searchStaffTeamUsers(
     return { ok: true, users }
   } catch (err) {
     console.error("[staff-team-access] customer search failed", err)
+    await emitTeamAccessSearchFailureAlert(query, err)
     return {
       ok: false,
       users: [],
@@ -280,22 +339,42 @@ export async function updateStaffTeamRole(
       }
     )
 
-    await adminFetch(`/admin/customers/${customer.id}`, {
-      method: "POST",
-      body: JSON.stringify({ metadata }),
-    })
+    const nextFinalChargeEnabled =
+      role === "super_admin" ||
+      (canRoleReceiveFinalChargeAccess(role) &&
+        Boolean(input.finalChargeEnabled))
+    let updated: { customer: AnyRecord }
 
-    const customersTag = await getCacheTag("customers")
-    revalidateTag(customersTag)
+    try {
+      await adminFetch(`/admin/customers/${customer.id}`, {
+        method: "POST",
+        body: JSON.stringify({ metadata }),
+      })
 
-    const updated = await adminFetch<{ customer: AnyRecord }>(
-      `/admin/customers/${customer.id}`,
-      {
-        query: {
-          fields: "id,email,first_name,last_name,phone,company_name,metadata",
+      const customersTag = await getCacheTag("customers")
+      revalidateTag(customersTag)
+
+      updated = await adminFetch<{ customer: AnyRecord }>(
+        `/admin/customers/${customer.id}`,
+        {
+          query: {
+            fields: "id,email,first_name,last_name,phone,company_name,metadata",
+          },
+        }
+      )
+    } catch (err) {
+      await emitTeamAccessUpdateFailureAlert(
+        {
+          actorId: actor.id,
+          targetCustomerId: customer.id,
+          previousRole,
+          requestedRole: role,
+          finalChargeEnabled: nextFinalChargeEnabled,
         },
-      }
-    )
+        err
+      )
+      throw err
+    }
 
     return { ok: true, user: summarizeCustomer(updated.customer) }
   } catch (err: any) {
