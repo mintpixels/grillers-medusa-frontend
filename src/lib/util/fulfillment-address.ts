@@ -12,9 +12,9 @@ type FulfillmentAddress = {
   phone?: string | null
 }
 
-export function normalizeFulfillmentAddress<T extends FulfillmentAddress | null | undefined>(
-  address: T
-): T {
+export function normalizeFulfillmentAddress<
+  T extends FulfillmentAddress | null | undefined
+>(address: T): T {
   if (!address) return address
   return unscrambleAddress(address) as T
 }
@@ -26,9 +26,25 @@ export function hasUsableFulfillmentAddress(
   return Boolean(fixed?.address_1 && fixed?.postal_code)
 }
 
+function present(value?: string | null) {
+  return Boolean(String(value || "").trim())
+}
+
+export function hasCompleteFulfillmentAddress(
+  address: FulfillmentAddress | null | undefined
+) {
+  const fixed = normalizeFulfillmentAddress(address)
+  return Boolean(
+    present(fixed?.address_1) &&
+      present(fixed?.city) &&
+      present(fixed?.province) &&
+      present(fixed?.postal_code)
+  )
+}
+
 export function getActiveFulfillmentAddress<
   TCart extends FulfillmentAddress,
-  TCustomer extends FulfillmentAddress,
+  TCustomer extends FulfillmentAddress
 >(
   cartAddress: TCart | null | undefined,
   preferredCustomerAddress: TCustomer | null | undefined
@@ -36,8 +52,8 @@ export function getActiveFulfillmentAddress<
   const rawAddress = hasUsableFulfillmentAddress(cartAddress)
     ? cartAddress
     : hasUsableFulfillmentAddress(preferredCustomerAddress)
-      ? preferredCustomerAddress
-      : cartAddress || preferredCustomerAddress
+    ? preferredCustomerAddress
+    : cartAddress || preferredCustomerAddress
 
   return normalizeFulfillmentAddress(rawAddress)
 }
@@ -52,9 +68,7 @@ export function formatFulfillmentAddressLine(
     province: fixed?.province ?? null,
     postal_code: fixed?.postal_code ?? null,
   })
-  return [fixed?.address_1, cityStateZip]
-    .filter(Boolean)
-    .join(", ")
+  return [fixed?.address_1, cityStateZip].filter(Boolean).join(", ")
 }
 
 export function fulfillmentAddressesMatch(

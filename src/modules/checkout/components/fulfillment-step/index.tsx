@@ -15,6 +15,7 @@ import {
   formatFulfillmentAddressLine,
   fulfillmentAddressesMatch,
   getActiveFulfillmentAddress,
+  hasCompleteFulfillmentAddress,
   normalizeFulfillmentAddress,
 } from "@lib/util/fulfillment-address"
 import { ATLANTA_DELIVERY_ZIP_DAYS } from "@lib/util/atlanta-delivery-zips"
@@ -456,7 +457,7 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
         lastName: editableAddress.last_name || customer?.last_name || "",
         address: editableAddress.address_1 || "",
         city: editableAddress.city || "",
-        state: editableAddress.province || "GA",
+        state: editableAddress.province || "",
         zip: editableAddress.postal_code || "",
         phone: editableAddress.phone || customer?.phone || "",
       }
@@ -522,6 +523,13 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
   const handlePickSavedAddress = async (address: HttpTypes.StoreCustomerAddress) => {
     if (isBusy) return
     const fixedAddress = normalizeFulfillmentAddress(address)
+    if (!hasCompleteFulfillmentAddress(fixedAddress)) {
+      setSaveAddressError(
+        "Please edit this saved address before using it at checkout. City, state, and ZIP are required."
+      )
+      return
+    }
+
     setSavingAddress(true)
     setSaveAddressError(null)
     const res = await saveAddressToProfileAndCart({
@@ -970,6 +978,8 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
           <div className="flex flex-col gap-2">
             {savedAddresses.map((address) => {
               const isActive = activeAddressId === address.id
+              const formattedAddress = formatFulfillmentAddressLine(address)
+              const addressComplete = hasCompleteFulfillmentAddress(address)
               return (
                 <div
                   key={address.id}
@@ -985,8 +995,13 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
                         {[address.first_name, address.last_name].filter(Boolean).join(" ") || "Saved address"}
                       </p>
                       <p className="text-xs text-Charcoal/65 mt-0.5 leading-snug">
-                        {formatFulfillmentAddressLine(address)}
+                        {formattedAddress}
                       </p>
+                      {!addressComplete && (
+                        <p className="text-[11px] text-amber-700 mt-1 leading-snug">
+                          Missing city, state, or ZIP. Edit before using.
+                        </p>
+                      )}
                     </div>
                     <div className="flex flex-shrink-0 items-center gap-2">
                       {isActive && (
@@ -1005,10 +1020,15 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
                       <button
                         type="button"
                         onClick={() => handlePickSavedAddress(address)}
-                        disabled={savingAddress || isActive}
+                        disabled={savingAddress || isActive || !addressComplete}
+                        aria-label={
+                          addressComplete
+                            ? `Use ${formattedAddress || "saved address"}`
+                            : `Edit ${formattedAddress || "saved address"} before using`
+                        }
                         className="text-xs font-semibold text-Gold hover:text-Gold/80 disabled:text-Charcoal/35 disabled:cursor-default"
                       >
-                        Use
+                        {addressComplete ? "Use" : "Edit first"}
                       </button>
                     </div>
                   </div>
