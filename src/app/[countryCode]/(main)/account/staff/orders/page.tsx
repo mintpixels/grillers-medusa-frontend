@@ -1,5 +1,6 @@
 import { retrieveAuthenticatedCustomerForStaffAccess } from "@lib/data/customer"
 import { getStaffImpersonationSession } from "@lib/data/staff/impersonation"
+import { getProductMerchandisingTagsForStaff } from "@lib/data/staff/product-merchandising"
 import {
   canManageOrderSupport,
   canPackCatchWeightOrders,
@@ -111,6 +112,12 @@ function defaultWorkspaceForCustomer(
   return "exceptions"
 }
 
+function merchandisingPreloadErrorMessage(error: unknown) {
+  if (error instanceof Error) return error.message
+  if (typeof error === "string") return error
+  return "Could not load merchandising data."
+}
+
 export default async function StaffPhoneOrdersPage({
   params,
   searchParams,
@@ -137,12 +144,27 @@ export default async function StaffPhoneOrdersPage({
       : defaultWorkspaceForCustomer(customer)
 
   const impersonation = await getStaffImpersonationSession()
+  let initialMerchandisingTags: Awaited<
+    ReturnType<typeof getProductMerchandisingTagsForStaff>
+  > | null = null
+  let initialMerchandisingError: string | null = null
+
+  if (initialWorkspace === "merchandising") {
+    try {
+      initialMerchandisingTags =
+        await getProductMerchandisingTagsForStaff(customer)
+    } catch (error) {
+      initialMerchandisingError = merchandisingPreloadErrorMessage(error)
+    }
+  }
 
   return (
     <PhoneOrderCopilot
       countryCode={countryCode}
       staffCustomer={customer}
       initialImpersonation={impersonation}
+      initialMerchandisingError={initialMerchandisingError}
+      initialMerchandisingTags={initialMerchandisingTags}
       initialWorkspace={initialWorkspace}
     />
   )
