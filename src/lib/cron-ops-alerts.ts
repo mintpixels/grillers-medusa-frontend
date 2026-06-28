@@ -104,6 +104,10 @@ export type ReviewAcquisitionSummaryLike = {
   sentYelp: number
   failed: number
   metadataFailed?: number
+  sourceFailed?: boolean
+  sourceFailureStage?: string
+  sourceStatus?: number
+  sourceError?: string
   eligibleGoogle: number
   eligibleYelp: number
   dryRun?: boolean
@@ -118,6 +122,21 @@ export function planReviewAcquisitionAlert(
   summary: ReviewAcquisitionSummaryLike
 ): CronAlertPlan {
   if (summary.dryRun) return null
+  if (summary.sourceFailed) {
+    return {
+      alertKind: "cron_review_acquisition_source_failed",
+      severity: "page",
+      title: "cron review-acquisition failed: delivered-order source unavailable",
+      meta: {
+        cron: "review-acquisition",
+        scanned: summary.scanned,
+        failure_stage: summary.sourceFailureStage || "unknown",
+        source_status: summary.sourceStatus ?? null,
+        source_error: summary.sourceError || null,
+      },
+    }
+  }
+
   const metadataFailed = summary.metadataFailed || 0
   if (summary.failed <= 0 && metadataFailed <= 0) return null
 

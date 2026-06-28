@@ -130,6 +130,24 @@ describe("planReviewAcquisitionAlert", () => {
     expect(plan!.meta.failed).toBe(1)
     expect(plan!.meta.metadata_failed).toBe(2)
   })
+
+  it("pages when the delivered-order source cannot be read", () => {
+    const plan = planReviewAcquisitionAlert({
+      ...base,
+      scanned: 0,
+      sentGoogle: 0,
+      sentYelp: 0,
+      eligibleGoogle: 0,
+      eligibleYelp: 0,
+      sourceFailed: true,
+      sourceFailureStage: "medusa_status",
+      sourceStatus: 503,
+    })
+    expect(plan!.alertKind).toBe("cron_review_acquisition_source_failed")
+    expect(plan!.severity).toBe("page")
+    expect(plan!.meta.failure_stage).toBe("medusa_status")
+    expect(plan!.meta.source_status).toBe(503)
+  })
 })
 
 describe("planHeartbeat", () => {

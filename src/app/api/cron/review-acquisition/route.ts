@@ -78,6 +78,19 @@ type DeliveredOrder = {
   items?: Array<{ title?: string }>
 }
 
+type DeliveredOrderFetchResult = {
+  orders: DeliveredOrder[]
+  sourceFailed?: boolean
+  sourceFailureStage?: string
+  sourceStatus?: number
+  sourceError?: string
+}
+
+function errorMessage(error: unknown) {
+  if (error instanceof Error) return error.message
+  return String(error)
+}
+
 function withinDayOf(timestamp: string | undefined, daysAgo: number): boolean {
   if (!timestamp) return false
   const t = new Date(timestamp).getTime()
@@ -132,12 +145,16 @@ function asOrderSummary(order: DeliveredOrder): string {
   return `your ${titles[0]} and ${titles.length - 1} more item order`
 }
 
-async function fetchRecentlyDelivered(): Promise<DeliveredOrder[]> {
+async function fetchRecentlyDelivered(): Promise<DeliveredOrderFetchResult> {
   if (!MEDUSA_BACKEND_URL || !ADMIN_TOKEN) {
     console.warn(
       "[cron/review-acquisition] MEDUSA_BACKEND_URL or MEDUSA_ADMIN_API_TOKEN missing; skipping run"
     )
-    return []
+    return {
+      orders: [],
+      sourceFailed: true,
+      sourceFailureStage: "missing_config",
+    }
   }
   const cutoff = new Date(Date.now() - 75 * 24 * 60 * 60 * 1000).toISOString()
   const fields = [
@@ -163,13 +180,33 @@ async function fetchRecentlyDelivered(): Promise<DeliveredOrder[]> {
         "[cron/review-acquisition] Medusa fetch failed",
         res.status
       )
-      return []
+      return {
+        orders: [],
+        sourceFailed: true,
+        sourceFailureStage: "medusa_status",
+        sourceStatus: res.status,
+      }
     }
     const json = (await res.json()) as { orders?: DeliveredOrder[] }
-    return Array.isArray(json.orders) ? json.orders : []
+    if (!Array.isArray(json.orders)) {
+      console.error(
+        "[cron/review-acquisition] Medusa fetch payload missing orders"
+      )
+      return {
+        orders: [],
+        sourceFailed: true,
+        sourceFailureStage: "medusa_payload",
+      }
+    }
+    return { orders: json.orders }
   } catch (err) {
     console.error("[cron/review-acquisition] Medusa fetch threw", err)
-    return []
+    return {
+      orders: [],
+      sourceFailed: true,
+      sourceFailureStage: "medusa_request",
+      sourceError: errorMessage(err).slice(0, 300),
+    }
   }
 }
 
@@ -340,10 +377,15 @@ export async function POST(req: Request): Promise<Response> {
     )
   }
 
-  const orders = await fetchRecentlyDelivered()
+  const delivered = await fetchRecentlyDelivered()
+  const orders = delivered.orders
   const summary = {
     dryRun,
     scanned: orders.length,
+    sourceFailed: delivered.sourceFailed || false,
+    sourceFailureStage: delivered.sourceFailureStage,
+    sourceStatus: delivered.sourceStatus,
+    sourceError: delivered.sourceError,
     eligibleGoogle: 0,
     eligibleYelp: 0,
     sentGoogle: 0,
@@ -456,6 +498,8 @@ export async function POST(req: Request): Promise<Response> {
       sent_google: summary.sentGoogle,
       sent_yelp: summary.sentYelp,
       metadata_failed: summary.metadataFailed,
+      source_failed: summary.sourceFailed,
+      source_failure_stage: summary.sourceFailureStage || null,
       dry_run: summary.dryRun,
     }),
     ALERT_PATH
