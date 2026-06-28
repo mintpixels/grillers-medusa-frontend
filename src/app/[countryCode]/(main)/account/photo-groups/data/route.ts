@@ -15,6 +15,6 @@ export async function GET(
 
   return handleStaffMerchandisingTagsRequest({
     routePath: `src/app/${countryCode}/(main)/account/photo-groups/data/route.ts`,
-    responseFormat: "text",
+    responseFormat: "html",
   })
 }

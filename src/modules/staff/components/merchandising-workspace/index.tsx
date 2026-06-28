@@ -45,6 +45,38 @@ function responseErrorMessage(
   return fallback
 }
 
+async function responseBody(res: Response) {
+  if (typeof res.text === "function") {
+    const raw = await res.text().catch(() => "")
+    if (raw) return parseResponseBody(raw)
+  }
+
+  if (typeof res.json === "function") {
+    return res.json().catch(() => ({}))
+  }
+
+  return {}
+}
+
+function parseResponseBody(raw: string): Record<string, any> {
+  const trimmed = raw.trim()
+  if (!trimmed) return {}
+
+  try {
+    return JSON.parse(trimmed)
+  } catch {
+    const match = trimmed.match(
+      /<script[^>]*id=["']__gp_merchandising_tags["'][^>]*>([\s\S]*?)<\/script>/i
+    )
+    if (!match?.[1]) return {}
+    try {
+      return JSON.parse(match[1])
+    } catch {
+      return {}
+    }
+  }
+}
+
 export default function StaffMerchandisingWorkspace({
   countryCode,
   initialError = null,
@@ -86,7 +118,7 @@ export default function StaffMerchandisingWorkspace({
             cache: "no-store",
             headers: { Accept: "application/json" },
           })
-          const body = await res.json().catch(() => ({}))
+          const body = await responseBody(res)
           if (!res.ok) {
             throw new Error(
               responseErrorMessage(

@@ -95,6 +95,21 @@ describe("StaffMerchandisingWorkspace", () => {
     })
   })
 
+  it("parses the account photo-groups HTML payload", async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () =>
+        '<!doctype html><script id="__gp_merchandising_tags" type="application/json">{"tags":[{"id":"tag_1"}]}</script>',
+    })
+
+    render(<StaffMerchandisingWorkspace countryCode="us" />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId("merchandising-table")).toHaveTextContent("1")
+    })
+  })
+
   it("renders server-loaded merchandising tags without an initial API fetch", async () => {
     render(
       <StaffMerchandisingWorkspace

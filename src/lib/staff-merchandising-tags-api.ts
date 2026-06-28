@@ -23,7 +23,7 @@ function errorMessage(
 
 export async function handleStaffMerchandisingTagsRequest(input: {
   routePath: string
-  responseFormat?: "json" | "text"
+  responseFormat?: "html" | "json" | "text"
 }) {
   const startedAt = Date.now()
 
@@ -74,10 +74,25 @@ function staffMerchandisingTagsResponse(
     format = "json",
     status = 200,
   }: {
-    format?: "json" | "text"
+    format?: "html" | "json" | "text"
     status?: number
   } = {}
 ) {
+  if (format === "html") {
+    const payload = JSON.stringify(body).replace(/</g, "\\u003c")
+
+    return new Response(
+      `<!doctype html><html><head><meta name="robots" content="noindex,nofollow"></head><body><script id="__gp_merchandising_tags" type="application/json">${payload}</script></body></html>`,
+      {
+        status,
+        headers: {
+          "Cache-Control": "no-store",
+          "Content-Type": "text/html; charset=utf-8",
+        },
+      }
+    )
+  }
+
   if (format === "text") {
     return new Response(JSON.stringify(body), {
       status,
