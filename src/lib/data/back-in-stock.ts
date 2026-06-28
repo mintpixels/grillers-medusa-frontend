@@ -3,11 +3,15 @@
 import { randomBytes } from "crypto"
 import { sendTemplatedEmail } from "@lib/postmark"
 import { trackCommunicationEvent } from "./communications-events"
+import { emitBackInStockCaptureFailureAlert } from "@lib/customer-demand-ops-alerts"
 
-const STRAPI_BASE = (
-  process.env.STRAPI_ENDPOINT || ""
-).replace(/\/+$/, "")
-const STRAPI_API_TOKEN = process.env.STRAPI_API_TOKEN
+function strapiBase() {
+  return (process.env.STRAPI_ENDPOINT || "").replace(/\/+$/, "")
+}
+
+function strapiApiToken() {
+  return process.env.STRAPI_API_TOKEN
+}
 
 /**
  * Notify-me-when-back-in-stock — server action for the PDP capture
@@ -63,8 +67,20 @@ async function persistToStrapi(payload: {
   UnsubscribeToken: string
   Source: "pdp" | "side_cart" | "search"
 }): Promise<{ ok: boolean; id?: number; documentId?: string }> {
+  const STRAPI_BASE = strapiBase()
+  const STRAPI_API_TOKEN = strapiApiToken()
   if (!STRAPI_BASE) {
     console.error("[back-in-stock] STRAPI_ENDPOINT not set; skipping persist")
+    await emitBackInStockCaptureFailureAlert({
+      stage: "configuration",
+      missingEnv: ["STRAPI_ENDPOINT"],
+      medusaProductId: payload.MedusaProductId,
+      medusaVariantId: payload.MedusaVariantId,
+      productHandle: payload.ProductHandle,
+      sku: payload.Sku,
+      source: payload.Source,
+      waitlistReason: payload.WaitlistReason,
+    })
     return { ok: false }
   }
   try {
@@ -84,6 +100,18 @@ async function persistToStrapi(payload: {
       console.error(
         `[back-in-stock] Strapi persist failed ${res.status}: ${text.slice(0, 200)}`
       )
+      await emitBackInStockCaptureFailureAlert({
+        stage: "strapi_persist",
+        status: res.status,
+        statusText: res.statusText,
+        error: text,
+        medusaProductId: payload.MedusaProductId,
+        medusaVariantId: payload.MedusaVariantId,
+        productHandle: payload.ProductHandle,
+        sku: payload.Sku,
+        source: payload.Source,
+        waitlistReason: payload.WaitlistReason,
+      })
       return { ok: false }
     }
     const json = (await res.json()) as {
@@ -96,6 +124,16 @@ async function persistToStrapi(payload: {
     }
   } catch (err) {
     console.error("[back-in-stock] Strapi persist threw", err)
+    await emitBackInStockCaptureFailureAlert({
+      stage: "strapi_persist",
+      error: err,
+      medusaProductId: payload.MedusaProductId,
+      medusaVariantId: payload.MedusaVariantId,
+      productHandle: payload.ProductHandle,
+      sku: payload.Sku,
+      source: payload.Source,
+      waitlistReason: payload.WaitlistReason,
+    })
     return { ok: false }
   }
 }
@@ -105,6 +143,8 @@ async function hasActiveSubscription(
   medusaProductId: string,
   medusaVariantId?: string
 ): Promise<boolean> {
+  const STRAPI_BASE = strapiBase()
+  const STRAPI_API_TOKEN = strapiApiToken()
   if (!STRAPI_BASE) return false
   try {
     const url =
@@ -232,6 +272,17 @@ export async function requestBackInStockNotification(input: {
   })
   if (!send.ok) {
     console.error("[back-in-stock] Postmark send failed", send.message)
+    await emitBackInStockCaptureFailureAlert({
+      stage: "confirmation_email",
+      error: send.message || send.errorCode || "Postmark send failed",
+      medusaProductId: input.medusaProductId,
+      medusaVariantId: input.medusaVariantId,
+      productHandle: input.productHandle,
+      sku: input.sku,
+      source: input.source ?? "pdp",
+      waitlistReason: input.waitlistReason || "out_of_stock",
+      strapiId: persisted.documentId ?? persisted.id ?? null,
+    })
   }
 
   await trackCommunicationEvent({

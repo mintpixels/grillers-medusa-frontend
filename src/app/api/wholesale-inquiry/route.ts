@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { emitWholesaleInquiryFailureAlert } from "@lib/customer-demand-ops-alerts"
 
 type WholesaleInquiry = {
   name?: string
@@ -87,6 +88,17 @@ export async function POST(req: NextRequest) {
   const to = process.env.WHOLESALE_INQUIRY_TO
 
   if (!token || !from || !to) {
+    const missingEnv = [
+      !token ? "POSTMARK_API_TOKEN" : null,
+      !from ? "POSTMARK_FROM" : null,
+      !to ? "WHOLESALE_INQUIRY_TO" : null,
+    ].filter(Boolean) as string[]
+
+    await emitWholesaleInquiryFailureAlert({
+      stage: "configuration",
+      missingEnv,
+    })
+
     return NextResponse.json(
       {
         error:
@@ -186,6 +198,14 @@ export async function POST(req: NextRequest) {
         res.status,
         detail.slice(0, 500)
       )
+      await emitWholesaleInquiryFailureAlert({
+        stage: "postmark_response",
+        status: res.status,
+        statusText: res.statusText,
+        error: detail,
+        operationType,
+        sourceUrlPresent: Boolean(sourceUrl),
+      })
       return NextResponse.json(
         {
           error:
@@ -198,6 +218,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true })
   } catch (err) {
     console.error("[wholesale-inquiry] transport error:", err)
+    await emitWholesaleInquiryFailureAlert({
+      stage: "transport",
+      error: err,
+      operationType,
+      sourceUrlPresent: Boolean(sourceUrl),
+    })
     return NextResponse.json(
       {
         error:
