@@ -650,6 +650,30 @@ async function emitDuplicateGuardFailureAlert(input: {
   })
 }
 
+async function emitProductSearchAvailabilityFailureAlert(input: {
+  resultCount: number
+  fulfillmentType?: StaffPrepareOrderInput["fulfillmentType"]
+  scheduledDate?: string
+  error: unknown
+}) {
+  await emitStorefrontOpsAlert({
+    alertKind: "staff_product_search_availability_failed",
+    severity: "warn",
+    title: "Staff product search availability check failed",
+    path: "src/lib/data/staff/order-entry.ts",
+    source: "medusa-server",
+    fingerprint: "staff_phone_order:product_search_availability_failed",
+    meta: {
+      staff_module: "phone_order",
+      action: "product_search",
+      result_count: input.resultCount,
+      fulfillment_type: input.fulfillmentType || "plant_pickup",
+      scheduled_date_provided: Boolean(input.scheduledDate),
+      error_message: staffOrderEntryErrorMessage(input.error).slice(0, 300),
+    },
+  })
+}
+
 function duplicateReasonsForCustomer({
   customer,
   email,
@@ -1706,6 +1730,12 @@ export async function searchStaffProducts(
       "[staff-phone-order] inventory search availability failed",
       err
     )
+    void emitProductSearchAvailabilityFailureAlert({
+      resultCount: results.length,
+      fulfillmentType: availabilityContext.fulfillmentType,
+      scheduledDate: availabilityContext.scheduledDate,
+      error: err,
+    })
     return null
   })
   const byVariant = new Map(
