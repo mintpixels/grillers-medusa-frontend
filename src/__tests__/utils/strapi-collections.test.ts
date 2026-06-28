@@ -16,12 +16,17 @@ import {
 } from "@lib/data/strapi/collections"
 
 describe("Strapi collection product loaders", () => {
+  const originalEnv = process.env
+
   beforeEach(() => {
     jest.spyOn(console, "error").mockImplementation(() => {})
+    jest.clearAllMocks()
+    process.env = { ...originalEnv }
   })
 
   afterEach(() => {
     jest.restoreAllMocks()
+    process.env = originalEnv
   })
 
   it("falls back to the legacy collection query when the primary collection query fails", async () => {
@@ -87,8 +92,9 @@ describe("Strapi collection product loaders", () => {
     const client = {
       request: jest.fn().mockResolvedValue({ products }),
     }
+    const onLoadFailure = jest.fn()
 
-    await expect(getStoreProducts(client)).resolves.toEqual([
+    await expect(getStoreProducts(client, { onLoadFailure })).resolves.toEqual([
       expect.objectContaining({
         Title: "Kosher Chuck Roast",
         MedusaProduct: expect.objectContaining({
@@ -107,6 +113,114 @@ describe("Strapi collection product loaders", () => {
       limit: 1000,
       start: 0,
     })
+    expect(onLoadFailure).not.toHaveBeenCalled()
+  })
+
+  it("alerts when the store catalog primary query fails but the legacy query recovers", async () => {
+    const products = [
+      {
+        documentId: "doc_legacy",
+        Title: "Kosher Legacy Roast",
+        FeaturedImage: { url: "https://example.com/legacy-roast.jpg" },
+        MedusaProduct: {
+          ProductId: "prod_legacy",
+          Handle: "kosher-legacy-roast",
+          ShortDescription: "Legacy query recovered.",
+          Variants: [
+            {
+              VariantId: "var_legacy",
+              Sku: "1-01-99-1",
+              Price: { CalculatedPriceNumber: 22.99 },
+            },
+          ],
+        },
+      },
+    ]
+    const primaryError = new Error("GraphQL 504")
+    const client = {
+      request: jest
+        .fn()
+        .mockRejectedValueOnce(primaryError)
+        .mockResolvedValueOnce({ products }),
+    }
+    const onLoadFailure = jest.fn()
+
+    await expect(getStoreProducts(client, { onLoadFailure })).resolves.toEqual([
+      expect.objectContaining({ Title: "Kosher Legacy Roast" }),
+    ])
+    expect(onLoadFailure).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stage: "primary",
+        error: primaryError,
+        recovered: true,
+      })
+    )
+  })
+
+  it("alerts when the store catalog primary and legacy queries both fail", async () => {
+    const primaryError = new Error("primary unavailable")
+    const legacyError = new Error("legacy unavailable")
+    const client = {
+      request: jest
+        .fn()
+        .mockRejectedValueOnce(primaryError)
+        .mockRejectedValueOnce(legacyError),
+    }
+    const onLoadFailure = jest.fn()
+
+    await expect(getStoreProducts(client, { onLoadFailure })).resolves.toEqual(
+      []
+    )
+    expect(onLoadFailure).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stage: "legacy",
+        error: legacyError,
+        primaryError,
+        recovered: false,
+      })
+    )
+  })
+
+  it("times out a stalled store catalog query and recovers through the legacy query", async () => {
+    process.env.STRAPI_STORE_CATALOG_TIMEOUT_MS = "5"
+    const products = [
+      {
+        documentId: "doc_timeout",
+        Title: "Kosher Timeout Recovery",
+        FeaturedImage: { url: "https://example.com/timeout.jpg" },
+        MedusaProduct: {
+          ProductId: "prod_timeout",
+          Handle: "kosher-timeout-recovery",
+          ShortDescription: "Timeout fallback.",
+          Variants: [
+            {
+              VariantId: "var_timeout",
+              Sku: "1-00-99-1",
+              Price: { CalculatedPriceNumber: 11.23 },
+            },
+          ],
+        },
+      },
+    ]
+    const never = new Promise(() => {})
+    const client = {
+      request: jest.fn().mockReturnValueOnce(never).mockResolvedValueOnce({
+        products,
+      }),
+    }
+    const onLoadFailure = jest.fn()
+
+    await expect(getStoreProducts(client, { onLoadFailure })).resolves.toEqual([
+      expect.objectContaining({ Title: "Kosher Timeout Recovery" }),
+    ])
+    expect(client.request).toHaveBeenCalledTimes(2)
+    expect(onLoadFailure).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stage: "primary",
+        recovered: true,
+        timeoutMs: 5,
+      })
+    )
   })
 
   it("retries direct Strapi product pagination before rendering an empty catalog", async () => {

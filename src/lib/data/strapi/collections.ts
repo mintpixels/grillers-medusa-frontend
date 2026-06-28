@@ -1048,36 +1048,106 @@ export const GetStoreProductsQuery = gql`
 `
 
 const LegacyGetStoreProductsQuery = legacyProductQuery(GetStoreProductsQuery)
+const DEFAULT_STORE_CATALOG_TIMEOUT_MS = 8_000
+
+export type StoreCatalogLoadFailure = {
+  stage: "primary" | "legacy"
+  error: unknown
+  timeoutMs: number
+  recovered: boolean
+  primaryError?: unknown
+}
+
+type StoreProductsOptions = {
+  onLoadFailure?: (failure: StoreCatalogLoadFailure) => void | Promise<void>
+}
+
+function storeCatalogTimeoutMs() {
+  const value = Number(process.env.STRAPI_STORE_CATALOG_TIMEOUT_MS)
+  return Number.isFinite(value) && value > 0
+    ? value
+    : DEFAULT_STORE_CATALOG_TIMEOUT_MS
+}
+
+function withStoreCatalogTimeout<T>(
+  promise: Promise<T>,
+  stage: "primary" | "legacy",
+  timeoutMs: number
+): Promise<T> {
+  let timeout: ReturnType<typeof setTimeout> | undefined
+
+  const timeoutPromise = new Promise<T>((_, reject) => {
+    timeout = setTimeout(() => {
+      reject(
+        new Error(
+          `Store catalog ${stage} Strapi query timed out after ${timeoutMs}ms`
+        )
+      )
+    }, timeoutMs)
+  })
+
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    if (timeout) clearTimeout(timeout)
+  })
+}
+
+function notifyStoreCatalogFailure(
+  options: StoreProductsOptions | undefined,
+  failure: StoreCatalogLoadFailure
+) {
+  try {
+    void options?.onLoadFailure?.(failure)?.catch(() => {
+      // Fail-open: catalog alerting must never break the storefront.
+    })
+  } catch {
+    // Fail-open: catalog alerting must never break the storefront.
+  }
+}
 
 export async function getStoreProducts(
-  client: any
+  client: any,
+  options: StoreProductsOptions = {}
 ): Promise<StrapiCollectionProduct[]> {
+  const timeoutMs = storeCatalogTimeoutMs()
+  let primaryError: unknown
+
   try {
-    const products = await fetchPaginatedProducts(
-      client,
-      GetStoreProductsQuery,
-      {},
-      1000,
-      1
+    const products = await withStoreCatalogTimeout(
+      fetchPaginatedProducts(client, GetStoreProductsQuery, {}, 1000, 1),
+      "primary",
+      timeoutMs
     )
 
     return compactCollectionProducts(products)
   } catch (error) {
+    primaryError = error
     console.error("Error fetching store products from Strapi:", error)
   }
 
   try {
-    const products = await fetchPaginatedProducts(
-      client,
-      LegacyGetStoreProductsQuery,
-      {},
-      1000,
-      1
+    const products = await withStoreCatalogTimeout(
+      fetchPaginatedProducts(client, LegacyGetStoreProductsQuery, {}, 1000, 1),
+      "legacy",
+      timeoutMs
     )
+
+    notifyStoreCatalogFailure(options, {
+      stage: "primary",
+      error: primaryError,
+      timeoutMs,
+      recovered: true,
+    })
 
     return compactCollectionProducts(products)
   } catch (error) {
     console.error("Error fetching legacy store products from Strapi:", error)
+    notifyStoreCatalogFailure(options, {
+      stage: "legacy",
+      error,
+      timeoutMs,
+      recovered: false,
+      primaryError,
+    })
     return []
   }
 }

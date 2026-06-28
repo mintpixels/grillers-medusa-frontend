@@ -9,6 +9,7 @@ import ExperimentExposure from "@lib/experiments/exposure"
 import { getExperimentAssignment } from "@lib/experiments/server"
 import { itemListJsonLd, webPageJsonLd } from "@lib/util/structured-data"
 import strapiClient from "@lib/strapi"
+import { emitStoreCatalogLoadFailureAlert } from "@lib/store-catalog-ops-alerts"
 
 type Params = {
   params: Promise<{ countryCode: string }>
@@ -36,7 +37,13 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 export default async function StorePage(props: Params) {
   const { countryCode } = await props.params
 
-  const rawProducts = await getStoreProducts(strapiClient)
+  const rawProducts = await getStoreProducts(strapiClient, {
+    onLoadFailure: (failure) => {
+      void emitStoreCatalogLoadFailureAlert(failure).catch(() => {
+        // Fail-open: catalog alerting must never block store rendering.
+      })
+    },
+  })
   // Cards collapse without an image, so require FeaturedImage at minimum
   // (matches the prior Strapi-fetched implementation's filter).
   const visibleProducts = rawProducts.filter((p) => p.FeaturedImage?.url)
