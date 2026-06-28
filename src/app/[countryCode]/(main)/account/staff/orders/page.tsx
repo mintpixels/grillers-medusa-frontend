@@ -27,6 +27,7 @@ import { Metadata } from "next"
 import { notFound, redirect } from "next/navigation"
 
 export const dynamic = "force-dynamic"
+export const maxDuration = 60
 
 export const metadata: Metadata = {
   title: "Staff console | Griller's Pride",
@@ -61,7 +62,7 @@ const STAFF_WORKSPACES = new Set<StaffWorkspace>([
   "merchandising",
 ])
 
-const DEFAULT_MERCHANDISING_PRELOAD_TIMEOUT_MS = 3500
+const DEFAULT_MERCHANDISING_PRELOAD_TIMEOUT_MS = 12000
 
 function merchandisingPreloadTimeoutMs() {
   const configured = Number(process.env.STAFF_MERCHANDISING_PRELOAD_TIMEOUT_MS)

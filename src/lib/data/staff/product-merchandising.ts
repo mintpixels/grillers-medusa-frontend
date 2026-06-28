@@ -2,7 +2,7 @@
 
 import "server-only"
 
-import { revalidatePath } from "next/cache"
+import { revalidatePath, revalidateTag, unstable_cache } from "next/cache"
 import type { HttpTypes } from "@medusajs/types"
 import { retrieveAuthenticatedCustomerForStaffAccess } from "@lib/data/customer"
 import { reportServerSoftFailure } from "@lib/server-soft-failure"
@@ -146,6 +146,9 @@ const GRAPHQL_PAGE_BATCH_SIZE = 5
 const REST_PAGE_BATCH_SIZE = 4
 const STRAPI_READ_RETRY_DELAYS_MS = [250, 750]
 const TAG_SUMMARY_CACHE_MS = 60 * 1000
+const TAG_SUMMARY_NEXT_CACHE_SECONDS = 5 * 60
+const TAG_SUMMARY_NEXT_CACHE_KEY = "staff-merchandising-tag-summary-v2"
+const TAG_SUMMARY_NEXT_CACHE_TAG = "staff-merchandising-tag-summary"
 
 const METADATA_LABELS: Record<string, string> = {
   Brand: "Brand",
@@ -178,6 +181,20 @@ let tagSummaryCache: {
   tags: ProductMerchandisingTagSummary[]
 } | null = null
 let tagSummaryInflight: Promise<ProductMerchandisingTagSummary[]> | null = null
+
+const loadCachedProductMerchandisingTags = unstable_cache(
+  async () => buildProductMerchandisingTags(),
+  [TAG_SUMMARY_NEXT_CACHE_KEY],
+  {
+    revalidate: TAG_SUMMARY_NEXT_CACHE_SECONDS,
+    tags: [TAG_SUMMARY_NEXT_CACHE_TAG],
+  }
+)
+
+function invalidateProductMerchandisingTagSummary() {
+  tagSummaryCache = null
+  revalidateTag(TAG_SUMMARY_NEXT_CACHE_TAG)
+}
 
 function strapiEndpoint() {
   const endpoint = process.env.STRAPI_ENDPOINT?.replace(/\/+$/, "")
@@ -565,8 +582,6 @@ async function writeStrapiUploadCaption(imageId: number, caption: string) {
     }),
   })
 
-  tagSummaryCache = null
-
   const json = await response.json().catch(() => null)
 
   if (!response.ok || json?.errors) {
@@ -575,6 +590,8 @@ async function writeStrapiUploadCaption(imageId: number, caption: string) {
       `Strapi image review write failed: ${message || response.status}`
     )
   }
+
+  invalidateProductMerchandisingTagSummary()
 }
 
 function staffIdentity(staff: Awaited<ReturnType<typeof requireStaffCustomer>>) {
@@ -907,7 +924,7 @@ export async function getProductMerchandisingTagsForStaff(
   }
   if (tagSummaryInflight) return tagSummaryInflight
 
-  tagSummaryInflight = buildProductMerchandisingTags()
+  tagSummaryInflight = loadCachedProductMerchandisingTags()
 
   try {
     const tags = await tagSummaryInflight
@@ -916,6 +933,15 @@ export async function getProductMerchandisingTagsForStaff(
       tags,
     }
     return tags
+  } catch (error) {
+    if (tagSummaryCache) {
+      reportServerSoftFailure("staff-merchandising-tags-stale-cache", error, {
+        fallback: "module-cache",
+        cachedAgeMs: Date.now() - tagSummaryCache.timestamp,
+      })
+      return tagSummaryCache.tags
+    }
+    throw error
   } finally {
     tagSummaryInflight = null
   }

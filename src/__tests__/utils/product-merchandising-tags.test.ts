@@ -1,4 +1,6 @@
 const mockRetrieveAuthenticatedCustomerForStaffAccess = jest.fn()
+const mockRevalidateTag = jest.fn()
+const mockUnstableCache = jest.fn((fn) => fn)
 
 jest.mock("@lib/data/customer", () => ({
   retrieveAuthenticatedCustomerForStaffAccess:
@@ -7,6 +9,8 @@ jest.mock("@lib/data/customer", () => ({
 
 jest.mock("next/cache", () => ({
   revalidatePath: jest.fn(),
+  revalidateTag: mockRevalidateTag,
+  unstable_cache: mockUnstableCache,
 }))
 
 jest.mock("@lib/server-soft-failure", () => ({
@@ -134,6 +138,15 @@ describe("getProductMerchandisingTags", () => {
       "@lib/data/staff/product-merchandising"
     )
 
+    expect(mockUnstableCache).toHaveBeenCalledWith(
+      expect.any(Function),
+      ["staff-merchandising-tag-summary-v2"],
+      expect.objectContaining({
+        revalidate: 300,
+        tags: ["staff-merchandising-tag-summary"],
+      })
+    )
+
     const tags = await getProductMerchandisingTags()
     const brisket = tags.find((tag) => tag.name === "L3: Brisket")
     const salami = tags.find((tag) => tag.name === "L3: Salami")
@@ -235,6 +248,56 @@ describe("getProductMerchandisingTags", () => {
         imageCount: 2,
         reviewedImageCount: 0,
       })
+    )
+  })
+
+  it("invalidates the shared tag summary cache after a successful image review write", async () => {
+    const latestCaption = reviewCaption({
+      review: { status: "unreviewed" },
+      auditHistory: [],
+    })
+    const fetchMock = jest.fn(async (url: string, init?: RequestInit) => {
+      if (String(url).includes("/api/upload/files?")) {
+        return {
+          ok: true,
+          json: async () => [
+            {
+              id: 123,
+              documentId: "image-123",
+              url: "/uploads/image-123.jpg",
+              caption: latestCaption,
+            },
+          ],
+        } as unknown as Response
+      }
+
+      if (String(url).endsWith("/api/upload?id=123")) {
+        expect(init?.method).toBe("POST")
+        return {
+          ok: true,
+          json: async () => ({}),
+        } as unknown as Response
+      }
+
+      throw new Error(`Unexpected fetch ${url}`)
+    })
+    global.fetch = fetchMock as unknown as typeof fetch
+
+    const { reviewMerchandisingImage } = await import(
+      "@lib/data/staff/product-merchandising"
+    )
+
+    const result = await reviewMerchandisingImage({
+      imageId: 123,
+      imageDocumentId: "image-123",
+      countryCode: "us",
+      status: "approved",
+      currentCaption: latestCaption,
+    })
+
+    expect(result.ok).toBe(true)
+    expect(mockRevalidateTag).toHaveBeenCalledWith(
+      "staff-merchandising-tag-summary"
     )
   })
 })
