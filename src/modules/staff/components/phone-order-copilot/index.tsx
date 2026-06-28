@@ -353,6 +353,10 @@ export default function PhoneOrderCopilot({
     StaffCustomerSummary[]
   >([])
   const [isCustomerSearchPending, setIsCustomerSearchPending] = useState(false)
+  const [lastCustomerSearchQuery, setLastCustomerSearchQuery] = useState("")
+  const [customerSearchError, setCustomerSearchError] = useState<string | null>(
+    null
+  )
   const customerSearchRequestId = useRef(0)
   const [selectedContext, setSelectedContext] =
     useState<StaffCustomerContext | null>(null)
@@ -490,6 +494,11 @@ export default function PhoneOrderCopilot({
     setDraftCustomer((current) => ({ ...current, ...patch }))
   }
 
+  function updateCustomerQuery(value: string) {
+    setCustomerQuery(value)
+    if (customerSearchError) setCustomerSearchError(null)
+  }
+
   function updateShippingAddress(patch: Partial<StaffAddressInput>) {
     setShippingAddress((current) => ({ ...current, ...patch }))
   }
@@ -526,6 +535,8 @@ export default function PhoneOrderCopilot({
     setCustomerQuery("")
     setCustomerResults([])
     setIsCustomerSearchPending(false)
+    setLastCustomerSearchQuery("")
+    setCustomerSearchError(null)
   }
 
   async function activateCustomerContext(target: {
@@ -552,20 +563,32 @@ export default function PhoneOrderCopilot({
   }
 
   async function runCustomerSearch() {
+    const query = customerQuery.trim()
     const requestId = customerSearchRequestId.current + 1
     customerSearchRequestId.current = requestId
     setError(null)
     setStatus(null)
+    setCustomerSearchError(null)
+    setLastCustomerSearchQuery(query)
+    setCustomerResults([])
+
+    if (query.length < 2) {
+      setCustomerSearchError("Enter at least 2 characters to search customers.")
+      setIsCustomerSearchPending(false)
+      return
+    }
+
     setIsCustomerSearchPending(true)
 
     try {
-      const results = await searchStaffCustomers(customerQuery)
+      const results = await searchStaffCustomers(query)
       if (customerSearchRequestId.current !== requestId) return
       setCustomerResults(results)
-      if (!results.length) setStatus("No matching customers found.")
     } catch (err) {
       if (customerSearchRequestId.current !== requestId) return
-      setError(err instanceof Error ? err.message : String(err))
+      const message = err instanceof Error ? err.message : String(err)
+      setCustomerSearchError(message)
+      setError(message)
     } finally {
       if (customerSearchRequestId.current === requestId) {
         setIsCustomerSearchPending(false)
@@ -578,6 +601,7 @@ export default function PhoneOrderCopilot({
     options: { preserveStatus?: boolean; workspace?: StaffWorkspace } = {}
   ) {
     setError(null)
+    setCustomerSearchError(null)
     if (!options.preserveStatus) setStatus(null)
     selectWorkspace(options.workspace || "phone_order")
     setShowNewCustomerForm(false)
@@ -620,6 +644,47 @@ export default function PhoneOrderCopilot({
         setError(err instanceof Error ? err.message : String(err))
       }
     })
+  }
+
+  function renderCustomerSearchFeedback(className = "mt-4") {
+    if (isCustomerSearchPending) {
+      return (
+        <p
+          className={`${className} rounded-md border border-gray-200 bg-SilverPlate/35 px-3 py-3 text-sm font-maison-neue text-Charcoal/60`}
+          role="status"
+        >
+          Searching customer records...
+        </p>
+      )
+    }
+
+    if (customerSearchError) {
+      return (
+        <p
+          className={`${className} rounded-md border border-red-200 bg-red-50 px-3 py-3 text-sm font-maison-neue text-red-700`}
+          role="alert"
+        >
+          {customerSearchError}
+        </p>
+      )
+    }
+
+    const hasFreshEmptySearch =
+      lastCustomerSearchQuery &&
+      customerQuery.trim() === lastCustomerSearchQuery &&
+      customerResults.length === 0
+
+    if (!hasFreshEmptySearch) return null
+
+    return (
+      <p
+        className={`${className} rounded-md border border-gray-200 bg-SilverPlate/35 px-3 py-3 text-sm font-maison-neue text-Charcoal/60`}
+        role="status"
+      >
+        No customers found for "{lastCustomerSearchQuery}". Try an email, phone
+        number, or order number.
+      </p>
+    )
   }
 
   function createCustomer() {
@@ -1440,7 +1505,7 @@ export default function PhoneOrderCopilot({
               <input
                 className={fieldClass()}
                 value={customerQuery}
-                onChange={(event) => setCustomerQuery(event.target.value)}
+                onChange={(event) => updateCustomerQuery(event.target.value)}
                 onKeyDown={(event) => {
                   if (event.key === "Enter") runCustomerSearch()
                 }}
@@ -1457,6 +1522,8 @@ export default function PhoneOrderCopilot({
               Search
             </Button>
           </div>
+
+          {renderCustomerSearchFeedback()}
 
           {customerResults.length > 0 && (
             <div className="mt-5 divide-y rounded-md border border-gray-100">
@@ -1656,7 +1723,9 @@ export default function PhoneOrderCopilot({
                     <input
                       className={fieldClass()}
                       value={customerQuery}
-                      onChange={(event) => setCustomerQuery(event.target.value)}
+                      onChange={(event) =>
+                        updateCustomerQuery(event.target.value)
+                      }
                       onKeyDown={(event) => {
                         if (event.key === "Enter") runCustomerSearch()
                       }}
@@ -1673,6 +1742,8 @@ export default function PhoneOrderCopilot({
                     Search
                   </Button>
                 </div>
+
+                {renderCustomerSearchFeedback()}
 
                 {showNewCustomerForm && !draftCustomer.id && (
                   <div className="mt-5 rounded-md border border-gray-200 bg-SilverPlate/25 p-4">
@@ -1934,7 +2005,7 @@ export default function PhoneOrderCopilot({
                         className={fieldClass()}
                         value={customerQuery}
                         onChange={(event) =>
-                          setCustomerQuery(event.target.value)
+                          updateCustomerQuery(event.target.value)
                         }
                         onKeyDown={(event) => {
                           if (event.key === "Enter") runCustomerSearch()
@@ -1951,6 +2022,8 @@ export default function PhoneOrderCopilot({
                       Search
                     </Button>
                   </div>
+
+                  {renderCustomerSearchFeedback("mt-4 mb-5")}
 
                   {customerResults.length > 0 && (
                     <div className="mb-5 divide-y rounded-md border border-gray-100">

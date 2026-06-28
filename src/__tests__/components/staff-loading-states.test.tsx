@@ -176,6 +176,61 @@ describe("staff loading states", () => {
     expect(searchButton).toHaveAttribute("aria-busy", "false")
   })
 
+  it("shows customer account search no-match feedback in the lookup panel", async () => {
+    const user = userEvent.setup()
+    mockedSearchStaffCustomers.mockResolvedValue([])
+
+    render(
+      <PhoneOrderCopilot
+        countryCode="us"
+        initialImpersonation={null}
+        initialWorkspace="customer_account"
+        staffCustomer={superAdminCustomer}
+      />
+    )
+
+    await user.type(visibleCustomerSearch(), "missing@example.com")
+    await user.click(screen.getByRole("button", { name: "Search" }))
+
+    expect(mockedSearchStaffCustomers).toHaveBeenCalledWith(
+      "missing@example.com"
+    )
+    expect(
+      await screen.findByText(
+        'No customers found for "missing@example.com". Try an email, phone number, or order number.'
+      )
+    ).toBeInTheDocument()
+
+    const searchButton = screen.getByRole("button", { name: "Search" })
+    expect(searchButton).not.toBeDisabled()
+    expect(searchButton).toHaveAttribute("aria-busy", "false")
+  })
+
+  it("keeps short customer account searches local instead of submitting a blank lookup", async () => {
+    const user = userEvent.setup()
+
+    render(
+      <PhoneOrderCopilot
+        countryCode="us"
+        initialImpersonation={null}
+        initialWorkspace="customer_account"
+        staffCustomer={superAdminCustomer}
+      />
+    )
+
+    await user.type(visibleCustomerSearch(), "p")
+    await user.click(screen.getByRole("button", { name: "Search" }))
+
+    expect(mockedSearchStaffCustomers).not.toHaveBeenCalled()
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Enter at least 2 characters to search customers."
+    )
+
+    const searchButton = screen.getByRole("button", { name: "Search" })
+    expect(searchButton).not.toBeDisabled()
+    expect(searchButton).toHaveAttribute("aria-busy", "false")
+  })
+
   it("starts account actions with a clean customer lookup", async () => {
     const user = userEvent.setup()
     mockedSearchStaffCustomers.mockResolvedValue([greenbergCustomer])
