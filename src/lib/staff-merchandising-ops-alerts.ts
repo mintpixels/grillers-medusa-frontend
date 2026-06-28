@@ -22,6 +22,17 @@ type StaffMerchandisingActionFailureInput = {
   error: unknown
 }
 
+type StaffMerchandisingReviewTelemetryInput = {
+  event: "saved" | "conflict"
+  imageId?: number | null
+  imageDocumentId?: string | null
+  countryCode?: string | null
+  status?: string | null
+  previousStatus?: string | null
+  conflictReason?: string | null
+  overwriteExistingReview?: boolean | null
+}
+
 type StaffMerchandisingPreloadFailureInput = {
   countryCode?: string | null
   error: unknown
@@ -144,6 +155,46 @@ export async function emitStaffMerchandisingActionFailureAlert({
       country_code: countryCode || null,
       requested_status: status || null,
       error_message: message.slice(0, 300),
+    },
+  })
+}
+
+export async function emitStaffMerchandisingReviewTelemetry({
+  event,
+  imageId,
+  imageDocumentId,
+  countryCode,
+  status,
+  previousStatus,
+  conflictReason,
+  overwriteExistingReview,
+}: StaffMerchandisingReviewTelemetryInput) {
+  const isConflict = event === "conflict"
+  const alertKind = isConflict
+    ? "staff_merchandising_review_conflict"
+    : "staff_merchandising_review_saved"
+
+  await emitStorefrontOpsAlert({
+    alertKind,
+    severity: isConflict ? "warn" : "info",
+    title: isConflict
+      ? "Staff merchandising review conflict"
+      : "Staff merchandising image review saved",
+    path: "src/lib/data/staff/product-merchandising.ts",
+    source: "medusa-server",
+    fingerprint: `staff_merchandising:review:${event}:${
+      conflictReason || status || "unknown"
+    }`,
+    meta: {
+      staff_module: "merchandising",
+      action: "review",
+      image_id: imageId || null,
+      image_document_id: imageDocumentId || null,
+      country_code: countryCode || null,
+      requested_status: status || null,
+      previous_status: previousStatus || null,
+      conflict_reason: conflictReason || null,
+      overwrite_existing_review: Boolean(overwriteExistingReview),
     },
   })
 }

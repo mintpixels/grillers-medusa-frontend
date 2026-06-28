@@ -6,7 +6,10 @@ import { revalidatePath, unstable_cache } from "next/cache"
 import type { HttpTypes } from "@medusajs/types"
 import { retrieveAuthenticatedCustomerForStaffAccess } from "@lib/data/customer"
 import { reportServerSoftFailure } from "@lib/server-soft-failure"
-import { emitStaffMerchandisingActionFailureAlert } from "@lib/staff-merchandising-ops-alerts"
+import {
+  emitStaffMerchandisingActionFailureAlert,
+  emitStaffMerchandisingReviewTelemetry,
+} from "@lib/staff-merchandising-ops-alerts"
 import {
   canReviewMerchandising,
   staffDisplayName,
@@ -1085,9 +1088,22 @@ export async function reviewMerchandisingImage(
     const latestCaption = latest.caption || null
     const parsed = parseReviewCaption(latestCaption)
     const activeClaim = isClaimActive(parsed.claim) ? parsed.claim : undefined
+    const existingReview = parsed.review
+    const hasExistingReview = existingReview.status !== "unreviewed"
     const identity = staffIdentity(staff)
 
     if (activeClaim && !isClaimOwnedBy(activeClaim, staff.email)) {
+      void emitStaffMerchandisingReviewTelemetry({
+        event: "conflict",
+        imageId,
+        imageDocumentId: input.imageDocumentId || latest.documentId,
+        countryCode: input.countryCode,
+        status: input.status,
+        previousStatus: existingReview.status,
+        conflictReason: "claim_owned_by_other",
+        overwriteExistingReview: input.overwriteExistingReview,
+      })
+
       return {
         ok: false,
         conflict: true,
@@ -1097,9 +1113,18 @@ export async function reviewMerchandisingImage(
       }
     }
 
-    const existingReview = parsed.review
-    const hasExistingReview = existingReview.status !== "unreviewed"
     if (hasExistingReview && !input.overwriteExistingReview) {
+      void emitStaffMerchandisingReviewTelemetry({
+        event: "conflict",
+        imageId,
+        imageDocumentId: input.imageDocumentId || latest.documentId,
+        countryCode: input.countryCode,
+        status: input.status,
+        previousStatus: existingReview.status,
+        conflictReason: "existing_review",
+        overwriteExistingReview: input.overwriteExistingReview,
+      })
+
       return {
         ok: false,
         conflict: true,
@@ -1114,6 +1139,19 @@ export async function reviewMerchandisingImage(
       latestCaption !== (input.currentCaption || null) &&
       !input.overwriteExistingReview
     ) {
+      void emitStaffMerchandisingReviewTelemetry({
+        event: "conflict",
+        imageId,
+        imageDocumentId: input.imageDocumentId || latest.documentId,
+        countryCode: input.countryCode,
+        status: input.status,
+        previousStatus: existingReview.status,
+        conflictReason: hasExistingReview
+          ? "caption_changed_with_review"
+          : "caption_changed",
+        overwriteExistingReview: input.overwriteExistingReview,
+      })
+
       return {
         ok: false,
         conflict: true,
@@ -1154,6 +1192,16 @@ export async function reviewMerchandisingImage(
     await writeStrapiUploadCaption(imageId, caption)
 
     revalidatePath(`/${input.countryCode}/account/staff/merchandising`)
+    void emitStaffMerchandisingReviewTelemetry({
+      event: "saved",
+      imageId,
+      imageDocumentId: input.imageDocumentId || latest.documentId,
+      countryCode: input.countryCode,
+      status: input.status,
+      previousStatus: existingReview.status,
+      overwriteExistingReview: input.overwriteExistingReview,
+    })
+
     return {
       ok: true,
       ...actionResultFromCaption(caption),

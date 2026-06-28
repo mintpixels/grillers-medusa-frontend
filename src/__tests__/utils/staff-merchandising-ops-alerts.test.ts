@@ -1,6 +1,7 @@
 import {
   emitStaffMerchandisingPreloadFailureAlert,
   emitStaffMerchandisingActionFailureAlert,
+  emitStaffMerchandisingReviewTelemetry,
   emitSlowStaffMerchandisingDataAlert,
   summarizeMerchandisingTagTelemetry,
 } from "@lib/staff-merchandising-ops-alerts"
@@ -150,6 +151,68 @@ describe("staff merchandising ops alerts", () => {
           country_code: "us",
           requested_status: "approved",
           error_message: "Strapi image review write failed: 403",
+        }),
+      })
+    )
+  })
+
+  it("emits an info event when a merchandising review is saved", async () => {
+    await emitStaffMerchandisingReviewTelemetry({
+      event: "saved",
+      imageId: 123,
+      imageDocumentId: "image-123",
+      countryCode: "us",
+      status: "approved",
+      previousStatus: "unreviewed",
+    })
+
+    expect(emitStorefrontOpsAlertMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        alertKind: "staff_merchandising_review_saved",
+        severity: "info",
+        title: "Staff merchandising image review saved",
+        path: "src/lib/data/staff/product-merchandising.ts",
+        fingerprint: "staff_merchandising:review:saved:approved",
+        meta: expect.objectContaining({
+          staff_module: "merchandising",
+          action: "review",
+          image_id: 123,
+          image_document_id: "image-123",
+          country_code: "us",
+          requested_status: "approved",
+          previous_status: "unreviewed",
+          conflict_reason: null,
+        }),
+      })
+    )
+  })
+
+  it("emits a warn event when a merchandising review conflicts", async () => {
+    await emitStaffMerchandisingReviewTelemetry({
+      event: "conflict",
+      imageId: 123,
+      imageDocumentId: "image-123",
+      countryCode: "us",
+      status: "rejected",
+      previousStatus: "approved",
+      conflictReason: "existing_review",
+    })
+
+    expect(emitStorefrontOpsAlertMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        alertKind: "staff_merchandising_review_conflict",
+        severity: "warn",
+        title: "Staff merchandising review conflict",
+        fingerprint: "staff_merchandising:review:conflict:existing_review",
+        meta: expect.objectContaining({
+          staff_module: "merchandising",
+          action: "review",
+          image_id: 123,
+          image_document_id: "image-123",
+          country_code: "us",
+          requested_status: "rejected",
+          previous_status: "approved",
+          conflict_reason: "existing_review",
         }),
       })
     )

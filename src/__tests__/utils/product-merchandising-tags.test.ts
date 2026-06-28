@@ -2,6 +2,7 @@ const mockRetrieveAuthenticatedCustomerForStaffAccess = jest.fn()
 const mockRevalidateTag = jest.fn()
 const mockUnstableCache = jest.fn((fn) => fn)
 const mockEmitStaffMerchandisingActionFailureAlert = jest.fn()
+const mockEmitStaffMerchandisingReviewTelemetry = jest.fn()
 const mockReportServerSoftFailure = jest.fn()
 
 jest.mock("@lib/data/customer", () => ({
@@ -22,6 +23,8 @@ jest.mock("@lib/server-soft-failure", () => ({
 jest.mock("@lib/staff-merchandising-ops-alerts", () => ({
   emitStaffMerchandisingActionFailureAlert:
     mockEmitStaffMerchandisingActionFailureAlert,
+  emitStaffMerchandisingReviewTelemetry:
+    mockEmitStaffMerchandisingReviewTelemetry,
 }))
 
 function reviewCaption(payload: Record<string, unknown>) {
@@ -46,6 +49,7 @@ describe("getProductMerchandisingTags", () => {
     jest.resetModules()
     jest.clearAllMocks()
     mockEmitStaffMerchandisingActionFailureAlert.mockResolvedValue(undefined)
+    mockEmitStaffMerchandisingReviewTelemetry.mockResolvedValue(undefined)
     mockReportServerSoftFailure.mockClear()
     process.env = {
       ...originalEnv,
