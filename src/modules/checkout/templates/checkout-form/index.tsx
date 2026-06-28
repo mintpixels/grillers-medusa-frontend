@@ -1,4 +1,5 @@
 import { listCartShippingMethods } from "@lib/data/fulfillment"
+import { emitCheckoutFulfillmentInvariantAlerts } from "@lib/checkout-fulfillment-invariants"
 import {
   getSavedPaymentMethods,
   listCartPaymentMethods,
@@ -69,6 +70,13 @@ export default async function CheckoutForm({
   )
   const hasShippingMethod = (cart.shipping_methods?.length ?? 0) > 0
 
+  void emitCheckoutFulfillmentInvariantAlerts({
+    cart,
+    atlantaZipCodes: fulfillmentConfig.AtlantaDeliveryZipCodes,
+  }).catch(() => {
+    // Fail-open: observability must never block checkout rendering.
+  })
+
   return (
     <div className="w-full grid grid-cols-1 gap-y-6">
       <CheckoutLoginBanner customer={customer} />
@@ -118,9 +126,8 @@ export default async function CheckoutForm({
                   availablePaymentMethods={paymentMethods}
                   savedPaymentMethods={savedPaymentMethods}
                   invoiceApproved={
-                    (customer?.metadata as
-                      | Record<string, unknown>
-                      | undefined)?.gp_offline_payment_approved === true
+                    (customer?.metadata as Record<string, unknown> | undefined)
+                      ?.gp_offline_payment_approved === true
                   }
                 />
               )}
