@@ -5,7 +5,7 @@ import { toast } from "@medusajs/ui"
 import { addMultipleToCart } from "@lib/data/cart"
 import { jitsuTrack } from "@lib/jitsu"
 import { experimentCartMetadata } from "@lib/experiments/client-context"
-import { reportClientOpsAlert } from "@lib/client-ops-alert"
+import { reportClientOpsAlert as reportClientCartActionFailure } from "@lib/client-ops-alert"
 import { dispatchCartUpdated } from "@lib/util/cart-events"
 import { reportClientOpsAlert } from "@lib/client-error-reporter"
 
@@ -108,7 +108,7 @@ export default function AddBundleButton({
         dispatchCartUpdated({ action: "bundle-add", quantity: addedQuantity })
       }
       console.error("Failed to add bundle:", error)
-      reportClientOpsAlert({
+      reportClientCartActionFailure({
         alertKind: "client_cart_mutation_failed",
         title: "Storefront client cart mutation failed",
         surface: "pdp_pairs_well_with_bundle",
