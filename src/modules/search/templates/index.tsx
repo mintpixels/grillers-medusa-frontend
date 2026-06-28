@@ -7,6 +7,7 @@ import {
   InstantSearch,
   Configure,
   useHits,
+  useInstantSearch,
   useSearchBox,
 } from "react-instantsearch"
 import { searchLiteClient } from "@lib/algolia"
@@ -95,7 +96,20 @@ function EmptyResults({
   )
 }
 
-function SearchBody({
+function LoadingResults({ query }: { query: string }) {
+  return (
+    <div className="py-16 text-center" role="status" aria-live="polite">
+      <h2 className="text-h3-mobile md:text-h3 font-gyst text-Charcoal mb-3">
+        Searching for &ldquo;{query}&rdquo;
+      </h2>
+      <p className="text-p-md text-Charcoal/70 max-w-lg mx-auto">
+        Checking the live product catalog.
+      </p>
+    </div>
+  )
+}
+
+export function SearchBody({
   initialQuery,
   countryCode,
 }: {
@@ -104,6 +118,7 @@ function SearchBody({
 }) {
   const { items } = useHits<any>()
   const { query: liveQuery } = useSearchBox()
+  const { status } = useInstantSearch()
   // hitToProduct returns null for stub hits the upstream plugin writes when
   // its transformer returns null/async (#115). Filter them so the grid
   // doesn't render ghost cards.
@@ -274,7 +289,27 @@ function SearchBody({
   }, [displayQuery, rankedProducts.length])
 
   const showFilters = productsHaveFilters(rankedProductsWithDisclosures)
-  const isEmpty = displayQuery.length > 0 && rankedProducts.length === 0
+  const isWaitingForResults =
+    displayQuery.length > 0 &&
+    rankedProducts.length === 0 &&
+    (status === "loading" || status === "stalled")
+  const isEmpty =
+    displayQuery.length > 0 &&
+    rankedProducts.length === 0 &&
+    status === "idle"
+
+  if (isWaitingForResults) {
+    return (
+      <>
+        <div className="flex items-baseline justify-between mb-6 gap-4 flex-wrap">
+          <h1 className="text-h2-mobile md:text-h2 font-gyst text-Charcoal">
+            Search
+          </h1>
+        </div>
+        <LoadingResults query={displayQuery} />
+      </>
+    )
+  }
 
   if (isEmpty) {
     return (
