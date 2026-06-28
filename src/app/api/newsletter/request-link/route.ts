@@ -1,4 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
+import {
+  emitNewsletterProxyFailureAlert,
+  missingNewsletterProxyEnv,
+  shouldAlertNewsletterProxyStatus,
+} from "@lib/newsletter-ops-alerts"
+
+const ALERT_PATH = "src/app/api/newsletter/request-link/route.ts"
 
 /**
  * Server-side proxy that asks the Railway newsletter service to email a
@@ -11,6 +18,12 @@ export async function POST(req: NextRequest) {
   const url = process.env.NEWSLETTER_SERVICE_URL
   const key = process.env.NEWSLETTER_API_KEY
   if (!url || !key) {
+    await emitNewsletterProxyFailureAlert({
+      flow: "request_preferences_link",
+      stage: "configuration",
+      path: ALERT_PATH,
+      missingEnv: missingNewsletterProxyEnv(),
+    })
     console.error(
       "[newsletter] request-link proxy misconfigured — NEWSLETTER_SERVICE_URL/NEWSLETTER_API_KEY missing",
     )
@@ -36,9 +49,24 @@ export async function POST(req: NextRequest) {
       cache: "no-store",
     })
     const data = await r.json().catch(() => ({}))
+    if (shouldAlertNewsletterProxyStatus(r.status)) {
+      await emitNewsletterProxyFailureAlert({
+        flow: "request_preferences_link",
+        stage: "upstream_response",
+        path: ALERT_PATH,
+        status: r.status,
+        statusText: r.statusText,
+      })
+    }
     return NextResponse.json(data, { status: r.status })
   } catch (err) {
     console.error("[newsletter] request-link proxy error:", err)
+    await emitNewsletterProxyFailureAlert({
+      flow: "request_preferences_link",
+      stage: "transport",
+      path: ALERT_PATH,
+      error: err,
+    })
     // Still 202 — never leak service-availability through this surface.
     return NextResponse.json({ ok: true }, { status: 202 })
   }

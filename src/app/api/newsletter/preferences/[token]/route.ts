@@ -1,4 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
+import {
+  emitNewsletterProxyFailureAlert,
+  missingNewsletterProxyEnv,
+  shouldAlertNewsletterProxyStatus,
+} from "@lib/newsletter-ops-alerts"
+
+const ALERT_PATH = "src/app/api/newsletter/preferences/[token]/route.ts"
 
 /**
  * Server-side proxy for preferences GET/PATCH against the Railway-hosted
@@ -18,6 +25,12 @@ function svc() {
 export async function GET(_req: NextRequest, ctx: Ctx) {
   const cfg = svc()
   if (!cfg) {
+    await emitNewsletterProxyFailureAlert({
+      flow: "preferences_get",
+      stage: "configuration",
+      path: ALERT_PATH,
+      missingEnv: missingNewsletterProxyEnv(),
+    })
     return NextResponse.json({ error: "newsletter_unavailable" }, { status: 503 })
   }
   const { token } = await ctx.params
@@ -27,9 +40,24 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
       cache: "no-store",
     })
     const data = await r.json().catch(() => ({}))
+    if (shouldAlertNewsletterProxyStatus(r.status)) {
+      await emitNewsletterProxyFailureAlert({
+        flow: "preferences_get",
+        stage: "upstream_response",
+        path: ALERT_PATH,
+        status: r.status,
+        statusText: r.statusText,
+      })
+    }
     return NextResponse.json(data, { status: r.status })
   } catch (err) {
     console.error("[newsletter] preferences GET proxy error:", err)
+    await emitNewsletterProxyFailureAlert({
+      flow: "preferences_get",
+      stage: "transport",
+      path: ALERT_PATH,
+      error: err,
+    })
     return NextResponse.json({ error: "newsletter_unreachable" }, { status: 502 })
   }
 }
@@ -37,6 +65,12 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
 export async function PATCH(req: NextRequest, ctx: Ctx) {
   const cfg = svc()
   if (!cfg) {
+    await emitNewsletterProxyFailureAlert({
+      flow: "preferences_patch",
+      stage: "configuration",
+      path: ALERT_PATH,
+      missingEnv: missingNewsletterProxyEnv(),
+    })
     return NextResponse.json({ error: "newsletter_unavailable" }, { status: 503 })
   }
   const { token } = await ctx.params
@@ -63,9 +97,24 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
       cache: "no-store",
     })
     const data = await r.json().catch(() => ({}))
+    if (shouldAlertNewsletterProxyStatus(r.status)) {
+      await emitNewsletterProxyFailureAlert({
+        flow: "preferences_patch",
+        stage: "upstream_response",
+        path: ALERT_PATH,
+        status: r.status,
+        statusText: r.statusText,
+      })
+    }
     return NextResponse.json(data, { status: r.status })
   } catch (err) {
     console.error("[newsletter] preferences PATCH proxy error:", err)
+    await emitNewsletterProxyFailureAlert({
+      flow: "preferences_patch",
+      stage: "transport",
+      path: ALERT_PATH,
+      error: err,
+    })
     return NextResponse.json({ error: "newsletter_unreachable" }, { status: 502 })
   }
 }

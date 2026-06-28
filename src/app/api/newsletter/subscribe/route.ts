@@ -1,4 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
+import {
+  emitNewsletterProxyFailureAlert,
+  missingNewsletterProxyEnv,
+  shouldAlertNewsletterProxyStatus,
+} from "@lib/newsletter-ops-alerts"
+
+const ALERT_PATH = "src/app/api/newsletter/subscribe/route.ts"
 
 /**
  * Server-side proxy to the Railway-hosted newsletter service.
@@ -15,6 +22,12 @@ export async function POST(req: NextRequest) {
   const url = process.env.NEWSLETTER_SERVICE_URL
   const key = process.env.NEWSLETTER_API_KEY
   if (!url || !key) {
+    await emitNewsletterProxyFailureAlert({
+      flow: "subscribe",
+      stage: "configuration",
+      path: ALERT_PATH,
+      missingEnv: missingNewsletterProxyEnv(),
+    })
     console.error(
       "[newsletter] proxy misconfigured — NEWSLETTER_SERVICE_URL/NEWSLETTER_API_KEY missing",
     )
@@ -51,9 +64,24 @@ export async function POST(req: NextRequest) {
       cache: "no-store",
     })
     const data = await r.json().catch(() => ({}))
+    if (shouldAlertNewsletterProxyStatus(r.status)) {
+      await emitNewsletterProxyFailureAlert({
+        flow: "subscribe",
+        stage: "upstream_response",
+        path: ALERT_PATH,
+        status: r.status,
+        statusText: r.statusText,
+      })
+    }
     return NextResponse.json(data, { status: r.status })
   } catch (err) {
     console.error("[newsletter] subscribe proxy error:", err)
+    await emitNewsletterProxyFailureAlert({
+      flow: "subscribe",
+      stage: "transport",
+      path: ALERT_PATH,
+      error: err,
+    })
     return NextResponse.json({ error: "newsletter_unreachable" }, { status: 502 })
   }
 }
