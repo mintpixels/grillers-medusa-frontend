@@ -9,6 +9,7 @@ import { getAuthHeaders, getCacheOptions } from "./cookies"
 import { HttpTypes } from "@medusajs/types"
 import { getRegion } from "./regions"
 import { reportServerSoftFailure } from "@lib/server-soft-failure"
+import { emitOrderHistoryDataFailureAlert } from "@lib/order-history-ops-alerts"
 
 export const retrieveOrder = async (id: string) => {
   const active = await getActiveStaffImpersonation()
@@ -531,7 +532,16 @@ async function listLegacyPurchaseHistory(): Promise<PurchaseHistoryItem[]> {
       }
     )
       .then(({ purchase_history }) => purchase_history ?? [])
-      .catch(() => [])
+      .catch((error) => {
+        void emitOrderHistoryDataFailureAlert({
+          stage: "legacy_purchase_history",
+          mode: "staff_impersonation",
+          error,
+        }).catch(() => {
+          // Fail open: reorder history should keep its empty fallback.
+        })
+        return []
+      })
   }
 
   const headers = {
@@ -552,7 +562,16 @@ async function listLegacyPurchaseHistory(): Promise<PurchaseHistoryItem[]> {
       }
     )
     .then(({ purchase_history }) => purchase_history ?? [])
-    .catch(() => [])
+    .catch((error) => {
+      void emitOrderHistoryDataFailureAlert({
+        stage: "legacy_purchase_history",
+        mode: "customer",
+        error,
+      }).catch(() => {
+        // Fail open: reorder history should keep its empty fallback.
+      })
+      return []
+    })
 }
 
 function purchaseHistoryKey(item: PurchaseHistoryItem) {
@@ -616,17 +635,45 @@ export async function listLegacyCustomerOrders(
           offset,
         },
       }
-    ).catch(() => ({ orders: [], count: 0, limit, offset }))
+    ).catch((error) => {
+      void emitOrderHistoryDataFailureAlert({
+        stage: "legacy_customer_orders",
+        mode: "staff_impersonation",
+        limit,
+        offset,
+        error,
+      }).catch(() => {
+        // Fail open: account order history should keep its empty fallback.
+      })
+      return { orders: [], count: 0, limit, offset }
+    })
 
+    let detailFailureCount = 0
+    let firstDetailError: unknown = null
     const detailedOrders = await Promise.all(
       (response.orders || []).map((order) =>
         adminFetch<{ order: LegacyCustomerOrder }>(
           `/admin/legacy-orders/${order.id}`
         )
           .then(({ order: detailed }) => detailed || order)
-          .catch(() => order)
+          .catch((error) => {
+            detailFailureCount += 1
+            firstDetailError ||= error
+            return order
+          })
       )
     )
+
+    if (detailFailureCount > 0) {
+      void emitOrderHistoryDataFailureAlert({
+        stage: "legacy_customer_order_detail",
+        mode: "staff_impersonation",
+        failureCount: detailFailureCount,
+        error: firstDetailError,
+      }).catch(() => {
+        // Fail open: account order history should keep partial legacy rows.
+      })
+    }
 
     return {
       ...response,
@@ -659,7 +706,18 @@ export async function listLegacyCustomerOrders(
       cache: "no-store",
     })
     .then((response) => response)
-    .catch(() => ({ orders: [], count: 0, limit, offset }))
+    .catch((error) => {
+      void emitOrderHistoryDataFailureAlert({
+        stage: "legacy_customer_orders",
+        mode: "customer",
+        limit,
+        offset,
+        error,
+      }).catch(() => {
+        // Fail open: account order history should keep its empty fallback.
+      })
+      return { orders: [], count: 0, limit, offset }
+    })
 }
 
 export async function listAllLegacyCustomerOrders(
@@ -706,7 +764,15 @@ export async function listAllLegacyCustomerOrders(
  */
 export async function listPurchaseHistory(): Promise<PurchaseHistoryItem[]> {
   const [orders, legacyHistory] = await Promise.all([
-    listAllOrders().catch(() => []),
+    listAllOrders().catch((error) => {
+      void emitOrderHistoryDataFailureAlert({
+        stage: "medusa_purchase_history",
+        error,
+      }).catch(() => {
+        // Fail open: reorder history should keep its legacy-only fallback.
+      })
+      return []
+    }),
     listLegacyPurchaseHistory().catch(() => []),
   ])
 
