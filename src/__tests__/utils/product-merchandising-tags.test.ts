@@ -327,7 +327,7 @@ describe("getProductMerchandisingTags", () => {
     dateNowSpy.mockRestore()
   })
 
-  it("invalidates the shared tag summary cache after a successful image review write", async () => {
+  it("keeps the shared tag summary cache warm after a successful image review write", async () => {
     const latestCaption = reviewCaption({
       review: { status: "unreviewed" },
       auditHistory: [],
@@ -372,9 +372,7 @@ describe("getProductMerchandisingTags", () => {
     })
 
     expect(result.ok).toBe(true)
-    expect(mockRevalidateTag).toHaveBeenCalledWith(
-      "staff-merchandising-tag-summary"
-    )
+    expect(mockRevalidateTag).not.toHaveBeenCalled()
   })
 
   it("alerts when a merchandising image review write fails", async () => {

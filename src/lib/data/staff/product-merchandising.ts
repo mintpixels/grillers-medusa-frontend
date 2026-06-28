@@ -2,7 +2,7 @@
 
 import "server-only"
 
-import { revalidatePath, revalidateTag, unstable_cache } from "next/cache"
+import { revalidatePath, unstable_cache } from "next/cache"
 import type { HttpTypes } from "@medusajs/types"
 import { retrieveAuthenticatedCustomerForStaffAccess } from "@lib/data/customer"
 import { reportServerSoftFailure } from "@lib/server-soft-failure"
@@ -193,13 +193,6 @@ const loadCachedProductMerchandisingTags = unstable_cache(
     tags: [TAG_SUMMARY_NEXT_CACHE_TAG],
   }
 )
-
-function invalidateProductMerchandisingTagSummary() {
-  tagSummaryCache = null
-  tagSummaryInflight = null
-  tagSummaryInflightStartedAt = 0
-  revalidateTag(TAG_SUMMARY_NEXT_CACHE_TAG)
-}
 
 function reusableTagSummaryInflight() {
   if (!tagSummaryInflight) return null
@@ -617,7 +610,10 @@ async function writeStrapiUploadCaption(imageId: number, caption: string) {
     )
   }
 
-  invalidateProductMerchandisingTagSummary()
+  // Keep the L3 summary cache warm after annotation writes. The detail page
+  // patches the changed image locally, while the overview summary refreshes on
+  // its short TTL. Purging this cache on every review/claim made active staff
+  // sessions rebuild the full Strapi product summary repeatedly.
 }
 
 function staffIdentity(staff: Awaited<ReturnType<typeof requireStaffCustomer>>) {
