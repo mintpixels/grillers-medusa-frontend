@@ -56,6 +56,47 @@ describe("browser ops alert route helper", () => {
     )
   })
 
+  it("proxies sanitized client add-to-cart failures", async () => {
+    const result = await emitBrowserOpsAlertFromBody(
+      {
+        alert_kind: "client_add_to_cart_failed",
+        title: "Ignored title with raw user text",
+        surface: "Algolia Product Card",
+        action: "Add To Cart",
+        reason: "HTTP 500",
+        status_code: 500,
+        product_id: "prod_123",
+        variant_id: "variant_456",
+        product_handle: "brisket-first-cut",
+        message: "raw exception text should not be forwarded",
+        url: "https://shop.example.com/us/store",
+      },
+      headers
+    )
+
+    expect(result).toEqual({ ok: true, status: 202 })
+    expect(emitStorefrontOpsAlert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        alertKind: "client_add_to_cart_failed",
+        title: "Storefront client add-to-cart failed",
+        path: "browser:add-to-cart",
+        source: "storefront-browser",
+        meta: expect.objectContaining({
+          surface: "algolia_product_card",
+          action: "add_to_cart",
+          reason: "http_500",
+          status_code: 500,
+          product_id: "prod_123",
+          variant_id: "variant_456",
+          product_handle: "brisket-first-cut",
+        }),
+      })
+    )
+    expect((emitStorefrontOpsAlert as jest.Mock).mock.calls[0][0].meta).not.toHaveProperty(
+      "message"
+    )
+  })
+
   it("rejects unknown browser alert kinds", async () => {
     const result = await emitBrowserOpsAlertFromBody(
       { alert_kind: "other" },

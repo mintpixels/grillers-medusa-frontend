@@ -8,6 +8,7 @@ import FormattedPrice from "@modules/common/components/formatted-price"
 import ProductCardCarousel from "@modules/common/components/product-card-carousel"
 import { addToCart } from "@lib/data/cart"
 import { experimentCartMetadata } from "@lib/experiments/client-context"
+import { reportClientOpsAlert } from "@lib/client-ops-alert"
 import { formatProductPriceDisplay } from "@lib/util/price-display"
 import { sanitizeProductCopy } from "@lib/util/product-claims"
 import { dispatchCartUpdated } from "@lib/util/cart-events"
@@ -74,6 +75,16 @@ export const ProductCard = memo(function ProductCard({
       toast.success("Added to cart", { description: product.Title })
     } catch (error) {
       console.error("Failed to add to cart:", error)
+      reportClientOpsAlert({
+        alertKind: "client_add_to_cart_failed",
+        title: "Storefront client add-to-cart failed",
+        surface: "strapi_product_grid",
+        action: "add_to_cart",
+        error,
+        productId: product.MedusaProduct?.ProductId,
+        variantId,
+        productHandle: product.MedusaProduct?.Handle,
+      })
       toast.error("Couldn't add to cart", {
         description: "Please try again in a moment.",
       })

@@ -8,6 +8,7 @@ import { addToCart } from "@lib/data/cart"
 import { experimentCartMetadata } from "@lib/experiments/client-context"
 import { trackAddToCart } from "@lib/gtm"
 import { jitsuTrack } from "@lib/jitsu"
+import { reportClientOpsAlert } from "@lib/client-ops-alert"
 import { formatProductPriceDisplay } from "@lib/util/price-display"
 import { dispatchCartUpdated } from "@lib/util/cart-events"
 import { isVariantPurchasable } from "@lib/util/product-availability"
@@ -24,6 +25,7 @@ const ProductCard = ({ hit }: { hit: StrapiProductData }) => {
     // Get the first variant ID
     const variantId = variant?.VariantId
     if (!variantId || !canAddToCart) return
+    const itemId = hit?.MedusaProduct?.ProductId || hit.objectID
 
     setIsAdding(true)
     try {
@@ -38,7 +40,6 @@ const ProductCard = ({ hit }: { hit: StrapiProductData }) => {
       toast.success("Added to cart", { description: hit.Title })
 
       const price = variant?.Price?.CalculatedPriceNumber
-      const itemId = hit?.MedusaProduct?.ProductId || hit.objectID
       trackAddToCart({ id: itemId, title: hit.Title, price }, 1)
       jitsuTrack("product_added_to_cart", {
         item_id: itemId,
@@ -50,6 +51,16 @@ const ProductCard = ({ hit }: { hit: StrapiProductData }) => {
       })
     } catch (error) {
       console.error("Failed to add to cart:", error)
+      reportClientOpsAlert({
+        alertKind: "client_add_to_cart_failed",
+        title: "Storefront client add-to-cart failed",
+        surface: "algolia_product_card",
+        action: "add_to_cart",
+        error,
+        productId: itemId,
+        variantId,
+        productHandle: hit?.MedusaProduct?.Handle,
+      })
       toast.error("Couldn't add to cart", {
         description: "Please try again in a moment.",
       })

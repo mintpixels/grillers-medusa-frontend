@@ -7,6 +7,7 @@ import { toast } from "@medusajs/ui"
 
 import { addToCart } from "@lib/data/cart"
 import { experimentCartMetadata } from "@lib/experiments/client-context"
+import { reportClientOpsAlert } from "@lib/client-ops-alert"
 import { dispatchCartUpdated } from "@lib/util/cart-events"
 import { isVariantPurchasable } from "@lib/util/product-availability"
 import {
@@ -276,6 +277,16 @@ function CollectionItemAddButton({
       })
     } catch (error) {
       console.error("Failed to add collection item:", error)
+      reportClientOpsAlert({
+        alertKind: "client_add_to_cart_failed",
+        title: "Storefront client add-to-cart failed",
+        surface: "curated_collection_item",
+        action: "add_to_cart",
+        error,
+        productId: item.Product.MedusaProduct?.ProductId,
+        variantId: variant.VariantId,
+        productHandle: item.Product.MedusaProduct?.Handle,
+      })
       toast.error("Couldn't add item", {
         description: "Please try again in a moment.",
       })
