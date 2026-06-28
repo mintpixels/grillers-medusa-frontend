@@ -6,6 +6,7 @@ type OrderHistoryStage =
   | "legacy_purchase_history"
   | "legacy_customer_orders"
   | "legacy_customer_order_detail"
+  | "reorder_strapi_enrichment"
 
 type OrderHistoryMode = "customer" | "staff_impersonation" | "unknown"
 
@@ -16,6 +17,7 @@ type OrderHistoryAlertInput = {
   offset?: number | null
   failureCount?: number | null
   error?: unknown
+  path?: string
 }
 
 function errorMessage(error: unknown) {
@@ -35,6 +37,7 @@ export async function emitOrderHistoryDataFailureAlert({
   offset = null,
   failureCount = null,
   error,
+  path = "src/lib/data/orders.ts",
 }: OrderHistoryAlertInput) {
   const message = error === undefined ? null : errorMessage(error)
 
@@ -42,7 +45,7 @@ export async function emitOrderHistoryDataFailureAlert({
     alertKind: "order_history_data_degraded",
     severity: "warn",
     title: `Order history ${stage} unavailable; using fallback`,
-    path: "src/lib/data/orders.ts",
+    path,
     source: "medusa-server",
     fingerprint: `order_history:${stage}:${mode}`,
     meta: {

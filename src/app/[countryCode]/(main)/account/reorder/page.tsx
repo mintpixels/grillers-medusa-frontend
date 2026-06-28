@@ -10,9 +10,13 @@ import {
   getProductsByMedusaLookupRefs,
   type StrapiCollectionProduct,
 } from "@lib/data/strapi/collections"
+import { emitOrderHistoryDataFailureAlert } from "@lib/order-history-ops-alerts"
 import strapiClient from "@lib/strapi"
 import ReorderBrowser from "@modules/account/components/reorder-browser"
 import LoginTemplate from "@modules/account/templates/login-template"
+
+const REORDER_PAGE_PATH =
+  "src/app/[countryCode]/(main)/account/reorder/page.tsx"
 
 function presentString(value: string | null | undefined): value is string {
   return Boolean(value)
@@ -38,10 +42,38 @@ export default async function ReorderPage({
     return <LoginTemplate />
   }
 
-  const [history, legacyOrderHistory] = await Promise.all([
+  const [historyResult, legacyOrderHistoryResult] = await Promise.allSettled([
     listPurchaseHistory(),
     listAllLegacyCustomerOrders(),
   ])
+
+  const history = historyResult.status === "fulfilled" ? historyResult.value : []
+  if (historyResult.status === "rejected") {
+    void emitOrderHistoryDataFailureAlert({
+      stage: "medusa_purchase_history",
+      mode: "customer",
+      error: historyResult.reason,
+      path: REORDER_PAGE_PATH,
+    }).catch(() => {
+      // Fail open: the reorder page should still render with empty history.
+    })
+  }
+
+  const legacyOrderHistory =
+    legacyOrderHistoryResult.status === "fulfilled"
+      ? legacyOrderHistoryResult.value
+      : { orders: [], count: 0, limit: 0, offset: 0 }
+  if (legacyOrderHistoryResult.status === "rejected") {
+    void emitOrderHistoryDataFailureAlert({
+      stage: "legacy_customer_orders",
+      mode: "customer",
+      error: legacyOrderHistoryResult.reason,
+      path: REORDER_PAGE_PATH,
+    }).catch(() => {
+      // Fail open: the reorder page should still render without legacy rows.
+    })
+  }
+
   const productIds = Array.from(
     new Set(history.map((h) => h.productId).filter(presentString))
   )
@@ -52,10 +84,23 @@ export default async function ReorderPage({
     new Set(history.map((h) => h.sku).filter(presentString))
   )
 
-  const strapiProducts = await getProductsByMedusaLookupRefs(
-    { productIds, variantIds, skus },
-    strapiClient
-  )
+  let strapiProducts: StrapiCollectionProduct[] = []
+  try {
+    strapiProducts = await getProductsByMedusaLookupRefs(
+      { productIds, variantIds, skus },
+      strapiClient
+    )
+  } catch (error) {
+    void emitOrderHistoryDataFailureAlert({
+      stage: "reorder_strapi_enrichment",
+      mode: "customer",
+      failureCount: productIds.length + variantIds.length + skus.length,
+      error,
+      path: REORDER_PAGE_PATH,
+    }).catch(() => {
+      // Fail open: Strapi enrichment should not block reorder history.
+    })
+  }
 
   const strapiMap: Record<string, StrapiCollectionProduct> = {}
   for (const sp of strapiProducts) {
