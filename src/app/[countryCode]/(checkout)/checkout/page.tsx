@@ -18,6 +18,7 @@ import {
 } from "@lib/data/strapi/checkout"
 import { getAtlantaDeliveryZipConfig } from "@lib/data/strapi/fulfillment"
 import { ATLANTA_DELIVERY_ZIP_DAYS } from "@lib/util/atlanta-delivery-zips"
+import { reportServerSoftFailure } from "@lib/server-soft-failure"
 import PaymentWrapper from "@modules/checkout/components/payment-wrapper"
 import CheckoutForm from "@modules/checkout/templates/checkout-form"
 import CheckoutSummary from "@modules/checkout/templates/checkout-summary"
@@ -25,6 +26,9 @@ import { Metadata } from "next"
 import { notFound, redirect } from "next/navigation"
 
 export const dynamic = "force-dynamic"
+
+const CHECKOUT_PAGE_PATH =
+  "src/app/[countryCode]/(checkout)/checkout/page.tsx"
 
 // Default fulfillment config for when Strapi isn't set up yet
 const defaultFulfillmentConfig: FulfillmentConfigData["checkout"] = {
@@ -167,11 +171,32 @@ async function getFulfillmentConfig(): Promise<
       [
         strapiClient
           .request<FulfillmentConfigData>(FulfillmentConfigQuery)
-          .catch(() => null),
+          .catch((error) => {
+            reportServerSoftFailure(
+              `${CHECKOUT_PAGE_PATH}:getFulfillmentConfig:checkout`,
+              error,
+              { fallback: "defaultFulfillmentConfig" }
+            )
+            return null
+          }),
         strapiClient
           .request<SoutheastPickupLocationsData>(SoutheastPickupLocationsQuery)
-          .catch(() => null),
-        getAtlantaDeliveryZipConfig().catch(() => null),
+          .catch((error) => {
+            reportServerSoftFailure(
+              `${CHECKOUT_PAGE_PATH}:getFulfillmentConfig:southeastPickupLocations`,
+              error,
+              { fallback: "defaultFulfillmentConfig" }
+            )
+            return null
+          }),
+        getAtlantaDeliveryZipConfig().catch((error) => {
+          reportServerSoftFailure(
+            `${CHECKOUT_PAGE_PATH}:getFulfillmentConfig:atlantaZipConfig`,
+            error,
+            { fallback: "defaultFulfillmentConfig" }
+          )
+          return null
+        }),
       ]
     )
 
@@ -205,7 +230,12 @@ async function getFulfillmentConfig(): Promise<
       AtlantaDeliveryZipDays:
         atlantaZipConfig || defaultFulfillmentConfig.AtlantaDeliveryZipDays,
     }
-  } catch {
+  } catch (error) {
+    reportServerSoftFailure(
+      `${CHECKOUT_PAGE_PATH}:getFulfillmentConfig`,
+      error,
+      { fallback: "defaultFulfillmentConfig" }
+    )
     return defaultFulfillmentConfig
   }
 }
@@ -248,7 +278,12 @@ async function getCheckoutShippingSettings(): Promise<CheckoutShippingSettings> 
       }
     }
     return defaultCheckoutShippingSettings
-  } catch {
+  } catch (error) {
+    reportServerSoftFailure(
+      `${CHECKOUT_PAGE_PATH}:getCheckoutShippingSettings`,
+      error,
+      { fallback: "defaultCheckoutShippingSettings" }
+    )
     return defaultCheckoutShippingSettings
   }
 }
