@@ -79,6 +79,7 @@ export type ProductMerchandisingTagSummary = {
   approvedImageCount: number
   rejectedImageCount: number
   claimedImageCount: number
+  oldestActiveClaimedAt?: string | null
   noImageProductCount: number
   metadata: string[]
   l2Parents: string[]
@@ -462,6 +463,10 @@ function addSummaryProduct(
   summary: ProductMerchandisingTagSummary,
   product: ProductMerchandisingProduct
 ) {
+  const activeClaims = product.images
+    .map((image) => image.claim)
+    .filter((claim) => isClaimActive(claim)) as MerchandisingImageClaim[]
+
   summary.productCount += 1
   summary.imageCount += product.images.length
   summary.reviewedImageCount += product.images.filter(
@@ -473,9 +478,18 @@ function addSummaryProduct(
   summary.rejectedImageCount += product.images.filter(
     (image) => image.review.status === "rejected"
   ).length
-  summary.claimedImageCount += product.images.filter((image) =>
-    isClaimActive(image.claim)
-  ).length
+  summary.claimedImageCount += activeClaims.length
+  for (const claim of activeClaims) {
+    const claimTime = Date.parse(claim.claimedAt)
+    if (!Number.isFinite(claimTime)) continue
+
+    const existingTime = summary.oldestActiveClaimedAt
+      ? Date.parse(summary.oldestActiveClaimedAt)
+      : Number.POSITIVE_INFINITY
+    if (!Number.isFinite(existingTime) || claimTime < existingTime) {
+      summary.oldestActiveClaimedAt = claim.claimedAt
+    }
+  }
   if (product.images.length === 0) summary.noImageProductCount += 1
 
   summary.metadata = Array.from(
@@ -619,7 +633,9 @@ async function writeStrapiUploadCaption(imageId: number, caption: string) {
   // sessions rebuild the full Strapi product summary repeatedly.
 }
 
-function staffIdentity(staff: Awaited<ReturnType<typeof requireStaffCustomer>>) {
+function staffIdentity(
+  staff: Awaited<ReturnType<typeof requireStaffCustomer>>
+) {
   return {
     staffEmail: staff.email || undefined,
     staffName: staffDisplayName(staff),
@@ -773,7 +789,10 @@ function addOverviewProductFields(params: URLSearchParams) {
   params.set("populate[GalleryImages][fields][0]", "documentId")
   params.set("populate[GalleryImages][fields][1]", "url")
   params.set("populate[GalleryImages][fields][2]", "caption")
-  params.set("populate[Categorization][populate][ProductTags][fields][0]", "Name")
+  params.set(
+    "populate[Categorization][populate][ProductTags][fields][0]",
+    "Name"
+  )
   params.set(
     "populate[Categorization][populate][ProductTags][fields][1]",
     "Description"
@@ -1269,7 +1288,8 @@ export async function claimMerchandisingImage(
         ok: false,
         conflict: true,
         ...actionResultFromCaption(latestCaption),
-        error: "This image changed since you loaded the page. Refresh or try again.",
+        error:
+          "This image changed since you loaded the page. Refresh or try again.",
       }
     }
 
@@ -1313,9 +1333,7 @@ export async function claimMerchandisingImage(
     return {
       ok: false,
       error:
-        error instanceof Error
-          ? error.message
-          : "Could not claim the image.",
+        error instanceof Error ? error.message : "Could not claim the image.",
     }
   }
 }

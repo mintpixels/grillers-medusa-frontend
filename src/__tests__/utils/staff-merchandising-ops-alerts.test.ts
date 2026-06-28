@@ -1,6 +1,8 @@
 import {
+  buildStaffMerchandisingHealthAlertPlans,
   emitStaffMerchandisingPreloadFailureAlert,
   emitStaffMerchandisingActionFailureAlert,
+  emitStaffMerchandisingHealthTelemetry,
   emitStaffMerchandisingReviewTelemetry,
   emitSlowStaffMerchandisingDataAlert,
   summarizeMerchandisingTagTelemetry,
@@ -31,6 +33,7 @@ function tag(
     rejectedImageCount: overrides.rejectedImageCount || 0,
     claimedImageCount: overrides.claimedImageCount || 0,
     noImageProductCount: overrides.noImageProductCount || 0,
+    oldestActiveClaimedAt: overrides.oldestActiveClaimedAt || null,
     metadata: overrides.metadata || [],
     l2Parents: overrides.l2Parents || [],
   }
@@ -66,8 +69,31 @@ describe("staff merchandising ops alerts", () => {
       approvedImageCount: 2,
       rejectedImageCount: 1,
       claimedImageCount: 1,
+      oldestActiveClaimedAt: null,
       noImageProductCount: 1,
     })
+  })
+
+  it("carries the oldest active claim timestamp into aggregate telemetry", () => {
+    expect(
+      summarizeMerchandisingTagTelemetry([
+        tag({
+          imageCount: 5,
+          claimedImageCount: 1,
+          oldestActiveClaimedAt: "2026-06-28T15:00:00.000Z",
+        }),
+        tag({
+          imageCount: 3,
+          claimedImageCount: 1,
+          oldestActiveClaimedAt: "2026-06-28T12:30:00.000Z",
+        }),
+      ])
+    ).toEqual(
+      expect.objectContaining({
+        claimedImageCount: 2,
+        oldestActiveClaimedAt: "2026-06-28T12:30:00.000Z",
+      })
+    )
   })
 
   it("does not alert below the slow-load threshold", async () => {
@@ -122,6 +148,213 @@ describe("staff merchandising ops alerts", () => {
           claimed_image_count: 2,
           no_image_product_count: 1,
         }),
+      })
+    )
+  })
+
+  it("builds an info health snapshot for dashboard annotation progress", () => {
+    const plans = buildStaffMerchandisingHealthAlertPlans({
+      now: Date.parse("2026-06-28T16:00:00.000Z"),
+      tags: [
+        tag({
+          documentId: "tag_a",
+          displayName: "Brisket",
+          productCount: 4,
+          imageCount: 10,
+          reviewedImageCount: 3,
+          approvedImageCount: 2,
+          rejectedImageCount: 1,
+          claimedImageCount: 1,
+          oldestActiveClaimedAt: "2026-06-28T15:00:00.000Z",
+        }),
+      ],
+      thresholds: {
+        highClaimedMinimum: 10,
+        noImageMinimum: 10,
+        unreviewedGroupAfterReviewed: 50,
+      },
+    })
+
+    expect(plans).toHaveLength(1)
+    expect(plans[0]).toEqual(
+      expect.objectContaining({
+        alertKind: "staff_merchandising_health_snapshot",
+        severity: "info",
+        title: "Staff merchandising 3/10 images reviewed",
+        fingerprint: "staff_merchandising:health:snapshot",
+        meta: expect.objectContaining({
+          staff_module: "merchandising",
+          image_count: 10,
+          reviewed_image_count: 3,
+          reviewed_percent: 30,
+          claimed_image_count: 1,
+          claimed_percent: 10,
+          oldest_active_claim_age_minutes: 60,
+        }),
+      })
+    )
+  })
+
+  it("warns when active merchandising claims are stale", () => {
+    const plans = buildStaffMerchandisingHealthAlertPlans({
+      now: Date.parse("2026-06-28T16:00:00.000Z"),
+      includeSnapshot: false,
+      tags: [
+        tag({
+          documentId: "tag_a",
+          displayName: "Brisket",
+          productCount: 4,
+          imageCount: 10,
+          reviewedImageCount: 3,
+          claimedImageCount: 1,
+          oldestActiveClaimedAt: "2026-06-28T10:00:00.000Z",
+        }),
+      ],
+      thresholds: {
+        staleClaimMinutes: 240,
+        highClaimedMinimum: 10,
+        noImageMinimum: 10,
+        unreviewedGroupAfterReviewed: 50,
+      },
+    })
+
+    expect(plans).toHaveLength(1)
+    expect(plans[0]).toEqual(
+      expect.objectContaining({
+        alertKind: "staff_merchandising_claims_stale",
+        severity: "warn",
+        fingerprint: "staff_merchandising:health:stale_claims",
+        meta: expect.objectContaining({
+          threshold_minutes: 240,
+          stale_claim_group_count: 1,
+          stale_claim_groups: [
+            expect.objectContaining({
+              tag_id: "tag_a",
+              tag_name: "Brisket",
+              oldest_active_claim_age_minutes: 360,
+            }),
+          ],
+        }),
+      })
+    )
+  })
+
+  it("warns when too many images are actively claimed", () => {
+    const plans = buildStaffMerchandisingHealthAlertPlans({
+      includeSnapshot: false,
+      tags: [
+        tag({
+          productCount: 10,
+          imageCount: 20,
+          reviewedImageCount: 5,
+          claimedImageCount: 6,
+        }),
+      ],
+      thresholds: {
+        highClaimedRatio: 0.2,
+        highClaimedMinimum: 5,
+        noImageMinimum: 10,
+        unreviewedGroupAfterReviewed: 50,
+      },
+    })
+
+    expect(plans.map((plan) => plan.alertKind)).toContain(
+      "staff_merchandising_claims_high"
+    )
+  })
+
+  it("warns when mature annotation work leaves large groups unreviewed", () => {
+    const plans = buildStaffMerchandisingHealthAlertPlans({
+      includeSnapshot: false,
+      tags: [
+        tag({
+          documentId: "tag_done",
+          displayName: "Done",
+          productCount: 20,
+          imageCount: 80,
+          reviewedImageCount: 60,
+        }),
+        tag({
+          documentId: "tag_gap",
+          displayName: "Gap",
+          productCount: 5,
+          imageCount: 12,
+          reviewedImageCount: 0,
+        }),
+      ],
+      thresholds: {
+        unreviewedGroupAfterReviewed: 50,
+        unreviewedGroupMinImages: 10,
+        noImageMinimum: 10,
+        highClaimedMinimum: 10,
+      },
+    })
+
+    expect(plans).toEqual([
+      expect.objectContaining({
+        alertKind: "staff_merchandising_groups_unreviewed",
+        severity: "warn",
+        meta: expect.objectContaining({
+          threshold_reviewed_images: 50,
+          threshold_group_min_images: 10,
+          unreviewed_large_group_count: 1,
+          unreviewed_large_groups: [
+            expect.objectContaining({
+              tag_id: "tag_gap",
+              tag_name: "Gap",
+              image_count: 12,
+            }),
+          ],
+        }),
+      }),
+    ])
+  })
+
+  it("warns when many merchandising products have no images", () => {
+    const plans = buildStaffMerchandisingHealthAlertPlans({
+      includeSnapshot: false,
+      tags: [
+        tag({
+          productCount: 20,
+          imageCount: 30,
+          reviewedImageCount: 5,
+          noImageProductCount: 5,
+        }),
+      ],
+      thresholds: {
+        noImageRatio: 0.2,
+        noImageMinimum: 5,
+        highClaimedMinimum: 10,
+        unreviewedGroupAfterReviewed: 50,
+      },
+    })
+
+    expect(plans.map((plan) => plan.alertKind)).toContain(
+      "staff_merchandising_product_images_missing"
+    )
+  })
+
+  it("emits merchandising health telemetry plans", async () => {
+    await emitStaffMerchandisingHealthTelemetry({
+      includeSnapshot: true,
+      tags: [
+        tag({
+          productCount: 4,
+          imageCount: 10,
+          reviewedImageCount: 3,
+        }),
+      ],
+      thresholds: {
+        highClaimedMinimum: 10,
+        noImageMinimum: 10,
+        unreviewedGroupAfterReviewed: 50,
+      },
+    })
+
+    expect(emitStorefrontOpsAlertMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        alertKind: "staff_merchandising_health_snapshot",
+        severity: "info",
       })
     )
   })

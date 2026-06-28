@@ -1,6 +1,9 @@
 import { getProductMerchandisingTags } from "@lib/data/staff/product-merchandising"
 import { emitStorefrontOpsAlert } from "@lib/ops-alert"
-import { emitSlowStaffMerchandisingDataAlert } from "@lib/staff-merchandising-ops-alerts"
+import {
+  emitSlowStaffMerchandisingDataAlert,
+  emitStaffMerchandisingHealthTelemetry,
+} from "@lib/staff-merchandising-ops-alerts"
 import { NextResponse } from "next/server"
 
 function errorMessage(
@@ -31,6 +34,12 @@ export async function handleStaffMerchandisingTagsRequest(input: {
     const tags = await getProductMerchandisingTags()
     void emitSlowStaffMerchandisingDataAlert({
       startedAt,
+      tags,
+      path: input.routePath,
+    }).catch(() => {
+      // Fail-open: alerting should not delay the staff response.
+    })
+    void emitStaffMerchandisingHealthTelemetry({
       tags,
       path: input.routePath,
     }).catch(() => {
