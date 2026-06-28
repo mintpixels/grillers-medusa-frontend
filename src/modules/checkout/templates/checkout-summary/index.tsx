@@ -20,6 +20,7 @@ import type {
   CartProductDetails,
   CartProductDetailsMap,
 } from "@lib/util/cart-product-details"
+import { normalizeFulfillmentAddress } from "@lib/util/fulfillment-address"
 
 type CheckoutSummaryProps = {
   cart: HttpTypes.StoreCart
@@ -138,6 +139,7 @@ const CheckoutSummary = ({
     | undefined
   const isPickup =
     fulfillmentType === "plant_pickup" || fulfillmentType === "southeast_pickup"
+  const shippingAddress = normalizeFulfillmentAddress(cart.shipping_address)
 
   const freeShipApplied = isFreeShipPromoApplied(cart)
   const shippingSavings = Math.max(
@@ -203,8 +205,8 @@ const CheckoutSummary = ({
           cartSubtotal={getItemsSubtotal(cart)}
           excludedSubtotal={excludedSubtotal}
           currencyCode={cart.currency_code}
-          shipState={cart.shipping_address?.province}
-          postalCode={cart.shipping_address?.postal_code || deliveryZip}
+          shipState={shippingAddress?.province}
+          postalCode={shippingAddress?.postal_code || deliveryZip}
           fulfillmentType={fulfillmentType}
           variant="dark"
           atlantaZipConfig={atlantaZipConfig}

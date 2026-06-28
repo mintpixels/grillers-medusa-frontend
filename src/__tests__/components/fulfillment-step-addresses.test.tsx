@@ -85,6 +85,17 @@ const incompleteAddress = {
   country_code: "us",
 }
 
+const scrambledAddress = {
+  id: "addr_scrambled",
+  first_name: "Avner",
+  last_name: "Swerdlow",
+  address_1: "220 Glen Meadow Ct",
+  city: "GA",
+  province: "30328",
+  postal_code: "Sandy Springs",
+  country_code: "us",
+}
+
 const cart = {
   id: "cart_test",
   total: 35139,
@@ -118,6 +129,46 @@ describe("FulfillmentStep saved address selection", () => {
   beforeEach(() => {
     jest.clearAllMocks()
     mockSaveAddressToProfileAndCart.mockResolvedValue({ success: true } as any)
+  })
+
+  it("repairs historically scrambled cart address fields before checking Atlanta delivery eligibility", () => {
+    render(
+      <FulfillmentStep
+        cart={
+          {
+            ...cart,
+            shipping_address: scrambledAddress,
+          } as any
+        }
+        customer={{ ...customer, addresses: [] } as any}
+        config={checkoutConfig}
+        availableFulfillmentTypes={[
+          "ups_shipping",
+          "atlanta_delivery",
+          "plant_pickup",
+          "southeast_pickup",
+        ]}
+        pickupCreditConfig={{
+          threshold: 250,
+          creditAmount: 750,
+          promoCode: "PLANTPICKUP750",
+        }}
+      />
+    )
+
+    expect(
+      screen.queryByText(
+        "Local delivery and pickup aren't available for this address"
+      )
+    ).not.toBeInTheDocument()
+    expect(
+      screen.getByText(/220 Glen Meadow Ct, Sandy Springs, GA 30328/)
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", {
+        name: /Atlanta Delivery Local to your door/,
+      })
+    ).not.toBeDisabled()
   })
 
   it("prevents incomplete saved addresses from being selected for checkout", async () => {

@@ -94,4 +94,30 @@ describe("checkout customer-context navigation", () => {
       })
     )
   })
+
+  it("repairs historically scrambled cart address fields before rendering summary delivery context", () => {
+    render(
+      <CheckoutSummary
+        cart={
+          {
+            ...baseCart,
+            shipping_address: {
+              address_1: "220 Glen Meadow Ct",
+              city: "GA",
+              province: "30328",
+              postal_code: "Sandy Springs",
+            },
+          } as any
+        }
+        deliveryZip="90210"
+      />
+    )
+
+    expect(mockFulfillmentProgress).toHaveBeenCalledWith(
+      expect.objectContaining({
+        shipState: "GA",
+        postalCode: "30328",
+      })
+    )
+  })
 })
