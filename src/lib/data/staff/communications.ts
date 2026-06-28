@@ -3,6 +3,7 @@
 import "server-only"
 
 import { retrieveAuthenticatedCustomerForStaffAccess } from "@lib/data/customer"
+import { emitStorefrontOpsAlert, type OpsAlertSeverity } from "@lib/ops-alert"
 import { canUseOfficeConsole } from "@lib/util/staff-access"
 import { adminFetch } from "./admin"
 
@@ -16,6 +17,55 @@ async function requireCommunicationsStaff() {
     throw new Error("Office console access required.")
   }
   return staff
+}
+
+function communicationsErrorMessage(error: unknown) {
+  if (error instanceof Error) return error.message
+  if (typeof error === "string") return error
+  try {
+    return JSON.stringify(error)
+  } catch {
+    return String(error)
+  }
+}
+
+function textLengthBucket(value?: string | null, bucketSize = 100) {
+  const length = String(value || "").trim().length
+  if (!length) return 0
+  return Math.min(5000, Math.ceil(length / bucketSize) * bucketSize)
+}
+
+function communicationProfileQueryKind(query: string) {
+  const trimmed = query.trim()
+  if (!trimmed) return "empty"
+  if (trimmed.includes("@")) return "email"
+  if (trimmed.replace(/\D/g, "").length >= 7) return "phone"
+  return "text"
+}
+
+async function emitCommunicationsFailureAlert(input: {
+  alertKind: string
+  title: string
+  action: string
+  fingerprint: string
+  error: unknown
+  severity?: OpsAlertSeverity
+  meta?: Record<string, unknown>
+}) {
+  await emitStorefrontOpsAlert({
+    alertKind: input.alertKind,
+    severity: input.severity || "warn",
+    title: input.title,
+    path: "src/lib/data/staff/communications.ts",
+    source: "medusa-server",
+    fingerprint: input.fingerprint,
+    meta: {
+      staff_module: "communications",
+      action: input.action,
+      ...(input.meta || {}),
+      error_message: communicationsErrorMessage(input.error).slice(0, 300),
+    },
+  })
 }
 
 export type CommunicationOverview = {
@@ -169,23 +219,71 @@ export type CommunicationTimeline = {
 }
 
 export async function getCommunicationOverview() {
-  await requireCommunicationsStaff()
-  return adminFetch<CommunicationOverview>("/admin/grillers/communications")
+  const staff = await requireCommunicationsStaff()
+  try {
+    return await adminFetch<CommunicationOverview>(
+      "/admin/grillers/communications"
+    )
+  } catch (error) {
+    await emitCommunicationsFailureAlert({
+      alertKind: "staff_communications_overview_failed",
+      title: "Staff communications overview load failed",
+      action: "load_overview",
+      fingerprint: "staff_communications:overview:failed",
+      error,
+      meta: {
+        staff_actor_customer_id: staff.id || "",
+      },
+    })
+    throw error
+  }
 }
 
 export async function searchCommunicationProfiles(query: string) {
-  await requireCommunicationsStaff()
-  return adminFetch<{ profiles: CommunicationProfile[] }>(
-    "/admin/grillers/communications/profiles",
-    { query: { q: query, limit: 25 } }
-  )
+  const staff = await requireCommunicationsStaff()
+  try {
+    return await adminFetch<{ profiles: CommunicationProfile[] }>(
+      "/admin/grillers/communications/profiles",
+      { query: { q: query, limit: 25 } }
+    )
+  } catch (error) {
+    await emitCommunicationsFailureAlert({
+      alertKind: "staff_communications_profile_search_failed",
+      title: "Staff communications profile search failed",
+      action: "search_profiles",
+      fingerprint: "staff_communications:profile_search:failed",
+      error,
+      meta: {
+        staff_actor_customer_id: staff.id || "",
+        query_kind: communicationProfileQueryKind(query),
+        query_length_bucket: textLengthBucket(query, 10),
+        limit: 25,
+      },
+    })
+    throw error
+  }
 }
 
 export async function getCommunicationProfileTimeline(profileId: string) {
-  await requireCommunicationsStaff()
-  return adminFetch<CommunicationTimeline>(
-    `/admin/grillers/communications/profiles/${profileId}`
-  )
+  const staff = await requireCommunicationsStaff()
+  try {
+    return await adminFetch<CommunicationTimeline>(
+      `/admin/grillers/communications/profiles/${profileId}`
+    )
+  } catch (error) {
+    await emitCommunicationsFailureAlert({
+      alertKind: "staff_communications_profile_timeline_failed",
+      title: "Staff communications profile timeline load failed",
+      action: "load_profile_timeline",
+      fingerprint: "staff_communications:profile_timeline:failed",
+      error,
+      meta: {
+        staff_actor_customer_id: staff.id || "",
+        profile_id: profileId,
+      },
+    })
+    throw error
+  }
 }
 
 export async function createCommunicationCampaign(input: {
@@ -198,47 +296,98 @@ export async function createCommunicationCampaign(input: {
   intro?: string
   scheduled_at?: string
 }) {
-  await requireCommunicationsStaff()
-  return adminFetch<{ campaign: CommunicationCampaign }>(
-    "/admin/grillers/communications/campaigns",
-    {
-      method: "POST",
-      body: JSON.stringify(input),
-    }
-  )
+  const staff = await requireCommunicationsStaff()
+  try {
+    return await adminFetch<{ campaign: CommunicationCampaign }>(
+      "/admin/grillers/communications/campaigns",
+      {
+        method: "POST",
+        body: JSON.stringify(input),
+      }
+    )
+  } catch (error) {
+    await emitCommunicationsFailureAlert({
+      alertKind: "staff_communications_campaign_create_failed",
+      title: "Staff communications campaign create failed",
+      action: "create_campaign",
+      fingerprint: "staff_communications:campaign_create:failed",
+      error,
+      meta: {
+        staff_actor_customer_id: staff.id || "",
+        segment_key_present: Boolean(input.segment_key),
+        scheduled: Boolean(input.scheduled_at),
+        cta_url_present: Boolean(input.cta_url),
+        body_length_bucket: textLengthBucket(input.body, 500),
+      },
+    })
+    throw error
+  }
 }
 
 export async function importConstantContactRows(input: {
   filename?: string
   rows: Record<string, unknown>[]
 }) {
-  await requireCommunicationsStaff()
-  return adminFetch<{
-    ok: boolean
-    import_run_id: string
-    status: string
-    stats: Record<string, number>
-  }>("/admin/grillers/communications/imports", {
-    method: "POST",
-    body: JSON.stringify(input),
-  })
+  const staff = await requireCommunicationsStaff()
+  try {
+    return await adminFetch<{
+      ok: boolean
+      import_run_id: string
+      status: string
+      stats: Record<string, number>
+    }>("/admin/grillers/communications/imports", {
+      method: "POST",
+      body: JSON.stringify(input),
+    })
+  } catch (error) {
+    await emitCommunicationsFailureAlert({
+      alertKind: "staff_communications_import_failed",
+      title: "Staff communications import failed",
+      action: "import_constant_contact",
+      fingerprint: "staff_communications:import:failed",
+      error,
+      meta: {
+        staff_actor_customer_id: staff.id || "",
+        filename_present: Boolean(input.filename),
+        row_count: input.rows.length,
+      },
+    })
+    throw error
+  }
 }
 
 export async function sendCommunicationCampaign(
   campaignId: string,
   input: { test_email?: string } = {}
 ) {
-  await requireCommunicationsStaff()
-  return adminFetch<{
-    ok: boolean
-    sent: number
-    skipped: number
-    failed: number
-    audience_count: number
-  }>(`/admin/grillers/communications/campaigns/${campaignId}/send`, {
-    method: "POST",
-    body: JSON.stringify(input),
-  })
+  const staff = await requireCommunicationsStaff()
+  try {
+    return await adminFetch<{
+      ok: boolean
+      sent: number
+      skipped: number
+      failed: number
+      audience_count: number
+    }>(`/admin/grillers/communications/campaigns/${campaignId}/send`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    })
+  } catch (error) {
+    await emitCommunicationsFailureAlert({
+      alertKind: "staff_communications_campaign_send_failed",
+      title: "Staff communications campaign send failed",
+      action: "send_campaign",
+      fingerprint: "staff_communications:campaign_send:failed",
+      severity: input.test_email ? "warn" : "page",
+      error,
+      meta: {
+        staff_actor_customer_id: staff.id || "",
+        campaign_id: campaignId,
+        test_send: Boolean(input.test_email),
+      },
+    })
+    throw error
+  }
 }
 
 export async function sendStaffCommunication(input: {
@@ -251,29 +400,65 @@ export async function sendStaffCommunication(input: {
   order_id?: string
   profile_id?: string
 }) {
-  await requireCommunicationsStaff()
-  return adminFetch<{ ok: boolean; skipped?: boolean; messageId?: string }>(
-    "/admin/grillers/communications/send",
-    {
+  const staff = await requireCommunicationsStaff()
+  try {
+    return await adminFetch<{
+      ok: boolean
+      skipped?: boolean
+      messageId?: string
+    }>("/admin/grillers/communications/send", {
       method: "POST",
       body: JSON.stringify(input),
-    }
-  )
+    })
+  } catch (error) {
+    await emitCommunicationsFailureAlert({
+      alertKind: "staff_communications_direct_send_failed",
+      title: "Staff communications direct send failed",
+      action: "send_direct_message",
+      fingerprint: "staff_communications:direct_send:failed",
+      severity: "page",
+      error,
+      meta: {
+        staff_actor_customer_id: staff.id || "",
+        stream: input.stream || "transactional",
+        topic_present: Boolean(input.topic),
+        order_id: input.order_id || "",
+        profile_id: input.profile_id || "",
+        body_length_bucket: textLengthBucket(input.body, 500),
+        recipient_has_at: input.to.includes("@"),
+      },
+    })
+    throw error
+  }
 }
 
 export async function runCommunicationFlowsNow() {
-  await requireCommunicationsStaff()
-  return adminFetch<{
-    ok: boolean
-    lifecycle: { updated: number }
-    flows: {
-      processed: number
-      sent: number
-      completed: number
-      errors: number
-      segments?: { refreshed: number; active_members: number }
-    }
-  }>("/admin/grillers/communications/flows/run", {
-    method: "POST",
-  })
+  const staff = await requireCommunicationsStaff()
+  try {
+    return await adminFetch<{
+      ok: boolean
+      lifecycle: { updated: number }
+      flows: {
+        processed: number
+        sent: number
+        completed: number
+        errors: number
+        segments?: { refreshed: number; active_members: number }
+      }
+    }>("/admin/grillers/communications/flows/run", {
+      method: "POST",
+    })
+  } catch (error) {
+    await emitCommunicationsFailureAlert({
+      alertKind: "staff_communications_flow_run_failed",
+      title: "Staff communications flow run failed",
+      action: "run_flows",
+      fingerprint: "staff_communications:flow_run:failed",
+      error,
+      meta: {
+        staff_actor_customer_id: staff.id || "",
+      },
+    })
+    throw error
+  }
 }
