@@ -23,6 +23,7 @@ function errorMessage(
 
 export async function handleStaffMerchandisingTagsRequest(input: {
   routePath: string
+  responseFormat?: "json" | "text"
 }) {
   const startedAt = Date.now()
 
@@ -35,7 +36,10 @@ export async function handleStaffMerchandisingTagsRequest(input: {
     }).catch(() => {
       // Fail-open: alerting should not delay the staff response.
     })
-    return NextResponse.json({ tags })
+    return staffMerchandisingTagsResponse(
+      { tags },
+      { format: input.responseFormat }
+    )
   } catch (error) {
     const message = errorMessage(error)
     const status = /access required/i.test(message) ? 403 : 500
@@ -57,6 +61,32 @@ export async function handleStaffMerchandisingTagsRequest(input: {
         // Fail-open: alerting should not delay the staff error response.
       })
     }
-    return NextResponse.json({ error: message }, { status })
+    return staffMerchandisingTagsResponse(
+      { error: message },
+      { format: input.responseFormat, status }
+    )
   }
+}
+
+function staffMerchandisingTagsResponse(
+  body: { tags?: unknown[]; error?: string },
+  {
+    format = "json",
+    status = 200,
+  }: {
+    format?: "json" | "text"
+    status?: number
+  } = {}
+) {
+  if (format === "text") {
+    return new Response(JSON.stringify(body), {
+      status,
+      headers: {
+        "Cache-Control": "no-store",
+        "Content-Type": "text/plain; charset=utf-8",
+      },
+    })
+  }
+
+  return NextResponse.json(body, { status })
 }

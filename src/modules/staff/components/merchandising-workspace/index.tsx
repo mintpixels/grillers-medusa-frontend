@@ -22,7 +22,7 @@ function catalogReviewGroupsEndpoints(countryCode: string) {
   const encodedCountryCode = encodeURIComponent(normalizedCountryCode || "us")
 
   return [
-    `/${encodedCountryCode}/account/catalog-review/groups`,
+    `/${encodedCountryCode}/account/photo-groups/data`,
     `/${encodedCountryCode}/api/catalog-review/groups`,
     `/${encodedCountryCode}/api/staff/catalog-review/groups`,
   ]

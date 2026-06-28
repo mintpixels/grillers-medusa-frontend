@@ -64,7 +64,7 @@ describe("StaffMerchandisingWorkspace", () => {
         extra: expect.objectContaining({
           staff_module: "merchandising",
           attempted_endpoints: [
-            "/us/account/catalog-review/groups",
+            "/us/account/photo-groups/data",
             "/us/api/catalog-review/groups",
             "/us/api/staff/catalog-review/groups",
           ],
@@ -73,7 +73,7 @@ describe("StaffMerchandisingWorkspace", () => {
     )
   })
 
-  it("uses the country-scoped account catalog-review endpoint first", async () => {
+  it("uses the country-scoped account photo-groups endpoint first", async () => {
     mockFetch.mockResolvedValue({
       ok: true,
       status: 200,
@@ -86,7 +86,7 @@ describe("StaffMerchandisingWorkspace", () => {
 
     await waitFor(() => {
       expect(mockFetch).toHaveBeenCalledWith(
-        "/us/account/catalog-review/groups",
+        "/us/account/photo-groups/data",
         expect.objectContaining({
           cache: "no-store",
           headers: { Accept: "application/json" },
@@ -140,7 +140,7 @@ describe("StaffMerchandisingWorkspace", () => {
 
     await waitFor(() => {
       expect(mockFetch).toHaveBeenCalledWith(
-        "/us/account/catalog-review/groups",
+        "/us/account/photo-groups/data",
         expect.objectContaining({
           cache: "no-store",
           headers: { Accept: "application/json" },
@@ -172,7 +172,7 @@ describe("StaffMerchandisingWorkspace", () => {
 
     expect(mockFetch).toHaveBeenNthCalledWith(
       1,
-      "/us/account/catalog-review/groups",
+      "/us/account/photo-groups/data",
       expect.objectContaining({
         cache: "no-store",
         headers: { Accept: "application/json" },
