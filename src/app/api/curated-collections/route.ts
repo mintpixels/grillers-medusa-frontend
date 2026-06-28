@@ -25,6 +25,7 @@ export async function GET(request: NextRequest) {
     ? Math.min(Math.max(limitParam, 1), 100)
     : 60
   const collections = await getCuratedCollectionCards({
+    alertSurface: "api_list",
     customerState: "any",
     limit,
   })

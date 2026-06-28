@@ -7,7 +7,7 @@ import {
   getCuratedCollections,
   type CuratedCollection,
 } from "@lib/data/strapi/curated-collections"
-import { withTimeout } from "@lib/util/promise-timeout"
+import { withCuratedCollectionsTimeoutAlert } from "@lib/curated-collections-ops-alerts"
 import type { HttpTypes } from "@medusajs/types"
 import {
   getCollectionSubstitutionGuardrails,
@@ -114,17 +114,21 @@ export default async function PairsWellWith({
 }) {
   let collections: ReturnType<typeof prepareCollections> = []
   try {
-    const curatedCollections = await withTimeout(
-      getCuratedCollections({
+    const curatedCollections = await withCuratedCollectionsTimeoutAlert({
+      promise: getCuratedCollections({
         countryCode,
         surface: "pdp",
         customerState: "all",
         limit: 12,
       }),
-      1800,
-      [],
-      `PDP curated collections for ${product.handle || product.id}`
-    )
+      fallback: [],
+      operation: "list",
+      surface: "pdp",
+      countryCode,
+      customerState: "all",
+      limit: 12,
+      timeoutMs: 1800,
+    })
     collections = prepareCollections(
       curatedCollections,
       product,

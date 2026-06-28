@@ -30,6 +30,7 @@ import { getBaseURL } from "@lib/util/env"
 import { withTimeout } from "@lib/util/promise-timeout"
 import { resolveHomeSections } from "@lib/util/home-sections"
 import { emitFallbackHomepageOpsAlert } from "@lib/homepage-ops-alerts"
+import { withCuratedCollectionsTimeoutAlert } from "@lib/curated-collections-ops-alerts"
 
 type PageProps = {
   params: Promise<{ countryCode: string }>
@@ -153,16 +154,20 @@ export default async function Home(props: {
     ),
   ])
 
-  const homeCuratedCollectionsPromise = withTimeout(
-    getCuratedCollectionCards({
+  const homeCuratedCollectionsPromise = withCuratedCollectionsTimeoutAlert({
+    promise: getCuratedCollectionCards({
       surface: "homepage",
       customerState: "guest_or_no_orders",
       limit: 8,
     }),
-    1800,
-    [],
-    "home curated collection cards"
-  )
+    fallback: [],
+    operation: "cards",
+    surface: "homepage",
+    countryCode,
+    customerState: "guest_or_no_orders",
+    limit: 8,
+    timeoutMs: 1800,
+  })
   // Fail open: the body is driven by the Strapi `home` query (3s timeout +
   // .catch(()=>null)). A slow/errored live re-fetch once returned null
   // sections and the page rendered an empty <section> ("blank on normal load,

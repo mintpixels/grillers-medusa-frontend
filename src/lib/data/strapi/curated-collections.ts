@@ -1,6 +1,7 @@
 import { gql } from "graphql-request"
 import strapiClient from "@lib/strapi"
 import { enrichStrapiProductsWithMedusaPrices } from "@lib/data/products"
+import { emitCuratedCollectionsStrapiFailureAlert } from "@lib/curated-collections-ops-alerts"
 import { compactCollectionProduct } from "@lib/util/collection-product"
 import { strapiProductHasInternalRawMaterialSku } from "@lib/util/internal-products"
 import type { StrapiSEO, StrapiSocialMeta } from "./seo"
@@ -677,6 +678,7 @@ export async function getCuratedCollections({
   // Fetch a wider window so "homepage" and other narrower surfaces are not
   // accidentally starved by earlier SortOrder records intended for PDP/cart.
   const queryLimit = Math.max(limit, 100)
+  let primaryError: unknown
 
   try {
     const data = await strapiClient.request<{
@@ -688,6 +690,7 @@ export async function getCuratedCollections({
       ? enrichCollections(collections, countryCode)
       : compactCuratedCollections(collections)
   } catch (error) {
+    primaryError = error
     console.error("Error fetching curated collections:", error)
   }
 
@@ -696,21 +699,49 @@ export async function getCuratedCollections({
       curatedCollections: CuratedCollection[]
     }>(LegacyCuratedCollectionsQuery, { limit: queryLimit })
     const collections = applyFilters(data.curatedCollections)
+    if (primaryError) {
+      void emitCuratedCollectionsStrapiFailureAlert({
+        operation: "list",
+        stage: "primary",
+        surface,
+        countryCode,
+        customerState,
+        limit,
+        recovered: true,
+        error: primaryError,
+      }).catch(() => {
+        // Fail open: alerting should never block merchandising content.
+      })
+    }
     return enrichPrices
       ? enrichCollections(collections, countryCode)
       : compactCuratedCollections(collections)
   } catch (error) {
     console.error("Error fetching legacy curated collections:", error)
+    void emitCuratedCollectionsStrapiFailureAlert({
+      operation: "list",
+      stage: primaryError ? "legacy" : "primary",
+      surface,
+      countryCode,
+      customerState,
+      limit,
+      recovered: false,
+      error,
+    }).catch(() => {
+      // Fail open: alerting should never block merchandising content.
+    })
     return []
   }
 }
 
 export async function getCuratedCollectionCards({
   surface,
+  alertSurface,
   customerState = "all",
   limit = 50,
 }: {
   surface?: string
+  alertSurface?: string
   customerState?: "guest_or_no_orders" | "returning" | "all" | "any"
   limit?: number
 }): Promise<CuratedCollection[]> {
@@ -731,13 +762,25 @@ export async function getCuratedCollectionCards({
       .slice(0, limit)
   } catch (error) {
     console.error("Error fetching curated collection cards:", error)
+    void emitCuratedCollectionsStrapiFailureAlert({
+      operation: "cards",
+      stage: "primary",
+      surface: alertSurface || surface,
+      customerState,
+      limit,
+      recovered: false,
+      error,
+    }).catch(() => {
+      // Fail open: alerting should never block merchandising content.
+    })
     return []
   }
 }
 
 export async function getCuratedCollectionBySlug(
   slug: string,
-  countryCode: string
+  countryCode: string,
+  alertSurface = "collection_page"
 ): Promise<CuratedCollection | null> {
   const enrichVisibleCollection = async (
     collection: CuratedCollection | null | undefined
@@ -746,6 +789,7 @@ export async function getCuratedCollectionBySlug(
     const [enriched] = await enrichCollections([collection], countryCode)
     return enriched || null
   }
+  let primaryError: unknown
 
   try {
     const data = await strapiClient.request<{
@@ -753,6 +797,7 @@ export async function getCuratedCollectionBySlug(
     }>(GetCuratedCollectionBySlugQuery, { slug })
     return enrichVisibleCollection(data.curatedCollections?.[0])
   } catch (error) {
+    primaryError = error
     console.error("Error fetching curated collection:", error)
   }
 
@@ -760,9 +805,33 @@ export async function getCuratedCollectionBySlug(
     const data = await strapiClient.request<{
       curatedCollections: CuratedCollection[]
     }>(LegacyCuratedCollectionBySlugQuery, { slug })
+    if (primaryError) {
+      void emitCuratedCollectionsStrapiFailureAlert({
+        operation: "detail",
+        stage: "primary",
+        surface: alertSurface,
+        countryCode,
+        slug,
+        recovered: true,
+        error: primaryError,
+      }).catch(() => {
+        // Fail open: alerting should never block merchandising content.
+      })
+    }
     return enrichVisibleCollection(data.curatedCollections?.[0])
   } catch (error) {
     console.error("Error fetching legacy curated collection:", error)
+    void emitCuratedCollectionsStrapiFailureAlert({
+      operation: "detail",
+      stage: primaryError ? "legacy" : "primary",
+      surface: alertSurface,
+      countryCode,
+      slug,
+      recovered: false,
+      error,
+    }).catch(() => {
+      // Fail open: alerting should never block merchandising content.
+    })
     return null
   }
 }

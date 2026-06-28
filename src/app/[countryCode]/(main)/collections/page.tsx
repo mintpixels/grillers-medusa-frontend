@@ -8,9 +8,9 @@ import {
   isWaysToShopMissionId,
 } from "@lib/content/ways-to-shop"
 import { getCuratedCollectionCards } from "@lib/data/strapi/curated-collections"
+import { withCuratedCollectionsTimeoutAlert } from "@lib/curated-collections-ops-alerts"
 import ExperimentExposure from "@lib/experiments/exposure"
 import { getExperimentAssignment } from "@lib/experiments/server"
-import { withTimeout } from "@lib/util/promise-timeout"
 import { itemListJsonLd, webPageJsonLd } from "@lib/util/structured-data"
 
 type PageProps = {
@@ -75,15 +75,20 @@ export default async function CollectionsPage({
       customerType: "unknown",
     }
   )
-  const collections = await withTimeout(
-    getCuratedCollectionCards({
+  const collections = await withCuratedCollectionsTimeoutAlert({
+    promise: getCuratedCollectionCards({
+      alertSurface: "collections_hub",
       customerState: "any",
       limit: 60,
     }).catch(() => []),
-    1200,
-    [],
-    "collections hub cards"
-  )
+    fallback: [],
+    operation: "cards",
+    surface: "collections_hub",
+    countryCode,
+    customerState: "any",
+    limit: 60,
+    timeoutMs: 1200,
+  })
   const baseUrl = getBaseURL()
   const collectionListJsonLd = itemListJsonLd(
     baseUrl,

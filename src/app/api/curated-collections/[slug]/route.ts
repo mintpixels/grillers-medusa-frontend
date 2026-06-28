@@ -9,7 +9,11 @@ type RouteProps = {
 export async function GET(request: NextRequest, { params }: RouteProps) {
   const { slug } = await params
   const countryCode = request.nextUrl.searchParams.get("countryCode") || "us"
-  const collection = await getCuratedCollectionBySlug(slug, countryCode)
+  const collection = await getCuratedCollectionBySlug(
+    slug,
+    countryCode,
+    "api_detail"
+  )
 
   const headers = {
     "Cache-Control": "s-maxage=300, stale-while-revalidate=3600",
