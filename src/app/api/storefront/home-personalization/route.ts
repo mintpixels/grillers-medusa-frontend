@@ -10,27 +10,34 @@ import {
   getAddressBookDeliveryZip,
   normalizeDeliveryZip,
 } from "@lib/util/delivery-zip"
-import { withTimeout } from "@lib/util/promise-timeout"
+import { withStorefrontApiFallback } from "@lib/storefront-api-ops-alerts"
 
 const homePersonalizationHeaders = {
   "Cache-Control": "private, max-age=15, must-revalidate",
   Vary: "Cookie",
 }
 
+const HOME_PERSONALIZATION_PATH =
+  "src/app/api/storefront/home-personalization/route.ts"
+
 export async function GET() {
   const [customer, cart] = await Promise.all([
-    withTimeout(
-      retrieveCustomer().catch(() => null),
-      1000,
-      null,
-      "home personalization customer"
-    ),
-    withTimeout(
-      retrieveCart(undefined, { fresh: true }).catch(() => null),
-      1000,
-      null,
-      "home personalization cart"
-    ),
+    withStorefrontApiFallback({
+      promise: retrieveCustomer(),
+      fallback: null,
+      route: "home_personalization",
+      stage: "customer",
+      path: HOME_PERSONALIZATION_PATH,
+      timeoutMs: 1000,
+    }),
+    withStorefrontApiFallback({
+      promise: retrieveCart(undefined, { fresh: true }),
+      fallback: null,
+      route: "home_personalization",
+      stage: "cart",
+      path: HOME_PERSONALIZATION_PATH,
+      timeoutMs: 1000,
+    }),
   ])
 
   const isLoggedIn = Boolean(customer)
@@ -38,12 +45,14 @@ export async function GET() {
   const addressBookZip = getAddressBookDeliveryZip(customer?.addresses)
   const latestOrderZip =
     isLoggedIn && !cartZip && !addressBookZip
-      ? await withTimeout(
-          getLatestOrderDeliveryZip().catch(() => ""),
-          1000,
-          "",
-          "home personalization latest order delivery zip"
-        )
+      ? await withStorefrontApiFallback({
+          promise: getLatestOrderDeliveryZip(),
+          fallback: "",
+          route: "home_personalization",
+          stage: "latest_order_delivery_zip",
+          path: HOME_PERSONALIZATION_PATH,
+          timeoutMs: 1000,
+        })
       : ""
   const customerZip = cartZip || addressBookZip || latestOrderZip || null
   const customerZipSource = cartZip
@@ -55,14 +64,23 @@ export async function GET() {
     : null
 
   const purchaseHistory = isLoggedIn
-    ? await withTimeout(
-        listPurchaseHistory().catch(() => []),
-        1200,
-        [],
-        "home personalization purchase history"
-      )
+    ? await withStorefrontApiFallback({
+        promise: listPurchaseHistory(),
+        fallback: [],
+        route: "home_personalization",
+        stage: "purchase_history",
+        path: HOME_PERSONALIZATION_PATH,
+        timeoutMs: 1200,
+      })
     : []
-  const strapiMap = await getReorderStrapiMap(purchaseHistory)
+  const strapiMap = await withStorefrontApiFallback({
+    promise: getReorderStrapiMap(purchaseHistory),
+    fallback: {},
+    route: "home_personalization",
+    stage: "reorder_strapi_map",
+    path: HOME_PERSONALIZATION_PATH,
+    timeoutMs: 1800,
+  })
 
   return NextResponse.json(
     {

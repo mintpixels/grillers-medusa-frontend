@@ -8,13 +8,15 @@ import {
   normalizeDeliveryZip,
 } from "@lib/util/delivery-zip"
 import { isStaffCustomer } from "@lib/util/staff-access"
-import { withTimeout } from "@lib/util/promise-timeout"
+import { withStorefrontApiFallback } from "@lib/storefront-api-ops-alerts"
 import type { StorefrontSessionSnapshot } from "@modules/layout/components/storefront-session/types"
 
 const sessionHeaders = {
   "Cache-Control": "private, max-age=0, must-revalidate",
   Vary: "Cookie",
 }
+
+const STOREFRONT_SESSION_PATH = "src/app/api/storefront/session/route.ts"
 
 function customerInitials(firstName?: string | null, lastName?: string | null) {
   const first = firstName?.[0]?.toUpperCase() || ""
@@ -26,36 +28,44 @@ function customerInitials(firstName?: string | null, lastName?: string | null) {
 
 export async function GET() {
   const [customer, cart, staffImpersonation, savedZip] = await Promise.all([
-    withTimeout(
-      retrieveCustomer().catch(() => null),
-      1000,
-      null,
-      "storefront session customer"
-    ),
-    withTimeout(
-      retrieveCart(undefined, { fresh: true }).catch(() => null),
-      1000,
-      null,
-      "storefront session cart"
-    ),
-    withTimeout(
-      getStaffImpersonationSession().catch(() => null),
-      800,
-      null,
-      "storefront session staff impersonation"
-    ),
+    withStorefrontApiFallback({
+      promise: retrieveCustomer(),
+      fallback: null,
+      route: "session",
+      stage: "customer",
+      path: STOREFRONT_SESSION_PATH,
+      timeoutMs: 1000,
+    }),
+    withStorefrontApiFallback({
+      promise: retrieveCart(undefined, { fresh: true }),
+      fallback: null,
+      route: "session",
+      stage: "cart",
+      path: STOREFRONT_SESSION_PATH,
+      timeoutMs: 1000,
+    }),
+    withStorefrontApiFallback({
+      promise: getStaffImpersonationSession(),
+      fallback: null,
+      route: "session",
+      stage: "staff_impersonation",
+      path: STOREFRONT_SESSION_PATH,
+      timeoutMs: 800,
+    }),
     getDeliveryZipCookie().catch(() => ""),
   ])
 
   const shippingOptions = cart
-    ? await withTimeout(
-        listCartOptions({ fresh: true }).catch(() => ({
-          shipping_options: [],
-        })),
-        900,
-        { shipping_options: [] },
-        "storefront session shipping options"
-      ).then((result) => result.shipping_options || [])
+    ? await withStorefrontApiFallback({
+        promise: listCartOptions({ fresh: true }).then(
+          (result) => result.shipping_options || []
+        ),
+        fallback: [],
+        route: "session",
+        stage: "shipping_options",
+        path: STOREFRONT_SESSION_PATH,
+        timeoutMs: 900,
+      })
     : []
 
   const defaultShipping =
