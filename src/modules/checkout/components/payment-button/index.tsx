@@ -5,6 +5,7 @@ import {
   submitOrderWithSavedPaymentMethod,
   verifyCartInventoryForCheckout,
 } from "@lib/data/cart"
+import { reportClientOpsAlert } from "@lib/client-error-reporter"
 import { jitsuTrack } from "@lib/jitsu"
 import { HttpTypes } from "@medusajs/types"
 import { useElements, useStripe } from "@stripe/react-stripe-js"
@@ -58,6 +59,62 @@ type PaymentButtonProps = {
 const FINAL_CHARGE_CONSENT_VERSION = "catch-weight-final-charge-2026-05-31"
 const FINAL_CHARGE_CONSENT_TEXT =
   "I agree that Griller's Pride will save my card today and charge the final order total when my order is packed and ready to leave."
+
+type CheckoutPaymentMode = "saved_card" | "new_card" | "invoice"
+
+function checkoutErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message
+  if (typeof error === "string") return error
+  if (error && typeof error === "object") {
+    const record = error as Record<string, any>
+    return (
+      String(record.message || "").trim() ||
+      String(record.error?.message || "").trim() ||
+      String(record.error || "").trim() ||
+      "Unknown checkout payment error"
+    )
+  }
+  return "Unknown checkout payment error"
+}
+
+function redactCheckoutMessage(message: string) {
+  return message
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[email]")
+    .slice(0, 500)
+}
+
+function reportCheckoutPaymentFailure({
+  cart,
+  paymentMode,
+  stage,
+  error,
+  extra,
+}: {
+  cart: HttpTypes.StoreCart
+  paymentMode: CheckoutPaymentMode
+  stage: string
+  error: unknown
+  extra?: Record<string, unknown>
+}) {
+  const message = redactCheckoutMessage(checkoutErrorMessage(error))
+
+  reportClientOpsAlert({
+    kind: "checkout_segment_error",
+    severity: "page",
+    title: `Checkout payment ${stage} failed`,
+    message,
+    extra: {
+      checkout_surface: "payment_button",
+      payment_mode: paymentMode,
+      stage,
+      cart_id: cart.id,
+      fulfillment_type: cart.metadata?.fulfillmentType || null,
+      shipping_method_count: cart.shipping_methods?.length || 0,
+      ...extra,
+      error_message: message,
+    },
+  })
+}
 
 const PaymentButton: React.FC<PaymentButtonProps> = ({
   cart,
@@ -128,14 +185,37 @@ async function verifyAndPlaceOrder({
 }) {
   await verifyCartInventoryForCheckout(cart.id)
 
-  const result = await submitOrderWithSavedPaymentMethod({
-    paymentMethodId,
-    setupIntentId,
-    consentVersion: FINAL_CHARGE_CONSENT_VERSION,
-    consentText: FINAL_CHARGE_CONSENT_TEXT,
-  })
+  let result: Awaited<ReturnType<typeof submitOrderWithSavedPaymentMethod>>
+  try {
+    result = await submitOrderWithSavedPaymentMethod({
+      paymentMethodId,
+      setupIntentId,
+      consentVersion: FINAL_CHARGE_CONSENT_VERSION,
+      consentText: FINAL_CHARGE_CONSENT_TEXT,
+    })
+  } catch (err) {
+    reportCheckoutPaymentFailure({
+      cart,
+      paymentMode: setupIntentId ? "new_card" : "saved_card",
+      stage: "order_submit_throw",
+      error: err,
+      extra: {
+        has_setup_intent: Boolean(setupIntentId),
+      },
+    })
+    throw err
+  }
 
   if (result?.error) {
+    reportCheckoutPaymentFailure({
+      cart,
+      paymentMode: setupIntentId ? "new_card" : "saved_card",
+      stage: "order_submit_result",
+      error: result.error,
+      extra: {
+        has_setup_intent: Boolean(setupIntentId),
+      },
+    })
     setErrorMessage(result.error)
   }
 }
@@ -254,27 +334,38 @@ const NewCardSetupPaymentButton = ({
         return
       }
 
-      const result = await stripe.confirmCardSetup(setupIntentClientSecret, {
-        payment_method: {
-          card,
-          billing_details: {
-            name:
-              cart.billing_address?.first_name +
-              " " +
-              cart.billing_address?.last_name,
-            address: {
-              city: cart.billing_address?.city ?? undefined,
-              country: cart.billing_address?.country_code ?? undefined,
-              line1: cart.billing_address?.address_1 ?? undefined,
-              line2: cart.billing_address?.address_2 ?? undefined,
-              postal_code: cart.billing_address?.postal_code ?? undefined,
-              state: cart.billing_address?.province ?? undefined,
+      let result: Awaited<ReturnType<typeof stripe.confirmCardSetup>>
+      try {
+        result = await stripe.confirmCardSetup(setupIntentClientSecret, {
+          payment_method: {
+            card,
+            billing_details: {
+              name:
+                cart.billing_address?.first_name +
+                " " +
+                cart.billing_address?.last_name,
+              address: {
+                city: cart.billing_address?.city ?? undefined,
+                country: cart.billing_address?.country_code ?? undefined,
+                line1: cart.billing_address?.address_1 ?? undefined,
+                line2: cart.billing_address?.address_2 ?? undefined,
+                postal_code: cart.billing_address?.postal_code ?? undefined,
+                state: cart.billing_address?.province ?? undefined,
+              },
+              email: cart.email,
+              phone: cart.billing_address?.phone ?? undefined,
             },
-            email: cart.email,
-            phone: cart.billing_address?.phone ?? undefined,
           },
-        },
-      })
+        })
+      } catch (err) {
+        reportCheckoutPaymentFailure({
+          cart,
+          paymentMode: "new_card",
+          stage: "card_setup_throw",
+          error: err,
+        })
+        throw err
+      }
 
       if (result.error) {
         jitsuTrack("payment_setup_failed", {
@@ -298,18 +389,54 @@ const NewCardSetupPaymentButton = ({
         !paymentMethodId ||
         setupIntent.status !== "succeeded"
       ) {
+        reportCheckoutPaymentFailure({
+          cart,
+          paymentMode: "new_card",
+          stage: "card_setup_incomplete",
+          error: `SetupIntent status ${setupIntent?.status || "missing"}`,
+          extra: {
+            setup_intent_status: setupIntent?.status || null,
+            has_setup_intent_id: Boolean(setupIntent?.id),
+            has_payment_method_id: Boolean(paymentMethodId),
+          },
+        })
         setErrorMessage("Card setup did not complete. Please try again.")
         return
       }
 
-      const orderResult = await submitOrderWithSavedPaymentMethod({
-        paymentMethodId,
-        setupIntentId: setupIntent.id,
-        consentVersion: FINAL_CHARGE_CONSENT_VERSION,
-        consentText: FINAL_CHARGE_CONSENT_TEXT,
-      })
+      let orderResult: Awaited<
+        ReturnType<typeof submitOrderWithSavedPaymentMethod>
+      >
+      try {
+        orderResult = await submitOrderWithSavedPaymentMethod({
+          paymentMethodId,
+          setupIntentId: setupIntent.id,
+          consentVersion: FINAL_CHARGE_CONSENT_VERSION,
+          consentText: FINAL_CHARGE_CONSENT_TEXT,
+        })
+      } catch (err) {
+        reportCheckoutPaymentFailure({
+          cart,
+          paymentMode: "new_card",
+          stage: "order_submit_throw",
+          error: err,
+          extra: {
+            has_setup_intent: true,
+          },
+        })
+        throw err
+      }
 
       if (orderResult?.error) {
+        reportCheckoutPaymentFailure({
+          cart,
+          paymentMode: "new_card",
+          stage: "order_submit_result",
+          error: orderResult.error,
+          extra: {
+            has_setup_intent: true,
+          },
+        })
         setErrorMessage(orderResult.error)
       }
     } catch (err: any) {
@@ -369,11 +496,33 @@ const InvoicePaymentButton = ({
 
     try {
       await verifyCartInventoryForCheckout(cart.id)
+    } catch (err: any) {
+      setErrorMessage(
+        err.message || "Could not place the order. Please try again."
+      )
+      submittingRef.current = false
+      reportSubmitting(false)
+      return
+    }
+
+    try {
       const result = await submitOrderByInvoice({ cartId: cart.id })
       if (result?.error) {
+        reportCheckoutPaymentFailure({
+          cart,
+          paymentMode: "invoice",
+          stage: "invoice_submit_result",
+          error: result.error,
+        })
         setErrorMessage(result.error)
       }
     } catch (err: any) {
+      reportCheckoutPaymentFailure({
+        cart,
+        paymentMode: "invoice",
+        stage: "invoice_submit_throw",
+        error: err,
+      })
       setErrorMessage(
         err.message || "Could not place the order. Please try again."
       )
