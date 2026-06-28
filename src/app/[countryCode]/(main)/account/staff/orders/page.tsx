@@ -1,11 +1,6 @@
 import { retrieveAuthenticatedCustomerForStaffAccess } from "@lib/data/customer"
 import { getStaffImpersonationSession } from "@lib/data/staff/impersonation"
 import {
-  getProductMerchandisingTagsForStaff,
-  type ProductMerchandisingTagSummary,
-} from "@lib/data/staff/product-merchandising"
-import type { HttpTypes } from "@medusajs/types"
-import {
   canManageOrderSupport,
   canPackCatchWeightOrders,
   canPickCatchWeightOrders,
@@ -14,6 +9,7 @@ import {
   isStaffCustomer,
   isSuperAdminCustomer,
 } from "@lib/util/staff-access"
+import type { HttpTypes } from "@medusajs/types"
 import {
   DEFAULT_SEO_DESCRIPTION,
   DEFAULT_SEO_TITLE,
@@ -61,34 +57,6 @@ const STAFF_WORKSPACES = new Set<StaffWorkspace>([
   "team_access",
   "merchandising",
 ])
-
-const DEFAULT_MERCHANDISING_PRELOAD_TIMEOUT_MS = 12000
-
-function merchandisingPreloadTimeoutMs() {
-  const configured = Number(process.env.STAFF_MERCHANDISING_PRELOAD_TIMEOUT_MS)
-  return Number.isFinite(configured) && configured > 0
-    ? configured
-    : DEFAULT_MERCHANDISING_PRELOAD_TIMEOUT_MS
-}
-
-function merchandisingPreloadTimeout() {
-  return new Promise<ProductMerchandisingTagSummary[]>((_resolve, reject) => {
-    setTimeout(() => {
-      reject(
-        new Error(
-          "Merchandising data is still loading; retrying through the staff feed."
-        )
-      )
-    }, merchandisingPreloadTimeoutMs())
-  })
-}
-
-function loadInitialMerchandisingTags(customer: HttpTypes.StoreCustomer) {
-  return Promise.race([
-    getProductMerchandisingTagsForStaff(customer),
-    merchandisingPreloadTimeout(),
-  ])
-}
 
 function requestedWorkspace(
   value?: string | string[]
@@ -143,24 +111,6 @@ function defaultWorkspaceForCustomer(
   return "exceptions"
 }
 
-function staffPageErrorMessage(
-  value: unknown,
-  fallback = "Could not load merchandising data."
-) {
-  if (value instanceof Error) return value.message
-  if (typeof value === "string") return value
-  if (value && typeof value === "object") {
-    const record = value as Record<string, any>
-    return (
-      String(record.message || "").trim() ||
-      String(record.error?.message || "").trim() ||
-      String(record.error || "").trim() ||
-      fallback
-    )
-  }
-  return fallback
-}
-
 export default async function StaffPhoneOrdersPage({
   params,
   searchParams,
@@ -187,24 +137,12 @@ export default async function StaffPhoneOrdersPage({
       : defaultWorkspaceForCustomer(customer)
 
   const impersonation = await getStaffImpersonationSession()
-  let initialMerchandisingTags: ProductMerchandisingTagSummary[] | null = null
-  let initialMerchandisingError: string | null = null
-
-  if (initialWorkspace === "merchandising" && canReviewMerchandising(customer)) {
-    try {
-      initialMerchandisingTags = await loadInitialMerchandisingTags(customer)
-    } catch (error) {
-      initialMerchandisingError = staffPageErrorMessage(error)
-    }
-  }
 
   return (
     <PhoneOrderCopilot
       countryCode={countryCode}
       staffCustomer={customer}
       initialImpersonation={impersonation}
-      initialMerchandisingError={initialMerchandisingError}
-      initialMerchandisingTags={initialMerchandisingTags}
       initialWorkspace={initialWorkspace}
     />
   )

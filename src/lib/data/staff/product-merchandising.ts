@@ -150,6 +150,7 @@ const TAG_SUMMARY_CACHE_MS = 60 * 1000
 const TAG_SUMMARY_NEXT_CACHE_SECONDS = 5 * 60
 const TAG_SUMMARY_NEXT_CACHE_KEY = "staff-merchandising-tag-summary-v2"
 const TAG_SUMMARY_NEXT_CACHE_TAG = "staff-merchandising-tag-summary"
+const TAG_SUMMARY_INFLIGHT_STALE_MS = 15 * 1000
 
 const METADATA_LABELS: Record<string, string> = {
   Brand: "Brand",
@@ -182,6 +183,7 @@ let tagSummaryCache: {
   tags: ProductMerchandisingTagSummary[]
 } | null = null
 let tagSummaryInflight: Promise<ProductMerchandisingTagSummary[]> | null = null
+let tagSummaryInflightStartedAt = 0
 
 const loadCachedProductMerchandisingTags = unstable_cache(
   async () => buildProductMerchandisingTags(),
@@ -194,7 +196,30 @@ const loadCachedProductMerchandisingTags = unstable_cache(
 
 function invalidateProductMerchandisingTagSummary() {
   tagSummaryCache = null
+  tagSummaryInflight = null
+  tagSummaryInflightStartedAt = 0
   revalidateTag(TAG_SUMMARY_NEXT_CACHE_TAG)
+}
+
+function reusableTagSummaryInflight() {
+  if (!tagSummaryInflight) return null
+
+  const ageMs = Date.now() - tagSummaryInflightStartedAt
+  if (ageMs <= TAG_SUMMARY_INFLIGHT_STALE_MS) {
+    return tagSummaryInflight
+  }
+
+  reportServerSoftFailure(
+    "staff-merchandising-tags-stale-inflight",
+    new Error("Discarding stale merchandising tag summary load."),
+    {
+      stale_inflight_age_ms: ageMs,
+      stale_inflight_threshold_ms: TAG_SUMMARY_INFLIGHT_STALE_MS,
+    }
+  )
+  tagSummaryInflight = null
+  tagSummaryInflightStartedAt = 0
+  return null
 }
 
 function strapiEndpoint() {
@@ -923,12 +948,15 @@ export async function getProductMerchandisingTagsForStaff(
   ) {
     return tagSummaryCache.tags
   }
-  if (tagSummaryInflight) return tagSummaryInflight
+  const inflight = reusableTagSummaryInflight()
+  if (inflight) return inflight
 
   tagSummaryInflight = loadCachedProductMerchandisingTags()
+  tagSummaryInflightStartedAt = Date.now()
+  const currentInflight = tagSummaryInflight
 
   try {
-    const tags = await tagSummaryInflight
+    const tags = await currentInflight
     tagSummaryCache = {
       timestamp: Date.now(),
       tags,
@@ -944,7 +972,10 @@ export async function getProductMerchandisingTagsForStaff(
     }
     throw error
   } finally {
-    tagSummaryInflight = null
+    if (tagSummaryInflight === currentInflight) {
+      tagSummaryInflight = null
+      tagSummaryInflightStartedAt = 0
+    }
   }
 }
 

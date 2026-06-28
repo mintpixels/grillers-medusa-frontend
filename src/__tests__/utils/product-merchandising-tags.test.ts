@@ -2,6 +2,7 @@ const mockRetrieveAuthenticatedCustomerForStaffAccess = jest.fn()
 const mockRevalidateTag = jest.fn()
 const mockUnstableCache = jest.fn((fn) => fn)
 const mockEmitStaffMerchandisingActionFailureAlert = jest.fn()
+const mockReportServerSoftFailure = jest.fn()
 
 jest.mock("@lib/data/customer", () => ({
   retrieveAuthenticatedCustomerForStaffAccess:
@@ -15,7 +16,7 @@ jest.mock("next/cache", () => ({
 }))
 
 jest.mock("@lib/server-soft-failure", () => ({
-  reportServerSoftFailure: jest.fn(),
+  reportServerSoftFailure: mockReportServerSoftFailure,
 }))
 
 jest.mock("@lib/staff-merchandising-ops-alerts", () => ({
@@ -45,6 +46,7 @@ describe("getProductMerchandisingTags", () => {
     jest.resetModules()
     jest.clearAllMocks()
     mockEmitStaffMerchandisingActionFailureAlert.mockResolvedValue(undefined)
+    mockReportServerSoftFailure.mockClear()
     process.env = {
       ...originalEnv,
       STRAPI_ENDPOINT: "https://strapi.example.com",
@@ -258,6 +260,61 @@ describe("getProductMerchandisingTags", () => {
     )
   })
 
+  it("discards stale in-flight summary loads before retrying", async () => {
+    const dateNowSpy = jest.spyOn(Date, "now")
+    dateNowSpy.mockReturnValue(1_000)
+
+    const never = new Promise<Response>(() => {})
+    const fetchMock = jest.fn(() => never)
+    global.fetch = fetchMock as unknown as typeof fetch
+
+    const { getProductMerchandisingTags } = await import(
+      "@lib/data/staff/product-merchandising"
+    )
+
+    void getProductMerchandisingTags()
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+
+    dateNowSpy.mockReturnValue(17_000)
+    fetchMock.mockResolvedValueOnce(
+      strapiPage([
+        {
+          documentId: "product-1",
+          FeaturedImage: {
+            documentId: "image-1",
+            url: "/uploads/image-1.jpg",
+          },
+          GalleryImages: [],
+          Categorization: {
+            ProductTags: [{ Name: "L2: Beef" }, { Name: "L3: Brisket" }],
+          },
+        },
+      ]) as unknown as Response
+    )
+
+    const tags = await getProductMerchandisingTags()
+
+    expect(tags).toEqual([
+      expect.objectContaining({
+        name: "L3: Brisket",
+        productCount: 1,
+        imageCount: 1,
+      }),
+    ])
+    expect(mockReportServerSoftFailure).toHaveBeenCalledWith(
+      "staff-merchandising-tags-stale-inflight",
+      expect.any(Error),
+      expect.objectContaining({
+        stale_inflight_age_ms: 16_000,
+        stale_inflight_threshold_ms: 15_000,
+      })
+    )
+
+    dateNowSpy.mockRestore()
+  })
+
   it("invalidates the shared tag summary cache after a successful image review write", async () => {
     const latestCaption = reviewCaption({
       review: { status: "unreviewed" },
@@ -365,3 +422,5 @@ describe("getProductMerchandisingTags", () => {
     )
   })
 })
+
+export {}
