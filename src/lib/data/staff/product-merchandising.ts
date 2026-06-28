@@ -4,6 +4,7 @@ import "server-only"
 
 import { revalidatePath } from "next/cache"
 import { retrieveAuthenticatedCustomerForStaffAccess } from "@lib/data/customer"
+import { emitStorefrontOpsAlert } from "@lib/ops-alert"
 import { isStaffCustomer, staffDisplayName } from "@lib/util/staff-access"
 
 type AnyRecord = Record<string, any>
@@ -103,6 +104,11 @@ type NormalizedProductTag = {
 
 const REVIEW_CAPTION_PREFIX = "GP_IMAGE_REVIEW_V1:"
 const PAGE_SIZE = 100
+const REVIEW_VALIDATION_MESSAGES = new Set([
+  "Choose an image to review.",
+  "Choose a rejection reason.",
+  "Staff access required.",
+])
 
 const METADATA_LABELS: Record<string, string> = {
   Brand: "Brand",
@@ -400,6 +406,65 @@ async function strapiGet<T>(path: string): Promise<T> {
   return response.json()
 }
 
+async function currentUploadFile(imageId: number): Promise<RawImage> {
+  const response = await fetch(
+    `${strapiEndpoint()}/api/upload/files/${imageId}`,
+    {
+      headers: strapiRewriteHeaders(),
+      cache: "no-store",
+    }
+  )
+
+  if (!response.ok) {
+    throw new Error(`Strapi image review read failed: ${response.status}`)
+  }
+
+  return response.json()
+}
+
+function captionsMatch(
+  current: string | null | undefined,
+  loaded: string | null | undefined
+) {
+  return (current || null) === (loaded || null)
+}
+
+function reviewFailureReason(error: unknown) {
+  if (!(error instanceof Error)) return "unknown_error"
+  const message = error.message.toLowerCase()
+  if (message.includes("read failed")) return "strapi_read_failed"
+  if (message.includes("write failed")) return "strapi_write_failed"
+  if (message.includes("fetch")) return "network_error"
+  return "server_exception"
+}
+
+function emitMerchandisingReviewTelemetry(input: {
+  alertKind: string
+  severity: "page" | "warn" | "info"
+  title: string
+  imageId: number
+  imageDocumentId?: string
+  attemptedStatus: Exclude<MerchandisingReviewStatus, "unreviewed">
+  previousStatus?: MerchandisingReviewStatus
+  reason?: string
+}) {
+  return emitStorefrontOpsAlert({
+    alertKind: input.alertKind,
+    severity: input.severity,
+    title: input.title,
+    path: "src/lib/data/staff/product-merchandising.ts",
+    source: "storefront-staff",
+    fingerprint: `${input.alertKind}:${input.reason || input.attemptedStatus}`,
+    meta: {
+      image_id: input.imageId,
+      image_document_id: input.imageDocumentId || null,
+      attempted_status: input.attemptedStatus,
+      previous_status: input.previousStatus || null,
+      reason: input.reason || null,
+    },
+  })
+}
+
 async function fetchAllProducts(): Promise<AnyRecord[]> {
   const products: AnyRecord[] = []
   let page = 1
@@ -533,6 +598,30 @@ export async function reviewMerchandisingImage(
       reviewerName: staffDisplayName(staff),
       reviewedAt: new Date().toISOString(),
     }
+    const latestImage = await currentUploadFile(input.imageId)
+    const previousReview = parseReviewCaption(latestImage.caption).review
+
+    if (
+      !captionsMatch(latestImage.caption || null, input.currentCaption || null)
+    ) {
+      await emitMerchandisingReviewTelemetry({
+        alertKind: "staff_merchandising_review_conflict",
+        severity: "warn",
+        title: "Staff merchandising review was stale",
+        imageId: input.imageId,
+        imageDocumentId: input.imageDocumentId || latestImage.documentId,
+        attemptedStatus: input.status,
+        previousStatus: previousReview.status,
+        reason: "caption_changed",
+      })
+
+      return {
+        ok: false,
+        error:
+          "This image was updated by another reviewer. Refresh the page before saving.",
+      }
+    }
+
     const caption = reviewCaption(input.currentCaption, review)
 
     const response = await fetch(
@@ -561,9 +650,35 @@ export async function reviewMerchandisingImage(
     }
 
     revalidatePath(`/${input.countryCode}/account/staff/merchandising`)
+    void emitMerchandisingReviewTelemetry({
+      alertKind: "staff_merchandising_review_saved",
+      severity: "info",
+      title: "Staff merchandising image review saved",
+      imageId: input.imageId,
+      imageDocumentId: input.imageDocumentId || latestImage.documentId,
+      attemptedStatus: input.status,
+      previousStatus: previousReview.status,
+      reason: input.status,
+    })
     return { ok: true, review }
   } catch (error) {
     console.error("[product-merchandising] review failed", error)
+    if (
+      !(
+        error instanceof Error && REVIEW_VALIDATION_MESSAGES.has(error.message)
+      ) &&
+      input.imageId
+    ) {
+      await emitMerchandisingReviewTelemetry({
+        alertKind: "staff_merchandising_review_failed",
+        severity: "page",
+        title: "Staff merchandising image review failed",
+        imageId: input.imageId,
+        imageDocumentId: input.imageDocumentId,
+        attemptedStatus: input.status,
+        reason: reviewFailureReason(error),
+      })
+    }
     return {
       ok: false,
       error:
