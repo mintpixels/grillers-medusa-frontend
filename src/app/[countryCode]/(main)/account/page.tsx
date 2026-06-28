@@ -2,6 +2,7 @@ import Overview from "@modules/account/components/overview"
 import LoginTemplate from "@modules/account/templates/login-template"
 import { retrieveCustomer } from "@lib/data/customer"
 import { listAllOrders, listLegacyCustomerOrders } from "@lib/data/orders"
+import { emitOrderHistoryDataFailureAlert } from "@lib/order-history-ops-alerts"
 
 // /us/account branches on session: signed-in customers see the account
 // overview, everyone else sees the sign-in form. Previously this was a
@@ -20,7 +21,16 @@ export default async function AccountPage() {
   }
 
   const [orders, legacyOrderHistory] = await Promise.all([
-    listAllOrders().catch(() => null),
+    listAllOrders().catch((error) => {
+      void emitOrderHistoryDataFailureAlert({
+        stage: "account_recent_orders",
+        mode: "customer",
+        error,
+      }).catch(() => {
+        // Fail open: the overview already renders without recent orders.
+      })
+      return null
+    }),
     listLegacyCustomerOrders(5, 0).catch(() => ({ orders: [], count: 0 })),
   ])
 

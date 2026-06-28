@@ -15,10 +15,8 @@ describe("order history ops alerts", () => {
 
   it("emits a warn alert when order history falls back to empty or partial data", async () => {
     await emitOrderHistoryDataFailureAlert({
-      stage: "legacy_customer_orders",
+      stage: "account_recent_orders",
       mode: "customer",
-      limit: 100,
-      offset: 0,
       error: new Error("legacy service unavailable"),
     })
 
@@ -26,14 +24,14 @@ describe("order history ops alerts", () => {
       expect.objectContaining({
         alertKind: "order_history_data_degraded",
         severity: "warn",
-        title: "Order history legacy_customer_orders unavailable; using fallback",
+        title: "Order history account_recent_orders unavailable; using fallback",
         path: "src/lib/data/orders.ts",
-        fingerprint: "order_history:legacy_customer_orders:customer",
+        fingerprint: "order_history:account_recent_orders:customer",
         meta: expect.objectContaining({
-          order_history_stage: "legacy_customer_orders",
+          order_history_stage: "account_recent_orders",
           access_mode: "customer",
-          limit: 100,
-          offset: 0,
+          limit: null,
+          offset: null,
           failure_count: null,
           error_message: "legacy service unavailable",
         }),

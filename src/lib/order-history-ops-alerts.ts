@@ -1,6 +1,7 @@
 import { emitStorefrontOpsAlert } from "@lib/ops-alert"
 
 type OrderHistoryStage =
+  | "account_recent_orders"
   | "medusa_purchase_history"
   | "legacy_purchase_history"
   | "legacy_customer_orders"
