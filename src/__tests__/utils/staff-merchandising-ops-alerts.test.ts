@@ -1,4 +1,5 @@
 import {
+  emitStaffMerchandisingPreloadFailureAlert,
   emitStaffMerchandisingActionFailureAlert,
   emitSlowStaffMerchandisingDataAlert,
   summarizeMerchandisingTagTelemetry,
@@ -149,6 +150,31 @@ describe("staff merchandising ops alerts", () => {
           country_code: "us",
           requested_status: "approved",
           error_message: "Strapi image review write failed: 403",
+        }),
+      })
+    )
+  })
+
+  it("emits a warn alert when the staff console merchandising preload fails", async () => {
+    await emitStaffMerchandisingPreloadFailureAlert({
+      countryCode: "us",
+      error: new Error("Strapi timed out"),
+    })
+
+    expect(emitStorefrontOpsAlertMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        alertKind: "staff_module_load_failed",
+        severity: "warn",
+        title: "Staff merchandising preload failed: Strapi timed out",
+        path: "src/app/[countryCode]/(main)/account/staff/orders/page.tsx",
+        source: "medusa-server",
+        fingerprint: "staff_merchandising:preload:failed",
+        meta: expect.objectContaining({
+          staff_module: "merchandising",
+          action: "preload",
+          country_code: "us",
+          fallback_endpoint: "/[countryCode]/api/staff/catalog-review/groups",
+          error_message: "Strapi timed out",
         }),
       })
     )

@@ -4,6 +4,7 @@ import StaffPhoneOrdersPage from "../../app/[countryCode]/(main)/account/staff/o
 import { retrieveAuthenticatedCustomerForStaffAccess } from "@lib/data/customer"
 import { getStaffImpersonationSession } from "@lib/data/staff/impersonation"
 import { getProductMerchandisingTagsForStaff } from "@lib/data/staff/product-merchandising"
+import { emitStaffMerchandisingPreloadFailureAlert } from "@lib/staff-merchandising-ops-alerts"
 
 jest.mock("next/navigation", () => ({
   notFound: jest.fn(() => {
@@ -24,6 +25,12 @@ jest.mock("@lib/data/staff/impersonation", () => ({
 
 jest.mock("@lib/data/staff/product-merchandising", () => ({
   getProductMerchandisingTagsForStaff: jest.fn(),
+}))
+
+jest.mock("@lib/staff-merchandising-ops-alerts", () => ({
+  emitStaffMerchandisingPreloadFailureAlert: jest.fn(
+    async () => ({ ok: true })
+  ),
 }))
 
 jest.mock("@lib/util/seo", () => ({
@@ -60,6 +67,10 @@ const mockGetStaffImpersonationSession =
 const mockGetProductMerchandisingTagsForStaff =
   getProductMerchandisingTagsForStaff as jest.MockedFunction<
     typeof getProductMerchandisingTagsForStaff
+  >
+const mockEmitStaffMerchandisingPreloadFailureAlert =
+  emitStaffMerchandisingPreloadFailureAlert as jest.MockedFunction<
+    typeof emitStaffMerchandisingPreloadFailureAlert
   >
 
 const staffCustomer = {
@@ -128,6 +139,12 @@ describe("staff orders merchandising preload", () => {
     expect(props.initialWorkspace).toBe("merchandising")
     expect(props.initialMerchandisingTags).toBeNull()
     expect(props.initialMerchandisingError).toBe("Strapi timed out")
+    expect(mockEmitStaffMerchandisingPreloadFailureAlert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        countryCode: "us",
+        error: expect.any(Error),
+      })
+    )
   })
 
   it("does not load merchandising data for other workspaces", async () => {

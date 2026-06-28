@@ -1,6 +1,7 @@
 import { retrieveAuthenticatedCustomerForStaffAccess } from "@lib/data/customer"
 import { getStaffImpersonationSession } from "@lib/data/staff/impersonation"
 import { getProductMerchandisingTagsForStaff } from "@lib/data/staff/product-merchandising"
+import { emitStaffMerchandisingPreloadFailureAlert } from "@lib/staff-merchandising-ops-alerts"
 import {
   canManageOrderSupport,
   canPackCatchWeightOrders,
@@ -155,6 +156,12 @@ export default async function StaffPhoneOrdersPage({
         await getProductMerchandisingTagsForStaff(customer)
     } catch (error) {
       initialMerchandisingError = merchandisingPreloadErrorMessage(error)
+      void emitStaffMerchandisingPreloadFailureAlert({
+        countryCode,
+        error,
+      }).catch(() => {
+        // Fail-open: alerting must never block staff console recovery.
+      })
     }
   }
 

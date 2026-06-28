@@ -22,6 +22,11 @@ type StaffMerchandisingActionFailureInput = {
   error: unknown
 }
 
+type StaffMerchandisingPreloadFailureInput = {
+  countryCode?: string | null
+  error: unknown
+}
+
 type MerchandisingTagTotals = {
   productCount: number
   imageCount: number
@@ -138,6 +143,29 @@ export async function emitStaffMerchandisingActionFailureAlert({
       tag_name: tagName || null,
       country_code: countryCode || null,
       requested_status: status || null,
+      error_message: message.slice(0, 300),
+    },
+  })
+}
+
+export async function emitStaffMerchandisingPreloadFailureAlert({
+  countryCode,
+  error,
+}: StaffMerchandisingPreloadFailureInput) {
+  const message = merchandisingErrorMessage(error)
+
+  await emitStorefrontOpsAlert({
+    alertKind: "staff_module_load_failed",
+    severity: "warn",
+    title: `Staff merchandising preload failed: ${message}`.slice(0, 500),
+    path: "src/app/[countryCode]/(main)/account/staff/orders/page.tsx",
+    source: "medusa-server",
+    fingerprint: "staff_merchandising:preload:failed",
+    meta: {
+      staff_module: "merchandising",
+      action: "preload",
+      country_code: countryCode || null,
+      fallback_endpoint: "/[countryCode]/api/staff/catalog-review/groups",
       error_message: message.slice(0, 300),
     },
   })
