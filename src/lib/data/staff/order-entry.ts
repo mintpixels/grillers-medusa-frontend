@@ -674,6 +674,33 @@ async function emitProductSearchAvailabilityFailureAlert(input: {
   })
 }
 
+async function emitStaffOrderAvailabilityFailureAlert(input: {
+  action: "prepare_order" | "complete_order"
+  lineCount: number
+  fulfillmentType?: string
+  scheduledDate?: string
+  cartId?: string
+  error: unknown
+}) {
+  await emitStorefrontOpsAlert({
+    alertKind: "staff_order_availability_check_failed",
+    severity: "page",
+    title: "Staff order availability check failed",
+    path: "src/lib/data/staff/order-entry.ts",
+    source: "medusa-server",
+    fingerprint: `staff_phone_order:${input.action}:availability_check_failed`,
+    meta: {
+      staff_module: "phone_order",
+      action: input.action,
+      line_count: input.lineCount,
+      fulfillment_type: input.fulfillmentType || "",
+      scheduled_date_provided: Boolean(input.scheduledDate),
+      cart_id: input.cartId || "",
+      error_message: staffOrderEntryErrorMessage(input.error).slice(0, 300),
+    },
+  })
+}
+
 function duplicateReasonsForCustomer({
   customer,
   email,
@@ -1775,18 +1802,31 @@ export async function prepareStaffPhoneOrder(
       }
     })
 
-    const availability = await checkStaffInventoryAvailability({
-      fulfillment_type: input.fulfillmentType,
-      requested_fulfillment_date: input.scheduledDate,
-      customer_id: input.customer.id,
-      source: "staff_phone_order",
-      lines: input.lines.map((line) => ({
-        variant_id: line.variantId,
-        quantity: line.quantity,
-        sku: line.sku,
-        title: line.title,
-      })),
-    })
+    const availabilityLines = input.lines.map((line) => ({
+      variant_id: line.variantId,
+      quantity: line.quantity,
+      sku: line.sku,
+      title: line.title,
+    }))
+    let availability
+    try {
+      availability = await checkStaffInventoryAvailability({
+        fulfillment_type: input.fulfillmentType,
+        requested_fulfillment_date: input.scheduledDate,
+        customer_id: input.customer.id,
+        source: "staff_phone_order",
+        lines: availabilityLines,
+      })
+    } catch (err) {
+      void emitStaffOrderAvailabilityFailureAlert({
+        action: "prepare_order",
+        lineCount: availabilityLines.length,
+        fulfillmentType: input.fulfillmentType,
+        scheduledDate: input.scheduledDate,
+        error: err,
+      })
+      throw err
+    }
     const availabilityByVariant = new Map(
       availability.lines.map((line) => [line.variant_id, line])
     )
@@ -2060,28 +2100,44 @@ export async function completeStaffPhoneOrder(
       )
     }
 
-    const finalAvailability = await checkStaffInventoryAvailability({
-      cart_id: cart.id,
-      fulfillment_type: metadataText(metadata.fulfillmentType),
-      requested_fulfillment_date: metadataText(metadata.scheduledDate),
-      customer_id: metadataText(metadata.staff_selected_customer_id),
-      source: "staff_phone_order",
-      lines: (cart.items || [])
-        .map((item: AnyRecord) => {
-          const variantId = item.variant_id || item.variant?.id
-          if (!variantId) return null
-          return {
-            variant_id: variantId,
-            quantity: Number(item.quantity || 1),
-            sku: item.variant?.sku || item.metadata?.staff_line_sku,
-            title:
-              item.metadata?.staff_line_title ||
-              item.product_title ||
-              item.title,
-          }
-        })
-        .filter(Boolean) as any,
-    })
+    const finalAvailabilityLines = (cart.items || [])
+      .map((item: AnyRecord) => {
+        const variantId = item.variant_id || item.variant?.id
+        if (!variantId) return null
+        return {
+          variant_id: variantId,
+          quantity: Number(item.quantity || 1),
+          sku: item.variant?.sku || item.metadata?.staff_line_sku,
+          title:
+            item.metadata?.staff_line_title ||
+            item.product_title ||
+            item.title,
+        }
+      })
+      .filter(Boolean) as any
+    const finalFulfillmentType = metadataText(metadata.fulfillmentType)
+    const finalScheduledDate = metadataText(metadata.scheduledDate)
+    let finalAvailability
+    try {
+      finalAvailability = await checkStaffInventoryAvailability({
+        cart_id: cart.id,
+        fulfillment_type: finalFulfillmentType,
+        requested_fulfillment_date: finalScheduledDate,
+        customer_id: metadataText(metadata.staff_selected_customer_id),
+        source: "staff_phone_order",
+        lines: finalAvailabilityLines,
+      })
+    } catch (err) {
+      void emitStaffOrderAvailabilityFailureAlert({
+        action: "complete_order",
+        lineCount: finalAvailabilityLines.length,
+        fulfillmentType: finalFulfillmentType,
+        scheduledDate: finalScheduledDate,
+        cartId: cart.id,
+        error: err,
+      })
+      throw err
+    }
     const finalByVariant = new Map(
       finalAvailability.lines.map((line) => [line.variant_id, line])
     )

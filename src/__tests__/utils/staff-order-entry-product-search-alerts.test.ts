@@ -1,4 +1,8 @@
-import { searchStaffProducts } from "@lib/data/staff/order-entry"
+import {
+  completeStaffPhoneOrder,
+  prepareStaffPhoneOrder,
+  searchStaffProducts,
+} from "@lib/data/staff/order-entry"
 import { retrieveAuthenticatedCustomerForStaffAccess } from "@lib/data/customer"
 import { getRegion } from "@lib/data/regions"
 import { checkStaffInventoryAvailability } from "@lib/data/inventory-allocation"
@@ -102,6 +106,32 @@ describe("staff order-entry product search availability alerts", () => {
           }),
         } as Response
       }
+      if (String(url).includes("/store/carts/cart_staff")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            cart: {
+              id: "cart_staff",
+              metadata: {
+                source: "staff_phone_order",
+                staff_actor_customer_id: "cus_staff",
+                staff_selected_customer_id: "cus_customer",
+                fulfillmentType: "plant_pickup",
+                scheduledDate: "2026-07-03",
+              },
+              items: [
+                {
+                  variant_id: "variant_brisket",
+                  quantity: 2,
+                  variant: { id: "variant_brisket", sku: "1-03-15-2" },
+                  metadata: { staff_line_title: "First Cut Brisket - 4-5 lb" },
+                },
+              ],
+            },
+          }),
+        } as Response
+      }
 
       throw new Error(`Unexpected fetch ${String(url)}`)
     }) as unknown as typeof fetch
@@ -163,6 +193,95 @@ describe("staff order-entry product search availability alerts", () => {
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       "[staff-phone-order] inventory search availability failed",
       expect.any(Error)
+    )
+  })
+
+  it("alerts when prepare-order ATP blocks staff cart creation", async () => {
+    const result = await prepareStaffPhoneOrder({
+      countryCode: "us",
+      customer: {
+        id: "cus_customer",
+        email: "customer@example.com",
+        firstName: "Test",
+        lastName: "Customer",
+      },
+      shippingAddress: {
+        firstName: "Test",
+        lastName: "Customer",
+        address1: "123 Main St",
+        city: "Atlanta",
+        province: "GA",
+        postalCode: "30338",
+        countryCode: "us",
+        phone: "4045551212",
+      },
+      sameAsShipping: true,
+      lines: [
+        {
+          variantId: "variant_brisket",
+          quantity: 2,
+          title: "First Cut Brisket - 4-5 lb",
+          sku: "1-03-15-2",
+        },
+      ],
+      fulfillmentType: "plant_pickup",
+      scheduledDate: "2026-07-03",
+      customerVerified: true,
+      paymentMode: "send_checkout_link",
+      paymentConsent: false,
+      sendConfirmation: false,
+    })
+
+    expect(result).toEqual({
+      ok: false,
+      error: "Inventory API timed out",
+    })
+    expect(mockEmitStorefrontOpsAlert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        alertKind: "staff_order_availability_check_failed",
+        severity: "page",
+        title: "Staff order availability check failed",
+        path: "src/lib/data/staff/order-entry.ts",
+        source: "medusa-server",
+        fingerprint: "staff_phone_order:prepare_order:availability_check_failed",
+        meta: expect.objectContaining({
+          staff_module: "phone_order",
+          action: "prepare_order",
+          line_count: 1,
+          fulfillment_type: "plant_pickup",
+          scheduled_date_provided: true,
+          cart_id: "",
+          error_message: "Inventory API timed out",
+        }),
+      })
+    )
+  })
+
+  it("alerts when complete-order ATP blocks payment completion", async () => {
+    const result = await completeStaffPhoneOrder("cart_staff")
+
+    expect(result).toEqual({
+      ok: false,
+      error: "Inventory API timed out",
+    })
+    expect(mockEmitStorefrontOpsAlert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        alertKind: "staff_order_availability_check_failed",
+        severity: "page",
+        title: "Staff order availability check failed",
+        path: "src/lib/data/staff/order-entry.ts",
+        source: "medusa-server",
+        fingerprint: "staff_phone_order:complete_order:availability_check_failed",
+        meta: expect.objectContaining({
+          staff_module: "phone_order",
+          action: "complete_order",
+          line_count: 1,
+          fulfillment_type: "plant_pickup",
+          scheduled_date_provided: true,
+          cart_id: "cart_staff",
+          error_message: "Inventory API timed out",
+        }),
+      })
     )
   })
 })
