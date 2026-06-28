@@ -6,6 +6,7 @@ import { revalidatePath, revalidateTag, unstable_cache } from "next/cache"
 import type { HttpTypes } from "@medusajs/types"
 import { retrieveAuthenticatedCustomerForStaffAccess } from "@lib/data/customer"
 import { reportServerSoftFailure } from "@lib/server-soft-failure"
+import { emitStaffMerchandisingActionFailureAlert } from "@lib/staff-merchandising-ops-alerts"
 import {
   canReviewMerchandising,
   staffDisplayName,
@@ -1132,6 +1133,14 @@ export async function reviewMerchandisingImage(
     }
   } catch (error) {
     console.error("[product-merchandising] review failed", error)
+    await emitStaffMerchandisingActionFailureAlert({
+      action: "review",
+      imageId: input.imageId,
+      imageDocumentId: input.imageDocumentId,
+      countryCode: input.countryCode,
+      status: input.status,
+      error,
+    })
     return {
       ok: false,
       error:
@@ -1217,6 +1226,15 @@ export async function claimMerchandisingImage(
     }
   } catch (error) {
     console.error("[product-merchandising] claim failed", error)
+    await emitStaffMerchandisingActionFailureAlert({
+      action: "claim",
+      imageId: input.imageId,
+      imageDocumentId: input.imageDocumentId,
+      countryCode: input.countryCode,
+      tagId: input.tagId,
+      tagName: input.tagName,
+      error,
+    })
     return {
       ok: false,
       error:
@@ -1283,6 +1301,15 @@ export async function releaseMerchandisingImageClaim(
     }
   } catch (error) {
     console.error("[product-merchandising] claim release failed", error)
+    await emitStaffMerchandisingActionFailureAlert({
+      action: "release_claim",
+      imageId: input.imageId,
+      imageDocumentId: input.imageDocumentId,
+      countryCode: input.countryCode,
+      tagId: input.tagId,
+      tagName: input.tagName,
+      error,
+    })
     return {
       ok: false,
       error:

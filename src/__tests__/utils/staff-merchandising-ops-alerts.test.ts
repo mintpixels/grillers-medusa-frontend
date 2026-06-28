@@ -1,4 +1,5 @@
 import {
+  emitStaffMerchandisingActionFailureAlert,
   emitSlowStaffMerchandisingDataAlert,
   summarizeMerchandisingTagTelemetry,
 } from "@lib/staff-merchandising-ops-alerts"
@@ -118,6 +119,36 @@ describe("staff merchandising ops alerts", () => {
           rejected_image_count: 1,
           claimed_image_count: 2,
           no_image_product_count: 1,
+        }),
+      })
+    )
+  })
+
+  it("emits a page alert when a merchandising review action fails", async () => {
+    await emitStaffMerchandisingActionFailureAlert({
+      action: "review",
+      imageId: 123,
+      imageDocumentId: "image-123",
+      countryCode: "us",
+      status: "approved",
+      error: new Error("Strapi image review write failed: 403"),
+    })
+
+    expect(emitStorefrontOpsAlertMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        alertKind: "staff_merchandising_action_failed",
+        severity: "page",
+        title: "Staff merchandising review failed",
+        path: "src/lib/data/staff/product-merchandising.ts",
+        fingerprint: "staff_merchandising:review:failed",
+        meta: expect.objectContaining({
+          staff_module: "merchandising",
+          action: "review",
+          image_id: 123,
+          image_document_id: "image-123",
+          country_code: "us",
+          requested_status: "approved",
+          error_message: "Strapi image review write failed: 403",
         }),
       })
     )

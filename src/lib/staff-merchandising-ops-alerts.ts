@@ -11,6 +11,17 @@ type SlowStaffMerchandisingDataInput = {
   thresholdMs?: number
 }
 
+type StaffMerchandisingActionFailureInput = {
+  action: "review" | "claim" | "release_claim"
+  imageId?: number | null
+  imageDocumentId?: string | null
+  tagId?: string | null
+  tagName?: string | null
+  countryCode?: string | null
+  status?: string | null
+  error: unknown
+}
+
 type MerchandisingTagTotals = {
   productCount: number
   imageCount: number
@@ -87,4 +98,47 @@ export async function emitSlowStaffMerchandisingDataAlert({
   })
 
   return { emitted: true, durationMs }
+}
+
+function merchandisingErrorMessage(error: unknown) {
+  if (error instanceof Error) return error.message
+  if (typeof error === "string") return error
+  try {
+    return JSON.stringify(error)
+  } catch {
+    return String(error)
+  }
+}
+
+export async function emitStaffMerchandisingActionFailureAlert({
+  action,
+  imageId,
+  imageDocumentId,
+  tagId,
+  tagName,
+  countryCode,
+  status,
+  error,
+}: StaffMerchandisingActionFailureInput) {
+  const message = merchandisingErrorMessage(error)
+
+  await emitStorefrontOpsAlert({
+    alertKind: "staff_merchandising_action_failed",
+    severity: "page",
+    title: `Staff merchandising ${action} failed`,
+    path: "src/lib/data/staff/product-merchandising.ts",
+    source: "medusa-server",
+    fingerprint: `staff_merchandising:${action}:failed`,
+    meta: {
+      staff_module: "merchandising",
+      action,
+      image_id: imageId || null,
+      image_document_id: imageDocumentId || null,
+      tag_id: tagId || null,
+      tag_name: tagName || null,
+      country_code: countryCode || null,
+      requested_status: status || null,
+      error_message: message.slice(0, 300),
+    },
+  })
 }

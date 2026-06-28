@@ -1,6 +1,7 @@
 const mockRetrieveAuthenticatedCustomerForStaffAccess = jest.fn()
 const mockRevalidateTag = jest.fn()
 const mockUnstableCache = jest.fn((fn) => fn)
+const mockEmitStaffMerchandisingActionFailureAlert = jest.fn()
 
 jest.mock("@lib/data/customer", () => ({
   retrieveAuthenticatedCustomerForStaffAccess:
@@ -15,6 +16,11 @@ jest.mock("next/cache", () => ({
 
 jest.mock("@lib/server-soft-failure", () => ({
   reportServerSoftFailure: jest.fn(),
+}))
+
+jest.mock("@lib/staff-merchandising-ops-alerts", () => ({
+  emitStaffMerchandisingActionFailureAlert:
+    mockEmitStaffMerchandisingActionFailureAlert,
 }))
 
 function reviewCaption(payload: Record<string, unknown>) {
@@ -38,6 +44,7 @@ describe("getProductMerchandisingTags", () => {
   beforeEach(() => {
     jest.resetModules()
     jest.clearAllMocks()
+    mockEmitStaffMerchandisingActionFailureAlert.mockResolvedValue(undefined)
     process.env = {
       ...originalEnv,
       STRAPI_ENDPOINT: "https://strapi.example.com",
@@ -298,6 +305,63 @@ describe("getProductMerchandisingTags", () => {
     expect(result.ok).toBe(true)
     expect(mockRevalidateTag).toHaveBeenCalledWith(
       "staff-merchandising-tag-summary"
+    )
+  })
+
+  it("alerts when a merchandising image review write fails", async () => {
+    const latestCaption = reviewCaption({
+      review: { status: "unreviewed" },
+      auditHistory: [],
+    })
+    const fetchMock = jest.fn(async (url: string) => {
+      if (String(url).includes("/api/upload/files?")) {
+        return {
+          ok: true,
+          json: async () => [
+            {
+              id: 123,
+              documentId: "image-123",
+              url: "/uploads/image-123.jpg",
+              caption: latestCaption,
+            },
+          ],
+        } as unknown as Response
+      }
+
+      if (String(url).endsWith("/api/upload?id=123")) {
+        return {
+          ok: false,
+          status: 403,
+          json: async () => ({ error: { message: "Forbidden" } }),
+        } as unknown as Response
+      }
+
+      throw new Error(`Unexpected fetch ${url}`)
+    })
+    global.fetch = fetchMock as unknown as typeof fetch
+
+    const { reviewMerchandisingImage } = await import(
+      "@lib/data/staff/product-merchandising"
+    )
+
+    const result = await reviewMerchandisingImage({
+      imageId: 123,
+      imageDocumentId: "image-123",
+      countryCode: "us",
+      status: "approved",
+      currentCaption: latestCaption,
+    })
+
+    expect(result.ok).toBe(false)
+    expect(mockEmitStaffMerchandisingActionFailureAlert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "review",
+        imageId: 123,
+        imageDocumentId: "image-123",
+        countryCode: "us",
+        status: "approved",
+        error: expect.any(Error),
+      })
     )
   })
 })
