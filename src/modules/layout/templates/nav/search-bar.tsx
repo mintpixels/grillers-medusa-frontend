@@ -20,6 +20,7 @@ import {
 import { searchLiteClient } from "@lib/algolia"
 import { PRODUCT_INDEX } from "@lib/algolia/indexes"
 import { rankSearchHits } from "@lib/algolia/search-relevance"
+import { useSearchProviderStatus } from "@lib/algolia/search-provider-status"
 import { trackSearch } from "@lib/gtm"
 import { jitsuTrack } from "@lib/jitsu"
 import { formatProductPriceDisplay } from "@lib/util/price-display"
@@ -143,6 +144,10 @@ function InstantComboboxOptions({
   const trimmedQuery = query.trim()
   const showAllResultsLink = trimmedQuery.length >= 2
   const rankedItems = rankSearchHits(items, trimmedQuery)
+  const { isSearchUnavailable } = useSearchProviderStatus({
+    query: trimmedQuery,
+    surface: "desktop_nav",
+  })
 
   return (
     <>
@@ -154,7 +159,9 @@ function InstantComboboxOptions({
         className="sr-only"
       >
         {query.length >= 2 &&
-          (rankedItems.length === 0
+          (isSearchUnavailable
+            ? "Product search is temporarily unavailable"
+            : rankedItems.length === 0
             ? "No results found"
             : `${rankedItems.length} result${
                 rankedItems.length !== 1 ? "s" : ""
@@ -165,7 +172,15 @@ function InstantComboboxOptions({
         className="absolute z-50 mt-1 w-full bg-white border rounded-lg shadow-lg max-h-96 overflow-auto"
         aria-label="Search results"
       >
-        {rankedItems.length === 0 ? (
+        {isSearchUnavailable && showAllResultsLink ? (
+          <div
+            className="px-4 py-3 text-p-md text-Pewter"
+            role="option"
+            aria-selected="false"
+          >
+            Product search is temporarily unavailable. Try again in a moment.
+          </div>
+        ) : rankedItems.length === 0 ? (
           <div
             className="px-4 py-3 text-p-md text-Pewter"
             role="option"

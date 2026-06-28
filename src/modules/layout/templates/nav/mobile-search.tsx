@@ -21,6 +21,7 @@ import {
 } from "react-instantsearch"
 import { searchLiteClient } from "@lib/algolia"
 import { PRODUCT_INDEX } from "@lib/algolia/indexes"
+import { useSearchProviderStatus } from "@lib/algolia/search-provider-status"
 import { trackSearch } from "@lib/gtm"
 import { jitsuTrack } from "@lib/jitsu"
 import { formatProductPriceDisplay } from "@lib/util/price-display"
@@ -145,11 +146,27 @@ function MobileSearchResults({
   const { items } = useHits<Product>()
   const { query } = useSearchBox()
   const trimmedQuery = query.trim()
+  const { isSearchUnavailable } = useSearchProviderStatus({
+    query: trimmedQuery,
+    surface: "mobile_nav",
+  })
 
   if (query.length < 2) {
     return (
       <div className="px-4 py-8 text-center text-p-md text-Pewter">
         Start typing to search products...
+      </div>
+    )
+  }
+
+  if (isSearchUnavailable) {
+    return (
+      <div
+        className="px-4 py-8 text-center text-p-md text-Pewter"
+        role="status"
+        aria-live="polite"
+      >
+        Product search is temporarily unavailable. Try again in a moment.
       </div>
     )
   }

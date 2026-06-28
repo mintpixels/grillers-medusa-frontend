@@ -57,6 +57,7 @@ describe("SearchBody loading state", () => {
 
     render(<SearchBody initialQuery="chicken" countryCode="us" />)
 
+    expect(mockUseInstantSearch).toHaveBeenCalledWith({ catchError: true })
     expect(screen.getByRole("status")).toHaveTextContent(
       /Searching for .chicken./
     )
@@ -69,5 +70,19 @@ describe("SearchBody loading state", () => {
     render(<SearchBody initialQuery="chicken" countryCode="us" />)
 
     expect(screen.getByText(/No results for .chicken./)).toBeInTheDocument()
+  })
+
+  it("shows provider unavailable instead of no-results when Algolia errors", () => {
+    mockUseInstantSearch.mockReturnValue({
+      error: new Error("Unreachable hosts"),
+      status: "error",
+    } as any)
+
+    render(<SearchBody initialQuery="chicken" countryCode="us" />)
+
+    expect(screen.getByRole("status")).toHaveTextContent(
+      /Product search is temporarily unavailable/
+    )
+    expect(screen.queryByText(/No results for .chicken./)).not.toBeInTheDocument()
   })
 })

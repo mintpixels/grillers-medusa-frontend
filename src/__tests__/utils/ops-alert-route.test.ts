@@ -37,6 +37,7 @@ describe("browser ops alert allow-map", () => {
     expect(isAllowedBrowserOpsAlert("client_add_to_cart_failed")).toBe(true)
     expect(isAllowedBrowserOpsAlert("client_cart_mutation_failed")).toBe(true)
     expect(isAllowedBrowserOpsAlert("client_profile_action_failed")).toBe(true)
+    expect(isAllowedBrowserOpsAlert("client_search_provider_failed")).toBe(true)
     expect(isAllowedBrowserOpsAlert("staff_module_load_failed")).toBe(true)
     expect(isAllowedBrowserOpsAlert("revenue_action_slow")).toBe(true)
     expect(isAllowedBrowserOpsAlert("other")).toBe(false)
@@ -49,6 +50,9 @@ describe("severity clamping", () => {
     // route_segment_error ceiling is warn — an anon client cannot mint page.
     expect(resolveAlertSeverity("route_segment_error", "page")).toBe("warn")
     expect(resolveAlertSeverity("client_unhandled_error", "page")).toBe("warn")
+    expect(resolveAlertSeverity("client_search_provider_failed", "page")).toBe(
+      "warn"
+    )
     expect(resolveAlertSeverity("staff_module_load_failed", "page")).toBe(
       "warn"
     )

@@ -7,11 +7,11 @@ import {
   InstantSearch,
   Configure,
   useHits,
-  useInstantSearch,
   useSearchBox,
 } from "react-instantsearch"
 import { searchLiteClient } from "@lib/algolia"
 import { PRODUCT_INDEX } from "@lib/algolia/indexes"
+import { useSearchProviderStatus } from "@lib/algolia/search-provider-status"
 import { hitToProduct } from "@lib/algolia/hit-to-product"
 import {
   rankSearchHits,
@@ -109,6 +109,20 @@ function LoadingResults({ query }: { query: string }) {
   )
 }
 
+function SearchUnavailableResults({ query }: { query: string }) {
+  return (
+    <div className="py-16 text-center" role="status" aria-live="polite">
+      <h2 className="text-h3-mobile md:text-h3 font-gyst text-Charcoal mb-3">
+        Product search is temporarily unavailable
+      </h2>
+      <p className="text-p-md text-Charcoal/70 max-w-lg mx-auto">
+        We could not reach the live product search provider for
+        &ldquo;{query}&rdquo;. Try again in a moment.
+      </p>
+    </div>
+  )
+}
+
 export function SearchBody({
   initialQuery,
   countryCode,
@@ -118,7 +132,6 @@ export function SearchBody({
 }) {
   const { items } = useHits<any>()
   const { query: liveQuery } = useSearchBox()
-  const { status } = useInstantSearch()
   // hitToProduct returns null for stub hits the upstream plugin writes when
   // its transformer returns null/async (#115). Filter them so the grid
   // doesn't render ghost cards.
@@ -153,6 +166,10 @@ export function SearchBody({
   }, [mobileFiltersOpen])
 
   const displayQuery = initialQuery.trim() || liveQuery.trim()
+  const { isSearchUnavailable, status } = useSearchProviderStatus({
+    query: displayQuery,
+    surface: "search_results",
+  })
   const rankedProducts = useMemo(
     () => rankSearchHits(allProducts, displayQuery),
     [allProducts, displayQuery]
@@ -297,6 +314,19 @@ export function SearchBody({
     displayQuery.length > 0 &&
     rankedProducts.length === 0 &&
     status === "idle"
+
+  if (isSearchUnavailable && displayQuery.length > 0) {
+    return (
+      <>
+        <div className="flex items-baseline justify-between mb-6 gap-4 flex-wrap">
+          <h1 className="text-h2-mobile md:text-h2 font-gyst text-Charcoal">
+            Search
+          </h1>
+        </div>
+        <SearchUnavailableResults query={displayQuery} />
+      </>
+    )
+  }
 
   if (isWaitingForResults) {
     return (

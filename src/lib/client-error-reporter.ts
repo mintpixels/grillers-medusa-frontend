@@ -17,6 +17,7 @@ export type ClientErrorKind =
 
 export type ClientOpsAlertKind =
   | ClientErrorKind
+  | "client_search_provider_failed"
   | "staff_module_load_failed"
   | "revenue_action_slow"
 
