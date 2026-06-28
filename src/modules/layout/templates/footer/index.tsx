@@ -5,17 +5,21 @@ import { cache } from "react"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import strapiClient from "@lib/strapi"
 import { GetFooterQuery, type FooterData } from "@lib/data/strapi/footer"
+import { withLayoutDataFallback } from "@lib/layout-ops-alerts"
+
+const FOOTER_LAYOUT_PATH = "src/modules/layout/templates/footer/index.tsx"
 
 const getFooterData = cache(async (): Promise<FooterData | null> => {
-  try {
-    const data = await strapiClient.request<FooterData>({
+  return withLayoutDataFallback({
+    promise: strapiClient.request<FooterData>({
       document: GetFooterQuery,
-    })
-    return data
-  } catch (error) {
-    console.error("Error fetching footer data:", error)
-    return null
-  }
+    }),
+    fallback: null,
+    surface: "footer",
+    stage: "strapi_footer",
+    path: FOOTER_LAYOUT_PATH,
+    timeoutMs: 1500,
+  })
 })
 
 // Payment method icons
