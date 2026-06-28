@@ -2,6 +2,7 @@
 
 import "server-only"
 
+import { emitStorefrontOpsAlert } from "@lib/ops-alert"
 import { retrieveAuthenticatedCustomerForStaffAccess } from "@lib/data/customer"
 import {
   canManageOrderSupport,
@@ -283,6 +284,83 @@ function amount(value: unknown): number {
 
 function displayId(order: AnyRecord): string {
   return order.display_id ? `#${order.display_id}` : order.id
+}
+
+function staffOrderSupportErrorMessage(error: unknown) {
+  if (error instanceof Error) return error.message
+  if (typeof error === "string") return error
+  try {
+    return JSON.stringify(error)
+  } catch {
+    return String(error)
+  }
+}
+
+function orderSupportSearchQueryKind(query: string) {
+  const trimmed = query.trim()
+  if (!trimmed) return "empty"
+  if (trimmed.includes("@")) return "email"
+  if (/^#?\d+$/.test(trimmed)) return "order_number"
+  if (trimmed.replace(/\D/g, "").length >= 7) return "phone"
+  return "text"
+}
+
+async function emitStaffOrderSupportSearchFailureAlert(input: {
+  searchInput: StaffExceptionOrderSearchInput
+  error: unknown
+}) {
+  const query = input.searchInput.query || ""
+  await emitStorefrontOpsAlert({
+    alertKind: "staff_order_support_search_failed",
+    severity: "warn",
+    title: "Staff order support search failed",
+    path: "src/lib/data/staff/order-exceptions.ts",
+    source: "medusa-server",
+    fingerprint: "staff_order_support:search_failed",
+    meta: {
+      staff_module: "order_support",
+      action: "search_orders",
+      query_kind: orderSupportSearchQueryKind(query),
+      query_length_bucket: query.trim()
+        ? Math.min(50, Math.ceil(query.trim().length / 10) * 10)
+        : 0,
+      queue: input.searchInput.queue || "open",
+      fulfillment_status: input.searchInput.fulfillmentStatus || "all",
+      payment_status: input.searchInput.paymentStatus || "all",
+      page: input.searchInput.page,
+      page_size: input.searchInput.pageSize,
+      error_message: staffOrderSupportErrorMessage(input.error).slice(0, 300),
+    },
+  })
+}
+
+async function emitStaffOrderSupportActionFailureAlert(input: {
+  action: StaffExceptionActionType
+  order: AnyRecord
+  stage: string
+  requestKey?: string
+  error: unknown
+}) {
+  await emitStorefrontOpsAlert({
+    alertKind: "staff_order_support_action_failed",
+    severity: actionMovesMoney(input.action) ? "page" : "warn",
+    title: "Staff order support action failed",
+    path: "src/lib/data/staff/order-exceptions.ts",
+    source: "medusa-server",
+    fingerprint: `staff_order_support:${input.action}:${input.stage}:failed`,
+    meta: {
+      staff_module: "order_support",
+      action: input.action,
+      stage: input.stage,
+      order_id: input.order.id || "",
+      order_display_id: displayId(input.order),
+      moves_money: actionMovesMoney(input.action),
+      mutates_medusa: actionMutatesMedusa(input.action),
+      qbd_reconciliation_needed: qbdReconciliationNeeded(input.action),
+      downstream_request_key: input.requestKey || "",
+      error_message: staffOrderSupportErrorMessage(input.error).slice(0, 300),
+    },
+  })
 }
 
 function customerName(order: AnyRecord): string {
@@ -1858,6 +1936,13 @@ async function applyMedusaOrderItemEdit({
         "[staff-order-support] finalization refresh after item edit failed",
         err
       )
+      void emitStaffOrderSupportActionFailureAlert({
+        action: input.action,
+        order,
+        stage: "finalization_refresh",
+        requestKey,
+        error: err,
+      })
     }
 
     return orderChangeId
@@ -2053,6 +2138,10 @@ async function searchStaffExceptionOrderPage(
 
   if (!orders.length && !legacyOrders.length && lastError) {
     console.error("[staff-order-support] order search failed", lastError)
+    await emitStaffOrderSupportSearchFailureAlert({
+      searchInput,
+      error: lastError,
+    })
     throw new Error(
       "Order lookup failed. Try searching by order number, email, or customer name, then try again."
     )
@@ -2386,6 +2475,13 @@ export async function applyStaffOrderException(
               downstream_request_key: requestKey,
             }
           )
+          await emitStaffOrderSupportActionFailureAlert({
+            action: input.action,
+            order,
+            stage: "medusa_order_edit",
+            requestKey,
+            error: err,
+          })
           throw err
         }
 
@@ -2546,6 +2642,13 @@ export async function applyStaffOrderException(
               downstream_request_key: requestKey,
             }
           )
+          await emitStaffOrderSupportActionFailureAlert({
+            action: input.action,
+            order,
+            stage: "medusa_cancel",
+            requestKey,
+            error: err,
+          })
           throw err
         }
         // Medusa rejects order metadata updates after cancellation, so the
@@ -2632,6 +2735,13 @@ export async function applyStaffOrderException(
               downstream_request_key: requestKey,
             }
           )
+          await emitStaffOrderSupportActionFailureAlert({
+            action: input.action,
+            order,
+            stage: "stripe_refund",
+            requestKey,
+            error: err,
+          })
           throw err
         }
         const refund = latestRefundFromPayment(refundResponse.payment)
@@ -2737,6 +2847,13 @@ export async function applyStaffOrderException(
               downstream_request_key: requestKey,
             }
           )
+          await emitStaffOrderSupportActionFailureAlert({
+            action: input.action,
+            order,
+            stage: "stripe_capture",
+            requestKey,
+            error: err,
+          })
           throw err
         }
         await appendOrderAudit(
