@@ -19,7 +19,8 @@ type Props = {
   initialTags?: ProductMerchandisingTagSummary[] | null
 }
 
-const PRIMARY_ENDPOINT_RETRY_DELAYS_MS = [300, 900]
+const PRIMARY_ENDPOINT_RETRY_DELAYS_MS = [300, 900, 1800, 3200, 5000]
+const PRIMARY_ENDPOINT_RECOVERY_RETRY_DELAYS_MS = [1500, 3000]
 
 class MerchandisingLoadError extends Error {
   endpoint: string
@@ -89,6 +90,17 @@ function isRetryablePrimaryEndpointError(error: unknown) {
     message.includes("load failed") ||
     message.includes("temporarily unavailable") ||
     message.includes("timeout")
+  )
+}
+
+function isLikelyBrowserBlockedFallback(error: unknown) {
+  const message =
+    error instanceof Error ? error.message.toLowerCase() : String(error || "")
+
+  return (
+    message.includes("blocked by client") ||
+    message.includes("err_blocked_by_client") ||
+    message.includes("failed to fetch")
   )
 }
 
@@ -165,60 +177,93 @@ export default function StaffMerchandisingWorkspace({
 
     async function loadTags() {
       let lastError: unknown = null
+      let primaryError: unknown = null
+      let blockedFallbackCount = 0
 
-      for (
-        let endpointIndex = 0;
-        endpointIndex < endpoints.length;
-        endpointIndex += 1
-      ) {
-        const endpoint = endpoints[endpointIndex]
-        const isPrimaryEndpoint = endpointIndex === 0
-        const maxAttempts = isPrimaryEndpoint
-          ? PRIMARY_ENDPOINT_RETRY_DELAYS_MS.length + 1
-          : 1
-
-        for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-          try {
-            const res = await fetch(endpoint, {
-              signal: controller.signal,
-              cache: "no-store",
-              headers: { Accept: "application/json" },
-            })
-            const body = await responseBody(res)
-            if (!res.ok) {
-              throw new MerchandisingLoadError(
-                responseErrorMessage(
-                  body?.error || body,
-                  `Request failed (${res.status}).`
-                ),
-                {
-                  endpoint,
-                  status: res.status,
-                }
-              )
-            }
-
-            return {
+      async function fetchTagsFromEndpoint(endpoint: string) {
+        const res = await fetch(endpoint, {
+          signal: controller.signal,
+          cache: "no-store",
+          headers: { Accept: "application/json" },
+        })
+        const body = await responseBody(res)
+        if (!res.ok) {
+          throw new MerchandisingLoadError(
+            responseErrorMessage(
+              body?.error || body,
+              `Request failed (${res.status}).`
+            ),
+            {
               endpoint,
-              tags: responseTags(body, endpoint),
+              status: res.status,
             }
+          )
+        }
+
+        return {
+          endpoint,
+          tags: responseTags(body, endpoint),
+        }
+      }
+
+      async function tryPrimaryEndpoint(delays: number[]) {
+        const endpoint = endpoints[0]
+
+        for (let attempt = 0; attempt <= delays.length; attempt += 1) {
+          try {
+            return await fetchTagsFromEndpoint(endpoint)
           } catch (err) {
             if (controller.signal.aborted) throw err
             lastError = err
+            primaryError = err
 
             const shouldRetry =
-              isPrimaryEndpoint &&
-              attempt < PRIMARY_ENDPOINT_RETRY_DELAYS_MS.length &&
+              attempt < delays.length &&
               isRetryablePrimaryEndpointError(err)
 
             if (!shouldRetry) break
 
-            await retryDelay(PRIMARY_ENDPOINT_RETRY_DELAYS_MS[attempt])
+            await retryDelay(delays[attempt])
+          }
+        }
+
+        return null
+      }
+
+      const primaryResult = await tryPrimaryEndpoint(
+        PRIMARY_ENDPOINT_RETRY_DELAYS_MS
+      )
+      if (primaryResult) return primaryResult
+
+      for (const endpoint of endpoints.slice(1)) {
+        try {
+          return await fetchTagsFromEndpoint(endpoint)
+        } catch (err) {
+          if (controller.signal.aborted) throw err
+          if (isLikelyBrowserBlockedFallback(err)) {
+            blockedFallbackCount += 1
+          } else {
+            lastError = err
           }
         }
       }
 
-      throw lastError || new Error("Could not load merchandising data.")
+      if (
+        primaryError &&
+        blockedFallbackCount > 0 &&
+        isRetryablePrimaryEndpointError(primaryError)
+      ) {
+        const recoveryResult = await tryPrimaryEndpoint(
+          PRIMARY_ENDPOINT_RECOVERY_RETRY_DELAYS_MS
+        )
+        if (recoveryResult) return recoveryResult
+      }
+
+      throw (
+        lastError ||
+        primaryError ||
+        new Error("Could not load merchandising data.")
+      )
     }
 
     loadTags()
