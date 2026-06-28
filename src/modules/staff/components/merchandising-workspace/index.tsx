@@ -15,14 +15,16 @@ type Props = {
   initialTags?: ProductMerchandisingTagSummary[] | null
 }
 
-function catalogReviewGroupsEndpoint(countryCode: string) {
+function catalogReviewGroupsEndpoints(countryCode: string) {
   const normalizedCountryCode = String(countryCode || "us")
     .replace(/^\/+|\/+$/g, "")
     .toLowerCase()
+  const encodedCountryCode = encodeURIComponent(normalizedCountryCode || "us")
 
-  return `/${encodeURIComponent(
-    normalizedCountryCode || "us"
-  )}/api/staff/catalog-review/groups`
+  return [
+    `/${encodedCountryCode}/api/catalog-review/groups`,
+    `/${encodedCountryCode}/api/staff/catalog-review/groups`,
+  ]
 }
 
 function responseErrorMessage(
@@ -69,23 +71,46 @@ export default function StaffMerchandisingWorkspace({
     }
 
     const controller = new AbortController()
-    const endpoint = catalogReviewGroupsEndpoint(countryCode)
+    const endpoints = catalogReviewGroupsEndpoints(countryCode)
     setState("loading")
     setError(null)
 
-    fetch(endpoint, {
-      signal: controller.signal,
-      cache: "no-store",
-      headers: { Accept: "application/json" },
-    })
-      .then(async (res) => {
-        const body = await res.json().catch(() => ({}))
-        if (!res.ok) {
-          throw new Error(
-            responseErrorMessage(body?.error, `Request failed (${res.status}).`)
-          )
+    async function loadTags() {
+      let lastError: unknown = null
+
+      for (const endpoint of endpoints) {
+        try {
+          const res = await fetch(endpoint, {
+            signal: controller.signal,
+            cache: "no-store",
+            headers: { Accept: "application/json" },
+          })
+          const body = await res.json().catch(() => ({}))
+          if (!res.ok) {
+            throw new Error(
+              responseErrorMessage(
+                body?.error,
+                `Request failed (${res.status}).`
+              )
+            )
+          }
+
+          return {
+            endpoint,
+            tags: Array.isArray(body?.tags) ? body.tags : [],
+          }
+        } catch (err) {
+          if (controller.signal.aborted) throw err
+          lastError = err
         }
-        setTags(Array.isArray(body?.tags) ? body.tags : [])
+      }
+
+      throw lastError || new Error("Could not load merchandising data.")
+    }
+
+    loadTags()
+      .then(({ tags }) => {
+        setTags(tags)
         setState("ready")
       })
       .catch((err) => {
@@ -101,7 +126,7 @@ export default function StaffMerchandisingWorkspace({
           message,
           extra: {
             staff_module: "merchandising",
-            endpoint,
+            attempted_endpoints: endpoints,
           },
         })
         setError(message)

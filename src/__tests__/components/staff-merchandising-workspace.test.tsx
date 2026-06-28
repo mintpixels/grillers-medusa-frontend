@@ -63,13 +63,16 @@ describe("StaffMerchandisingWorkspace", () => {
         message: "Strapi GraphQL request failed: Cannot query field products",
         extra: expect.objectContaining({
           staff_module: "merchandising",
-          endpoint: "/us/api/staff/catalog-review/groups",
+          attempted_endpoints: [
+            "/us/api/catalog-review/groups",
+            "/us/api/staff/catalog-review/groups",
+          ],
         }),
       })
     )
   })
 
-  it("uses the country-scoped neutral catalog-review endpoint instead of the blocked merchandising URL", async () => {
+  it("uses the country-scoped neutral catalog-review endpoint first", async () => {
     mockFetch.mockResolvedValue({
       ok: true,
       status: 200,
@@ -82,7 +85,7 @@ describe("StaffMerchandisingWorkspace", () => {
 
     await waitFor(() => {
       expect(mockFetch).toHaveBeenCalledWith(
-        "/us/api/staff/catalog-review/groups",
+        "/us/api/catalog-review/groups",
         expect.objectContaining({
           cache: "no-store",
           headers: { Accept: "application/json" },
@@ -136,7 +139,7 @@ describe("StaffMerchandisingWorkspace", () => {
 
     await waitFor(() => {
       expect(mockFetch).toHaveBeenCalledWith(
-        "/us/api/staff/catalog-review/groups",
+        "/us/api/catalog-review/groups",
         expect.objectContaining({
           cache: "no-store",
           headers: { Accept: "application/json" },
@@ -147,6 +150,42 @@ describe("StaffMerchandisingWorkspace", () => {
     expect(
       screen.queryByText("An error occurred with your deployment")
     ).not.toBeInTheDocument()
+  })
+
+  it("falls back to the legacy staff feed when a browser filter blocks the neutral feed", async () => {
+    mockFetch
+      .mockRejectedValueOnce(new Error("Blocked by client"))
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          tags: [{ id: "tag_1" }],
+        }),
+      })
+
+    render(<StaffMerchandisingWorkspace countryCode="us" />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId("merchandising-table")).toHaveTextContent("1")
+    })
+
+    expect(mockFetch).toHaveBeenNthCalledWith(
+      1,
+      "/us/api/catalog-review/groups",
+      expect.objectContaining({
+        cache: "no-store",
+        headers: { Accept: "application/json" },
+      })
+    )
+    expect(mockFetch).toHaveBeenNthCalledWith(
+      2,
+      "/us/api/staff/catalog-review/groups",
+      expect.objectContaining({
+        cache: "no-store",
+        headers: { Accept: "application/json" },
+      })
+    )
+    expect(mockReportClientOpsAlert).not.toHaveBeenCalled()
   })
 
   it("renders the merchandising table after a successful load", async () => {
