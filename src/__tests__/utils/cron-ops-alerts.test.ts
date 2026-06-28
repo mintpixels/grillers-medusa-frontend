@@ -96,6 +96,7 @@ describe("planReviewAcquisitionAlert", () => {
     expect(plan!.alertKind).toBe("cron_review_acquisition_failed")
     expect(plan!.severity).toBe("warn")
     expect(plan!.meta.failed).toBe(2)
+    expect(plan!.meta.metadata_failed).toBe(0)
   })
 
   it("pages when eligible customers existed but every send failed", () => {
@@ -106,6 +107,28 @@ describe("planReviewAcquisitionAlert", () => {
       failed: 5,
     })
     expect(plan!.severity).toBe("page")
+  })
+
+  it("warns when review asks sent but idempotency metadata failed", () => {
+    const plan = planReviewAcquisitionAlert({
+      ...base,
+      metadataFailed: 2,
+    })
+    expect(plan!.alertKind).toBe("cron_review_acquisition_metadata_failed")
+    expect(plan!.severity).toBe("warn")
+    expect(plan!.meta.metadata_failed).toBe(2)
+    expect(plan!.meta.failed).toBe(0)
+  })
+
+  it("includes metadata failures on send-failure alerts", () => {
+    const plan = planReviewAcquisitionAlert({
+      ...base,
+      failed: 1,
+      metadataFailed: 2,
+    })
+    expect(plan!.alertKind).toBe("cron_review_acquisition_failed")
+    expect(plan!.meta.failed).toBe(1)
+    expect(plan!.meta.metadata_failed).toBe(2)
   })
 })
 

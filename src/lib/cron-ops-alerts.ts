@@ -103,6 +103,7 @@ export type ReviewAcquisitionSummaryLike = {
   sentGoogle: number
   sentYelp: number
   failed: number
+  metadataFailed?: number
   eligibleGoogle: number
   eligibleYelp: number
   dryRun?: boolean
@@ -117,7 +118,26 @@ export function planReviewAcquisitionAlert(
   summary: ReviewAcquisitionSummaryLike
 ): CronAlertPlan {
   if (summary.dryRun) return null
-  if (summary.failed <= 0) return null
+  const metadataFailed = summary.metadataFailed || 0
+  if (summary.failed <= 0 && metadataFailed <= 0) return null
+
+  if (summary.failed <= 0 && metadataFailed > 0) {
+    return {
+      alertKind: "cron_review_acquisition_metadata_failed",
+      severity: "warn",
+      title: `cron review-acquisition degraded: ${metadataFailed} sent review ask(s) missing metadata`,
+      meta: {
+        cron: "review-acquisition",
+        scanned: summary.scanned,
+        sent_google: summary.sentGoogle,
+        sent_yelp: summary.sentYelp,
+        eligible_google: summary.eligibleGoogle,
+        eligible_yelp: summary.eligibleYelp,
+        failed: summary.failed,
+        metadata_failed: metadataFailed,
+      },
+    }
+  }
 
   const sentAny = summary.sentGoogle > 0 || summary.sentYelp > 0
   const eligibleAny = summary.eligibleGoogle > 0 || summary.eligibleYelp > 0
@@ -140,6 +160,7 @@ export function planReviewAcquisitionAlert(
       eligible_google: summary.eligibleGoogle,
       eligible_yelp: summary.eligibleYelp,
       failed: summary.failed,
+      metadata_failed: metadataFailed,
     },
   }
 }

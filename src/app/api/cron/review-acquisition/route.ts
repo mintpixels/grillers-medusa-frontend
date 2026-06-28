@@ -227,26 +227,27 @@ async function medusaAdminJson(
 async function recordOrderMetadata(
   order: DeliveredOrder,
   metadata: ReviewMetadata
-): Promise<void> {
+): Promise<boolean> {
   const next = { ...(order.metadata || {}), ...metadata }
   const ok = await medusaAdminJson(`/admin/orders/${order.id}`, {
     metadata: next,
   })
-  if (!ok) {
-    await medusaAdminJson(`/admin/orders/${order.id}/metadata`, {
-      metadata: next,
-    })
+  if (ok) {
+    return true
   }
+  return medusaAdminJson(`/admin/orders/${order.id}/metadata`, {
+    metadata: next,
+  })
 }
 
 async function recordCustomerMetadata(
   order: DeliveredOrder,
   metadata: ReviewMetadata
-): Promise<void> {
+): Promise<boolean> {
   const customerId = order.customer?.id || order.customer_id
-  if (!customerId) return
+  if (!customerId) return true
   const next = { ...(order.customer?.metadata || {}), ...metadata }
-  await medusaAdminJson(`/admin/customers/${customerId}`, {
+  return medusaAdminJson(`/admin/customers/${customerId}`, {
     metadata: next,
   })
 }
@@ -254,11 +255,17 @@ async function recordCustomerMetadata(
 async function recordAskSent(
   order: DeliveredOrder,
   metadata: ReviewMetadata
-): Promise<void> {
-  await Promise.all([
-    recordOrderMetadata(order, metadata),
-    recordCustomerMetadata(order, metadata),
-  ])
+): Promise<boolean> {
+  try {
+    const [orderRecorded, customerRecorded] = await Promise.all([
+      recordOrderMetadata(order, metadata),
+      recordCustomerMetadata(order, metadata),
+    ])
+    return orderRecorded && customerRecorded
+  } catch (err) {
+    console.error("[cron/review-acquisition] metadata record threw", err)
+    return false
+  }
 }
 
 function getEmail(order: DeliveredOrder): string {
@@ -287,7 +294,7 @@ function yelpSentAt(order: DeliveredOrder): string | undefined {
 async function trySendAsk(
   order: DeliveredOrder,
   kind: ReviewAskKind
-): Promise<boolean> {
+): Promise<{ sent: boolean; metadataRecorded: boolean }> {
   const result = await sendReviewAcquisitionEmail({
     email: getEmail(order),
     firstName: getFirstName(order),
@@ -295,18 +302,21 @@ async function trySendAsk(
     orderSummary: asOrderSummary(order),
     kind,
   })
-  if (!result.ok) return false
+  if (!result.ok) return { sent: false, metadataRecorded: false }
 
   const now = new Date().toISOString()
+  let metadataRecorded = false
   if (kind === "yelp_atlanta_followup") {
-    await recordAskSent(order, { review_ask_sent_yelp_at: now })
+    metadataRecorded = await recordAskSent(order, {
+      review_ask_sent_yelp_at: now,
+    })
   } else {
-    await recordAskSent(order, {
+    metadataRecorded = await recordAskSent(order, {
       review_ask_sent_google_at: now,
       review_request_sent_at: now,
     })
   }
-  return true
+  return { sent: true, metadataRecorded }
 }
 
 export async function POST(req: Request): Promise<Response> {
@@ -339,6 +349,7 @@ export async function POST(req: Request): Promise<Response> {
     sentGoogle: 0,
     sentYelp: 0,
     failed: 0,
+    metadataFailed: 0,
     skipped: 0,
     skippedNoEmail: 0,
     skippedNoDeliveredAt: 0,
@@ -394,9 +405,11 @@ export async function POST(req: Request): Promise<Response> {
     ) {
       summary.eligibleYelp++
       if (dryRun) continue
-      const sent = await trySendAsk(order, "yelp_atlanta_followup")
-      if (sent) summary.sentYelp++
-      else {
+      const result = await trySendAsk(order, "yelp_atlanta_followup")
+      if (result.sent) {
+        summary.sentYelp++
+        if (!result.metadataRecorded) summary.metadataFailed++
+      } else {
         summary.failed++
         summary.skipped++
       }
@@ -420,12 +433,14 @@ export async function POST(req: Request): Promise<Response> {
 
     summary.eligibleGoogle++
     if (dryRun) continue
-    const sent = await trySendAsk(
+    const result = await trySendAsk(
       order,
       repeat ? "google_repeat" : "google_first_time"
     )
-    if (sent) summary.sentGoogle++
-    else {
+    if (result.sent) {
+      summary.sentGoogle++
+      if (!result.metadataRecorded) summary.metadataFailed++
+    } else {
       summary.failed++
       summary.skipped++
     }
@@ -440,6 +455,7 @@ export async function POST(req: Request): Promise<Response> {
       scanned: summary.scanned,
       sent_google: summary.sentGoogle,
       sent_yelp: summary.sentYelp,
+      metadata_failed: summary.metadataFailed,
       dry_run: summary.dryRun,
     }),
     ALERT_PATH
