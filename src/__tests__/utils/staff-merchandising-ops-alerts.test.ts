@@ -173,7 +173,7 @@ describe("staff merchandising ops alerts", () => {
           staff_module: "merchandising",
           action: "preload",
           country_code: "us",
-          fallback_endpoint: "/[countryCode]/api/catalog-review/groups",
+          fallback_endpoint: "/[countryCode]/account/catalog-review/groups",
           legacy_fallback_endpoint:
             "/[countryCode]/api/staff/catalog-review/groups",
           error_message: "Strapi timed out",

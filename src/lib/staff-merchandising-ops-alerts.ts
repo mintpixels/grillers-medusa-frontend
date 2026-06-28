@@ -165,7 +165,7 @@ export async function emitStaffMerchandisingPreloadFailureAlert({
       staff_module: "merchandising",
       action: "preload",
       country_code: countryCode || null,
-      fallback_endpoint: "/[countryCode]/api/catalog-review/groups",
+      fallback_endpoint: "/[countryCode]/account/catalog-review/groups",
       legacy_fallback_endpoint: "/[countryCode]/api/staff/catalog-review/groups",
       error_message: message.slice(0, 300),
     },

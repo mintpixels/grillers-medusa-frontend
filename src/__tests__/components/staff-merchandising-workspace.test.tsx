@@ -64,6 +64,7 @@ describe("StaffMerchandisingWorkspace", () => {
         extra: expect.objectContaining({
           staff_module: "merchandising",
           attempted_endpoints: [
+            "/us/account/catalog-review/groups",
             "/us/api/catalog-review/groups",
             "/us/api/staff/catalog-review/groups",
           ],
@@ -72,7 +73,7 @@ describe("StaffMerchandisingWorkspace", () => {
     )
   })
 
-  it("uses the country-scoped neutral catalog-review endpoint first", async () => {
+  it("uses the country-scoped account catalog-review endpoint first", async () => {
     mockFetch.mockResolvedValue({
       ok: true,
       status: 200,
@@ -85,7 +86,7 @@ describe("StaffMerchandisingWorkspace", () => {
 
     await waitFor(() => {
       expect(mockFetch).toHaveBeenCalledWith(
-        "/us/api/catalog-review/groups",
+        "/us/account/catalog-review/groups",
         expect.objectContaining({
           cache: "no-store",
           headers: { Accept: "application/json" },
@@ -139,7 +140,7 @@ describe("StaffMerchandisingWorkspace", () => {
 
     await waitFor(() => {
       expect(mockFetch).toHaveBeenCalledWith(
-        "/us/api/catalog-review/groups",
+        "/us/account/catalog-review/groups",
         expect.objectContaining({
           cache: "no-store",
           headers: { Accept: "application/json" },
@@ -152,7 +153,7 @@ describe("StaffMerchandisingWorkspace", () => {
     ).not.toBeInTheDocument()
   })
 
-  it("falls back to the legacy staff feed when a browser filter blocks the neutral feed", async () => {
+  it("falls back to API feeds when a browser filter blocks the account feed", async () => {
     mockFetch
       .mockRejectedValueOnce(new Error("Blocked by client"))
       .mockResolvedValueOnce({
@@ -171,7 +172,7 @@ describe("StaffMerchandisingWorkspace", () => {
 
     expect(mockFetch).toHaveBeenNthCalledWith(
       1,
-      "/us/api/catalog-review/groups",
+      "/us/account/catalog-review/groups",
       expect.objectContaining({
         cache: "no-store",
         headers: { Accept: "application/json" },
@@ -179,7 +180,7 @@ describe("StaffMerchandisingWorkspace", () => {
     )
     expect(mockFetch).toHaveBeenNthCalledWith(
       2,
-      "/us/api/staff/catalog-review/groups",
+      "/us/api/catalog-review/groups",
       expect.objectContaining({
         cache: "no-store",
         headers: { Accept: "application/json" },
