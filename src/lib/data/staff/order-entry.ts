@@ -5,6 +5,7 @@ import "server-only"
 import { sdk } from "@lib/config"
 import { retrieveAuthenticatedCustomerForStaffAccess } from "@lib/data/customer"
 import { getRegion } from "@lib/data/regions"
+import { emitStorefrontOpsAlert } from "@lib/ops-alert"
 import { sendEmail } from "@lib/postmark"
 import { staffDisplayName, canUseOfficeConsole } from "@lib/util/staff-access"
 import { stripPhone } from "@lib/util/format-phone"
@@ -619,6 +620,36 @@ function customerAddresses(customer: AnyRecord): AnyRecord[] {
   ].filter(Boolean)
 }
 
+function staffOrderEntryErrorMessage(error: unknown) {
+  if (error instanceof Error) return error.message
+  if (typeof error === "string") return error
+  try {
+    return JSON.stringify(error)
+  } catch {
+    return String(error)
+  }
+}
+
+async function emitDuplicateGuardFailureAlert(input: {
+  attemptCount: number
+  error: unknown
+}) {
+  await emitStorefrontOpsAlert({
+    alertKind: "staff_customer_duplicate_check_failed",
+    severity: "warn",
+    title: "Staff customer duplicate check failed",
+    path: "src/lib/data/staff/order-entry.ts",
+    source: "medusa-server",
+    fingerprint: "staff_customer_create:duplicate_check_failed",
+    meta: {
+      staff_module: "phone_order",
+      action: "create_customer",
+      attempt_count: input.attemptCount,
+      error_message: staffOrderEntryErrorMessage(input.error).slice(0, 300),
+    },
+  })
+}
+
 function duplicateReasonsForCustomer({
   customer,
   email,
@@ -693,20 +724,38 @@ async function findDuplicateCustomersForCreate(input: {
   }
 
   const seen = new Map<string, AnyRecord>()
+  let successfulAttempts = 0
+  let lastError: unknown = null
+
   for (const attempt of attempts) {
-    const { customers } = await adminFetch<{ customers: AnyRecord[] }>(
-      "/admin/customers",
-      {
-        query: {
-          ...attempt,
-          fields:
-            "id,email,first_name,last_name,phone,company_name,metadata,*addresses",
-        },
-      }
-    ).catch(() => ({ customers: [] }))
-    customers?.forEach((customer) => {
-      if (customer?.id) seen.set(customer.id, customer)
+    try {
+      const { customers } = await adminFetch<{ customers: AnyRecord[] }>(
+        "/admin/customers",
+        {
+          query: {
+            ...attempt,
+            fields:
+              "id,email,first_name,last_name,phone,company_name,metadata,*addresses",
+          },
+        }
+      )
+      successfulAttempts += 1
+      customers?.forEach((customer) => {
+        if (customer?.id) seen.set(customer.id, customer)
+      })
+    } catch (error) {
+      lastError = error
+    }
+  }
+
+  if (successfulAttempts === 0 && lastError) {
+    await emitDuplicateGuardFailureAlert({
+      attemptCount: attempts.length,
+      error: lastError,
     })
+    throw new Error(
+      "Could not verify duplicate customers. Try again before creating this customer."
+    )
   }
 
   return Array.from(seen.values())
