@@ -16,6 +16,10 @@ import { retrieveCustomer } from "@lib/data/customer"
 import { listPurchaseHistory } from "@lib/data/orders"
 import ExperimentExposure from "@lib/experiments/exposure"
 import { getExperimentAssignment } from "@lib/experiments/server"
+import {
+  emitPdpStrapiLoadFailureAlert,
+  withPdpStrapiFallback,
+} from "@lib/pdp-ops-alerts"
 
 type Props = {
   params: Promise<{ countryCode: string; handle: string }>
@@ -67,22 +71,34 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
     }
   }
 
-  // Fetch Strapi product data for SEO
-  let strapiProductData: any = null
-  try {
-    strapiProductData = await withTimeout(
-      strapiClient.request(GetProductQuery, {
-        medusa_product_id: product.id,
-      }),
-      1200,
-      null,
-      `PDP metadata Strapi lookup for ${handle}`
-    )
-  } catch (error) {
-    console.error("Failed to fetch Strapi product SEO data:", error)
-  }
+  // Fetch Strapi product data for SEO. If this degrades, metadata falls back to
+  // Medusa fields but ops should still see that customer-facing PDP copy is stale.
+  const strapiProductData: any = await withPdpStrapiFallback(
+    strapiClient.request(GetProductQuery, {
+      medusa_product_id: product.id,
+    }),
+    null,
+    {
+      stage: "metadata_product",
+      timeoutMs: 1200,
+      handle,
+      countryCode: params.countryCode,
+      medusaProductId: product.id,
+    }
+  )
 
   const strapiProduct = strapiProductData?.products?.[0]
+  if (strapiProductData && !strapiProduct) {
+    await emitPdpStrapiLoadFailureAlert({
+      stage: "metadata_product",
+      reason: "empty_result",
+      handle,
+      countryCode: params.countryCode,
+      medusaProductId: product.id,
+    }).catch(() => {
+      // Fail open: metadata should still render from Medusa fallbacks.
+    })
+  }
 
   // Use Strapi SEO data if available, otherwise fallback to Medusa
   const seo = strapiProduct?.SEO
@@ -150,14 +166,15 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
 
 export default async function ProductPage(props: Props) {
   const params = await props.params
-  const strapiCommonPdpDataPromise = withTimeout(
-    strapiClient.request(GetCommonPdpQuery).catch((error) => {
-      console.error("Failed to fetch common PDP data from Strapi:", error)
-      return null
-    }),
-    1200,
+  const strapiCommonPdpDataPromise = withPdpStrapiFallback(
+    strapiClient.request(GetCommonPdpQuery),
     null,
-    `Common PDP data for ${params.handle}`
+    {
+      stage: "common_pdp",
+      timeoutMs: 1200,
+      handle: params.handle,
+      countryCode: params.countryCode,
+    }
   ).then((data: any) => data?.pdp || null)
 
   const [region, productResult, customer] = await Promise.all([
@@ -184,28 +201,44 @@ export default async function ProductPage(props: Props) {
     notFound()
   }
 
-  const strapiProductDataPromise = withTimeout<StrapiProductResponse>(
+  const strapiProductDataPromise = withPdpStrapiFallback<StrapiProductResponse>(
     strapiClient
       .request<{ products?: any[] }>(GetProductQuery, {
         medusa_product_id: pricedProduct.id,
-      })
-      .catch((error) => {
-        console.error(
-          "Failed to fetch product data from Strapi for ID:",
-          pricedProduct.id,
-          error
-        )
-        return null
       }),
-    2500,
     null,
-    `PDP Strapi product data for ${pricedProduct.id}`
+    {
+      stage: "product_data",
+      timeoutMs: 2500,
+      handle: params.handle,
+      countryCode: params.countryCode,
+      medusaProductId: pricedProduct.id,
+    }
   )
-  const ingredientDisclosuresPromise = withTimeout(
-    getProductIngredientDisclosures(pricedProduct.id),
-    1200,
+  const ingredientDisclosuresPromise = withPdpStrapiFallback(
+    getProductIngredientDisclosures(pricedProduct.id, {
+      onLoadFailure: (failure) => {
+        void emitPdpStrapiLoadFailureAlert({
+          stage: "ingredient_disclosures",
+          reason: failure.reason,
+          handle: params.handle,
+          countryCode: params.countryCode,
+          medusaProductId: pricedProduct.id,
+          status: failure.status,
+          error: failure.error,
+        }).catch(() => {
+          // Fail open: disclosure fallbacks should not block PDP rendering.
+        })
+      },
+    }),
     [],
-    `PDP Strapi ingredient disclosures for ${pricedProduct.id}`
+    {
+      stage: "ingredient_disclosures",
+      timeoutMs: 1200,
+      handle: params.handle,
+      countryCode: params.countryCode,
+      medusaProductId: pricedProduct.id,
+    }
   )
   const purchaseHistoryItemPromise = customer
     ? withTimeout(
@@ -249,6 +282,17 @@ export default async function ProductPage(props: Props) {
       pdpRecommendationExperimentPromise,
     ])
   const productFromStrapi = strapiProductData?.products?.[0]
+  if (strapiProductData && !productFromStrapi) {
+    await emitPdpStrapiLoadFailureAlert({
+      stage: "product_data",
+      reason: "empty_result",
+      handle: params.handle,
+      countryCode: params.countryCode,
+      medusaProductId: pricedProduct.id,
+    }).catch(() => {
+      // Fail open: PDP should still render from Medusa fallbacks.
+    })
+  }
   const resolvedIngredientDisclosures = Array.isArray(
     productFromStrapi?.IngredientDisclosures
   )

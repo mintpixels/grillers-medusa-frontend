@@ -1,6 +1,31 @@
 import { gql } from "graphql-request"
 import type { IngredientDisclosure } from "types/strapi"
 
+export type ProductIngredientDisclosureFailure = {
+  reason: "missing_config" | "non_2xx" | "request_failed"
+  status?: number
+  error?: unknown
+}
+
+type ProductIngredientDisclosureOptions = {
+  onLoadFailure?: (
+    failure: ProductIngredientDisclosureFailure
+  ) => void | Promise<void>
+}
+
+function notifyIngredientDisclosureFailure(
+  options: ProductIngredientDisclosureOptions | undefined,
+  failure: ProductIngredientDisclosureFailure
+) {
+  try {
+    void options?.onLoadFailure?.(failure)?.catch(() => {
+      // Fail open: disclosure alerting must never break PDP rendering.
+    })
+  } catch {
+    // Fail open: disclosure alerting must never break PDP rendering.
+  }
+}
+
 export const GetCommonPdpQuery = gql`
   query CommonPdpQuery {
     pdp {
@@ -176,10 +201,17 @@ export const GetProductQuery = gql`
 `
 
 export async function getProductIngredientDisclosures(
-  medusaProductId?: string | null
+  medusaProductId?: string | null,
+  options: ProductIngredientDisclosureOptions = {}
 ): Promise<IngredientDisclosure[]> {
   const endpoint = process.env.STRAPI_ENDPOINT?.replace(/\/+$/, "")
-  if (!endpoint || !medusaProductId) return []
+  if (!medusaProductId) return []
+  if (!endpoint) {
+    notifyIngredientDisclosureFailure(options, {
+      reason: "missing_config",
+    })
+    return []
+  }
 
   const url = new URL(`${endpoint}/api/products`)
   url.searchParams.set(
@@ -204,6 +236,10 @@ export async function getProductIngredientDisclosures(
           res.status,
           await res.text()
         )
+        notifyIngredientDisclosureFailure(options, {
+          reason: "non_2xx",
+          status: res.status,
+        })
       }
       return []
     }
@@ -213,6 +249,10 @@ export async function getProductIngredientDisclosures(
     return Array.isArray(disclosures) ? disclosures : []
   } catch (error) {
     console.error("Failed to fetch Strapi ingredient disclosures:", error)
+    notifyIngredientDisclosureFailure(options, {
+      reason: "request_failed",
+      error,
+    })
     return []
   }
 }
