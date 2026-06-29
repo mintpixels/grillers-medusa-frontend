@@ -173,6 +173,53 @@ export function reportCustomerProfileUpdateFailure(input: {
   })
 }
 
+export function reportCustomerAddressMutationFailure(input: {
+  action: "create" | "update" | "delete" | "checkout_save"
+  stage:
+    | "staff_context"
+    | "staff_customer_load"
+    | "staff_address_create"
+    | "staff_address_update"
+    | "staff_address_delete"
+    | "staff_audit_update"
+    | "staff_cart_lookup"
+    | "staff_cart_update"
+    | "store_auth_headers"
+    | "store_customer_load"
+    | "store_address_create"
+    | "store_address_update"
+    | "store_address_delete"
+    | "store_cart_lookup"
+    | "store_cart_update"
+    | "cache_revalidate"
+  error: unknown
+  staffContext?: boolean
+  hasAddressId?: boolean
+  hasCartId?: boolean
+  fields?: string[]
+}): void {
+  void emitStorefrontOpsAlert({
+    alertKind: "customer_address_mutation_failed",
+    severity: "warn",
+    title: "Customer address mutation failed",
+    path: "src/lib/data/customer.ts:customer-address-actions",
+    source: "storefront-server",
+    fingerprint: `customer_address_mutation_failed:${input.action}:${input.stage}`,
+    meta: {
+      account_surface: "customer_address_mutation",
+      action: input.action,
+      failure_stage: input.stage,
+      staff_context: Boolean(input.staffContext),
+      has_address_id: Boolean(input.hasAddressId),
+      has_cart_id: Boolean(input.hasCartId),
+      fields: (input.fields || []).slice(0, 12),
+      error_message: redactedErrorMessage(input.error),
+    },
+  }).catch(() => {
+    // Fail-open: address forms and checkout should not depend on alert delivery.
+  })
+}
+
 export async function reportPasswordResetRequestFailure(input: {
   stage: "request_failed" | "backend_rejected"
   responseStatus?: number | null

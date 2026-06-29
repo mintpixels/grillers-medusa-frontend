@@ -235,4 +235,48 @@ describe("checkout address customer context", () => {
       })
     )
   })
+
+  it("alerts when checkout address cart persistence fails", async () => {
+    mockedCartUpdate.mockRejectedValueOnce(
+      new Error("cart address update failed for meyer@example.com cart_123")
+    )
+
+    const result = await saveAddressToProfileAndCart({
+      address_id: "addr_1",
+      first_name: "Meyer",
+      last_name: "Greenberg",
+      address_1: "143 South Hayworth Avenue",
+      city: "Los Angeles",
+      province: "CA",
+      postal_code: "90048",
+      phone: "(404) 643-1567",
+    })
+
+    expect(result).toEqual({
+      success: false,
+      error: "cart address update failed for meyer@example.com cart_123",
+    })
+    expect(mockedEmitStorefrontOpsAlert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        alertKind: "customer_address_mutation_failed",
+        severity: "warn",
+        title: "Customer address mutation failed",
+        path: "src/lib/data/customer.ts:customer-address-actions",
+        source: "storefront-server",
+        fingerprint:
+          "customer_address_mutation_failed:checkout_save:staff_cart_update",
+        meta: expect.objectContaining({
+          account_surface: "customer_address_mutation",
+          action: "checkout_save",
+          failure_stage: "staff_cart_update",
+          staff_context: true,
+          has_address_id: true,
+          has_cart_id: true,
+          fields: expect.arrayContaining(["address_1", "phone"]),
+          error_message:
+            "cart address update failed for [redacted-email] [redacted-id]",
+        }),
+      })
+    )
+  })
 })

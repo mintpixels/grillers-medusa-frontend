@@ -3,12 +3,15 @@ jest.mock("server-only", () => ({}))
 import { sdk } from "@lib/config"
 import { getAuthHeaders, getCacheTag, getCartId } from "@lib/data/cookies"
 import {
+  addCustomerAddress,
+  deleteCustomerAddress,
   loginWithCredentials,
   requestPasswordReset,
   retrieveAuthenticatedCustomer,
   saveCartAddressesToAccount,
   signupWithCredentials,
   updateCustomer,
+  updateCustomerAddress,
 } from "@lib/data/customer"
 import { readStaffImpersonationCookie } from "@lib/data/staff/session-cookie"
 import { adminFetch, retrieveAdminCustomer } from "@lib/data/staff/admin"
@@ -28,8 +31,10 @@ jest.mock("@lib/config", () => ({
       customer: {
         create: jest.fn(),
         createAddress: jest.fn(),
+        deleteAddress: jest.fn(),
         retrieve: jest.fn(),
         update: jest.fn(),
+        updateAddress: jest.fn(),
       },
     },
   },
@@ -96,11 +101,17 @@ const mockCreateCustomer = sdk.store.customer.create as jest.MockedFunction<
 const mockCreateAddress = sdk.store.customer.createAddress as jest.MockedFunction<
   typeof sdk.store.customer.createAddress
 >
+const mockDeleteAddress = sdk.store.customer.deleteAddress as jest.MockedFunction<
+  typeof sdk.store.customer.deleteAddress
+>
 const mockRetrieveCustomer = sdk.store.customer.retrieve as jest.MockedFunction<
   typeof sdk.store.customer.retrieve
 >
 const mockUpdateCustomer = sdk.store.customer.update as jest.MockedFunction<
   typeof sdk.store.customer.update
+>
+const mockUpdateAddress = sdk.store.customer.updateAddress as jest.MockedFunction<
+  typeof sdk.store.customer.updateAddress
 >
 const mockReadStaffImpersonationCookie =
   readStaffImpersonationCookie as jest.MockedFunction<
@@ -534,6 +545,144 @@ describe("customer profile update alerts", () => {
           fields: ["first_name"],
           error_message:
             "admin profile write failed for [redacted-email] [redacted-id]",
+        }),
+      })
+    )
+  })
+})
+
+describe("customer address mutation alerts", () => {
+  const addressForm = () => {
+    const formData = new FormData()
+    formData.set("first_name", "Shopper")
+    formData.set("last_name", "Example")
+    formData.set("company", "")
+    formData.set("address_1", "1 Main St")
+    formData.set("address_2", "")
+    formData.set("city", "Atlanta")
+    formData.set("postal_code", "30328")
+    formData.set("province", "GA")
+    formData.set("country_code", "us")
+    formData.set("phone", "(404) 555-1212")
+    return formData
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks()
+    mockReadStaffImpersonationCookie.mockResolvedValue(null)
+    mockGetAuthHeaders.mockResolvedValue({ authorization: "Bearer test" } as any)
+    mockGetCacheTag.mockResolvedValue("customers")
+    mockCreateAddress.mockResolvedValue({ customer: { id: "cus_123" } } as any)
+    mockDeleteAddress.mockResolvedValue({} as any)
+    mockUpdateAddress.mockResolvedValue({ customer: { id: "cus_123" } } as any)
+  })
+
+  it("alerts and returns a form error when adding an address fails", async () => {
+    mockCreateAddress.mockRejectedValueOnce(
+      new Error("address create failed for shopper@example.com cus_123")
+    )
+
+    await expect(addCustomerAddress({}, addressForm())).resolves.toEqual({
+      success: false,
+      error: "address create failed for shopper@example.com cus_123",
+    })
+
+    expect(mockEmitStorefrontOpsAlert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        alertKind: "customer_address_mutation_failed",
+        severity: "warn",
+        title: "Customer address mutation failed",
+        path: "src/lib/data/customer.ts:customer-address-actions",
+        source: "storefront-server",
+        fingerprint:
+          "customer_address_mutation_failed:create:store_address_create",
+        meta: expect.objectContaining({
+          account_surface: "customer_address_mutation",
+          action: "create",
+          failure_stage: "store_address_create",
+          staff_context: false,
+          has_address_id: false,
+          fields: expect.arrayContaining(["address_1", "phone"]),
+          error_message:
+            "address create failed for [redacted-email] [redacted-id]",
+        }),
+      })
+    )
+  })
+
+  it("alerts with staff context when updating an impersonated address fails", async () => {
+    mockReadStaffImpersonationCookie.mockResolvedValue({
+      staffCustomerId: "cus_staff",
+      staffEmail: "staff@example.com",
+      staffName: "Staff",
+      targetCustomerId: "cus_target",
+      targetEmail: "target@example.com",
+      targetName: "Target Customer",
+      startedAt: "2026-06-29T20:00:00.000Z",
+      expiresAt: Date.parse("2026-06-29T21:00:00.000Z"),
+    })
+    mockSdkFetch.mockResolvedValueOnce({
+      customer: {
+        id: "cus_staff",
+        email: "staff@example.com",
+        metadata: { gp_staff_role: "office" },
+      },
+    } as any)
+    mockRetrieveAdminCustomer.mockResolvedValueOnce({
+      id: "cus_target",
+      metadata: {},
+    } as any)
+    mockAdminFetch.mockRejectedValueOnce(
+      new Error("admin address write failed for target@example.com cus_target")
+    )
+
+    await expect(
+      updateCustomerAddress({ addressId: "addr_123" }, addressForm())
+    ).resolves.toEqual({
+      success: false,
+      error: "admin address write failed for target@example.com cus_target",
+    })
+
+    expect(mockEmitStorefrontOpsAlert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        alertKind: "customer_address_mutation_failed",
+        fingerprint:
+          "customer_address_mutation_failed:update:staff_address_update",
+        meta: expect.objectContaining({
+          action: "update",
+          failure_stage: "staff_address_update",
+          staff_context: true,
+          has_address_id: true,
+          fields: expect.arrayContaining(["address_1", "phone"]),
+          error_message:
+            "admin address write failed for [redacted-email] [redacted-id]",
+        }),
+      })
+    )
+  })
+
+  it("alerts and returns failure when deleting an address fails", async () => {
+    mockDeleteAddress.mockRejectedValueOnce(
+      new Error("address delete failed for shopper@example.com cus_123")
+    )
+
+    await expect(deleteCustomerAddress("addr_123")).resolves.toEqual({
+      success: false,
+      error: "address delete failed for shopper@example.com cus_123",
+    })
+
+    expect(mockEmitStorefrontOpsAlert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        alertKind: "customer_address_mutation_failed",
+        fingerprint:
+          "customer_address_mutation_failed:delete:store_address_delete",
+        meta: expect.objectContaining({
+          action: "delete",
+          failure_stage: "store_address_delete",
+          staff_context: false,
+          has_address_id: true,
+          error_message:
+            "address delete failed for [redacted-email] [redacted-id]",
         }),
       })
     )

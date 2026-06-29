@@ -36,6 +36,7 @@ const EditAddress: React.FC<EditAddressProps> = ({
   isActive = false,
 }) => {
   const [removing, setRemoving] = useState(false)
+  const [removeError, setRemoveError] = useState<string | null>(null)
   const [successState, setSuccessState] = useState(false)
   const { state, open, close: closeModal } = useToggleState(false)
 
@@ -65,7 +66,11 @@ const EditAddress: React.FC<EditAddressProps> = ({
 
   const removeAddress = async () => {
     setRemoving(true)
-    await deleteCustomerAddress(address.id)
+    setRemoveError(null)
+    const result = await deleteCustomerAddress(address.id)
+    if (!result.success) {
+      setRemoveError(result.error || "Could not remove this address.")
+    }
     setRemoving(false)
   }
 
@@ -131,6 +136,11 @@ const EditAddress: React.FC<EditAddressProps> = ({
             Remove
           </button>
         </div>
+        {removeError && (
+          <Text className="text-rose-500 text-small-regular mt-3">
+            {removeError}
+          </Text>
+        )}
       </div>
 
       <Modal isOpen={state} close={close} data-testid="edit-address-modal">

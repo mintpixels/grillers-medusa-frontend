@@ -16,6 +16,7 @@ import { canUseOfficeConsole, isStaffCustomer } from "@lib/util/staff-access"
 import {
   reportCartAddressPersistenceFailure,
   reportAuthenticatedCustomerLoadFailure,
+  reportCustomerAddressMutationFailure,
   reportCustomerLoginFailure,
   reportCustomerProfileUpdateFailure,
   reportCustomerSignupFailure,
@@ -929,14 +930,29 @@ export const addCustomerAddress = async (
     is_default_shipping: isDefaultShipping,
   }
 
-  const active = await getActiveStaffImpersonation()
-  if (active) {
-    try {
+  let stage:
+    | "staff_context"
+    | "staff_customer_load"
+    | "staff_address_create"
+    | "staff_audit_update"
+    | "store_auth_headers"
+    | "store_address_create"
+    | "cache_revalidate" = "staff_context"
+  let staffContext = false
+  const fields = Object.keys(address)
+
+  try {
+    stage = "staff_context"
+    const active = await getActiveStaffImpersonation()
+    if (active) {
+      staffContext = true
+      stage = "staff_customer_load"
       const current = await retrieveAdminCustomer(
         active.session.targetCustomerId
       )
       if (!current) throw new Error("Could not load impersonated customer.")
 
+      stage = "staff_address_create"
       await adminFetch(
         `/admin/customers/${active.session.targetCustomerId}/addresses`,
         {
@@ -945,6 +961,7 @@ export const addCustomerAddress = async (
         }
       )
 
+      stage = "staff_audit_update"
       await adminFetch(`/admin/customers/${active.session.targetCustomerId}`, {
         method: "POST",
         body: JSON.stringify({
@@ -960,28 +977,34 @@ export const addCustomerAddress = async (
         }),
       })
 
+      stage = "cache_revalidate"
       const customerCacheTag = await getCacheTag("customers")
       revalidateTag(customerCacheTag)
       return { success: true, error: null }
-    } catch (err: any) {
-      return { success: false, error: err?.message || err.toString() }
     }
-  }
 
-  const headers = {
-    ...(await getAuthHeaders()),
-  }
+    stage = "store_auth_headers"
+    const headers = {
+      ...(await getAuthHeaders()),
+    }
 
-  return sdk.store.customer
-    .createAddress(address, {}, headers)
-    .then(async ({ customer }) => {
-      const customerCacheTag = await getCacheTag("customers")
-      revalidateTag(customerCacheTag)
-      return { success: true, error: null }
+    stage = "store_address_create"
+    await sdk.store.customer.createAddress(address, {}, headers)
+
+    stage = "cache_revalidate"
+    const customerCacheTag = await getCacheTag("customers")
+    revalidateTag(customerCacheTag)
+    return { success: true, error: null }
+  } catch (err: any) {
+    reportCustomerAddressMutationFailure({
+      action: "create",
+      stage,
+      error: err,
+      staffContext,
+      fields,
     })
-    .catch((err) => {
-      return { success: false, error: err.toString() }
-    })
+    return { success: false, error: err?.message || err.toString() }
+  }
 }
 
 /**
@@ -1004,7 +1027,6 @@ export async function saveAddressToProfileAndCart(input: {
   phone: string
   country_code?: string
 }): Promise<{ success: boolean; error: string | null }> {
-  const headers = { ...(await getAuthHeaders()) }
   const country = (input.country_code || "us").toLowerCase()
   const repairResult = repairCheckoutAddressForWrite({
     first_name: input.first_name,
@@ -1019,8 +1041,29 @@ export async function saveAddressToProfileAndCart(input: {
     phone: input.phone ? stripPhone(input.phone) : "",
   })
   const addressPayload = repairResult.address
+  let stage:
+    | "staff_context"
+    | "staff_customer_load"
+    | "staff_address_create"
+    | "staff_address_update"
+    | "staff_audit_update"
+    | "staff_cart_lookup"
+    | "staff_cart_update"
+    | "store_auth_headers"
+    | "store_customer_load"
+    | "store_address_create"
+    | "store_address_update"
+    | "store_cart_lookup"
+    | "store_cart_update"
+    | "cache_revalidate" = "store_auth_headers"
+  let staffContext = false
+  let cartId: string | null = null
+  const fields = Object.keys(addressPayload)
 
   try {
+    stage = "store_auth_headers"
+    const headers = { ...(await getAuthHeaders()) }
+    stage = "staff_context"
     const active = await getActiveStaffImpersonation()
     reportCheckoutAddressRepair({
       surface: "profile_cart",
@@ -1031,11 +1074,13 @@ export async function saveAddressToProfileAndCart(input: {
       staffContext: Boolean(active),
     })
     if (active) {
+      staffContext = true
       const staffCartHeaders = {
-        ...(await getAuthHeaders()),
+        ...headers,
         "x-gp-staff-target-customer-id": active.session.targetCustomerId,
         "x-gp-staff-actor-customer-id": active.session.staffCustomerId,
       }
+      stage = "staff_customer_load"
       const current = await retrieveAdminCustomer(
         active.session.targetCustomerId
       )
@@ -1050,6 +1095,7 @@ export async function saveAddressToProfileAndCart(input: {
       const customerHadNoAddresses = (current.addresses || []).length === 0
 
       if (input.address_id) {
+        stage = "staff_address_update"
         await adminFetch(
           `/admin/customers/${active.session.targetCustomerId}/addresses/${input.address_id}`,
           {
@@ -1058,6 +1104,7 @@ export async function saveAddressToProfileAndCart(input: {
           }
         )
 
+        stage = "staff_audit_update"
         await adminFetch(
           `/admin/customers/${active.session.targetCustomerId}`,
           {
@@ -1076,8 +1123,10 @@ export async function saveAddressToProfileAndCart(input: {
             }),
           }
         )
+        stage = "cache_revalidate"
         revalidateTag(await getCacheTag("customers"))
       } else if (!alreadyOnFile) {
+        stage = "staff_address_create"
         await adminFetch(
           `/admin/customers/${active.session.targetCustomerId}/addresses`,
           {
@@ -1090,6 +1139,7 @@ export async function saveAddressToProfileAndCart(input: {
           }
         )
 
+        stage = "staff_audit_update"
         await adminFetch(
           `/admin/customers/${active.session.targetCustomerId}`,
           {
@@ -1107,11 +1157,14 @@ export async function saveAddressToProfileAndCart(input: {
             }),
           }
         )
+        stage = "cache_revalidate"
         revalidateTag(await getCacheTag("customers"))
       }
 
-      const cartId = await getStaffImpersonationCartId(active.session)
+      stage = "staff_cart_lookup"
+      cartId = (await getStaffImpersonationCartId(active.session)) || null
       if (cartId) {
+        stage = "staff_cart_update"
         await sdk.store.cart.update(
           cartId,
           {
@@ -1125,6 +1178,7 @@ export async function saveAddressToProfileAndCart(input: {
           {},
           staffCartHeaders
         )
+        stage = "cache_revalidate"
         revalidateTag(await getCacheTag("carts"))
         revalidateTag(await getCacheTag("fulfillment"))
       }
@@ -1132,6 +1186,7 @@ export async function saveAddressToProfileAndCart(input: {
       return { success: true, error: null }
     }
 
+    stage = "store_customer_load"
     const me = await retrieveCustomer()
     const alreadyOnFile = (me?.addresses || []).some(
       (a) =>
@@ -1142,14 +1197,17 @@ export async function saveAddressToProfileAndCart(input: {
     const customerHadNoAddresses = (me?.addresses || []).length === 0
 
     if (input.address_id) {
+      stage = "store_address_update"
       await sdk.store.customer.updateAddress(
         input.address_id,
         addressPayload,
         {},
         headers
       )
+      stage = "cache_revalidate"
       revalidateTag(await getCacheTag("customers"))
     } else if (!alreadyOnFile) {
+      stage = "store_address_create"
       await sdk.store.customer.createAddress(
         {
           ...addressPayload,
@@ -1160,11 +1218,14 @@ export async function saveAddressToProfileAndCart(input: {
         {},
         headers
       )
+      stage = "cache_revalidate"
       revalidateTag(await getCacheTag("customers"))
     }
 
-    const cartId = await getCartId()
+    stage = "store_cart_lookup"
+    cartId = (await getCartId()) || null
     if (cartId) {
+      stage = "store_cart_update"
       await sdk.store.cart.update(
         cartId,
         {
@@ -1174,12 +1235,22 @@ export async function saveAddressToProfileAndCart(input: {
         {},
         headers
       )
+      stage = "cache_revalidate"
       revalidateTag(await getCacheTag("carts"))
       revalidateTag(await getCacheTag("fulfillment"))
     }
 
     return { success: true, error: null }
   } catch (err: any) {
+    reportCustomerAddressMutationFailure({
+      action: "checkout_save",
+      stage,
+      error: err,
+      staffContext,
+      hasAddressId: Boolean(input.address_id),
+      hasCartId: Boolean(cartId),
+      fields,
+    })
     return {
       success: false,
       error: err?.message || "Could not save your address. Please try again.",
@@ -1189,48 +1260,76 @@ export async function saveAddressToProfileAndCart(input: {
 
 export const deleteCustomerAddress = async (
   addressId: string
-): Promise<void> => {
-  const active = await getActiveStaffImpersonation()
-  if (active) {
-    const current = await retrieveAdminCustomer(active.session.targetCustomerId)
-    await adminFetch(
-      `/admin/customers/${active.session.targetCustomerId}/addresses/${addressId}`,
-      { method: "DELETE" }
-    )
-    await adminFetch(`/admin/customers/${active.session.targetCustomerId}`, {
-      method: "POST",
-      body: JSON.stringify({
-        metadata: {
-          ...appendStaffAuditLog(current?.metadata, {
-            type: "staff_customer_address_delete",
-            staffCustomerId: active.session.staffCustomerId,
-            staffEmail: active.session.staffEmail,
-            targetCustomerId: active.session.targetCustomerId,
-            addressId,
-          }),
-          ...staffAuditFields(active.session, "customer_address_delete"),
-        },
-      }),
-    })
-    const customerCacheTag = await getCacheTag("customers")
-    revalidateTag(customerCacheTag)
-    return
-  }
+): Promise<{ success: boolean; error: string | null }> => {
+  let stage:
+    | "staff_context"
+    | "staff_customer_load"
+    | "staff_address_delete"
+    | "staff_audit_update"
+    | "store_auth_headers"
+    | "store_address_delete"
+    | "cache_revalidate" = "staff_context"
+  let staffContext = false
 
-  const headers = {
-    ...(await getAuthHeaders()),
-  }
+  try {
+    stage = "staff_context"
+    const active = await getActiveStaffImpersonation()
+    if (active) {
+      staffContext = true
+      stage = "staff_customer_load"
+      const current = await retrieveAdminCustomer(active.session.targetCustomerId)
 
-  await sdk.store.customer
-    .deleteAddress(addressId, headers)
-    .then(async () => {
+      stage = "staff_address_delete"
+      await adminFetch(
+        `/admin/customers/${active.session.targetCustomerId}/addresses/${addressId}`,
+        { method: "DELETE" }
+      )
+
+      stage = "staff_audit_update"
+      await adminFetch(`/admin/customers/${active.session.targetCustomerId}`, {
+        method: "POST",
+        body: JSON.stringify({
+          metadata: {
+            ...appendStaffAuditLog(current?.metadata, {
+              type: "staff_customer_address_delete",
+              staffCustomerId: active.session.staffCustomerId,
+              staffEmail: active.session.staffEmail,
+              targetCustomerId: active.session.targetCustomerId,
+              addressId,
+            }),
+            ...staffAuditFields(active.session, "customer_address_delete"),
+          },
+        }),
+      })
+
+      stage = "cache_revalidate"
       const customerCacheTag = await getCacheTag("customers")
       revalidateTag(customerCacheTag)
       return { success: true, error: null }
+    }
+
+    stage = "store_auth_headers"
+    const headers = {
+      ...(await getAuthHeaders()),
+    }
+
+    stage = "store_address_delete"
+    await sdk.store.customer.deleteAddress(addressId, headers)
+
+    stage = "cache_revalidate"
+    const customerCacheTag = await getCacheTag("customers")
+    revalidateTag(customerCacheTag)
+    return { success: true, error: null }
+  } catch (err: any) {
+    reportCustomerAddressMutationFailure({
+      action: "delete",
+      stage,
+      error: err,
+      staffContext,
+      hasAddressId: Boolean(addressId),
     })
-    .catch((err) => {
-      return { success: false, error: err.toString() }
-    })
+    return { success: false, error: err?.message || err.toString() }
+  }
 }
 
 export const updateCustomerAddress = async (
@@ -1276,14 +1375,29 @@ export const updateCustomerAddress = async (
     address.is_default_billing = true
   }
 
-  const active = await getActiveStaffImpersonation()
-  if (active) {
-    try {
+  let stage:
+    | "staff_context"
+    | "staff_customer_load"
+    | "staff_address_update"
+    | "staff_audit_update"
+    | "store_auth_headers"
+    | "store_address_update"
+    | "cache_revalidate" = "staff_context"
+  let staffContext = false
+  const fields = Object.keys(address)
+
+  try {
+    stage = "staff_context"
+    const active = await getActiveStaffImpersonation()
+    if (active) {
+      staffContext = true
+      stage = "staff_customer_load"
       const current = await retrieveAdminCustomer(
         active.session.targetCustomerId
       )
       if (!current) throw new Error("Could not load impersonated customer.")
 
+      stage = "staff_address_update"
       await adminFetch(
         `/admin/customers/${active.session.targetCustomerId}/addresses/${addressId}`,
         {
@@ -1292,6 +1406,7 @@ export const updateCustomerAddress = async (
         }
       )
 
+      stage = "staff_audit_update"
       await adminFetch(`/admin/customers/${active.session.targetCustomerId}`, {
         method: "POST",
         body: JSON.stringify({
@@ -1308,26 +1423,33 @@ export const updateCustomerAddress = async (
         }),
       })
 
+      stage = "cache_revalidate"
       const customerCacheTag = await getCacheTag("customers")
       revalidateTag(customerCacheTag)
       return { success: true, error: null }
-    } catch (err: any) {
-      return { success: false, error: err?.message || err.toString() }
     }
-  }
 
-  const headers = {
-    ...(await getAuthHeaders()),
-  }
+    stage = "store_auth_headers"
+    const headers = {
+      ...(await getAuthHeaders()),
+    }
 
-  return sdk.store.customer
-    .updateAddress(addressId, address, {}, headers)
-    .then(async () => {
-      const customerCacheTag = await getCacheTag("customers")
-      revalidateTag(customerCacheTag)
-      return { success: true, error: null }
+    stage = "store_address_update"
+    await sdk.store.customer.updateAddress(addressId, address, {}, headers)
+
+    stage = "cache_revalidate"
+    const customerCacheTag = await getCacheTag("customers")
+    revalidateTag(customerCacheTag)
+    return { success: true, error: null }
+  } catch (err: any) {
+    reportCustomerAddressMutationFailure({
+      action: "update",
+      stage,
+      error: err,
+      staffContext,
+      hasAddressId: Boolean(addressId),
+      fields,
     })
-    .catch((err) => {
-      return { success: false, error: err.toString() }
-    })
+    return { success: false, error: err?.message || err.toString() }
+  }
 }
