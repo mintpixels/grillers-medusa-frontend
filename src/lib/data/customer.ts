@@ -13,6 +13,7 @@ import {
   formWantsSmsMarketing,
 } from "@lib/util/sms-consent"
 import { canUseOfficeConsole, isStaffCustomer } from "@lib/util/staff-access"
+import { reportAuthenticatedCustomerLoadFailure } from "@lib/account-ops-alerts"
 import { emitCartTransferRecoveryFailureAlert } from "@lib/cart-transfer-ops-alerts"
 import { HttpTypes } from "@medusajs/types"
 import { revalidateTag } from "next/cache"
@@ -424,7 +425,10 @@ export const retrieveAuthenticatedCustomer =
         cache: "no-store",
       })
       .then(({ customer }) => customer)
-      .catch(() => null)
+      .catch((error) => {
+        reportAuthenticatedCustomerLoadFailure(error)
+        return null
+      })
   }
 
 export const retrieveAuthenticatedCustomerForStaffAccess =
