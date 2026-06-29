@@ -81,9 +81,11 @@ describe("product merchandising review telemetry", () => {
         } as unknown as Response
       }
 
-      if (url.endsWith("/api/upload?id=123")) {
+      if (url.endsWith("/api/gp-upload-files/123/caption")) {
         expect(init?.method).toBe("POST")
-        writtenCaption = JSON.parse(String(init?.body)).fileInfo.caption
+        const body = JSON.parse(String(init?.body))
+        writtenCaption = body.caption
+        expect(body.expectedCaption).toBe(latestCaption)
         return {
           ok: true,
           json: async () => ({}),
@@ -148,6 +150,15 @@ describe("product merchandising review telemetry", () => {
               caption: latestCaption,
             },
           ],
+        } as unknown as Response
+      }
+
+      if (url.endsWith("/api/gp-upload-files/123/caption")) {
+        expect(init?.method).toBe("POST")
+        return {
+          ok: false,
+          status: 404,
+          json: async () => ({ error: { message: "Not Found" } }),
         } as unknown as Response
       }
 
@@ -323,6 +334,7 @@ describe("product merchandising review telemetry", () => {
       }
 
       if (
+        url.endsWith("/api/gp-upload-files/123/caption") ||
         url.endsWith("/api/upload?id=123") ||
         (url.endsWith("/api/upload/files/123") && init?.method === "PUT")
       ) {
@@ -379,6 +391,7 @@ describe("product merchandising review telemetry", () => {
       }
 
       if (
+        url.endsWith("/api/gp-upload-files/123/caption") ||
         url.endsWith("/api/upload?id=123") ||
         (url.endsWith("/api/upload/files/123") && init?.method === "PUT")
       ) {

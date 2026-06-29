@@ -352,9 +352,11 @@ describe("getProductMerchandisingTags", () => {
         } as unknown as Response
       }
 
-      if (String(url).endsWith("/api/upload?id=123")) {
+      if (String(url).endsWith("/api/gp-upload-files/123/caption")) {
         expect(init?.method).toBe("POST")
-        writtenCaption = JSON.parse(String(init?.body)).fileInfo.caption
+        const body = JSON.parse(String(init?.body))
+        writtenCaption = body.caption
+        expect(body.expectedCaption).toBe(latestCaption)
         return {
           ok: true,
           json: async () => ({}),
@@ -414,6 +416,7 @@ describe("getProductMerchandisingTags", () => {
       }
 
       if (
+        String(url).endsWith("/api/gp-upload-files/123/caption") ||
         String(url).endsWith("/api/upload?id=123") ||
         (String(url).endsWith("/api/upload/files/123") &&
           init?.method === "PUT")

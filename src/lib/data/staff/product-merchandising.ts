@@ -623,7 +623,11 @@ async function requireSuccessfulStrapiWrite(response: Response) {
   }
 }
 
-function strapiUploadCaptionWriteAttempts(imageId: number, caption: string) {
+function strapiUploadCaptionWriteAttempts(
+  imageId: number,
+  caption: string,
+  expectedCaption: string | null
+) {
   const endpoint = strapiEndpoint()
   const rewriteHeaders = strapiRewriteHeaders()
   const fileInfoBody = JSON.stringify({
@@ -633,6 +637,21 @@ function strapiUploadCaptionWriteAttempts(imageId: number, caption: string) {
   })
 
   return [
+    {
+      name: "gp upload caption JSON",
+      run: () =>
+        fetch(`${endpoint}/api/gp-upload-files/${imageId}/caption`, {
+          method: "POST",
+          headers: {
+            ...rewriteHeaders,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            caption,
+            expectedCaption,
+          }),
+        }),
+    },
     {
       name: "legacy upload fileInfo JSON",
       run: () =>
@@ -685,10 +704,18 @@ function strapiUploadCaptionWriteAttempts(imageId: number, caption: string) {
   ]
 }
 
-async function writeStrapiUploadCaption(imageId: number, caption: string) {
+async function writeStrapiUploadCaption(
+  imageId: number,
+  caption: string,
+  expectedCaption: string | null
+) {
   const failures: string[] = []
 
-  for (const attempt of strapiUploadCaptionWriteAttempts(imageId, caption)) {
+  for (const attempt of strapiUploadCaptionWriteAttempts(
+    imageId,
+    caption,
+    expectedCaption
+  )) {
     try {
       const response = await attempt.run()
       await requireSuccessfulStrapiWrite(response)
@@ -1288,7 +1315,7 @@ export async function reviewMerchandisingImage(
       auditEntry,
     })
 
-    await writeStrapiUploadCaption(imageId, caption)
+    await writeStrapiUploadCaption(imageId, caption, latestCaption)
 
     revalidatePath(`/${input.countryCode}/account/staff/merchandising`)
     void emitStaffMerchandisingReviewTelemetry({
@@ -1392,7 +1419,7 @@ export async function claimMerchandisingImage(
       auditEntry,
     })
 
-    await writeStrapiUploadCaption(imageId, caption)
+    await writeStrapiUploadCaption(imageId, caption, latestCaption)
 
     revalidatePath(`/${input.countryCode}/account/staff/merchandising`)
     return {
@@ -1465,7 +1492,7 @@ export async function releaseMerchandisingImageClaim(
       auditEntry,
     })
 
-    await writeStrapiUploadCaption(imageId, caption)
+    await writeStrapiUploadCaption(imageId, caption, latestCaption)
 
     revalidatePath(`/${input.countryCode}/account/staff/merchandising`)
     return {
