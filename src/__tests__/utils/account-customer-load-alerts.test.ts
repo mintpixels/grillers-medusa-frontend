@@ -3,6 +3,7 @@ jest.mock("server-only", () => ({}))
 import { sdk } from "@lib/config"
 import { getAuthHeaders, getCacheTag, getCartId } from "@lib/data/cookies"
 import {
+  loginWithCredentials,
   requestPasswordReset,
   retrieveAuthenticatedCustomer,
   saveCartAddressesToAccount,
@@ -235,6 +236,102 @@ describe("password reset request alerts", () => {
     })) as unknown as typeof fetch
 
     await requestPasswordReset("not-an-email")
+
+    expect(mockEmitStorefrontOpsAlert).not.toHaveBeenCalled()
+  })
+})
+
+describe("legacy login fallback alerts", () => {
+  const originalFetch = global.fetch
+  const originalEnv = process.env
+
+  beforeEach(() => {
+    jest.clearAllMocks()
+    process.env = {
+      ...originalEnv,
+      MEDUSA_BACKEND_URL: "https://backend.example.test",
+      NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY: "pk_test_unit",
+    }
+    global.fetch = originalFetch
+  })
+
+  afterAll(() => {
+    process.env = originalEnv
+    global.fetch = originalFetch
+  })
+
+  it("alerts when legacy login fallback gets a backend outage response", async () => {
+    global.fetch = jest.fn(async () => ({
+      ok: false,
+      status: 500,
+      statusText: "Internal Server Error",
+      text: async () => "Legacy DB failed for shopper@example.com auth_123",
+    })) as unknown as typeof fetch
+
+    await expect(
+      loginWithCredentials("legacy-shopper", "correct horse battery staple")
+    ).resolves.toEqual({
+      success: false,
+      error: "Invalid login or password",
+    })
+
+    expect(mockEmitStorefrontOpsAlert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        alertKind: "legacy_login_fallback_failed",
+        severity: "page",
+        title: "Legacy login fallback failed behind invalid-login response",
+        path: "src/lib/data/customer.ts:requestLegacyAuthToken",
+        source: "storefront-server",
+        fingerprint: "legacy_login_fallback_failed:backend_rejected:500",
+        meta: expect.objectContaining({
+          account_surface: "legacy_login_fallback",
+          route_dependency: "/store/legacy-auth/login",
+          identifier_kind: "legacy_identifier",
+          failure_stage: "backend_rejected",
+          response_status: 500,
+          response_body: "Legacy DB failed for [redacted-email] [redacted-id]",
+          error_message: null,
+        }),
+      })
+    )
+  })
+
+  it("alerts when legacy login fallback cannot reach the backend", async () => {
+    global.fetch = jest
+      .fn()
+      .mockRejectedValue(new Error("legacy auth timeout for auth_123"))
+
+    await expect(
+      loginWithCredentials("legacy-shopper", "password")
+    ).resolves.toEqual({
+      success: false,
+      error: "Invalid login or password",
+    })
+
+    expect(mockEmitStorefrontOpsAlert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        alertKind: "legacy_login_fallback_failed",
+        fingerprint: "legacy_login_fallback_failed:request_failed:transport",
+        meta: expect.objectContaining({
+          identifier_kind: "legacy_identifier",
+          failure_stage: "request_failed",
+          response_status: null,
+          response_body: null,
+          error_message: "legacy auth timeout for [redacted-id]",
+        }),
+      })
+    )
+  })
+
+  it("does not alert when legacy login rejects invalid credentials", async () => {
+    global.fetch = jest.fn(async () => ({
+      ok: false,
+      status: 401,
+      statusText: "Unauthorized",
+      text: async () => "Invalid login or password",
+    })) as unknown as typeof fetch
+
+    await loginWithCredentials("legacy-shopper", "wrong-password")
 
     expect(mockEmitStorefrontOpsAlert).not.toHaveBeenCalled()
   })

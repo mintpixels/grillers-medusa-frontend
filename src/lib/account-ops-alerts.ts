@@ -25,7 +25,10 @@ function redactedErrorMessage(error: unknown): string {
 
   return message
     .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[redacted-email]")
-    .replace(/\b(?:cus|cart|order|ord|pay|pm|pi|seti)_[A-Za-z0-9_]+/g, "[redacted-id]")
+    .replace(
+      /\b(?:auth|cus|customer|cart|order|ord|pay|pm|pi|provider|seti|legacy)_[A-Za-z0-9_]+/g,
+      "[redacted-id]"
+    )
     .slice(0, 500)
 }
 
@@ -122,4 +125,38 @@ export function reportCartAddressPersistenceFailure(input: {
   }).catch(() => {
     // Fail-open: first checkout/signup must not depend on alert delivery.
   })
+}
+
+export async function reportLegacyLoginFallbackFailure(input: {
+  stage: "request_failed" | "backend_rejected"
+  identifierKind: "email" | "legacy_identifier"
+  responseStatus?: number | null
+  responseBody?: string | null
+  error?: unknown
+}): Promise<void> {
+  try {
+    await emitStorefrontOpsAlert({
+      alertKind: "legacy_login_fallback_failed",
+      severity: "page",
+      title: "Legacy login fallback failed behind invalid-login response",
+      path: "src/lib/data/customer.ts:requestLegacyAuthToken",
+      source: "storefront-server",
+      fingerprint: `legacy_login_fallback_failed:${input.stage}:${
+        input.responseStatus || "transport"
+      }`,
+      meta: {
+        account_surface: "legacy_login_fallback",
+        route_dependency: "/store/legacy-auth/login",
+        identifier_kind: input.identifierKind,
+        failure_stage: input.stage,
+        response_status: input.responseStatus ?? null,
+        response_body: input.responseBody
+          ? redactedErrorMessage(input.responseBody)
+          : null,
+        error_message: input.error ? redactedErrorMessage(input.error) : null,
+      },
+    })
+  } catch {
+    // Fail-open: login UX should not depend on alert delivery.
+  }
 }

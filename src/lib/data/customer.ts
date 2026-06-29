@@ -16,6 +16,7 @@ import { canUseOfficeConsole, isStaffCustomer } from "@lib/util/staff-access"
 import {
   reportCartAddressPersistenceFailure,
   reportAuthenticatedCustomerLoadFailure,
+  reportLegacyLoginFallbackFailure,
   reportPasswordResetRequestFailure,
 } from "@lib/account-ops-alerts"
 import { emitCartTransferRecoveryFailureAlert } from "@lib/cart-transfer-ops-alerts"
@@ -291,11 +292,20 @@ function isEmailLoginIdentifier(value: string) {
   return value.includes("@")
 }
 
+function legacyLoginIdentifierKind(loginId: string) {
+  return isEmailLoginIdentifier(loginId) ? "email" : "legacy_identifier"
+}
+
+function shouldAlertLegacyLoginFallbackStatus(status: number) {
+  return status === 404 || status === 429 || status >= 500
+}
+
 async function requestLegacyAuthToken(loginId: string, password: string) {
   const backendUrl = (
     process.env.MEDUSA_BACKEND_URL || "http://localhost:9000"
   ).replace(/\/+$/, "")
   const publishableKey = process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY || ""
+  const identifierKind = legacyLoginIdentifierKind(loginId)
 
   try {
     const res = await fetch(`${backendUrl}/store/legacy-auth/login`, {
@@ -309,12 +319,25 @@ async function requestLegacyAuthToken(loginId: string, password: string) {
     })
 
     if (!res.ok) {
+      if (shouldAlertLegacyLoginFallbackStatus(res.status)) {
+        await reportLegacyLoginFallbackFailure({
+          stage: "backend_rejected",
+          identifierKind,
+          responseStatus: res.status,
+          responseBody: await res.text().catch(() => res.statusText),
+        })
+      }
       return null
     }
 
     const body = (await res.json()) as { token?: unknown }
     return typeof body.token === "string" && body.token ? body.token : null
-  } catch {
+  } catch (error) {
+    await reportLegacyLoginFallbackFailure({
+      stage: "request_failed",
+      identifierKind,
+      error,
+    })
     return null
   }
 }
