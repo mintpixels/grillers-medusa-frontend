@@ -5,6 +5,9 @@ import { getAuthHeaders, getCacheOptions } from "./cookies"
 import { getActiveStaffImpersonation } from "./customer"
 import { HttpTypes } from "@medusajs/types"
 import { reportServerSoftFailure } from "@lib/server-soft-failure"
+import {
+  emitCheckoutPaymentSetupFailureAlert,
+} from "@lib/checkout-payment-ops-alerts"
 
 export type SavedPaymentMethod = {
   id: string
@@ -64,8 +67,12 @@ export async function createPaymentMethodSetupIntent(): Promise<
     }
   | { error: string }
 > {
+  let hasAuth = false
+  let staffImpersonation = false
   try {
     const headers = await getPaymentContextHeaders()
+    hasAuth = Boolean(headers.authorization)
+    staffImpersonation = Boolean(headers["x-gp-staff-target-customer-id"])
     if (!headers.authorization) {
       return { error: "You must be signed in to add a card." }
     }
@@ -80,11 +87,27 @@ export async function createPaymentMethodSetupIntent(): Promise<
     })
 
     if (!result?.client_secret) {
+      await emitCheckoutPaymentSetupFailureAlert({
+        stage: "setup_intent_response",
+        reason: "missing_client_secret",
+        hasAuth,
+        staffImpersonation,
+        error: result,
+      })
       return { error: "Could not start a card setup. Please try again." }
     }
     return result
   } catch (error: any) {
     console.error("Error creating SetupIntent:", error)
+    if (hasAuth) {
+      await emitCheckoutPaymentSetupFailureAlert({
+        stage: "setup_intent_request",
+        reason: "request_failed",
+        hasAuth,
+        staffImpersonation,
+        error,
+      })
+    }
     return {
       error:
         error?.data?.message ||
