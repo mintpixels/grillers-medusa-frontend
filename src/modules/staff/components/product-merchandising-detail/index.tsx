@@ -78,9 +78,16 @@ function shortDate(value?: string) {
 }
 
 function reviewLabel(review: MerchandisingImageReview) {
+  if (review.status === "approved" || review.status === "rejected") {
+    return "Reviewed"
+  }
+  return "Needs review"
+}
+
+function decisionLabel(review: MerchandisingImageReview) {
   if (review.status === "approved") return "Approved"
   if (review.status === "rejected") return "Rejected"
-  return "Needs review"
+  return "Not reviewed"
 }
 
 function reviewClass(review: MerchandisingImageReview) {
@@ -105,11 +112,29 @@ function claimOwner(image: MerchandisingProductImage) {
   return image.claim?.staffName || image.claim?.staffEmail || ""
 }
 
+function reviewerName(review: MerchandisingImageReview) {
+  return review.reviewerName || review.reviewerEmail || ""
+}
+
+function reviewedByLabel(review: MerchandisingImageReview) {
+  const reviewer = reviewerName(review)
+  if (!reviewer) return decisionLabel(review)
+  return `${decisionLabel(review)} by ${reviewer}`
+}
+
 function claimIsMine(image: MerchandisingProductImage, staffEmail: string) {
   return (
     Boolean(image.claim?.staffEmail) &&
     normalizedEmail(image.claim?.staffEmail) === normalizedEmail(staffEmail)
   )
+}
+
+function auditActionLabel(action: string) {
+  if (action === "claimed") return "Claimed"
+  if (action === "released_claim") return "Released claim"
+  if (action === "overwritten_review") return "Replaced review"
+  if (action === "reviewed") return "Reviewed"
+  return action
 }
 
 function resultImagePatch(result: MerchandisingImageActionResult) {
@@ -285,6 +310,7 @@ function ImageCard({
   image,
   isPending,
   staffEmail,
+  onOpen,
   onApprove,
   onReject,
   onClaim,
@@ -293,6 +319,7 @@ function ImageCard({
   image: MerchandisingProductImage
   isPending: boolean
   staffEmail: string
+  onOpen: (image: MerchandisingProductImage) => void
   onApprove: (image: MerchandisingProductImage) => void
   onReject: (image: MerchandisingProductImage) => void
   onClaim: (image: MerchandisingProductImage) => void
@@ -307,6 +334,7 @@ function ImageCard({
   const claimedByMe = claimIsMine(image, staffEmail)
   const claimedByOther = Boolean(image.claim && !claimedByMe)
   const reviewDisabled = isPending || claimedByOther
+  const reviewed = image.review.status !== "unreviewed"
 
   return (
     <div
@@ -315,29 +343,36 @@ function ImageCard({
       }`}
     >
       <div className="relative aspect-square bg-Scroll">
-        {/*
-          Load Strapi's large/medium derivative directly (unoptimized) instead
-          of through Vercel's image optimizer. The optimizer reliably failed to
-          render these heavier sources for an image-heavy review page (~36 at
-          once) — the cards came up blank. The derivative is already ~750-1000px
-          (crisp at this ~600px display) and ~150KB, so it loads straight from
-          Strapi's CDN with no optimizer bottleneck.
-        */}
-        <Image
-          src={image.displayUrl}
-          alt={image.alternativeText || image.name}
-          fill
-          unoptimized
-          sizes="(min-width: 1024px) 600px, (min-width: 640px) 50vw, 100vw"
-          className="object-cover"
-        />
-        <div className="absolute inset-0 flex items-end bg-gradient-to-t from-Charcoal/80 via-Charcoal/10 to-transparent p-3 opacity-0 transition group-hover:opacity-100">
+        <button
+          type="button"
+          onClick={() => onOpen(image)}
+          className="relative block h-full w-full outline-none focus-visible:ring-2 focus-visible:ring-Gold focus-visible:ring-offset-2"
+          aria-label={`Open review details for ${image.name}`}
+        >
+          {/*
+            Load Strapi's large/medium derivative directly (unoptimized) instead
+            of through Vercel's image optimizer. The optimizer reliably failed to
+            render these heavier sources for an image-heavy review page (~36 at
+            once) — the cards came up blank. The derivative is already ~750-1000px
+            (crisp at this ~600px display) and ~150KB, so it loads straight from
+            Strapi's CDN with no optimizer bottleneck.
+          */}
+          <Image
+            src={image.displayUrl}
+            alt={image.alternativeText || image.name}
+            fill
+            unoptimized
+            sizes="(min-width: 1024px) 600px, (min-width: 640px) 50vw, 100vw"
+            className="object-cover"
+          />
+        </button>
+        <div className="pointer-events-none absolute inset-0 flex items-end bg-gradient-to-t from-Charcoal/80 via-Charcoal/10 to-transparent p-3 opacity-0 transition group-hover:opacity-100">
           <div className="grid w-full grid-cols-2 gap-2">
             <button
               type="button"
               disabled={reviewDisabled}
               onClick={() => onApprove(image)}
-              className="inline-flex min-h-[38px] items-center justify-center gap-1.5 rounded-md bg-white px-3 text-xs font-rexton font-bold uppercase text-Charcoal transition hover:bg-emerald-50 disabled:opacity-50"
+              className="pointer-events-auto inline-flex min-h-[38px] items-center justify-center gap-1.5 rounded-md bg-white px-3 text-xs font-rexton font-bold uppercase text-Charcoal transition hover:bg-emerald-50 disabled:opacity-50"
             >
               <CheckCircle2 className="h-4 w-4 text-emerald-600" aria-hidden />
               Approve
@@ -346,7 +381,7 @@ function ImageCard({
               type="button"
               disabled={reviewDisabled}
               onClick={() => onReject(image)}
-              className="inline-flex min-h-[38px] items-center justify-center gap-1.5 rounded-md bg-white px-3 text-xs font-rexton font-bold uppercase text-Charcoal transition hover:bg-red-50 disabled:opacity-50"
+              className="pointer-events-auto inline-flex min-h-[38px] items-center justify-center gap-1.5 rounded-md bg-white px-3 text-xs font-rexton font-bold uppercase text-Charcoal transition hover:bg-red-50 disabled:opacity-50"
             >
               <XCircle className="h-4 w-4 text-red-600" aria-hidden />
               Reject
@@ -378,15 +413,19 @@ function ImageCard({
           <Icon className="h-3.5 w-3.5" aria-hidden />
           {reviewLabel(image.review)}
         </div>
-        {image.review.reviewerEmail && (
+        {reviewed && (
           <p className="break-words text-xs font-maison-neue text-Charcoal/55">
-            Latest by {image.review.reviewerEmail}
+            {reviewedByLabel(image.review)}
           </p>
         )}
-        {image.review.status === "rejected" && (
+        {image.review.status === "rejected" && reasonLabel(image.review.reason) && (
           <p className="text-xs font-maison-neue text-red-700">
             {reasonLabel(image.review.reason)}
-            {image.review.note ? `: ${image.review.note}` : ""}
+          </p>
+        )}
+        {image.review.note && (
+          <p className="line-clamp-2 text-xs font-maison-neue text-Charcoal/65">
+            Comment: {image.review.note}
           </p>
         )}
         {image.review.reviewedAt && (
@@ -436,6 +475,195 @@ function ImageCard({
   )
 }
 
+function ImageReviewDetailsModal({
+  image,
+  onClose,
+}: {
+  image: MerchandisingProductImage
+  onClose: () => void
+}) {
+  const reviewed = image.review.status !== "unreviewed"
+  const reviewer = reviewerName(image.review)
+  const rejectionReason = reasonLabel(image.review.reason)
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-Charcoal/60 p-4 small:items-center">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="image-review-details-title"
+        className="grid max-h-[92vh] w-full max-w-5xl overflow-hidden rounded-lg bg-white shadow-xl large:grid-cols-[minmax(0,1.2fr)_420px]"
+      >
+        <div className="min-h-[320px] bg-Charcoal p-3 large:min-h-[620px]">
+          <div className="relative h-full min-h-[320px] overflow-hidden rounded-md bg-Charcoal">
+            <Image
+              src={image.displayUrl}
+              alt={image.alternativeText || image.name}
+              fill
+              unoptimized
+              sizes="(min-width: 1024px) 720px, 100vw"
+              className="object-contain"
+            />
+          </div>
+        </div>
+
+        <div className="max-h-[92vh] overflow-y-auto p-5">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-maison-neue-mono uppercase text-Gold">
+                Image review details
+              </p>
+              <h2
+                id="image-review-details-title"
+                className="mt-2 break-words text-2xl font-gyst font-bold text-Charcoal"
+              >
+                {image.name}
+              </h2>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-md p-2 text-Charcoal/45 transition hover:bg-gray-100 hover:text-Charcoal"
+              aria-label="Close image review details"
+            >
+              <XCircle className="h-5 w-5" aria-hidden />
+            </button>
+          </div>
+
+          <div className="mt-5 space-y-4">
+            <div className="rounded-md border border-gray-200 p-4">
+              <div
+                className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-maison-neue-mono uppercase ${reviewClass(
+                  image.review
+                )}`}
+              >
+                {reviewed ? (
+                  <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
+                ) : (
+                  <ShieldCheck className="h-3.5 w-3.5" aria-hidden />
+                )}
+                {reviewLabel(image.review)}
+              </div>
+
+              {reviewed ? (
+                <dl className="mt-4 grid gap-3 text-sm font-maison-neue">
+                  <div>
+                    <dt className="text-xs font-maison-neue-mono uppercase text-Charcoal/45">
+                      Decision
+                    </dt>
+                    <dd className="mt-1 text-Charcoal">
+                      {decisionLabel(image.review)}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs font-maison-neue-mono uppercase text-Charcoal/45">
+                      Reviewer
+                    </dt>
+                    <dd className="mt-1 break-words text-Charcoal">
+                      {reviewer || "Reviewer not recorded"}
+                    </dd>
+                  </div>
+                  {image.review.reviewedAt && (
+                    <div>
+                      <dt className="text-xs font-maison-neue-mono uppercase text-Charcoal/45">
+                        Reviewed
+                      </dt>
+                      <dd className="mt-1 text-Charcoal">
+                        {shortDate(image.review.reviewedAt)}
+                      </dd>
+                    </div>
+                  )}
+                  {rejectionReason && (
+                    <div>
+                      <dt className="text-xs font-maison-neue-mono uppercase text-Charcoal/45">
+                        Reason
+                      </dt>
+                      <dd className="mt-1 text-red-700">{rejectionReason}</dd>
+                    </div>
+                  )}
+                </dl>
+              ) : (
+                <p className="mt-4 text-sm font-maison-neue text-Charcoal/60">
+                  This image has not been reviewed yet.
+                </p>
+              )}
+            </div>
+
+            <div className="rounded-md border border-gray-200 p-4">
+              <p className="text-xs font-maison-neue-mono uppercase text-Charcoal/45">
+                Comments
+              </p>
+              {image.review.note ? (
+                <p className="mt-2 whitespace-pre-wrap text-sm font-maison-neue leading-6 text-Charcoal">
+                  {image.review.note}
+                </p>
+              ) : (
+                <p className="mt-2 text-sm font-maison-neue text-Charcoal/55">
+                  No comments recorded for the latest review.
+                </p>
+              )}
+            </div>
+
+            {image.claim && (
+              <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm font-maison-neue text-amber-900">
+                <p className="font-semibold">Currently claimed</p>
+                <p className="mt-1">
+                  {claimOwner(image) || "Another staff member"}
+                  {image.claim.expiresAt
+                    ? ` until ${shortDate(image.claim.expiresAt)}`
+                    : ""}
+                </p>
+              </div>
+            )}
+
+            <div className="rounded-md border border-gray-200 p-4">
+              <p className="text-xs font-maison-neue-mono uppercase text-Charcoal/45">
+                Audit history
+              </p>
+              {image.auditHistory.length ? (
+                <div className="mt-3 space-y-3">
+                  {image.auditHistory
+                    .slice()
+                    .reverse()
+                    .slice(0, 8)
+                    .map((entry, index) => (
+                      <div
+                        key={`${entry.at}-${index}`}
+                        className="rounded-md border border-gray-100 bg-Scroll/35 p-3 text-sm font-maison-neue text-Charcoal/70"
+                      >
+                        <p className="font-semibold text-Charcoal">
+                          {auditActionLabel(entry.action)}
+                          {entry.review
+                            ? `: ${decisionLabel(entry.review)}`
+                            : ""}
+                        </p>
+                        <p className="mt-1 text-xs font-maison-neue-mono uppercase text-Charcoal/40">
+                          {shortDate(entry.at)}
+                          {entry.staffName || entry.staffEmail
+                            ? ` by ${entry.staffName || entry.staffEmail}`
+                            : ""}
+                        </p>
+                        {entry.review?.note && (
+                          <p className="mt-2 whitespace-pre-wrap">
+                            {entry.review.note}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                </div>
+              ) : (
+                <p className="mt-2 text-sm font-maison-neue text-Charcoal/55">
+                  No audit entries recorded yet.
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function ProductMerchandisingDetailView({
   countryCode,
   detail,
@@ -445,6 +673,7 @@ export default function ProductMerchandisingDetailView({
   const [products, setProducts] = useState(detail.products)
   const [rejectDraft, setRejectDraft] = useState<RejectDraft>(null)
   const [overwriteDraft, setOverwriteDraft] = useState<OverwriteDraft>(null)
+  const [detailsImageId, setDetailsImageId] = useState<number | null>(null)
   const [feedback, setFeedback] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [pendingImageId, setPendingImageId] = useState<number | null>(null)
@@ -483,6 +712,17 @@ export default function ProductMerchandisingDetailView({
       ),
     [products]
   )
+
+  const detailsImage = useMemo(() => {
+    if (detailsImageId === null) return null
+
+    for (const product of products) {
+      const image = product.images.find((item) => item.id === detailsImageId)
+      if (image) return image
+    }
+
+    return null
+  }, [detailsImageId, products])
 
   function patchLocalImage(
     imageId: number,
@@ -800,6 +1040,7 @@ export default function ProductMerchandisingDetailView({
                           image={image}
                           isPending={isPending && pendingImageId === image.id}
                           staffEmail={staffEmail}
+                          onOpen={(item) => setDetailsImageId(item.id)}
                           onApprove={(item) => submitReview(item, "approved")}
                           onReject={(item) =>
                             setRejectDraft({
@@ -823,6 +1064,13 @@ export default function ProductMerchandisingDetailView({
           )
         })}
       </div>
+
+      {detailsImage && (
+        <ImageReviewDetailsModal
+          image={detailsImage}
+          onClose={() => setDetailsImageId(null)}
+        />
+      )}
 
       {rejectDraft && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-Charcoal/55 p-4 small:items-center">
