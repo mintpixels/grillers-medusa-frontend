@@ -8,21 +8,35 @@ import medusaError from "@lib/util/medusa-error"
 import { getAuthHeaders, getCacheOptions } from "./cookies"
 import { HttpTypes } from "@medusajs/types"
 import { getRegion } from "./regions"
-import { reportServerSoftFailure } from "@lib/server-soft-failure"
 import { emitOrderHistoryDataFailureAlert } from "@lib/order-history-ops-alerts"
 
 export const retrieveOrder = async (id: string) => {
   const active = await getActiveStaffImpersonation()
   if (active) {
-    const { order } = await adminFetch<{ order: HttpTypes.StoreOrder }>(
-      `/admin/orders/${id}`,
-      {
-        query: {
-          fields:
-            "*payment_collections.payments,*items,*items.metadata,*items.variant,*items.product,+metadata,*shipping_address,*billing_address",
-        },
-      }
-    )
+    let order: HttpTypes.StoreOrder
+
+    try {
+      const response = await adminFetch<{ order: HttpTypes.StoreOrder }>(
+        `/admin/orders/${id}`,
+        {
+          query: {
+            fields:
+              "*payment_collections.payments,*items,*items.metadata,*items.variant,*items.product,+metadata,*shipping_address,*billing_address",
+          },
+        }
+      )
+      order = response.order
+    } catch (err) {
+      void emitOrderHistoryDataFailureAlert({
+        stage: "order_detail",
+        mode: "staff_impersonation",
+        orderId: id,
+        error: err,
+      }).catch(() => {
+        // Fail open: alerting must not change the order-detail failure path.
+      })
+      throw err
+    }
 
     const metadata = (order?.metadata || {}) as Record<string, unknown>
     if (
@@ -58,10 +72,13 @@ export const retrieveOrder = async (id: string) => {
     })
     .then(({ order }) => order)
     .catch((err) => {
-      // Order path: order-confirmation read failed. Emit warn (the boundary
-      // still handles UX via the medusaError throw below).
-      reportServerSoftFailure("src/lib/data/orders.ts:retrieveOrder", err, {
-        order_id: id,
+      void emitOrderHistoryDataFailureAlert({
+        stage: "order_detail",
+        mode: "customer",
+        orderId: id,
+        error: err,
+      }).catch(() => {
+        // Fail open: alerting must not change the order-detail failure path.
       })
       return medusaError(err)
     })

@@ -17,6 +17,7 @@ describe("order history ops alerts", () => {
     await emitOrderHistoryDataFailureAlert({
       stage: "account_recent_orders",
       mode: "customer",
+      orderId: "order_1234567890",
       error: new Error("legacy service unavailable"),
     })
 
@@ -33,6 +34,7 @@ describe("order history ops alerts", () => {
           limit: null,
           offset: null,
           failure_count: null,
+          order_id: "order_1234567890",
           error_message: "legacy service unavailable",
         }),
       })

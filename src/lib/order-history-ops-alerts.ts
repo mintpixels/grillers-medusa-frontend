@@ -2,6 +2,7 @@ import { emitStorefrontOpsAlert } from "@lib/ops-alert"
 
 type OrderHistoryStage =
   | "account_recent_orders"
+  | "order_detail"
   | "medusa_purchase_history"
   | "legacy_purchase_history"
   | "legacy_customer_orders"
@@ -16,6 +17,7 @@ type OrderHistoryAlertInput = {
   limit?: number | null
   offset?: number | null
   failureCount?: number | null
+  orderId?: string | null
   error?: unknown
   path?: string
 }
@@ -36,10 +38,12 @@ export async function emitOrderHistoryDataFailureAlert({
   limit = null,
   offset = null,
   failureCount = null,
+  orderId = null,
   error,
   path = "src/lib/data/orders.ts",
 }: OrderHistoryAlertInput) {
   const message = error === undefined ? null : errorMessage(error)
+  const boundedOrderId = orderId ? String(orderId).slice(0, 120) : null
 
   await emitStorefrontOpsAlert({
     alertKind: "order_history_data_degraded",
@@ -54,6 +58,7 @@ export async function emitOrderHistoryDataFailureAlert({
       limit,
       offset,
       failure_count: failureCount,
+      order_id: boundedOrderId,
       error_message: message ? message.slice(0, 300) : null,
     },
   })
