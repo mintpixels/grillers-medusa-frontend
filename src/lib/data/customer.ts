@@ -13,7 +13,10 @@ import {
   formWantsSmsMarketing,
 } from "@lib/util/sms-consent"
 import { canUseOfficeConsole, isStaffCustomer } from "@lib/util/staff-access"
-import { reportAuthenticatedCustomerLoadFailure } from "@lib/account-ops-alerts"
+import {
+  reportAuthenticatedCustomerLoadFailure,
+  reportPasswordResetRequestFailure,
+} from "@lib/account-ops-alerts"
 import { emitCartTransferRecoveryFailureAlert } from "@lib/cart-transfer-ops-alerts"
 import { HttpTypes } from "@medusajs/types"
 import { revalidateTag } from "next/cache"
@@ -137,7 +140,7 @@ export async function requestPasswordReset(email: string) {
     const backendUrl = process.env.MEDUSA_BACKEND_URL || "http://localhost:9000"
     const publishableKey = process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY || ""
 
-    await fetch(`${backendUrl}/store/forgot-password`, {
+    const response = await fetch(`${backendUrl}/store/forgot-password`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -145,10 +148,31 @@ export async function requestPasswordReset(email: string) {
       },
       body: JSON.stringify({ email }),
     })
-  } catch {
+
+    if (
+      !response.ok &&
+      (response.status >= 500 ||
+        response.status === 401 ||
+        response.status === 403 ||
+        response.status === 404)
+    ) {
+      await reportPasswordResetRequestFailure({
+        stage: "backend_rejected",
+        responseStatus: response.status,
+        responseBody:
+          typeof response.text === "function"
+            ? await response.text().catch(() => response.statusText)
+            : response.statusText,
+      })
+    }
+  } catch (error) {
     // Intentionally swallow — caller shows the same success state regardless,
     // to avoid leaking whether an account exists for this email or whether
     // the backend is reachable.
+    await reportPasswordResetRequestFailure({
+      stage: "request_failed",
+      error,
+    })
   }
 }
 

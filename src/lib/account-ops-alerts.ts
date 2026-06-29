@@ -56,3 +56,35 @@ export function reportAuthenticatedCustomerLoadFailure(error: unknown): void {
     // Fail-open: account/staff routing should not depend on alert delivery.
   })
 }
+
+export async function reportPasswordResetRequestFailure(input: {
+  stage: "request_failed" | "backend_rejected"
+  responseStatus?: number | null
+  responseBody?: string | null
+  error?: unknown
+}): Promise<void> {
+  try {
+    await emitStorefrontOpsAlert({
+      alertKind: "password_reset_request_failed",
+      severity: "warn",
+      title: "Password reset request failed behind neutral response",
+      path: "src/lib/data/customer.ts:requestPasswordReset",
+      source: "storefront-server",
+      fingerprint: `password_reset_request_failed:${input.stage}:${
+        input.responseStatus || "transport"
+      }`,
+      meta: {
+        account_surface: "password_reset_request",
+        route_dependency: "/store/forgot-password",
+        failure_stage: input.stage,
+        response_status: input.responseStatus ?? null,
+        response_body: input.responseBody
+          ? redactedErrorMessage(input.responseBody)
+          : null,
+        error_message: input.error ? redactedErrorMessage(input.error) : null,
+      },
+    })
+  } catch {
+    // Fail-open: password reset UX intentionally preserves a neutral response.
+  }
+}

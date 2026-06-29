@@ -2,7 +2,10 @@ jest.mock("server-only", () => ({}))
 
 import { sdk } from "@lib/config"
 import { getAuthHeaders } from "@lib/data/cookies"
-import { retrieveAuthenticatedCustomer } from "@lib/data/customer"
+import {
+  requestPasswordReset,
+  retrieveAuthenticatedCustomer,
+} from "@lib/data/customer"
 import { emitStorefrontOpsAlert } from "@lib/ops-alert"
 
 jest.mock("@lib/config", () => ({
@@ -46,8 +49,22 @@ const mockEmitStorefrontOpsAlert =
   emitStorefrontOpsAlert as jest.MockedFunction<typeof emitStorefrontOpsAlert>
 
 describe("authenticated customer load alerts", () => {
+  const originalFetch = global.fetch
+  const originalEnv = process.env
+
   beforeEach(() => {
     jest.clearAllMocks()
+    process.env = {
+      ...originalEnv,
+      MEDUSA_BACKEND_URL: "https://backend.example.test",
+      NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY: "pk_test_unit",
+    }
+    global.fetch = originalFetch
+  })
+
+  afterAll(() => {
+    process.env = originalEnv
+    global.fetch = originalFetch
   })
 
   it("does not alert when no auth token is present", async () => {
@@ -95,6 +112,110 @@ describe("authenticated customer load alerts", () => {
     })
 
     await expect(retrieveAuthenticatedCustomer()).resolves.toBeNull()
+
+    expect(mockEmitStorefrontOpsAlert).not.toHaveBeenCalled()
+  })
+})
+
+describe("password reset request alerts", () => {
+  const originalFetch = global.fetch
+  const originalEnv = process.env
+
+  beforeEach(() => {
+    jest.clearAllMocks()
+    process.env = {
+      ...originalEnv,
+      MEDUSA_BACKEND_URL: "https://backend.example.test",
+      NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY: "pk_test_unit",
+    }
+  })
+
+  afterAll(() => {
+    process.env = originalEnv
+    global.fetch = originalFetch
+  })
+
+  it("does not alert when the backend accepts the neutral password reset request", async () => {
+    global.fetch = jest.fn(async () => ({
+      ok: true,
+      status: 201,
+      statusText: "Created",
+    })) as unknown as typeof fetch
+
+    await requestPasswordReset("shopper@example.com")
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      "https://backend.example.test/store/forgot-password",
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({
+          "x-publishable-api-key": "pk_test_unit",
+        }),
+      })
+    )
+    expect(mockEmitStorefrontOpsAlert).not.toHaveBeenCalled()
+  })
+
+  it("alerts when the backend rejects a password reset request after submission", async () => {
+    global.fetch = jest.fn(async () => ({
+      ok: false,
+      status: 500,
+      statusText: "Internal Server Error",
+      text: async () => "Postmark rejected reset for shopper@example.com",
+    })) as unknown as typeof fetch
+
+    await requestPasswordReset("shopper@example.com")
+
+    expect(mockEmitStorefrontOpsAlert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        alertKind: "password_reset_request_failed",
+        severity: "warn",
+        title: "Password reset request failed behind neutral response",
+        path: "src/lib/data/customer.ts:requestPasswordReset",
+        source: "storefront-server",
+        fingerprint: "password_reset_request_failed:backend_rejected:500",
+        meta: expect.objectContaining({
+          account_surface: "password_reset_request",
+          route_dependency: "/store/forgot-password",
+          failure_stage: "backend_rejected",
+          response_status: 500,
+          response_body: "Postmark rejected reset for [redacted-email]",
+          error_message: null,
+        }),
+      })
+    )
+  })
+
+  it("alerts when the password reset request cannot reach the backend", async () => {
+    global.fetch = jest
+      .fn()
+      .mockRejectedValue(new Error("network timeout for shopper@example.com"))
+
+    await requestPasswordReset("shopper@example.com")
+
+    expect(mockEmitStorefrontOpsAlert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        alertKind: "password_reset_request_failed",
+        fingerprint: "password_reset_request_failed:request_failed:transport",
+        meta: expect.objectContaining({
+          failure_stage: "request_failed",
+          response_status: null,
+          response_body: null,
+          error_message: "network timeout for [redacted-email]",
+        }),
+      })
+    )
+  })
+
+  it("does not alert on backend validation denials that do not indicate an outage", async () => {
+    global.fetch = jest.fn(async () => ({
+      ok: false,
+      status: 400,
+      statusText: "Bad Request",
+      text: async () => "email is required",
+    })) as unknown as typeof fetch
+
+    await requestPasswordReset("not-an-email")
 
     expect(mockEmitStorefrontOpsAlert).not.toHaveBeenCalled()
   })
