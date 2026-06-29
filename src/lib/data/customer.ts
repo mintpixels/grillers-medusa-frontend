@@ -17,6 +17,7 @@ import {
   reportCartAddressPersistenceFailure,
   reportAuthenticatedCustomerLoadFailure,
   reportCustomerLoginFailure,
+  reportCustomerProfileUpdateFailure,
   reportCustomerSignupFailure,
   reportLegacyLoginFallbackFailure,
   reportPasswordResetRequestFailure,
@@ -602,50 +603,78 @@ export const retrieveCustomer =
   }
 
 export const updateCustomer = async (body: HttpTypes.StoreUpdateCustomer) => {
-  const active = await getActiveStaffImpersonation()
-  if (active) {
-    const current = await retrieveAdminCustomer(active.session.targetCustomerId)
-    if (!current) throw new Error("Could not load impersonated customer.")
+  let stage:
+    | "staff_context"
+    | "staff_customer_load"
+    | "staff_customer_update"
+    | "store_auth_headers"
+    | "store_customer_update"
+    | "cache_revalidate" = "staff_context"
+  let staffContext = false
+  const fields = Object.keys(body)
 
-    const metadata = appendStaffAuditLog(current.metadata, {
-      type: "staff_customer_profile_update",
-      staffCustomerId: active.session.staffCustomerId,
-      staffEmail: active.session.staffEmail,
-      targetCustomerId: active.session.targetCustomerId,
-      fields: Object.keys(body),
-    })
+  try {
+    stage = "staff_context"
+    const active = await getActiveStaffImpersonation()
+    if (active) {
+      staffContext = true
+      stage = "staff_customer_load"
+      const current = await retrieveAdminCustomer(active.session.targetCustomerId)
+      if (!current) throw new Error("Could not load impersonated customer.")
 
-    const { customer } = await adminFetch<{
-      customer: HttpTypes.StoreCustomer
-    }>(`/admin/customers/${active.session.targetCustomerId}`, {
-      method: "POST",
-      body: JSON.stringify({
-        ...body,
-        metadata: {
-          ...metadata,
-          ...staffAuditFields(active.session, "customer_profile_update"),
-        },
-      }),
-    })
+      const metadata = appendStaffAuditLog(current.metadata, {
+        type: "staff_customer_profile_update",
+        staffCustomerId: active.session.staffCustomerId,
+        staffEmail: active.session.staffEmail,
+        targetCustomerId: active.session.targetCustomerId,
+        fields,
+      })
 
+      stage = "staff_customer_update"
+      const { customer } = await adminFetch<{
+        customer: HttpTypes.StoreCustomer
+      }>(`/admin/customers/${active.session.targetCustomerId}`, {
+        method: "POST",
+        body: JSON.stringify({
+          ...body,
+          metadata: {
+            ...metadata,
+            ...staffAuditFields(active.session, "customer_profile_update"),
+          },
+        }),
+      })
+
+      stage = "cache_revalidate"
+      const cacheTag = await getCacheTag("customers")
+      revalidateTag(cacheTag)
+      return customer
+    }
+
+    stage = "store_auth_headers"
+    const headers = {
+      ...(await getAuthHeaders()),
+    }
+
+    stage = "store_customer_update"
+    const updateRes = await sdk.store.customer
+      .update(body, {}, headers)
+      .then(({ customer }) => customer)
+      .catch(medusaError)
+
+    stage = "cache_revalidate"
     const cacheTag = await getCacheTag("customers")
     revalidateTag(cacheTag)
-    return customer
+
+    return updateRes
+  } catch (error) {
+    reportCustomerProfileUpdateFailure({
+      stage,
+      error,
+      staffContext,
+      fields,
+    })
+    throw error
   }
-
-  const headers = {
-    ...(await getAuthHeaders()),
-  }
-
-  const updateRes = await sdk.store.customer
-    .update(body, {}, headers)
-    .then(({ customer }) => customer)
-    .catch(medusaError)
-
-  const cacheTag = await getCacheTag("customers")
-  revalidateTag(cacheTag)
-
-  return updateRes
 }
 
 export async function signup(_currentState: unknown, formData: FormData) {

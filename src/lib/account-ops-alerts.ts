@@ -142,6 +142,37 @@ export function reportCustomerSignupFailure(input: {
   })
 }
 
+export function reportCustomerProfileUpdateFailure(input: {
+  stage:
+    | "staff_context"
+    | "staff_customer_load"
+    | "staff_customer_update"
+    | "store_auth_headers"
+    | "store_customer_update"
+    | "cache_revalidate"
+  error: unknown
+  staffContext?: boolean
+  fields?: string[]
+}): void {
+  void emitStorefrontOpsAlert({
+    alertKind: "customer_profile_update_failed",
+    severity: "warn",
+    title: "Customer profile update failed",
+    path: "src/lib/data/customer.ts:updateCustomer",
+    source: "storefront-server",
+    fingerprint: `customer_profile_update_failed:${input.stage}`,
+    meta: {
+      account_surface: "customer_profile_update",
+      failure_stage: input.stage,
+      staff_context: Boolean(input.staffContext),
+      fields: (input.fields || []).slice(0, 12),
+      error_message: redactedErrorMessage(input.error),
+    },
+  }).catch(() => {
+    // Fail-open: profile form behavior should not depend on alert delivery.
+  })
+}
+
 export async function reportPasswordResetRequestFailure(input: {
   stage: "request_failed" | "backend_rejected"
   responseStatus?: number | null

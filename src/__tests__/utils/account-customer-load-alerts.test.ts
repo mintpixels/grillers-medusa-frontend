@@ -8,7 +8,10 @@ import {
   retrieveAuthenticatedCustomer,
   saveCartAddressesToAccount,
   signupWithCredentials,
+  updateCustomer,
 } from "@lib/data/customer"
+import { readStaffImpersonationCookie } from "@lib/data/staff/session-cookie"
+import { adminFetch, retrieveAdminCustomer } from "@lib/data/staff/admin"
 import { emitStorefrontOpsAlert } from "@lib/ops-alert"
 import { revalidateTag } from "next/cache"
 
@@ -26,6 +29,7 @@ jest.mock("@lib/config", () => ({
         create: jest.fn(),
         createAddress: jest.fn(),
         retrieve: jest.fn(),
+        update: jest.fn(),
       },
     },
   },
@@ -44,6 +48,24 @@ jest.mock("@lib/data/cookies", () => ({
 
 jest.mock("@lib/ops-alert", () => ({
   emitStorefrontOpsAlert: jest.fn(async () => ({ ok: true, skipped: false })),
+}))
+
+jest.mock("@lib/data/staff/session-cookie", () => ({
+  clearStaffImpersonationCookie: jest.fn(),
+  readStaffImpersonationCookie: jest.fn(),
+}))
+
+jest.mock("@lib/data/staff/admin", () => ({
+  adminFetch: jest.fn(),
+  appendStaffAuditLog: jest.fn((metadata = {}, entry) => ({
+    ...(metadata || {}),
+    staff_audit_log: JSON.stringify([entry]),
+  })),
+  retrieveAdminCustomer: jest.fn(),
+  staffAuditFields: jest.fn((_session, action, extra = {}) => ({
+    staff_action: action,
+    ...extra,
+  })),
 }))
 
 jest.mock("next/cache", () => ({
@@ -77,6 +99,16 @@ const mockCreateAddress = sdk.store.customer.createAddress as jest.MockedFunctio
 const mockRetrieveCustomer = sdk.store.customer.retrieve as jest.MockedFunction<
   typeof sdk.store.customer.retrieve
 >
+const mockUpdateCustomer = sdk.store.customer.update as jest.MockedFunction<
+  typeof sdk.store.customer.update
+>
+const mockReadStaffImpersonationCookie =
+  readStaffImpersonationCookie as jest.MockedFunction<
+    typeof readStaffImpersonationCookie
+  >
+const mockAdminFetch = adminFetch as jest.MockedFunction<typeof adminFetch>
+const mockRetrieveAdminCustomer =
+  retrieveAdminCustomer as jest.MockedFunction<typeof retrieveAdminCustomer>
 const mockEmitStorefrontOpsAlert =
   emitStorefrontOpsAlert as jest.MockedFunction<typeof emitStorefrontOpsAlert>
 const mockRevalidateTag = revalidateTag as jest.MockedFunction<
@@ -420,6 +452,91 @@ describe("customer signup alerts", () => {
     })
 
     expect(mockEmitStorefrontOpsAlert).not.toHaveBeenCalled()
+  })
+})
+
+describe("customer profile update alerts", () => {
+  beforeEach(() => {
+    jest.clearAllMocks()
+    mockReadStaffImpersonationCookie.mockResolvedValue(null)
+    mockGetAuthHeaders.mockResolvedValue({ authorization: "Bearer test" } as any)
+    mockGetCacheTag.mockResolvedValue("customers")
+    mockUpdateCustomer.mockResolvedValue({
+      customer: { id: "cus_123", phone: "4045551212" },
+    } as any)
+  })
+
+  it("alerts and rethrows when a customer profile update fails", async () => {
+    mockUpdateCustomer.mockRejectedValueOnce(
+      new Error("profile update failed for shopper@example.com cus_123")
+    )
+
+    await expect(updateCustomer({ phone: "4045551212" })).rejects.toThrow(
+      "profile update failed"
+    )
+
+    expect(mockEmitStorefrontOpsAlert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        alertKind: "customer_profile_update_failed",
+        severity: "warn",
+        title: "Customer profile update failed",
+        path: "src/lib/data/customer.ts:updateCustomer",
+        source: "storefront-server",
+        fingerprint: "customer_profile_update_failed:store_customer_update",
+        meta: expect.objectContaining({
+          account_surface: "customer_profile_update",
+          failure_stage: "store_customer_update",
+          staff_context: false,
+          fields: ["phone"],
+          error_message: "profile update failed for [redacted-email] [redacted-id]",
+        }),
+      })
+    )
+  })
+
+  it("alerts with staff context when an impersonated profile update fails", async () => {
+    mockReadStaffImpersonationCookie.mockResolvedValue({
+      staffCustomerId: "cus_staff",
+      staffEmail: "staff@example.com",
+      staffName: "Staff",
+      targetCustomerId: "cus_target",
+      targetEmail: "target@example.com",
+      targetName: "Target Customer",
+      startedAt: "2026-06-29T20:00:00.000Z",
+      expiresAt: Date.parse("2026-06-29T21:00:00.000Z"),
+    })
+    mockSdkFetch.mockResolvedValueOnce({
+      customer: {
+        id: "cus_staff",
+        email: "staff@example.com",
+        metadata: { gp_staff_role: "office" },
+      },
+    } as any)
+    mockRetrieveAdminCustomer.mockResolvedValueOnce({
+      id: "cus_target",
+      metadata: {},
+    } as any)
+    mockAdminFetch.mockRejectedValueOnce(
+      new Error("admin profile write failed for target@example.com cus_target")
+    )
+
+    await expect(updateCustomer({ first_name: "Target" })).rejects.toThrow(
+      "admin profile write failed"
+    )
+
+    expect(mockEmitStorefrontOpsAlert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        alertKind: "customer_profile_update_failed",
+        fingerprint: "customer_profile_update_failed:staff_customer_update",
+        meta: expect.objectContaining({
+          failure_stage: "staff_customer_update",
+          staff_context: true,
+          fields: ["first_name"],
+          error_message:
+            "admin profile write failed for [redacted-email] [redacted-id]",
+        }),
+      })
+    )
   })
 })
 
