@@ -14,26 +14,55 @@ export type FavoritesMetadata = {
   favoriteRecipes?: FavoriteRecipe[]
 }
 
+function hasAuthHeaders(
+  headers: Awaited<ReturnType<typeof getAuthHeaders>>
+): headers is { authorization: string } {
+  return "authorization" in headers && Boolean(headers.authorization)
+}
+
+async function fetchFavoriteRecipes(
+  headers: { authorization: string }
+): Promise<FavoriteRecipe[]> {
+  const { customer } = await sdk.client.fetch<{
+    customer: { metadata?: FavoritesMetadata }
+  }>("/store/customers/me", {
+    method: "GET",
+    headers,
+  })
+
+  return customer?.metadata?.favoriteRecipes || []
+}
+
+async function saveFavoriteRecipes(
+  headers: { authorization: string },
+  favoriteRecipes: FavoriteRecipe[]
+) {
+  await sdk.store.customer.update(
+    {
+      metadata: {
+        favoriteRecipes,
+      },
+    },
+    {},
+    headers
+  )
+
+  const cacheTag = await getCacheTag("customers")
+  revalidateTag(cacheTag)
+}
+
 /**
  * Get the current customer's favorite recipes
  */
 export async function getFavoriteRecipes(): Promise<FavoriteRecipe[]> {
   const headers = await getAuthHeaders()
-  
-  if (!headers) {
+
+  if (!hasAuthHeaders(headers)) {
     return []
   }
 
   try {
-    const { customer } = await sdk.client.fetch<{ customer: { metadata?: FavoritesMetadata } }>(
-      "/store/customers/me",
-      {
-        method: "GET",
-        headers,
-      }
-    )
-
-    return customer?.metadata?.favoriteRecipes || []
+    return await fetchFavoriteRecipes(headers)
   } catch (error) {
     console.error("Error fetching favorite recipes:", error)
     return []
@@ -48,15 +77,14 @@ export async function addFavoriteRecipe(
   title: string
 ): Promise<{ success: boolean; error?: string }> {
   const headers = await getAuthHeaders()
-  
-  if (!headers) {
+
+  if (!hasAuthHeaders(headers)) {
     return { success: false, error: "Not authenticated" }
   }
 
   try {
-    // First, get current favorites
-    const currentFavorites = await getFavoriteRecipes()
-    
+    const currentFavorites = await fetchFavoriteRecipes(headers)
+
     // Check if already favorited
     if (currentFavorites.some((fav) => fav.slug === slug)) {
       return { success: true } // Already favorited
@@ -71,25 +99,15 @@ export async function addFavoriteRecipe(
 
     const updatedFavorites = [...currentFavorites, newFavorite]
 
-    // Update customer metadata
-    await sdk.store.customer.update(
-      {
-        metadata: {
-          favoriteRecipes: updatedFavorites,
-        },
-      },
-      {},
-      headers
-    )
-
-    // Revalidate customer cache
-    const cacheTag = await getCacheTag("customers")
-    revalidateTag(cacheTag)
+    await saveFavoriteRecipes(headers, updatedFavorites)
 
     return { success: true }
   } catch (error: any) {
     console.error("Error adding favorite recipe:", error)
-    return { success: false, error: error.message || "Failed to add favorite" }
+    return {
+      success: false,
+      error: error.message || "Failed to add favorite",
+    }
   }
 }
 
@@ -100,37 +118,26 @@ export async function removeFavoriteRecipe(
   slug: string
 ): Promise<{ success: boolean; error?: string }> {
   const headers = await getAuthHeaders()
-  
-  if (!headers) {
+
+  if (!hasAuthHeaders(headers)) {
     return { success: false, error: "Not authenticated" }
   }
 
   try {
-    // Get current favorites
-    const currentFavorites = await getFavoriteRecipes()
-    
+    const currentFavorites = await fetchFavoriteRecipes(headers)
+
     // Filter out the recipe to remove
     const updatedFavorites = currentFavorites.filter((fav) => fav.slug !== slug)
 
-    // Update customer metadata
-    await sdk.store.customer.update(
-      {
-        metadata: {
-          favoriteRecipes: updatedFavorites,
-        },
-      },
-      {},
-      headers
-    )
-
-    // Revalidate customer cache
-    const cacheTag = await getCacheTag("customers")
-    revalidateTag(cacheTag)
+    await saveFavoriteRecipes(headers, updatedFavorites)
 
     return { success: true }
   } catch (error: any) {
     console.error("Error removing favorite recipe:", error)
-    return { success: false, error: error.message || "Failed to remove favorite" }
+    return {
+      success: false,
+      error: error.message || "Failed to remove favorite",
+    }
   }
 }
 
@@ -142,28 +149,40 @@ export async function toggleFavoriteRecipe(
   title: string
 ): Promise<{ success: boolean; isFavorited: boolean; error?: string }> {
   const headers = await getAuthHeaders()
-  
-  if (!headers) {
+
+  if (!hasAuthHeaders(headers)) {
     return { success: false, isFavorited: false, error: "Not authenticated" }
   }
 
   try {
-    const currentFavorites = await getFavoriteRecipes()
-    const isCurrentlyFavorited = currentFavorites.some((fav) => fav.slug === slug)
+    const currentFavorites = await fetchFavoriteRecipes(headers)
+    const isCurrentlyFavorited = currentFavorites.some(
+      (fav) => fav.slug === slug
+    )
 
     if (isCurrentlyFavorited) {
-      await removeFavoriteRecipe(slug)
+      await saveFavoriteRecipes(
+        headers,
+        currentFavorites.filter((fav) => fav.slug !== slug)
+      )
       return { success: true, isFavorited: false }
     } else {
-      await addFavoriteRecipe(slug, title)
+      await saveFavoriteRecipes(headers, [
+        ...currentFavorites,
+        {
+          slug,
+          title,
+          addedAt: new Date().toISOString(),
+        },
+      ])
       return { success: true, isFavorited: true }
     }
   } catch (error: any) {
     console.error("Error toggling favorite:", error)
-    return { 
-      success: false, 
-      isFavorited: false, 
-      error: error.message || "Failed to toggle favorite" 
+    return {
+      success: false,
+      isFavorited: false,
+      error: error.message || "Failed to toggle favorite",
     }
   }
 }
@@ -175,5 +194,3 @@ export async function isRecipeFavorited(slug: string): Promise<boolean> {
   const favorites = await getFavoriteRecipes()
   return favorites.some((fav) => fav.slug === slug)
 }
-
-

@@ -19,6 +19,43 @@ export type WishlistMetadata = {
 
 const GUEST_WISHLIST_COOKIE = "grillers_wishlist"
 
+function hasAuthHeaders(
+  headers: Awaited<ReturnType<typeof getAuthHeaders>>
+): headers is { authorization: string } {
+  return "authorization" in headers && Boolean(headers.authorization)
+}
+
+async function fetchAuthenticatedWishlist(
+  headers: { authorization: string }
+): Promise<WishlistItem[]> {
+  const { customer } = await sdk.client.fetch<{
+    customer: { metadata?: WishlistMetadata }
+  }>("/store/customers/me", {
+    method: "GET",
+    headers,
+  })
+
+  return customer?.metadata?.wishlist || []
+}
+
+async function saveAuthenticatedWishlist(
+  headers: { authorization: string },
+  wishlist: WishlistItem[]
+) {
+  await sdk.store.customer.update(
+    {
+      metadata: {
+        wishlist,
+      },
+    },
+    {},
+    headers
+  )
+
+  const cacheTag = await getCacheTag("customers")
+  revalidateTag(cacheTag)
+}
+
 /**
  * Get wishlist items from localStorage cookie for guests
  */
@@ -54,22 +91,14 @@ async function setGuestWishlist(items: WishlistItem[]): Promise<void> {
  */
 export async function getWishlist(): Promise<WishlistItem[]> {
   const headers = await getAuthHeaders()
-  
+
   // For guests, use cookie storage
-  if (!headers) {
+  if (!hasAuthHeaders(headers)) {
     return getGuestWishlist()
   }
 
   try {
-    const { customer } = await sdk.client.fetch<{ customer: { metadata?: WishlistMetadata } }>(
-      "/store/customers/me",
-      {
-        method: "GET",
-        headers,
-      }
-    )
-
-    return customer?.metadata?.wishlist || []
+    return await fetchAuthenticatedWishlist(headers)
   } catch (error) {
     console.error("Error fetching wishlist:", error)
     return []
@@ -86,7 +115,7 @@ export async function addToWishlist(
   thumbnail?: string
 ): Promise<{ success: boolean; error?: string }> {
   const headers = await getAuthHeaders()
-  
+
   const newItem: WishlistItem = {
     productId,
     productHandle,
@@ -96,10 +125,10 @@ export async function addToWishlist(
   }
 
   // For guests, use cookie storage
-  if (!headers) {
+  if (!hasAuthHeaders(headers)) {
     try {
       const currentWishlist = await getGuestWishlist()
-      
+
       // Check if already in wishlist
       if (currentWishlist.some((item) => item.productId === productId)) {
         return { success: true }
@@ -108,14 +137,16 @@ export async function addToWishlist(
       await setGuestWishlist([...currentWishlist, newItem])
       return { success: true }
     } catch (error: any) {
-      return { success: false, error: error.message || "Failed to add to wishlist" }
+      return {
+        success: false,
+        error: error.message || "Failed to add to wishlist",
+      }
     }
   }
 
   try {
-    // Get current wishlist
-    const currentWishlist = await getWishlist()
-    
+    const currentWishlist = await fetchAuthenticatedWishlist(headers)
+
     // Check if already in wishlist
     if (currentWishlist.some((item) => item.productId === productId)) {
       return { success: true }
@@ -123,25 +154,15 @@ export async function addToWishlist(
 
     const updatedWishlist = [...currentWishlist, newItem]
 
-    // Update customer metadata
-    await sdk.store.customer.update(
-      {
-        metadata: {
-          wishlist: updatedWishlist,
-        },
-      },
-      {},
-      headers
-    )
-
-    // Revalidate customer cache
-    const cacheTag = await getCacheTag("customers")
-    revalidateTag(cacheTag)
+    await saveAuthenticatedWishlist(headers, updatedWishlist)
 
     return { success: true }
   } catch (error: any) {
     console.error("Error adding to wishlist:", error)
-    return { success: false, error: error.message || "Failed to add to wishlist" }
+    return {
+      success: false,
+      error: error.message || "Failed to add to wishlist",
+    }
   }
 }
 
@@ -152,42 +173,39 @@ export async function removeFromWishlist(
   productId: string
 ): Promise<{ success: boolean; error?: string }> {
   const headers = await getAuthHeaders()
-  
+
   // For guests, use cookie storage
-  if (!headers) {
+  if (!hasAuthHeaders(headers)) {
     try {
       const currentWishlist = await getGuestWishlist()
-      const updatedWishlist = currentWishlist.filter((item) => item.productId !== productId)
+      const updatedWishlist = currentWishlist.filter(
+        (item) => item.productId !== productId
+      )
       await setGuestWishlist(updatedWishlist)
       return { success: true }
     } catch (error: any) {
-      return { success: false, error: error.message || "Failed to remove from wishlist" }
+      return {
+        success: false,
+        error: error.message || "Failed to remove from wishlist",
+      }
     }
   }
 
   try {
-    const currentWishlist = await getWishlist()
-    const updatedWishlist = currentWishlist.filter((item) => item.productId !== productId)
-
-    // Update customer metadata
-    await sdk.store.customer.update(
-      {
-        metadata: {
-          wishlist: updatedWishlist,
-        },
-      },
-      {},
-      headers
+    const currentWishlist = await fetchAuthenticatedWishlist(headers)
+    const updatedWishlist = currentWishlist.filter(
+      (item) => item.productId !== productId
     )
 
-    // Revalidate customer cache
-    const cacheTag = await getCacheTag("customers")
-    revalidateTag(cacheTag)
+    await saveAuthenticatedWishlist(headers, updatedWishlist)
 
     return { success: true }
   } catch (error: any) {
     console.error("Error removing from wishlist:", error)
-    return { success: false, error: error.message || "Failed to remove from wishlist" }
+    return {
+      success: false,
+      error: error.message || "Failed to remove from wishlist",
+    }
   }
 }
 
@@ -201,22 +219,64 @@ export async function toggleWishlist(
   thumbnail?: string
 ): Promise<{ success: boolean; isWishlisted: boolean; error?: string }> {
   try {
-    const currentWishlist = await getWishlist()
-    const isCurrentlyWishlisted = currentWishlist.some((item) => item.productId === productId)
+    const headers = await getAuthHeaders()
+
+    if (!hasAuthHeaders(headers)) {
+      const currentWishlist = await getGuestWishlist()
+      const isCurrentlyWishlisted = currentWishlist.some(
+        (item) => item.productId === productId
+      )
+
+      if (isCurrentlyWishlisted) {
+        await setGuestWishlist(
+          currentWishlist.filter((item) => item.productId !== productId)
+        )
+        return { success: true, isWishlisted: false }
+      }
+
+      await setGuestWishlist([
+        ...currentWishlist,
+        {
+          productId,
+          productHandle,
+          title,
+          thumbnail,
+          addedAt: new Date().toISOString(),
+        },
+      ])
+      return { success: true, isWishlisted: true }
+    }
+
+    const currentWishlist = await fetchAuthenticatedWishlist(headers)
+    const isCurrentlyWishlisted = currentWishlist.some(
+      (item) => item.productId === productId
+    )
 
     if (isCurrentlyWishlisted) {
-      await removeFromWishlist(productId)
+      await saveAuthenticatedWishlist(
+        headers,
+        currentWishlist.filter((item) => item.productId !== productId)
+      )
       return { success: true, isWishlisted: false }
     } else {
-      await addToWishlist(productId, productHandle, title, thumbnail)
+      await saveAuthenticatedWishlist(headers, [
+        ...currentWishlist,
+        {
+          productId,
+          productHandle,
+          title,
+          thumbnail,
+          addedAt: new Date().toISOString(),
+        },
+      ])
       return { success: true, isWishlisted: true }
     }
   } catch (error: any) {
     console.error("Error toggling wishlist:", error)
-    return { 
-      success: false, 
-      isWishlisted: false, 
-      error: error.message || "Failed to toggle wishlist" 
+    return {
+      success: false,
+      isWishlisted: false,
+      error: error.message || "Failed to toggle wishlist",
     }
   }
 }
