@@ -3,7 +3,10 @@ import { sdk } from "@lib/config"
 import { getAuthHeaders } from "@lib/data/cookies"
 import { getActiveStaffImpersonation } from "@lib/data/customer"
 import { emitCheckoutPaymentSetupFailureAlert } from "@lib/checkout-payment-ops-alerts"
-import { createPaymentMethodSetupIntent } from "@lib/data/payment"
+import {
+  createPaymentMethodSetupIntent,
+  listCartPaymentMethods,
+} from "@lib/data/payment"
 
 jest.mock("@lib/ops-alert", () => ({
   emitStorefrontOpsAlert: jest.fn(async () => ({ ok: true, skipped: false })),
@@ -145,6 +148,66 @@ describe("checkout payment setup alerts", () => {
 
     expect(result).toEqual({ error: "You must be signed in to add a card." })
     expect(sdkFetchMock).not.toHaveBeenCalled()
+    expect(emitStorefrontOpsAlertMock).not.toHaveBeenCalled()
+  })
+
+  it("alerts when checkout has no payment providers for the region", async () => {
+    sdkFetchMock.mockResolvedValueOnce({ payment_providers: [] } as any)
+
+    const result = await listCartPaymentMethods("reg_test")
+
+    expect(result).toEqual([])
+    expect(emitStorefrontOpsAlertMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        alertKind: "checkout_payment_methods_unavailable",
+        severity: "page",
+        title: "Checkout payment methods unavailable",
+        path: "src/lib/data/payment.ts:listCartPaymentMethods",
+        source: "storefront-server",
+        fingerprint: "checkout_payment_methods_unavailable:no_payment_providers",
+        meta: expect.objectContaining({
+          checkout_surface: "payment_methods",
+          reason: "no_payment_providers",
+          region_id: "reg_test",
+          provider_count: 0,
+          provider_ids: [],
+        }),
+      })
+    )
+  })
+
+  it("alerts when checkout payment providers do not include Stripe card", async () => {
+    sdkFetchMock.mockResolvedValueOnce({
+      payment_providers: [{ id: "pp_system_default" }],
+    } as any)
+
+    const result = await listCartPaymentMethods("reg_test")
+
+    expect(result).toEqual([{ id: "pp_system_default" }])
+    expect(emitStorefrontOpsAlertMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        alertKind: "checkout_payment_methods_unavailable",
+        severity: "page",
+        fingerprint:
+          "checkout_payment_methods_unavailable:stripe_card_provider_missing",
+        meta: expect.objectContaining({
+          reason: "stripe_card_provider_missing",
+          region_id: "reg_test",
+          provider_count: 1,
+          provider_ids: ["pp_system_default"],
+        }),
+      })
+    )
+  })
+
+  it("does not alert when checkout has the Stripe card provider", async () => {
+    sdkFetchMock.mockResolvedValueOnce({
+      payment_providers: [{ id: "pp_stripe_stripe" }],
+    } as any)
+
+    const result = await listCartPaymentMethods("reg_test")
+
+    expect(result).toEqual([{ id: "pp_stripe_stripe" }])
     expect(emitStorefrontOpsAlertMock).not.toHaveBeenCalled()
   })
 })

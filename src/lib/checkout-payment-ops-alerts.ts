@@ -8,6 +8,12 @@ type CheckoutPaymentSetupFailureInput = {
   staffImpersonation?: boolean
 }
 
+type CheckoutPaymentMethodsUnavailableInput = {
+  regionId: string
+  providerIds: string[]
+  reason: "no_payment_providers" | "stripe_card_provider_missing"
+}
+
 function redactedMessage(value: unknown): string | null {
   if (value === null || value === undefined) return null
 
@@ -54,6 +60,28 @@ export async function emitCheckoutPaymentSetupFailureAlert({
       has_auth: hasAuth,
       staff_impersonation: staffImpersonation,
       error_message: redactedMessage(error),
+    },
+  })
+}
+
+export async function emitCheckoutPaymentMethodsUnavailableAlert({
+  regionId,
+  providerIds,
+  reason,
+}: CheckoutPaymentMethodsUnavailableInput) {
+  await emitStorefrontOpsAlert({
+    alertKind: "checkout_payment_methods_unavailable",
+    severity: "page",
+    title: "Checkout payment methods unavailable",
+    path: "src/lib/data/payment.ts:listCartPaymentMethods",
+    source: "storefront-server",
+    fingerprint: `checkout_payment_methods_unavailable:${reason}`,
+    meta: {
+      checkout_surface: "payment_methods",
+      reason,
+      region_id: regionId || null,
+      provider_count: providerIds.length,
+      provider_ids: providerIds.slice(0, 20),
     },
   })
 }

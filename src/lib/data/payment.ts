@@ -6,8 +6,11 @@ import { getActiveStaffImpersonation } from "./customer"
 import { HttpTypes } from "@medusajs/types"
 import { reportServerSoftFailure } from "@lib/server-soft-failure"
 import {
+  emitCheckoutPaymentMethodsUnavailableAlert,
   emitCheckoutPaymentSetupFailureAlert,
 } from "@lib/checkout-payment-ops-alerts"
+
+const STRIPE_CARD_PROVIDER_ID = "pp_stripe_stripe"
 
 export type SavedPaymentMethod = {
   id: string
@@ -189,11 +192,25 @@ export const listCartPaymentMethods = async (regionId: string) => {
         cache: "force-cache",
       }
     )
-    .then(({ payment_providers }) =>
-      payment_providers.sort((a, b) => {
+    .then(async ({ payment_providers }) => {
+      const providers = (payment_providers || []).sort((a, b) => {
         return a.id > b.id ? 1 : -1
       })
-    )
+      const providerIds = providers.map((provider) => provider.id || "")
+      const hasStripeCardProvider = providerIds.includes(STRIPE_CARD_PROVIDER_ID)
+
+      if (!hasStripeCardProvider) {
+        await emitCheckoutPaymentMethodsUnavailableAlert({
+          regionId,
+          providerIds,
+          reason: providers.length
+            ? "stripe_card_provider_missing"
+            : "no_payment_providers",
+        })
+      }
+
+      return providers
+    })
     .catch((e) => {
       // Checkout path: no payment providers → checkout cannot proceed.
       reportServerSoftFailure(
