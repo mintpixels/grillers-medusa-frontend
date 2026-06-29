@@ -55,6 +55,11 @@ function shouldAlertCustomerLoginFailure(error: unknown): boolean {
   return status === null || status === 404 || status === 429 || status >= 500
 }
 
+function shouldAlertPasswordLifecycleFailure(error: unknown): boolean {
+  const status = errorStatus(error)
+  return status === null || status === 429 || status >= 500
+}
+
 export function reportAuthenticatedCustomerLoadFailure(error: unknown): void {
   if (isExpectedCustomerAuthDenial(error)) return
 
@@ -250,6 +255,63 @@ export async function reportPasswordResetRequestFailure(input: {
   } catch {
     // Fail-open: password reset UX intentionally preserves a neutral response.
   }
+}
+
+export function reportPasswordResetCompletionFailure(input: {
+  error: unknown
+}): void {
+  if (!shouldAlertPasswordLifecycleFailure(input.error)) return
+
+  const status = errorStatus(input.error)
+
+  void emitStorefrontOpsAlert({
+    alertKind: "password_reset_completion_failed",
+    severity: "warn",
+    title: "Password reset completion failed behind invalid-link response",
+    path: "src/lib/data/customer.ts:completePasswordReset",
+    source: "storefront-server",
+    fingerprint: `password_reset_completion_failed:${status || "transport"}`,
+    meta: {
+      account_surface: "password_reset_completion",
+      route_dependency: "sdk.auth.updateProvider(customer,emailpass)",
+      response_status: status,
+      error_message: redactedErrorMessage(input.error),
+    },
+  }).catch(() => {
+    // Fail-open: reset UI intentionally preserves the same invalid-link state.
+  })
+}
+
+export function reportCustomerPasswordUpdateFailure(input: {
+  stage: "auth_headers" | "store_password_update"
+  error: unknown
+}): void {
+  if (!shouldAlertPasswordLifecycleFailure(input.error)) return
+
+  const status = errorStatus(input.error)
+
+  void emitStorefrontOpsAlert({
+    alertKind: "customer_password_update_failed",
+    severity: "warn",
+    title: "Customer password update failed",
+    path: "src/lib/data/customer.ts:updateCustomerPassword",
+    source: "storefront-server",
+    fingerprint: `customer_password_update_failed:${input.stage}:${
+      status || "transport"
+    }`,
+    meta: {
+      account_surface: "customer_password_update",
+      route_dependency:
+        input.stage === "store_password_update"
+          ? "/store/customers/me/password"
+          : "storefront auth headers",
+      failure_stage: input.stage,
+      response_status: status,
+      error_message: redactedErrorMessage(input.error),
+    },
+  }).catch(() => {
+    // Fail-open: password form behavior should not depend on alert delivery.
+  })
 }
 
 export function reportCartAddressPersistenceFailure(input: {

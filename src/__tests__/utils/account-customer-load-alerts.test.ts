@@ -4,6 +4,7 @@ import { sdk } from "@lib/config"
 import { getAuthHeaders, getCacheTag, getCartId } from "@lib/data/cookies"
 import {
   addCustomerAddress,
+  completePasswordReset,
   deleteCustomerAddress,
   loginWithCredentials,
   requestPasswordReset,
@@ -12,6 +13,7 @@ import {
   signupWithCredentials,
   updateCustomer,
   updateCustomerAddress,
+  updateCustomerPassword,
 } from "@lib/data/customer"
 import { readStaffImpersonationCookie } from "@lib/data/staff/session-cookie"
 import { adminFetch, retrieveAdminCustomer } from "@lib/data/staff/admin"
@@ -23,6 +25,7 @@ jest.mock("@lib/config", () => ({
     auth: {
       login: jest.fn(),
       register: jest.fn(),
+      updateProvider: jest.fn(),
     },
     client: {
       fetch: jest.fn(),
@@ -94,6 +97,9 @@ const mockAuthLogin = sdk.auth.login as jest.MockedFunction<
 >
 const mockAuthRegister = sdk.auth.register as jest.MockedFunction<
   typeof sdk.auth.register
+>
+const mockAuthUpdateProvider = sdk.auth.updateProvider as jest.MockedFunction<
+  typeof sdk.auth.updateProvider
 >
 const mockCreateCustomer = sdk.store.customer.create as jest.MockedFunction<
   typeof sdk.store.customer.create
@@ -294,6 +300,110 @@ describe("password reset request alerts", () => {
     })) as unknown as typeof fetch
 
     await requestPasswordReset("not-an-email")
+
+    expect(mockEmitStorefrontOpsAlert).not.toHaveBeenCalled()
+  })
+})
+
+describe("password lifecycle alerts", () => {
+  const passwordForm = () => {
+    const formData = new FormData()
+    formData.set("old_password", "old-password")
+    formData.set("new_password", "new-password")
+    formData.set("confirm_password", "new-password")
+    return formData
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks()
+    mockGetAuthHeaders.mockResolvedValue({ authorization: "Bearer test" } as any)
+  })
+
+  it("alerts when reset completion fails with an outage-style error", async () => {
+    mockAuthUpdateProvider.mockRejectedValueOnce({
+      status: 503,
+      message: "reset provider down for shopper@example.com auth_123",
+    })
+
+    await expect(
+      completePasswordReset("reset-token", "shopper@example.com", "new-password")
+    ).resolves.toEqual({
+      success: false,
+      error:
+        "This reset link is invalid or has expired. Please request a new one.",
+    })
+
+    expect(mockEmitStorefrontOpsAlert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        alertKind: "password_reset_completion_failed",
+        severity: "warn",
+        title: "Password reset completion failed behind invalid-link response",
+        path: "src/lib/data/customer.ts:completePasswordReset",
+        source: "storefront-server",
+        fingerprint: "password_reset_completion_failed:503",
+        meta: expect.objectContaining({
+          account_surface: "password_reset_completion",
+          route_dependency: "sdk.auth.updateProvider(customer,emailpass)",
+          response_status: 503,
+          error_message:
+            "reset provider down for [redacted-email] [redacted-id]",
+        }),
+      })
+    )
+  })
+
+  it("does not alert when reset completion reports an invalid token", async () => {
+    mockAuthUpdateProvider.mockRejectedValueOnce({
+      status: 401,
+      message: "reset token expired",
+    })
+
+    await completePasswordReset("expired-token", "shopper@example.com", "new-password")
+
+    expect(mockEmitStorefrontOpsAlert).not.toHaveBeenCalled()
+  })
+
+  it("alerts when signed-in password update fails with an outage-style error", async () => {
+    mockSdkFetch.mockRejectedValueOnce({
+      status: 503,
+      message: "password backend down for shopper@example.com auth_123",
+    })
+
+    await expect(
+      updateCustomerPassword({}, passwordForm())
+    ).resolves.toEqual({
+      success: false,
+      error: "password backend down for shopper@example.com auth_123",
+    })
+
+    expect(mockEmitStorefrontOpsAlert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        alertKind: "customer_password_update_failed",
+        severity: "warn",
+        title: "Customer password update failed",
+        path: "src/lib/data/customer.ts:updateCustomerPassword",
+        source: "storefront-server",
+        fingerprint:
+          "customer_password_update_failed:store_password_update:503",
+        meta: expect.objectContaining({
+          account_surface: "customer_password_update",
+          route_dependency: "/store/customers/me/password",
+          failure_stage: "store_password_update",
+          response_status: 503,
+          error_message:
+            "password backend down for [redacted-email] [redacted-id]",
+        }),
+      })
+    )
+  })
+
+  it("does not alert on ordinary current-password validation failures", async () => {
+    mockSdkFetch.mockRejectedValueOnce({
+      status: 401,
+      message: "Current password is incorrect",
+    })
+
+    await updateCustomerPassword({}, passwordForm())
 
     expect(mockEmitStorefrontOpsAlert).not.toHaveBeenCalled()
   })

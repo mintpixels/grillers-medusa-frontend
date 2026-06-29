@@ -18,9 +18,11 @@ import {
   reportAuthenticatedCustomerLoadFailure,
   reportCustomerAddressMutationFailure,
   reportCustomerLoginFailure,
+  reportCustomerPasswordUpdateFailure,
   reportCustomerProfileUpdateFailure,
   reportCustomerSignupFailure,
   reportLegacyLoginFallbackFailure,
+  reportPasswordResetCompletionFailure,
   reportPasswordResetRequestFailure,
 } from "@lib/account-ops-alerts"
 import { emitCartTransferRecoveryFailureAlert } from "@lib/cart-transfer-ops-alerts"
@@ -224,7 +226,8 @@ export async function completePasswordReset(
       token
     )
     return { success: true, error: null }
-  } catch {
+  } catch (error) {
+    reportPasswordResetCompletionFailure({ error })
     return {
       success: false,
       error:
@@ -256,15 +259,19 @@ export async function updateCustomerPassword(
     return { success: false, error: "New passwords do not match." }
   }
 
-  const headers = {
-    ...(await getAuthHeaders()),
-  }
-
-  if (!("authorization" in headers)) {
-    return { success: false, error: "Sign in again to update your password." }
-  }
+  let stage: "auth_headers" | "store_password_update" = "auth_headers"
 
   try {
+    stage = "auth_headers"
+    const headers = {
+      ...(await getAuthHeaders()),
+    }
+
+    if (!("authorization" in headers)) {
+      return { success: false, error: "Sign in again to update your password." }
+    }
+
+    stage = "store_password_update"
     await sdk.client.fetch<{ ok?: boolean }>(`/store/customers/me/password`, {
       method: "POST",
       headers,
@@ -277,6 +284,7 @@ export async function updateCustomerPassword(
 
     return { success: true, error: null }
   } catch (err: any) {
+    reportCustomerPasswordUpdateFailure({ stage, error: err })
     return {
       success: false,
       error:
