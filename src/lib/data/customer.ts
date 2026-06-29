@@ -16,6 +16,7 @@ import { canUseOfficeConsole, isStaffCustomer } from "@lib/util/staff-access"
 import {
   reportCartAddressPersistenceFailure,
   reportAuthenticatedCustomerLoadFailure,
+  reportCustomerLoginFailure,
   reportLegacyLoginFallbackFailure,
   reportPasswordResetRequestFailure,
 } from "@lib/account-ops-alerts"
@@ -358,6 +359,12 @@ async function getCustomerAuthToken(loginId: string, password: string) {
       password,
     })) as string
   } catch (error) {
+    reportCustomerLoginFailure({
+      stage: "emailpass_login",
+      identifierKind: "email",
+      error,
+    })
+
     const legacyToken = await requestLegacyAuthToken(loginId, password)
     if (legacyToken) {
       return legacyToken

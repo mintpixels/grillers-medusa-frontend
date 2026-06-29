@@ -13,6 +13,9 @@ import { revalidateTag } from "next/cache"
 
 jest.mock("@lib/config", () => ({
   sdk: {
+    auth: {
+      login: jest.fn(),
+    },
     client: {
       fetch: jest.fn(),
     },
@@ -55,6 +58,9 @@ const mockGetCacheTag = getCacheTag as jest.MockedFunction<typeof getCacheTag>
 const mockGetCartId = getCartId as jest.MockedFunction<typeof getCartId>
 const mockSdkFetch = sdk.client.fetch as jest.MockedFunction<
   typeof sdk.client.fetch
+>
+const mockAuthLogin = sdk.auth.login as jest.MockedFunction<
+  typeof sdk.auth.login
 >
 const mockCreateAddress = sdk.store.customer.createAddress as jest.MockedFunction<
   typeof sdk.store.customer.createAddress
@@ -236,6 +242,76 @@ describe("password reset request alerts", () => {
     })) as unknown as typeof fetch
 
     await requestPasswordReset("not-an-email")
+
+    expect(mockEmitStorefrontOpsAlert).not.toHaveBeenCalled()
+  })
+})
+
+describe("customer login alerts", () => {
+  const originalFetch = global.fetch
+  const originalEnv = process.env
+
+  beforeEach(() => {
+    jest.clearAllMocks()
+    process.env = {
+      ...originalEnv,
+      MEDUSA_BACKEND_URL: "https://backend.example.test",
+      NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY: "pk_test_unit",
+    }
+    global.fetch = jest.fn(async () => ({
+      ok: false,
+      status: 401,
+      statusText: "Unauthorized",
+      text: async () => "Invalid login or password",
+    })) as unknown as typeof fetch
+  })
+
+  afterAll(() => {
+    process.env = originalEnv
+    global.fetch = originalFetch
+  })
+
+  it("alerts when primary email login fails with an outage-style error", async () => {
+    mockAuthLogin.mockRejectedValueOnce({
+      status: 503,
+      message: "Auth service failed for shopper@example.com auth_123",
+    })
+
+    await expect(
+      loginWithCredentials("shopper@example.com", "password")
+    ).resolves.toEqual({
+      success: false,
+      error: "Invalid login or password",
+    })
+
+    expect(mockEmitStorefrontOpsAlert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        alertKind: "customer_login_failed",
+        severity: "page",
+        title: "Customer login failed behind invalid-login response",
+        path: "src/lib/data/customer.ts:getCustomerAuthToken",
+        source: "storefront-server",
+        fingerprint: "customer_login_failed:emailpass_login:503",
+        meta: expect.objectContaining({
+          account_surface: "customer_login",
+          route_dependency: "sdk.auth.login(customer,emailpass)",
+          identifier_kind: "email",
+          failure_stage: "emailpass_login",
+          response_status: 503,
+          error_message:
+            "Auth service failed for [redacted-email] [redacted-id]",
+        }),
+      })
+    )
+  })
+
+  it("does not alert for ordinary bad email login credentials", async () => {
+    mockAuthLogin.mockRejectedValueOnce({
+      status: 401,
+      message: "Invalid email or password",
+    })
+
+    await loginWithCredentials("shopper@example.com", "wrong-password")
 
     expect(mockEmitStorefrontOpsAlert).not.toHaveBeenCalled()
   })

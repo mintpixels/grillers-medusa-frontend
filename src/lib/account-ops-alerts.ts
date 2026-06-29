@@ -37,6 +37,24 @@ export function isExpectedCustomerAuthDenial(error: unknown): boolean {
   return status === 401 || status === 403
 }
 
+function isExpectedLoginDenial(error: unknown): boolean {
+  if (isExpectedCustomerAuthDenial(error)) return true
+
+  const message =
+    error instanceof Error
+      ? error.message
+      : String((error as any)?.data?.message || (error as any)?.message || "")
+
+  return /invalid (email|login|identifier).*password|unauthorized/i.test(message)
+}
+
+function shouldAlertCustomerLoginFailure(error: unknown): boolean {
+  if (isExpectedLoginDenial(error)) return false
+
+  const status = errorStatus(error)
+  return status === null || status === 404 || status === 429 || status >= 500
+}
+
 export function reportAuthenticatedCustomerLoadFailure(error: unknown): void {
   if (isExpectedCustomerAuthDenial(error)) return
 
@@ -57,6 +75,37 @@ export function reportAuthenticatedCustomerLoadFailure(error: unknown): void {
     },
   }).catch(() => {
     // Fail-open: account/staff routing should not depend on alert delivery.
+  })
+}
+
+export function reportCustomerLoginFailure(input: {
+  stage: "emailpass_login"
+  error: unknown
+  identifierKind: "email"
+}): void {
+  if (!shouldAlertCustomerLoginFailure(input.error)) return
+
+  const status = errorStatus(input.error)
+
+  void emitStorefrontOpsAlert({
+    alertKind: "customer_login_failed",
+    severity: "page",
+    title: "Customer login failed behind invalid-login response",
+    path: "src/lib/data/customer.ts:getCustomerAuthToken",
+    source: "storefront-server",
+    fingerprint: `customer_login_failed:${input.stage}:${
+      status || "transport"
+    }`,
+    meta: {
+      account_surface: "customer_login",
+      route_dependency: "sdk.auth.login(customer,emailpass)",
+      identifier_kind: input.identifierKind,
+      failure_stage: input.stage,
+      response_status: status,
+      error_message: redactedErrorMessage(input.error),
+    },
+  }).catch(() => {
+    // Fail-open: login UX should not depend on alert delivery.
   })
 }
 
