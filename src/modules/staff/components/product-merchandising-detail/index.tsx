@@ -130,8 +130,8 @@ function claimIsMine(image: MerchandisingProductImage, staffEmail: string) {
 }
 
 function auditActionLabel(action: string) {
-  if (action === "claimed") return "Claimed"
-  if (action === "released_claim") return "Released claim"
+  if (action === "claimed") return "Reserved"
+  if (action === "released_claim") return "Released reservation"
   if (action === "overwritten_review") return "Replaced review"
   if (action === "reviewed") return "Reviewed"
   return action
@@ -366,28 +366,6 @@ function ImageCard({
             className="object-cover"
           />
         </button>
-        <div className="pointer-events-none absolute inset-0 flex items-end bg-gradient-to-t from-Charcoal/80 via-Charcoal/10 to-transparent p-3 opacity-0 transition group-hover:opacity-100">
-          <div className="grid w-full grid-cols-2 gap-2">
-            <button
-              type="button"
-              disabled={reviewDisabled}
-              onClick={() => onApprove(image)}
-              className="pointer-events-auto inline-flex min-h-[38px] items-center justify-center gap-1.5 rounded-md bg-white px-3 text-xs font-rexton font-bold uppercase text-Charcoal transition hover:bg-emerald-50 disabled:opacity-50"
-            >
-              <CheckCircle2 className="h-4 w-4 text-emerald-600" aria-hidden />
-              Approve
-            </button>
-            <button
-              type="button"
-              disabled={reviewDisabled}
-              onClick={() => onReject(image)}
-              className="pointer-events-auto inline-flex min-h-[38px] items-center justify-center gap-1.5 rounded-md bg-white px-3 text-xs font-rexton font-bold uppercase text-Charcoal transition hover:bg-red-50 disabled:opacity-50"
-            >
-              <XCircle className="h-4 w-4 text-red-600" aria-hidden />
-              Reject
-            </button>
-          </div>
-        </div>
         <span className="absolute left-2 top-2 rounded-full bg-white/95 px-2 py-1 text-[10px] font-maison-neue-mono uppercase text-Charcoal/65 shadow-sm">
           {image.role}
         </span>
@@ -398,9 +376,9 @@ function ImageCard({
                 ? "bg-emerald-50 text-emerald-800"
                 : "bg-amber-50 text-amber-800"
             }`}
-            title={`Claimed by ${claimOwner(image)}`}
+            title={`Reserved by ${claimOwner(image)}`}
           >
-            {claimedByMe ? "Your claim" : `Claimed: ${claimOwner(image)}`}
+            {claimedByMe ? "Your reservation" : `Reserved: ${claimOwner(image)}`}
           </span>
         )}
       </div>
@@ -435,7 +413,7 @@ function ImageCard({
         )}
         {image.claim && (
           <p className="text-xs font-maison-neue text-amber-800">
-            Claimed by {claimOwner(image)}
+            Reserved by {claimOwner(image)}
             {image.claim.expiresAt
               ? ` until ${shortDate(image.claim.expiresAt)}`
               : ""}
@@ -448,26 +426,50 @@ function ImageCard({
           </p>
         )}
         {image.review.status === "unreviewed" && (
-          <div className="flex gap-2 pt-1">
+          <div className="space-y-2 pt-1">
+            <div className="grid gap-2 small:grid-cols-2">
+              <button
+                type="button"
+                disabled={reviewDisabled}
+                onClick={() => onApprove(image)}
+                className="inline-flex min-h-[40px] items-center justify-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-3 text-xs font-rexton font-bold uppercase text-emerald-800 transition hover:border-emerald-400 disabled:opacity-50"
+              >
+                <CheckCircle2 className="h-4 w-4" aria-hidden />
+                Approve
+              </button>
+              <button
+                type="button"
+                disabled={reviewDisabled}
+                onClick={() => onReject(image)}
+                className="inline-flex min-h-[40px] items-center justify-center gap-1.5 rounded-md border border-red-200 bg-red-50 px-3 text-xs font-rexton font-bold uppercase text-red-800 transition hover:border-red-400 disabled:opacity-50"
+              >
+                <XCircle className="h-4 w-4" aria-hidden />
+                Reject
+              </button>
+            </div>
             {claimedByMe ? (
               <button
                 type="button"
                 disabled={isPending}
                 onClick={() => onReleaseClaim(image)}
-                className="min-h-[34px] flex-1 rounded-md border border-gray-200 px-2 text-[11px] font-rexton font-bold uppercase text-Charcoal transition hover:border-Charcoal disabled:opacity-50"
+                className="min-h-[34px] w-full rounded-md border border-gray-200 px-2 text-[11px] font-rexton font-bold uppercase text-Charcoal transition hover:border-Charcoal disabled:opacity-50"
               >
-                Release
+                Release reservation
               </button>
             ) : (
               <button
                 type="button"
                 disabled={isPending || claimedByOther}
                 onClick={() => onClaim(image)}
-                className="min-h-[34px] flex-1 rounded-md border border-Gold bg-Gold/10 px-2 text-[11px] font-rexton font-bold uppercase text-Charcoal transition hover:bg-Gold/20 disabled:opacity-50"
+                className="min-h-[34px] w-full rounded-md border border-gray-200 px-2 text-[11px] font-rexton font-bold uppercase text-Charcoal transition hover:border-Charcoal disabled:opacity-50"
               >
-                Claim
+                Reserve while reviewing
               </button>
             )}
+            <p className="text-[11px] font-maison-neue text-Charcoal/45">
+              Reserving is optional. Approve or Reject is what marks the image
+              reviewed.
+            </p>
           </div>
         )}
       </div>
@@ -606,7 +608,7 @@ function ImageReviewDetailsModal({
 
             {image.claim && (
               <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm font-maison-neue text-amber-900">
-                <p className="font-semibold">Currently claimed</p>
+                <p className="font-semibold">Currently reserved</p>
                 <p className="mt-1">
                   {claimOwner(image) || "Another staff member"}
                   {image.claim.expiresAt
@@ -837,11 +839,11 @@ export default function ProductMerchandisingDetailView({
       setPendingImageId(null)
       applyActionResult(image, result)
       if (!result.ok) {
-        setError(result.error || "Could not claim image.")
+        setError(result.error || "Could not reserve image.")
         return
       }
 
-      setFeedback(`${image.name} claimed for ${staffName || staffEmail}.`)
+      setFeedback(`${image.name} reserved for ${staffName || staffEmail}.`)
     })
   }
 
@@ -862,11 +864,11 @@ export default function ProductMerchandisingDetailView({
       setPendingImageId(null)
       applyActionResult(image, result)
       if (!result.ok) {
-        setError(result.error || "Could not release claim.")
+        setError(result.error || "Could not release reservation.")
         return
       }
 
-      setFeedback(`${image.name} claim released.`)
+      setFeedback(`${image.name} reservation released.`)
     })
   }
 
@@ -888,9 +890,9 @@ export default function ProductMerchandisingDetailView({
             {detail.displayName}
           </h1>
           <p className="mt-2 max-w-3xl text-sm font-maison-neue text-Charcoal/60">
-            Review every Strapi product image in this L3 group. Claims,
-            approvals, rejections, and audit history are stored on the Strapi
-            media record with staff attribution.
+            Review every Strapi product image in this L3 group. Approvals,
+            rejections, optional reservations, and audit history are stored on
+            the Strapi media record with staff attribution.
           </p>
         </div>
 
@@ -927,7 +929,7 @@ export default function ProductMerchandisingDetailView({
           </div>
           <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-amber-800">
             <p className="text-[11px] font-maison-neue-mono uppercase opacity-70">
-              Claimed
+              Reserved
             </p>
             <p className="mt-1 text-2xl font-gyst font-bold">
               {stats.claimed}

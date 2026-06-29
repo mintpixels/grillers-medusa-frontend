@@ -139,6 +139,14 @@ describe("ProductMerchandisingDetailView", () => {
       screen.getByText("Comment: Looks accurate and customer-safe.")
     ).toBeInTheDocument()
     expect(screen.getByText("Needs review")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Approve" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Reject" })).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", { name: "Reserve while reviewing" })
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole("button", { name: "Claim" })
+    ).not.toBeInTheDocument()
 
     await user.click(
       screen.getByRole("button", {
