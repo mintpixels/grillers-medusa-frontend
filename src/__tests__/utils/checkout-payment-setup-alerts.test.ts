@@ -5,7 +5,10 @@ import { getActiveStaffImpersonation } from "@lib/data/customer"
 import { emitCheckoutPaymentSetupFailureAlert } from "@lib/checkout-payment-ops-alerts"
 import {
   createPaymentMethodSetupIntent,
+  deleteSavedPaymentMethod,
+  getSavedPaymentMethods,
   listCartPaymentMethods,
+  setDefaultPaymentMethod,
 } from "@lib/data/payment"
 
 jest.mock("@lib/ops-alert", () => ({
@@ -209,5 +212,110 @@ describe("checkout payment setup alerts", () => {
 
     expect(result).toEqual([{ id: "pp_stripe_stripe" }])
     expect(emitStorefrontOpsAlertMock).not.toHaveBeenCalled()
+  })
+
+  it("alerts when saved payment method listing fails after auth", async () => {
+    sdkFetchMock.mockRejectedValueOnce(
+      new Error("payment methods list failed for shopper@example.com pm_123")
+    )
+
+    const result = await getSavedPaymentMethods()
+
+    expect(result).toEqual([])
+    expect(emitStorefrontOpsAlertMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        alertKind: "saved_payment_method_failed",
+        severity: "warn",
+        title: "Saved payment method action failed",
+        path: "src/lib/data/payment.ts:saved-payment-methods",
+        source: "storefront-server",
+        fingerprint: "saved_payment_method_failed:list:payment_methods_list",
+        meta: expect.objectContaining({
+          account_surface: "saved_payment_methods",
+          operation: "list",
+          stage: "payment_methods_list",
+          has_auth: true,
+          staff_impersonation: false,
+          has_payment_method_id: false,
+          error_message: "payment methods list failed for [email] [id]",
+        }),
+      })
+    )
+  })
+
+  it("does not alert when saved payment methods are requested unsigned", async () => {
+    getAuthHeadersMock.mockResolvedValueOnce({})
+
+    const result = await getSavedPaymentMethods()
+
+    expect(result).toEqual([])
+    expect(sdkFetchMock).not.toHaveBeenCalled()
+    expect(emitStorefrontOpsAlertMock).not.toHaveBeenCalled()
+  })
+
+  it("alerts with staff context when setting a saved payment method default fails", async () => {
+    getActiveStaffImpersonationMock.mockResolvedValueOnce({
+      session: {
+        targetCustomerId: "cus_target",
+        staffCustomerId: "cus_staff",
+      },
+    } as any)
+    sdkFetchMock.mockRejectedValueOnce(
+      new Error("default failed for staff@example.com pm_123")
+    )
+
+    const result = await setDefaultPaymentMethod("pm_123")
+
+    expect(result).toEqual({
+      success: false,
+      error: "default failed for staff@example.com pm_123",
+    })
+    expect(emitStorefrontOpsAlertMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        alertKind: "saved_payment_method_failed",
+        severity: "warn",
+        fingerprint:
+          "saved_payment_method_failed:set_default:payment_method_default",
+        meta: expect.objectContaining({
+          account_surface: "saved_payment_methods",
+          operation: "set_default",
+          stage: "payment_method_default",
+          has_auth: true,
+          staff_impersonation: true,
+          has_payment_method_id: true,
+          error_message: "default failed for [email] [id]",
+        }),
+      })
+    )
+  })
+
+  it("alerts and returns an error when deleting a saved payment method fails", async () => {
+    sdkFetchMock.mockRejectedValueOnce(
+      new Error("delete failed for shopper@example.com pm_456")
+    )
+
+    const result = await deleteSavedPaymentMethod("pm_456")
+
+    expect(result).toEqual({
+      success: false,
+      error: "delete failed for shopper@example.com pm_456",
+    })
+    expect(emitStorefrontOpsAlertMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        alertKind: "saved_payment_method_failed",
+        severity: "warn",
+        fingerprint:
+          "saved_payment_method_failed:delete:payment_method_delete",
+        meta: expect.objectContaining({
+          account_surface: "saved_payment_methods",
+          operation: "delete",
+          stage: "payment_method_delete",
+          has_auth: true,
+          staff_impersonation: false,
+          has_payment_method_id: true,
+          error_message: "delete failed for [email] [id]",
+        }),
+      })
+    )
   })
 })

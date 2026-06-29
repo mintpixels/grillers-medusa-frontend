@@ -95,21 +95,26 @@ export default function PaymentMethodsList({
   const [busyDeleteId, setBusyDeleteId] = useState<string | null>(null)
   const [busyDefaultId, setBusyDefaultId] = useState<string | null>(null)
   const [showAddModal, setShowAddModal] = useState(false)
+  const [actionError, setActionError] = useState<string | null>(null)
 
   const handleConfirmDelete = async () => {
     if (!pendingDelete) return
     setBusyDeleteId(pendingDelete)
+    setActionError(null)
     const result = await deleteSavedPaymentMethod(pendingDelete)
     setBusyDeleteId(null)
     setPendingDelete(null)
     if (result.success) {
       setMethods((prev) => prev.filter((m) => m.id !== pendingDelete))
       router.refresh()
+    } else {
+      setActionError(result.error || "Could not remove that card.")
     }
   }
 
   const handleSetDefault = async (id: string) => {
     setBusyDefaultId(id)
+    setActionError(null)
     const result = await setDefaultPaymentMethod(id)
     setBusyDefaultId(null)
     if (result.success) {
@@ -117,6 +122,8 @@ export default function PaymentMethodsList({
         prev.map((m) => ({ ...m, is_default: m.id === id }))
       )
       router.refresh()
+    } else {
+      setActionError(result.error || "Could not set that card as default.")
     }
   }
 
@@ -186,6 +193,11 @@ export default function PaymentMethodsList({
         renderEmpty()
       ) : (
         <div className="space-y-3">
+          {actionError && (
+            <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm font-maison-neue text-red-700">
+              {actionError}
+            </div>
+          )}
           <div className="flex justify-end">
             <button
               onClick={() => setShowAddModal(true)}

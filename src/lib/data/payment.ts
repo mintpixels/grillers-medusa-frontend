@@ -8,6 +8,7 @@ import { reportServerSoftFailure } from "@lib/server-soft-failure"
 import {
   emitCheckoutPaymentMethodsUnavailableAlert,
   emitCheckoutPaymentSetupFailureAlert,
+  emitSavedPaymentMethodFailureAlert,
 } from "@lib/checkout-payment-ops-alerts"
 
 const STRIPE_CARD_PROVIDER_ID = "pp_stripe_stripe"
@@ -39,10 +40,19 @@ export async function getPaymentContextHeaders() {
 }
 
 export async function getSavedPaymentMethods(): Promise<SavedPaymentMethod[]> {
+  let hasAuth = false
+  let staffImpersonation = false
+  let stage: "payment_context_headers" | "payment_methods_list" =
+    "payment_context_headers"
+
   try {
+    stage = "payment_context_headers"
     const headers = await getPaymentContextHeaders()
+    hasAuth = Boolean(headers.authorization)
+    staffImpersonation = Boolean(headers["x-gp-staff-target-customer-id"])
     if (!headers.authorization) return []
 
+    stage = "payment_methods_list"
     const { payment_methods } = await sdk.client.fetch<{
       payment_methods: SavedPaymentMethod[]
     }>("/store/payment-methods", {
@@ -53,6 +63,15 @@ export async function getSavedPaymentMethods(): Promise<SavedPaymentMethod[]> {
     return payment_methods || []
   } catch (error) {
     console.error("Error fetching saved payment methods:", error)
+    await emitSavedPaymentMethodFailureAlert({
+      operation: "list",
+      stage,
+      error,
+      hasAuth,
+      staffImpersonation,
+    }).catch(() => {
+      // Fail-open: account page should keep rendering its empty-state fallback.
+    })
     return []
   }
 }
@@ -127,11 +146,20 @@ export async function createPaymentMethodSetupIntent(): Promise<
 export async function setDefaultPaymentMethod(
   paymentMethodId: string
 ): Promise<{ success: boolean; error?: string }> {
+  let hasAuth = false
+  let staffImpersonation = false
+  let stage: "payment_context_headers" | "payment_method_default" =
+    "payment_context_headers"
+
   try {
+    stage = "payment_context_headers"
     const headers = await getPaymentContextHeaders()
+    hasAuth = Boolean(headers.authorization)
+    staffImpersonation = Boolean(headers["x-gp-staff-target-customer-id"])
     if (!headers.authorization)
       return { success: false, error: "Not signed in" }
 
+    stage = "payment_method_default"
     await sdk.client.fetch(
       `/store/payment-methods/${paymentMethodId}/default`,
       {
@@ -143,6 +171,16 @@ export async function setDefaultPaymentMethod(
     return { success: true }
   } catch (error: any) {
     console.error("Error setting default payment method:", error)
+    await emitSavedPaymentMethodFailureAlert({
+      operation: "set_default",
+      stage,
+      error,
+      hasAuth,
+      staffImpersonation,
+      paymentMethodId,
+    }).catch(() => {
+      // Fail-open: preserve the existing form error path.
+    })
     return {
       success: false,
       error: error?.data?.message || error?.message || "Could not set default.",
@@ -155,20 +193,45 @@ export async function setDefaultPaymentMethod(
  */
 export async function deleteSavedPaymentMethod(
   paymentMethodId: string
-): Promise<{ success: boolean }> {
-  try {
-    const headers = await getPaymentContextHeaders()
-    if (!headers.authorization) return { success: false }
+): Promise<{ success: boolean; error?: string }> {
+  let hasAuth = false
+  let staffImpersonation = false
+  let stage: "payment_context_headers" | "payment_method_delete" =
+    "payment_context_headers"
 
+  try {
+    stage = "payment_context_headers"
+    const headers = await getPaymentContextHeaders()
+    hasAuth = Boolean(headers.authorization)
+    staffImpersonation = Boolean(headers["x-gp-staff-target-customer-id"])
+    if (!headers.authorization) return { success: false, error: "Not signed in" }
+
+    stage = "payment_method_delete"
     await sdk.client.fetch(`/store/payment-methods/${paymentMethodId}`, {
       method: "DELETE",
       headers,
     })
 
     return { success: true }
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error deleting payment method:", error)
-    return { success: false }
+    await emitSavedPaymentMethodFailureAlert({
+      operation: "delete",
+      stage,
+      error,
+      hasAuth,
+      staffImpersonation,
+      paymentMethodId,
+    }).catch(() => {
+      // Fail-open: preserve the existing form error path.
+    })
+    return {
+      success: false,
+      error:
+        error?.data?.message ||
+        error?.message ||
+        "Could not remove payment method.",
+    }
   }
 }
 

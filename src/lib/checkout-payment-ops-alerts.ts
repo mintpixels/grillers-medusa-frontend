@@ -14,6 +14,19 @@ type CheckoutPaymentMethodsUnavailableInput = {
   reason: "no_payment_providers" | "stripe_card_provider_missing"
 }
 
+type SavedPaymentMethodFailureInput = {
+  operation: "list" | "set_default" | "delete"
+  stage:
+    | "payment_context_headers"
+    | "payment_methods_list"
+    | "payment_method_default"
+    | "payment_method_delete"
+  error: unknown
+  hasAuth: boolean
+  staffImpersonation?: boolean
+  paymentMethodId?: string | null
+}
+
 function redactedMessage(value: unknown): string | null {
   if (value === null || value === undefined) return null
 
@@ -82,6 +95,33 @@ export async function emitCheckoutPaymentMethodsUnavailableAlert({
       region_id: regionId || null,
       provider_count: providerIds.length,
       provider_ids: providerIds.slice(0, 20),
+    },
+  })
+}
+
+export async function emitSavedPaymentMethodFailureAlert({
+  operation,
+  stage,
+  error,
+  hasAuth,
+  staffImpersonation = false,
+  paymentMethodId = null,
+}: SavedPaymentMethodFailureInput) {
+  await emitStorefrontOpsAlert({
+    alertKind: "saved_payment_method_failed",
+    severity: "warn",
+    title: "Saved payment method action failed",
+    path: "src/lib/data/payment.ts:saved-payment-methods",
+    source: "storefront-server",
+    fingerprint: `saved_payment_method_failed:${operation}:${stage}`,
+    meta: {
+      account_surface: "saved_payment_methods",
+      operation,
+      stage,
+      has_auth: hasAuth,
+      staff_impersonation: staffImpersonation,
+      has_payment_method_id: Boolean(paymentMethodId),
+      error_message: redactedMessage(error),
     },
   })
 }
