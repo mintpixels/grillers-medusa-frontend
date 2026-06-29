@@ -738,13 +738,72 @@ function customerAddresses(customer: AnyRecord): AnyRecord[] {
 }
 
 function staffOrderEntryErrorMessage(error: unknown) {
-  if (error instanceof Error) return error.message
-  if (typeof error === "string") return error
-  try {
-    return JSON.stringify(error)
-  } catch {
-    return String(error)
-  }
+  const message = (() => {
+    if (error instanceof Error) return error.message
+    if (typeof error === "string") return error
+    try {
+      return JSON.stringify(error)
+    } catch {
+      return String(error)
+    }
+  })()
+
+  return message
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[redacted-email]")
+    .replace(
+      /\b(?:auth|cus|customer|cart|order|ord|pay|pm|pi|provider|seti|legacy|addr)_[A-Za-z0-9_:-]+/g,
+      "[redacted-id]"
+    )
+}
+
+function shouldAlertStaffCustomerContextFailure(error: unknown) {
+  const message = staffOrderEntryErrorMessage(error)
+  return ![
+    /^Sign in with a staff account/i,
+    /^Office console access required/i,
+    /^Missing customer ID\./i,
+    /^Enter a valid customer email/i,
+    /^Customer address needs /i,
+    /^Staff note is required\./i,
+    /^Credit amount must be greater than zero\./i,
+  ].some((pattern) => pattern.test(message))
+}
+
+async function emitStaffCustomerContextMutationFailureAlert(input: {
+  action:
+    | "profile_update"
+    | "address_create"
+    | "address_update"
+    | "customer_note"
+    | "customer_credit"
+  customerId?: string
+  addressId?: string
+  hasAmount?: boolean
+  hasRelatedOrder?: boolean
+  error: unknown
+}) {
+  if (!shouldAlertStaffCustomerContextFailure(input.error)) return
+
+  const isCredit = input.action === "customer_credit"
+
+  await emitStorefrontOpsAlert({
+    alertKind: "staff_customer_context_mutation_failed",
+    severity: isCredit ? "page" : "warn",
+    title: `Staff customer ${input.action.replace(/_/g, " ")} failed`,
+    path: "src/lib/data/staff/order-entry.ts",
+    source: "medusa-server",
+    fingerprint: `staff_customer_context:${input.action}:failed`,
+    meta: {
+      staff_module: "phone_order",
+      action: input.action,
+      has_customer_id: Boolean(input.customerId),
+      has_address_id: Boolean(input.addressId),
+      has_amount: Boolean(input.hasAmount),
+      has_related_order: Boolean(input.hasRelatedOrder),
+      qbd_posting_required: isCredit,
+      error_message: staffOrderEntryErrorMessage(input.error).slice(0, 300),
+    },
+  })
 }
 
 async function emitDuplicateGuardFailureAlert(input: {
@@ -1586,6 +1645,11 @@ export async function updateStaffCustomerProfile(input: {
       customer: await getStaffCustomerContext(input.customerId),
     }
   } catch (err: any) {
+    await emitStaffCustomerContextMutationFailureAlert({
+      action: "profile_update",
+      customerId: input.customerId,
+      error: err,
+    })
     return {
       ok: false,
       error: err?.message || "Could not update customer profile.",
@@ -1642,6 +1706,12 @@ export async function saveStaffCustomerAddress(input: {
       customer: await getStaffCustomerContext(input.customerId),
     }
   } catch (err: any) {
+    await emitStaffCustomerContextMutationFailureAlert({
+      action: input.address.id ? "address_update" : "address_create",
+      customerId: input.customerId,
+      addressId: input.address.id,
+      error: err,
+    })
     return {
       ok: false,
       error: err?.message || "Could not save customer address.",
@@ -1791,6 +1861,13 @@ export async function applyStaffCustomerAccountAction(input: {
       customer: await getStaffCustomerContext(customerId),
     }
   } catch (err: any) {
+    await emitStaffCustomerContextMutationFailureAlert({
+      action: input.action,
+      customerId: input.customerId,
+      hasAmount: input.amount !== undefined,
+      hasRelatedOrder: Boolean(input.relatedOrderId),
+      error: err,
+    })
     return {
       ok: false,
       error: err?.message || "Could not record customer account action.",
