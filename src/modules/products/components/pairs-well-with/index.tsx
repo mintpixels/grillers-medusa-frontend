@@ -235,7 +235,7 @@ export default async function PairsWellWith({
                   {collection.Slug && (
                     <LocalizedClientLink
                       href={`/collections/${collection.Slug}`}
-                      className="mt-3 inline-flex font-maison-neue-mono text-[11px] font-bold uppercase tracking-wide text-Charcoal underline underline-offset-4"
+                      className="mt-2 inline-flex min-h-[44px] items-center font-maison-neue-mono text-[11px] font-bold uppercase tracking-wide text-Charcoal underline underline-offset-4"
                     >
                       View collection
                     </LocalizedClientLink>

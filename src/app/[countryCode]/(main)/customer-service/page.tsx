@@ -121,7 +121,7 @@ export default async function CustomerServicePage({ params }: PageProps) {
                 <dd>
                   <a
                     href={`tel:${phoneDigits}`}
-                    className="font-maison-neue text-p-md font-semibold text-Charcoal transition-colors hover:text-RichGold"
+                    className="inline-flex min-h-[44px] items-center font-maison-neue text-p-md font-semibold text-Charcoal transition-colors hover:text-RichGold"
                   >
                     {data.ContactPhone}
                   </a>
@@ -134,7 +134,7 @@ export default async function CustomerServicePage({ params }: PageProps) {
                 <dd>
                   <a
                     href={`mailto:${data.ContactEmail}`}
-                    className="break-all font-maison-neue text-p-md font-semibold text-Charcoal transition-colors hover:text-RichGold"
+                    className="inline-flex min-h-[44px] items-center break-all font-maison-neue text-p-md font-semibold text-Charcoal transition-colors hover:text-RichGold"
                   >
                     {data.ContactEmail}
                   </a>

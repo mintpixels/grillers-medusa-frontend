@@ -189,7 +189,7 @@ const RecipesCollection = ({
                 <LocalizedClientLink
                   key={path.label}
                   href={path.href}
-                  className="inline-flex min-h-[40px] items-center rounded-full border border-Charcoal/15 bg-white px-4 text-p-sm font-maison-neue font-semibold text-Charcoal hover:border-Gold focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold"
+                  className="inline-flex min-h-[44px] items-center rounded-full border border-Charcoal/15 bg-white px-4 text-p-sm font-maison-neue font-semibold text-Charcoal hover:border-Gold focus:outline-none focus-visible:ring-2 focus-visible:ring-Gold"
                 >
                   {path.label}
                 </LocalizedClientLink>
@@ -277,7 +277,7 @@ const RecipesCollection = ({
             </div>
             <LocalizedClientLink
               href="/recipes#recipes-results"
-              className={`shrink-0 rounded-full border px-3 py-2 text-p-sm font-maison-neue font-semibold ${
+              className={`inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full border px-3 py-2 text-p-sm font-maison-neue font-semibold ${
                 activeBucket
                   ? "border-Charcoal/15 bg-white text-Charcoal"
                   : "border-Gold bg-Gold text-Charcoal shadow-sm"

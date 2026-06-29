@@ -86,8 +86,11 @@ function FeaturedCollectionCard({ card }: { card: ShopCollectionCardData }) {
           </p>
         )}
 
-        <LocalizedClientLink href={card.slug} className="block">
-          <h3 className="mt-2 max-w-[16ch] font-gyst text-h3-mobile font-bold leading-tight text-Charcoal transition-colors group-hover:text-VibrantRed md:text-h3">
+        <LocalizedClientLink
+          href={card.slug}
+          className="mt-2 inline-flex min-h-[44px] items-center"
+        >
+          <h3 className="max-w-[16ch] font-gyst text-h3-mobile font-bold leading-tight text-Charcoal transition-colors group-hover:text-VibrantRed md:text-h3">
             {card.title}
           </h3>
         </LocalizedClientLink>
