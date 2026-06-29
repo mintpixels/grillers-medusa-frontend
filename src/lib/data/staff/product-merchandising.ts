@@ -612,11 +612,27 @@ function storedCaptionSummary(caption: string | null | undefined) {
 }
 
 async function requireSuccessfulStrapiWrite(response: Response) {
-  const json = await response.json().catch(() => null)
+  let json: any = null
+  let body = ""
+
+  if (typeof response.text === "function") {
+    body = await response.text().catch(() => "")
+  }
+
+  if (body) {
+    try {
+      json = JSON.parse(body)
+    } catch {
+      json = null
+    }
+  } else if (typeof response.json === "function") {
+    json = await response.json().catch(() => null)
+  }
 
   if (!response.ok || json?.errors || json?.error) {
+    const bodyMessage = body.replace(/\s+/g, " ").trim().slice(0, 300)
     const message = errorMessage(
-      json?.error || json?.errors?.[0],
+      json?.error || json?.errors?.[0] || bodyMessage,
       String(response.status || "write failed")
     )
     throw new Error(message)
