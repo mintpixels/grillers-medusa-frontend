@@ -2,6 +2,7 @@
 
 export type ClientOpsAlertKind =
   | "client_add_to_cart_failed"
+  | "client_analytics_delivery_failed"
   | "client_cart_mutation_failed"
   | "client_profile_action_failed"
 
@@ -13,6 +14,8 @@ type ClientOpsAlertInput = {
   error?: unknown
   reason?: string
   statusCode?: number | null
+  target?: string | null
+  eventName?: string | null
   productId?: string | null
   variantId?: string | null
   productHandle?: string | null
@@ -80,6 +83,8 @@ export function reportClientOpsAlert(input: ClientOpsAlertInput) {
         Number.isFinite(input.statusCode)
           ? Math.trunc(input.statusCode)
           : null,
+      target: input.target ? token(input.target) : null,
+      event_name: input.eventName ? token(input.eventName) : null,
       product_id: input.productId || null,
       variant_id: input.variantId || null,
       product_handle: input.productHandle || null,

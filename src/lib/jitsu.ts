@@ -6,10 +6,13 @@
  * with our jitsucom/server:latest instance, so we use direct fetch.
  */
 
+import { reportClientOpsAlert } from "@lib/client-ops-alert"
+
 const COOKIE_ANON_ID = "_gp_anon_id"
 const COOKIE_USER_ID = "_gp_user_id"
 const COOKIE_SESSION_ID = "_gp_session_id"
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000 // 30 minutes
+const ANALYTICS_FAILURE_ALERT_THROTTLE_MS = 5 * 60 * 1000
 
 let globalContext: Record<string, string> = {
   experience_version: "medusa",
@@ -19,6 +22,7 @@ let globalContext: Record<string, string> = {
 
 let experimentContext: Record<string, any> = {}
 let userTraits: Record<string, any> = {}
+const analyticsFailureAlertLastSeen = new Map<string, number>()
 
 type GpAnalyticsPayload = {
   event: string
@@ -96,6 +100,52 @@ function randomId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`
 }
 
+function eventName(payload: Record<string, any>): string {
+  return String(payload.event_type || payload.event || "unknown").slice(0, 80)
+}
+
+function analyticsFailureReason(input: {
+  status?: number | null
+  stage: "non_2xx" | "request_failed" | "exception"
+}) {
+  if (typeof input.status === "number" && Number.isFinite(input.status)) {
+    return `http_${Math.trunc(input.status)}`
+  }
+  return input.stage
+}
+
+function reportAnalyticsDeliveryFailure(input: {
+  target: "jitsu_classic" | "communications_ingestion" | "gp_analytics"
+  stage: "non_2xx" | "request_failed" | "exception"
+  payload: Record<string, any>
+  status?: number | null
+  error?: unknown
+}) {
+  if (typeof window === "undefined") return
+
+  const reason = analyticsFailureReason({
+    status: input.status,
+    stage: input.stage,
+  })
+  const key = `${input.target}:${input.stage}:${reason}`
+  const now = Date.now()
+  const lastSeen = analyticsFailureAlertLastSeen.get(key) || 0
+  if (now - lastSeen < ANALYTICS_FAILURE_ALERT_THROTTLE_MS) return
+  analyticsFailureAlertLastSeen.set(key, now)
+
+  reportClientOpsAlert({
+    alertKind: "client_analytics_delivery_failed",
+    title: `Storefront analytics delivery failed: ${input.target}`,
+    surface: "analytics_delivery",
+    action: input.target,
+    reason,
+    statusCode: input.status ?? null,
+    target: input.target,
+    eventName: eventName(input.payload),
+    error: input.error,
+  })
+}
+
 // ── Anonymous ID (persists across sessions, 1-year expiry) ──────
 
 function getAnonymousId(): string {
@@ -159,10 +209,33 @@ function sendEvent(payload: Record<string, any>) {
         headers: { "Content-Type": "application/json" },
         body,
         keepalive: true,
-      }).catch(() => {
-        // Silent fail — don't break the app for analytics
       })
-    } catch {
+        .then((res) => {
+          if (res && !res.ok) {
+            reportAnalyticsDeliveryFailure({
+              target: "jitsu_classic",
+              stage: "non_2xx",
+              payload,
+              status: res.status,
+            })
+          }
+        })
+        .catch((error) => {
+          reportAnalyticsDeliveryFailure({
+            target: "jitsu_classic",
+            stage: "request_failed",
+            payload,
+            error,
+          })
+          // Silent fail — don't break the app for analytics
+        })
+    } catch (error) {
+      reportAnalyticsDeliveryFailure({
+        target: "jitsu_classic",
+        stage: "exception",
+        payload,
+        error,
+      })
       // Silent fail
     }
   }
@@ -184,10 +257,33 @@ function sendEvent(payload: Record<string, any>) {
         },
         body,
         keepalive: true,
-      }).catch(() => {
-        // Silent fail — first-party lifecycle capture must not affect UX.
       })
-    } catch {
+        .then((res) => {
+          if (res && !res.ok) {
+            reportAnalyticsDeliveryFailure({
+              target: "communications_ingestion",
+              stage: "non_2xx",
+              payload,
+              status: res.status,
+            })
+          }
+        })
+        .catch((error) => {
+          reportAnalyticsDeliveryFailure({
+            target: "communications_ingestion",
+            stage: "request_failed",
+            payload,
+            error,
+          })
+          // Silent fail — first-party lifecycle capture must not affect UX.
+        })
+    } catch (error) {
+      reportAnalyticsDeliveryFailure({
+        target: "communications_ingestion",
+        stage: "exception",
+        payload,
+        error,
+      })
       // Silent fail
     }
   }
@@ -293,12 +389,30 @@ function sendGpAnalyticsMirror(payload: Record<string, any>) {
             status: res.status,
             statusText: res.statusText,
           })
+          reportAnalyticsDeliveryFailure({
+            target: "gp_analytics",
+            stage: "non_2xx",
+            payload,
+            status: res.status,
+          })
         }
       })
-      .catch(() => {
+      .catch((error) => {
+        reportAnalyticsDeliveryFailure({
+          target: "gp_analytics",
+          stage: "request_failed",
+          payload,
+          error,
+        })
         // Dual-run analytics must never affect storefront UX.
       })
-  } catch {
+  } catch (error) {
+    reportAnalyticsDeliveryFailure({
+      target: "gp_analytics",
+      stage: "exception",
+      payload,
+      error,
+    })
     // Dual-run analytics must never affect storefront UX.
   }
 }

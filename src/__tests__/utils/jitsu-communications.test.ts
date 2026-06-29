@@ -172,6 +172,7 @@ describe("jitsu first-party communications ingestion", () => {
     }).not.toThrow()
 
     await Promise.resolve()
+    await Promise.resolve()
 
     expect(warnSpy).toHaveBeenCalledWith(
       "[gp-analytics] mirror returned non-2xx",
@@ -180,5 +181,62 @@ describe("jitsu first-party communications ingestion", () => {
         statusText: "Service Unavailable",
       }
     )
+
+    const alertCall = (global.fetch as jest.Mock).mock.calls.find(([url]) =>
+      String(url).startsWith("/api/ops-alert")
+    )
+    expect(alertCall).toBeTruthy()
+    const alertBody = JSON.parse(alertCall[1].body)
+    expect(alertBody).toMatchObject({
+      alert_kind: "client_analytics_delivery_failed",
+      severity: "warn",
+      path: "browser:analytics_delivery:gp_analytics",
+      extra: {
+        surface: "analytics_delivery",
+        action: "gp_analytics",
+        reason: "http_503",
+        status_code: 503,
+        target: "gp_analytics",
+        event_name: "cart_viewed",
+      },
+    })
+    expect(JSON.stringify(alertBody)).not.toContain("cart_123")
+  })
+
+  it("alerts without throwing when communications ingestion returns non-2xx", async () => {
+    ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: false,
+      status: 502,
+      statusText: "Bad Gateway",
+    })
+
+    expect(() => {
+      jitsuTrack("checkout_started", {
+        cart_id: "cart_sensitive",
+      })
+    }).not.toThrow()
+
+    await Promise.resolve()
+    await Promise.resolve()
+
+    const alertCall = (global.fetch as jest.Mock).mock.calls.find(([url]) =>
+      String(url).startsWith("/api/ops-alert")
+    )
+    expect(alertCall).toBeTruthy()
+    const alertBody = JSON.parse(alertCall[1].body)
+    expect(alertBody).toMatchObject({
+      alert_kind: "client_analytics_delivery_failed",
+      severity: "warn",
+      path: "browser:analytics_delivery:communications_ingestion",
+      extra: {
+        surface: "analytics_delivery",
+        action: "communications_ingestion",
+        reason: "http_502",
+        status_code: 502,
+        target: "communications_ingestion",
+        event_name: "checkout_started",
+      },
+    })
+    expect(JSON.stringify(alertBody)).not.toContain("cart_sensitive")
   })
 })

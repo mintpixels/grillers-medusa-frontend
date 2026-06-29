@@ -35,6 +35,9 @@ describe("browser ops alert allow-map", () => {
     expect(isAllowedBrowserOpsAlert("client_unhandled_error")).toBe(true)
     expect(isAllowedBrowserOpsAlert("client_unhandledrejection")).toBe(true)
     expect(isAllowedBrowserOpsAlert("client_add_to_cart_failed")).toBe(true)
+    expect(isAllowedBrowserOpsAlert("client_analytics_delivery_failed")).toBe(
+      true
+    )
     expect(isAllowedBrowserOpsAlert("client_cart_mutation_failed")).toBe(true)
     expect(isAllowedBrowserOpsAlert("client_profile_action_failed")).toBe(true)
     expect(isAllowedBrowserOpsAlert("client_search_provider_failed")).toBe(true)
@@ -53,6 +56,9 @@ describe("severity clamping", () => {
     expect(resolveAlertSeverity("client_search_provider_failed", "page")).toBe(
       "warn"
     )
+    expect(
+      resolveAlertSeverity("client_analytics_delivery_failed", "page")
+    ).toBe("warn")
     expect(resolveAlertSeverity("staff_module_load_failed", "page")).toBe(
       "warn"
     )

@@ -22,6 +22,7 @@ const ALLOWED_ALERTS: Record<string, OpsAlertSeverity> = {
   client_unhandled_error: "warn",
   client_unhandledrejection: "warn",
   client_add_to_cart_failed: "warn",
+  client_analytics_delivery_failed: "warn",
   client_cart_mutation_failed: "warn",
   client_profile_action_failed: "warn",
   client_search_provider_failed: "warn",
