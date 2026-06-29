@@ -206,4 +206,78 @@ describe("back-in-stock alerting", () => {
       })
     )
   })
+
+  it("surfaces Medusa inventory lookup failures in the cron summary without sending notifications", async () => {
+    process.env.MEDUSA_BACKEND_URL = "https://medusa.example.com"
+    process.env.MEDUSA_ADMIN_API_TOKEN = "admin-token"
+    global.fetch = jest.fn(async (url: string) => {
+      const href = String(url)
+      if (href.startsWith("https://medusa.example.com/admin/products")) {
+        return {
+          ok: false,
+          status: 503,
+          statusText: "Service Unavailable",
+          text: async () => "inventory unavailable for shopper@example.com",
+        }
+      }
+      if (
+        href.startsWith(
+          "https://strapi.example.com/api/back-in-stock-requests"
+        ) &&
+        href.includes("%24notNull")
+      ) {
+        return {
+          ok: true,
+          json: async () => ({ data: [] }),
+        }
+      }
+      if (
+        href.startsWith(
+          "https://strapi.example.com/api/back-in-stock-requests"
+        )
+      ) {
+        return {
+          ok: true,
+          json: async () => ({
+            data: [
+              {
+                documentId: "bis_doc_7",
+                Email: "shopper@example.com",
+                MedusaProductId: "prod_123",
+                MedusaVariantId: "variant_123",
+                ProductHandle: "first-cut-brisket",
+                ProductTitle: "First Cut Brisket",
+                Sku: "10-01-01",
+                UnsubscribeToken: "token_123",
+                NotifiedAt: null,
+                UnsubscribedAt: null,
+              },
+            ],
+            meta: { pagination: { pageCount: 1 } },
+          }),
+        }
+      }
+      throw new Error(`unexpected fetch ${href}`)
+    }) as any
+
+    const { runBackInStockTrigger } = await import(
+      "@lib/data/back-in-stock-trigger"
+    )
+    const summary = await runBackInStockTrigger()
+
+    expect(summary).toMatchObject({
+      ok: true,
+      productsConsidered: 1,
+      productsBackInStock: 0,
+      subscribersNotified: 0,
+      subscribersFailed: 0,
+    })
+    expect(summary.errors).toHaveLength(1)
+    expect(summary.errors[0]).toContain(
+      "Medusa /admin/products inventory batch failed (503)"
+    )
+    expect(JSON.stringify(summary.errors)).not.toContain("shopper@example.com")
+    expect(sendTemplatedEmailMock).not.toHaveBeenCalled()
+    expect(trackCommunicationEventMock).not.toHaveBeenCalled()
+  })
 })

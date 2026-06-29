@@ -77,6 +77,11 @@ type MedusaProductInventory = {
   >
 }
 
+type MedusaInventoryLookupResult = {
+  inventory: Map<string, MedusaProductInventory>
+  failures: string[]
+}
+
 export type TriggerSummary = {
   ok: boolean
   productsConsidered: number
@@ -109,6 +114,21 @@ async function strapiPut(path: string, body: unknown): Promise<void> {
   if (!res.ok) {
     throw new Error(`Strapi PUT ${path} ${res.status}: ${await res.text()}`)
   }
+}
+
+function redactedFailureText(value: unknown): string {
+  const raw =
+    value instanceof Error
+      ? value.message
+      : typeof value === "string"
+        ? value
+        : String(value || "")
+
+  return raw
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[email]")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 300)
 }
 
 async function fetchPendingRequests(): Promise<StrapiBackInStockRequest[]> {
@@ -150,9 +170,10 @@ async function fetchPendingRequests(): Promise<StrapiBackInStockRequest[]> {
 
 async function fetchMedusaProductInventory(
   productIds: string[]
-): Promise<Map<string, MedusaProductInventory>> {
+): Promise<MedusaInventoryLookupResult> {
   const out = new Map<string, MedusaProductInventory>()
-  if (!MEDUSA || productIds.length === 0) return out
+  const failures: string[] = []
+  if (!MEDUSA || productIds.length === 0) return { inventory: out, failures }
 
   // Medusa admin lookup. Falls back to publishable-key store API if the
   // admin token is missing — that path can't see draft/archived products
@@ -181,19 +202,31 @@ async function fetchMedusaProductInventory(
     })
     qs.delete("id[]")
     batch.forEach((id) => qs.append("id[]", id))
-    const res = await fetch(`${MEDUSA}${root}?${qs.toString()}`, {
-      headers,
-      cache: "no-store",
-    })
-    if (!res.ok) {
-      console.error(
-        `[back-in-stock-trigger] Medusa ${root} ${res.status}: ${(
-          await res.text()
-        ).slice(0, 200)}`
-      )
+    let data: any
+    try {
+      const res = await fetch(`${MEDUSA}${root}?${qs.toString()}`, {
+        headers,
+        cache: "no-store",
+      })
+      if (!res.ok) {
+        const body = await res.text().catch(() => res.statusText)
+        const message = redactedFailureText(
+          `Medusa ${root} inventory batch failed (${res.status}): ${body}`
+        )
+        console.error(`[back-in-stock-trigger] ${message}`)
+        failures.push(message)
+        continue
+      }
+      data = await res.json()
+    } catch (err) {
+      const message = `Medusa ${root} inventory batch threw: ${
+        err instanceof Error ? err.message : String(err)
+      }`
+      const safeMessage = redactedFailureText(message)
+      console.error(`[back-in-stock-trigger] ${safeMessage}`)
+      failures.push(safeMessage)
       continue
     }
-    const data = await res.json()
     const products = (data.products || []) as Array<{
       id: string
       status?: string
@@ -256,7 +289,7 @@ async function fetchMedusaProductInventory(
       })
     }
   }
-  return out
+  return { inventory: out, failures }
 }
 
 async function fetchRecentNotifications(
@@ -373,10 +406,12 @@ export async function runBackInStockTrigger(): Promise<TriggerSummary> {
     summary.productsConsidered = byProduct.size
 
     const productIds = Array.from(byProduct.keys())
-    const [inventory, lastNotified] = await Promise.all([
+    const [inventoryResult, lastNotified] = await Promise.all([
       fetchMedusaProductInventory(productIds),
       fetchRecentNotifications(productIds),
     ])
+    const inventory = inventoryResult.inventory
+    summary.errors.push(...inventoryResult.failures)
 
     const now = Date.now()
 

@@ -55,10 +55,16 @@ describe("planBackInStockAlert", () => {
   })
 
   it("warns when non-fatal errors accumulated", () => {
-    const plan = planBackInStockAlert({ ...base, errors: ["strapi 500"] })
+    const plan = planBackInStockAlert({
+      ...base,
+      errors: ["strapi 500 for shopper@example.com"],
+    })
     expect(plan!.severity).toBe("warn")
+    expect(plan!.title).toBe(
+      "cron back-in-stock-trigger degraded: 1 non-fatal error(s)"
+    )
     expect(plan!.meta.error_count).toBe(1)
-    expect(plan!.meta.errors_sample).toEqual(["strapi 500"])
+    expect(plan!.meta.errors_sample).toEqual(["strapi 500 for [email]"])
   })
 
   it("pages on a top-level failure (ok:false)", () => {

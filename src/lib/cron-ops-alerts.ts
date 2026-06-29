@@ -58,6 +58,16 @@ export type BackInStockSummaryLike = {
   errors: string[]
 }
 
+function redactedErrorSample(errors: string[]) {
+  return errors.slice(0, 5).map((error) =>
+    String(error || "")
+      .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[email]")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 300)
+  )
+}
+
 /**
  * Page when the run hard-failed at the top level (`ok:false`) — nothing was
  * processed. Warn when individual subscribers failed (a customer who asked to
@@ -76,7 +86,9 @@ export function planBackInStockAlert(
   const severity: OpsAlertSeverity = totalFailure ? "page" : "warn"
   const title = totalFailure
     ? "cron back-in-stock-trigger failed (top-level error)"
-    : `cron back-in-stock-trigger degraded: ${summary.subscribersFailed} subscriber send(s) failed`
+    : hasFailures
+      ? `cron back-in-stock-trigger degraded: ${summary.subscribersFailed} subscriber send(s) failed`
+      : `cron back-in-stock-trigger degraded: ${summary.errors.length} non-fatal error(s)`
 
   return {
     alertKind: "cron_back_in_stock_failed",
@@ -90,8 +102,8 @@ export function planBackInStockAlert(
       subscribers_notified: summary.subscribersNotified,
       subscribers_failed: summary.subscribersFailed,
       error_count: summary.errors.length,
-      // Cap to keep the event small; full errors are in cron logs.
-      errors_sample: summary.errors.slice(0, 5),
+      // Cap and redact to keep Slack-safe; full errors remain in cron logs.
+      errors_sample: redactedErrorSample(summary.errors),
     },
   }
 }
