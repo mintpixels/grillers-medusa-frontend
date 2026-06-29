@@ -10,6 +10,7 @@ type WholesaleInquiryFailureStage =
 
 type BackInStockCaptureFailureStage =
   | "configuration"
+  | "dedupe_lookup"
   | "strapi_persist"
   | "confirmation_email"
 

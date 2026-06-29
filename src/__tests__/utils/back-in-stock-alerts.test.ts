@@ -95,6 +95,66 @@ describe("back-in-stock alerting", () => {
     )
   })
 
+  it("alerts but keeps capture fail-open when duplicate lookup fails", async () => {
+    global.fetch = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 503,
+        statusText: "Service Unavailable",
+        json: async () => ({ error: "lookup unavailable" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ data: { id: 7, documentId: "bis_doc_7" } }),
+      }) as any
+    sendTemplatedEmailMock.mockResolvedValue({
+      ok: true,
+      messageId: "msg_123",
+    })
+
+    const result = await requestBackInStockNotification({
+      email: "shopper@example.com",
+      medusaProductId: "prod_123",
+      medusaVariantId: "variant_123",
+      productHandle: "first-cut-brisket",
+      productTitle: "First Cut Brisket",
+      sku: "10-01-01",
+      source: "pdp",
+    })
+
+    expect(result).toEqual({ ok: true })
+    expect(sendTemplatedEmailMock).toHaveBeenCalled()
+    expect(trackCommunicationEventMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event_name: "waitlist_joined",
+        properties: expect.objectContaining({
+          confirmation_email_sent: true,
+          strapi_id: "bis_doc_7",
+        }),
+      })
+    )
+    expect(emitStorefrontOpsAlertMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        alertKind: "back_in_stock_capture_failed",
+        fingerprint: "back_in_stock:dedupe_lookup:503",
+        meta: expect.objectContaining({
+          stage: "dedupe_lookup",
+          status: 503,
+          medusa_product_id: "prod_123",
+          medusa_variant_id: "variant_123",
+          product_handle: "first-cut-brisket",
+          sku: "10-01-01",
+          source: "pdp",
+          waitlist_reason: "out_of_stock",
+        }),
+      })
+    )
+    expect(JSON.stringify(emitStorefrontOpsAlertMock.mock.calls)).not.toContain(
+      "shopper@example.com"
+    )
+  })
+
   it("alerts but keeps the subscriber saved when confirmation email fails", async () => {
     global.fetch = jest
       .fn()

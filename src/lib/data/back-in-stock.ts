@@ -141,7 +141,13 @@ async function persistToStrapi(payload: {
 async function hasActiveSubscription(
   email: string,
   medusaProductId: string,
-  medusaVariantId?: string
+  medusaVariantId: string | undefined,
+  context: {
+    productHandle: string
+    sku?: string
+    source: "pdp" | "side_cart" | "search"
+    waitlistReason: "out_of_stock" | "allocated_out" | "future_unavailable"
+  }
 ): Promise<boolean> {
   const STRAPI_BASE = strapiBase()
   const STRAPI_API_TOKEN = strapiApiToken()
@@ -165,10 +171,33 @@ async function hasActiveSubscription(
         : {},
       cache: "no-store",
     })
-    if (!res.ok) return false
+    if (!res.ok) {
+      await emitBackInStockCaptureFailureAlert({
+        stage: "dedupe_lookup",
+        status: res.status,
+        statusText: res.statusText,
+        medusaProductId,
+        medusaVariantId,
+        productHandle: context.productHandle,
+        sku: context.sku,
+        source: context.source,
+        waitlistReason: context.waitlistReason,
+      })
+      return false
+    }
     const json = (await res.json()) as { data?: unknown[] }
     return Array.isArray(json.data) && json.data.length > 0
-  } catch {
+  } catch (error) {
+    await emitBackInStockCaptureFailureAlert({
+      stage: "dedupe_lookup",
+      error,
+      medusaProductId,
+      medusaVariantId,
+      productHandle: context.productHandle,
+      sku: context.sku,
+      source: context.source,
+      waitlistReason: context.waitlistReason,
+    })
     return false
   }
 }
@@ -212,7 +241,13 @@ export async function requestBackInStockNotification(input: {
     await hasActiveSubscription(
       email,
       input.medusaProductId,
-      input.medusaVariantId
+      input.medusaVariantId,
+      {
+        productHandle: input.productHandle,
+        sku: input.sku,
+        source: input.source ?? "pdp",
+        waitlistReason: input.waitlistReason || "out_of_stock",
+      }
     )
   ) {
     return { ok: true }
