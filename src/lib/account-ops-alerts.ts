@@ -60,6 +60,11 @@ function shouldAlertPasswordLifecycleFailure(error: unknown): boolean {
   return status === null || status === 429 || status >= 500
 }
 
+function shouldAlertInvoiceApplicationFailure(error: unknown): boolean {
+  const status = errorStatus(error)
+  return status === null || status === 404 || status === 429 || status >= 500
+}
+
 export function reportAuthenticatedCustomerLoadFailure(error: unknown): void {
   if (isExpectedCustomerAuthDenial(error)) return
 
@@ -222,6 +227,48 @@ export function reportCustomerAddressMutationFailure(input: {
     },
   }).catch(() => {
     // Fail-open: address forms and checkout should not depend on alert delivery.
+  })
+}
+
+export function reportInvoiceApplicationFailure(input: {
+  stage: "auth_headers" | "application_submit"
+  error: unknown
+  hasAuth?: boolean
+  hasTaxId?: boolean
+  hasRequestedCreditLimit?: boolean
+  hasNotes?: boolean
+  methodCount?: number
+}): void {
+  if (!shouldAlertInvoiceApplicationFailure(input.error)) return
+
+  const status = errorStatus(input.error)
+
+  void emitStorefrontOpsAlert({
+    alertKind: "invoice_application_failed",
+    severity: "warn",
+    title: "Invoice terms application failed",
+    path: "src/lib/data/invoice-applications.ts:submitInvoiceApplication",
+    source: "storefront-server",
+    fingerprint: `invoice_application_failed:${input.stage}:${
+      status || "transport"
+    }`,
+    meta: {
+      account_surface: "invoice_application",
+      route_dependency:
+        input.stage === "application_submit"
+          ? "/store/grillers/invoice-applications"
+          : "storefront auth headers",
+      failure_stage: input.stage,
+      response_status: status,
+      has_auth: Boolean(input.hasAuth),
+      has_tax_id: Boolean(input.hasTaxId),
+      has_requested_credit_limit: Boolean(input.hasRequestedCreditLimit),
+      has_notes: Boolean(input.hasNotes),
+      method_count: Math.max(0, Math.min(input.methodCount || 0, 12)),
+      error_message: redactedErrorMessage(input.error),
+    },
+  }).catch(() => {
+    // Fail-open: application form behavior should not depend on alert delivery.
   })
 }
 

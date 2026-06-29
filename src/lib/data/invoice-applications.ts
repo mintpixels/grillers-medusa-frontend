@@ -2,6 +2,7 @@
 
 import { sdk } from "@lib/config"
 import { getAuthHeaders } from "@lib/data/cookies"
+import { reportInvoiceApplicationFailure } from "@lib/account-ops-alerts"
 
 /**
  * #279 / #291 — self-serve B2B "pay by invoice" application.
@@ -33,12 +34,21 @@ export async function submitInvoiceApplication(
     }
   }
 
-  const headers = { ...(await getAuthHeaders()) }
-  if (!("authorization" in headers)) {
-    return { success: false, error: "Please sign in to apply for invoice terms." }
-  }
+  let hasAuth = false
+  let stage: "auth_headers" | "application_submit" = "auth_headers"
 
   try {
+    stage = "auth_headers"
+    const headers = { ...(await getAuthHeaders()) }
+    hasAuth = Boolean(headers.authorization)
+    if (!("authorization" in headers)) {
+      return {
+        success: false,
+        error: "Please sign in to apply for invoice terms.",
+      }
+    }
+
+    stage = "application_submit"
     await sdk.client.fetch<{ status?: string }>(
       `/store/grillers/invoice-applications`,
       {
@@ -60,6 +70,16 @@ export async function submitInvoiceApplication(
 
     return { success: true, error: null }
   } catch (err: any) {
+    reportInvoiceApplicationFailure({
+      stage,
+      error: err,
+      hasAuth,
+      hasTaxId: Boolean(tax_id),
+      hasRequestedCreditLimit: Boolean(requested_credit_limit),
+      hasNotes: Boolean(notes),
+      methodCount: methods.length,
+    })
+
     return {
       success: false,
       error:
