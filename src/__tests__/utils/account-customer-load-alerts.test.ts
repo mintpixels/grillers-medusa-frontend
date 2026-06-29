@@ -1,17 +1,25 @@
 jest.mock("server-only", () => ({}))
 
 import { sdk } from "@lib/config"
-import { getAuthHeaders } from "@lib/data/cookies"
+import { getAuthHeaders, getCacheTag, getCartId } from "@lib/data/cookies"
 import {
   requestPasswordReset,
   retrieveAuthenticatedCustomer,
+  saveCartAddressesToAccount,
 } from "@lib/data/customer"
 import { emitStorefrontOpsAlert } from "@lib/ops-alert"
+import { revalidateTag } from "next/cache"
 
 jest.mock("@lib/config", () => ({
   sdk: {
     client: {
       fetch: jest.fn(),
+    },
+    store: {
+      customer: {
+        createAddress: jest.fn(),
+        retrieve: jest.fn(),
+      },
     },
   },
 }))
@@ -42,11 +50,22 @@ jest.mock("next/navigation", () => ({
 const mockGetAuthHeaders = getAuthHeaders as jest.MockedFunction<
   typeof getAuthHeaders
 >
+const mockGetCacheTag = getCacheTag as jest.MockedFunction<typeof getCacheTag>
+const mockGetCartId = getCartId as jest.MockedFunction<typeof getCartId>
 const mockSdkFetch = sdk.client.fetch as jest.MockedFunction<
   typeof sdk.client.fetch
 >
+const mockCreateAddress = sdk.store.customer.createAddress as jest.MockedFunction<
+  typeof sdk.store.customer.createAddress
+>
+const mockRetrieveCustomer = sdk.store.customer.retrieve as jest.MockedFunction<
+  typeof sdk.store.customer.retrieve
+>
 const mockEmitStorefrontOpsAlert =
   emitStorefrontOpsAlert as jest.MockedFunction<typeof emitStorefrontOpsAlert>
+const mockRevalidateTag = revalidateTag as jest.MockedFunction<
+  typeof revalidateTag
+>
 
 describe("authenticated customer load alerts", () => {
   const originalFetch = global.fetch
@@ -218,5 +237,88 @@ describe("password reset request alerts", () => {
     await requestPasswordReset("not-an-email")
 
     expect(mockEmitStorefrontOpsAlert).not.toHaveBeenCalled()
+  })
+})
+
+describe("cart address persistence alerts", () => {
+  beforeEach(() => {
+    jest.clearAllMocks()
+    mockGetAuthHeaders.mockResolvedValue({ authorization: "Bearer test" } as any)
+    mockGetCacheTag.mockResolvedValue("customers")
+    mockGetCartId.mockResolvedValue("cart_123")
+    mockSdkFetch.mockResolvedValue({
+      cart: {
+        shipping_address: {
+          first_name: "Shopper",
+          last_name: "Example",
+          address_1: "1 Main St",
+          city: "Atlanta",
+          province: "GA",
+          postal_code: "30328",
+          country_code: "us",
+          phone: "(404) 555-1212",
+        },
+        billing_address: null,
+      },
+    } as any)
+    mockRetrieveCustomer.mockResolvedValue({
+      customer: { addresses: [] },
+    } as any)
+    mockCreateAddress.mockResolvedValue({} as any)
+  })
+
+  it("does not alert when there is no cart address to persist", async () => {
+    mockGetCartId.mockResolvedValueOnce(undefined)
+
+    await saveCartAddressesToAccount()
+
+    expect(mockSdkFetch).not.toHaveBeenCalled()
+    expect(mockEmitStorefrontOpsAlert).not.toHaveBeenCalled()
+  })
+
+  it("saves the shipping address without alerting when dependencies succeed", async () => {
+    await saveCartAddressesToAccount()
+
+    expect(mockCreateAddress).toHaveBeenCalledWith(
+      expect.objectContaining({
+        address_1: "1 Main St",
+        phone: "4045551212",
+        is_default_shipping: true,
+        is_default_billing: true,
+      }),
+      {},
+      expect.objectContaining({ authorization: "Bearer test" })
+    )
+    expect(mockRevalidateTag).toHaveBeenCalledWith("customers")
+    expect(mockEmitStorefrontOpsAlert).not.toHaveBeenCalled()
+  })
+
+  it("alerts and redacts when saving the cart address fails", async () => {
+    mockCreateAddress.mockRejectedValueOnce(
+      new Error("Medusa failed for shopper@example.com cus_123")
+    )
+
+    await saveCartAddressesToAccount()
+
+    expect(mockEmitStorefrontOpsAlert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        alertKind: "account_cart_address_persist_failed",
+        severity: "warn",
+        title: "Cart address was not saved to customer account",
+        path: "src/lib/data/customer.ts:saveCartAddressesToAccount",
+        source: "storefront-server",
+        fingerprint:
+          "account_cart_address_persist_failed:shipping_address_create",
+        meta: expect.objectContaining({
+          account_surface: "signup_cart_address_persistence",
+          stage: "shipping_address_create",
+          cart_id: "cart_123",
+          has_shipping_address: true,
+          attempted_shipping_address: true,
+          attempted_billing_address: false,
+          error_message: "Medusa failed for [redacted-email] [redacted-id]",
+        }),
+      })
+    )
   })
 })

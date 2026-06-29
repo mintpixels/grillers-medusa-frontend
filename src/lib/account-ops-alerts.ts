@@ -88,3 +88,38 @@ export async function reportPasswordResetRequestFailure(input: {
     // Fail-open: password reset UX intentionally preserves a neutral response.
   }
 }
+
+export function reportCartAddressPersistenceFailure(input: {
+  stage:
+    | "auth_headers"
+    | "cart_lookup"
+    | "customer_lookup"
+    | "shipping_address_create"
+    | "billing_address_create"
+    | "cache_revalidate"
+  error: unknown
+  cartId?: string | null
+  hasShippingAddress?: boolean
+  attemptedShippingAddress?: boolean
+  attemptedBillingAddress?: boolean
+}): void {
+  void emitStorefrontOpsAlert({
+    alertKind: "account_cart_address_persist_failed",
+    severity: "warn",
+    title: "Cart address was not saved to customer account",
+    path: "src/lib/data/customer.ts:saveCartAddressesToAccount",
+    source: "storefront-server",
+    fingerprint: `account_cart_address_persist_failed:${input.stage}`,
+    meta: {
+      account_surface: "signup_cart_address_persistence",
+      stage: input.stage,
+      cart_id: input.cartId || null,
+      has_shipping_address: Boolean(input.hasShippingAddress),
+      attempted_shipping_address: Boolean(input.attemptedShippingAddress),
+      attempted_billing_address: Boolean(input.attemptedBillingAddress),
+      error_message: redactedErrorMessage(input.error),
+    },
+  }).catch(() => {
+    // Fail-open: first checkout/signup must not depend on alert delivery.
+  })
+}

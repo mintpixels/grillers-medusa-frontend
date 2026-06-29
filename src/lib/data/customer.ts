@@ -14,6 +14,7 @@ import {
 } from "@lib/util/sms-consent"
 import { canUseOfficeConsole, isStaffCustomer } from "@lib/util/staff-access"
 import {
+  reportCartAddressPersistenceFailure,
   reportAuthenticatedCustomerLoadFailure,
   reportPasswordResetRequestFailure,
 } from "@lib/account-ops-alerts"
@@ -54,16 +55,30 @@ import {
  * country_code, normalized). Marks the first inserted address as default
  * shipping/billing only when the address book is currently empty.
  */
-async function saveCartAddressesToAccount(): Promise<void> {
+export async function saveCartAddressesToAccount(): Promise<void> {
+  let stage:
+    | "auth_headers"
+    | "cart_lookup"
+    | "customer_lookup"
+    | "shipping_address_create"
+    | "billing_address_create"
+    | "cache_revalidate" = "cart_lookup"
+  let cartId: string | null = null
+  let hasShippingAddress = false
+  let attemptedShippingAddress = false
+  let attemptedBillingAddress = false
+
   try {
-    const cartId = await getCartId()
+    cartId = (await getCartId()) || null
     if (!cartId) return
 
+    stage = "auth_headers"
     const headers = { ...(await getAuthHeaders()) }
     if (!("authorization" in headers) || !(headers as any).authorization) return
 
     // Pull the cart fresh — the auth context just changed, so go direct
     // (no-cache) rather than reusing a possibly-stale cached response.
+    stage = "cart_lookup"
     const { cart } = await sdk.client.fetch<HttpTypes.StoreCartResponse>(
       `/store/carts/${cartId}`,
       {
@@ -74,13 +89,17 @@ async function saveCartAddressesToAccount(): Promise<void> {
     )
 
     const shipping = cart?.shipping_address
+    hasShippingAddress = Boolean(shipping?.address_1)
     if (!shipping?.address_1) return
 
+    stage = "customer_lookup"
     const { customer } = await sdk.store.customer.retrieve({}, headers)
     const existing: any[] = customer?.addresses || []
     const isFirstAddress = existing.length === 0
 
     if (!existing.some((a) => isSameAddressKey(a, shipping))) {
+      stage = "shipping_address_create"
+      attemptedShippingAddress = true
       await sdk.store.customer.createAddress(
         {
           first_name: shipping.first_name || "",
@@ -109,6 +128,8 @@ async function saveCartAddressesToAccount(): Promise<void> {
       !isSameAddressKey(billing, shipping) &&
       !existing.some((a) => isSameAddressKey(a, billing))
     ) {
+      stage = "billing_address_create"
+      attemptedBillingAddress = true
       await sdk.store.customer.createAddress(
         {
           first_name: billing.first_name || "",
@@ -127,11 +148,20 @@ async function saveCartAddressesToAccount(): Promise<void> {
       )
     }
 
+    stage = "cache_revalidate"
     const customerCacheTag = await getCacheTag("customers")
     revalidateTag(customerCacheTag)
-  } catch {
+  } catch (error) {
     // Non-critical — never block account creation or order completion if
     // saving the address to the book fails.
+    reportCartAddressPersistenceFailure({
+      stage,
+      error,
+      cartId,
+      hasShippingAddress,
+      attemptedShippingAddress,
+      attemptedBillingAddress,
+    })
   }
 }
 
