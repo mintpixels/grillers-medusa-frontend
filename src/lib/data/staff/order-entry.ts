@@ -46,6 +46,10 @@ export type StaffCustomerSummary = {
   lastName: string
   phone: string
   company: string
+  qbdCustomerType: string
+  alternateContactName: string
+  alternateContactPhone: string
+  alternateContactPhoneType: "" | "mobile" | "landline"
   defaultAddress?: StaffAddressInput
   accountClaimStatus?: string
   accountClaimMessage?: string
@@ -359,6 +363,109 @@ function appendAuditLog(
   }
 }
 
+function metadataObject(value: unknown): AnyRecord {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as AnyRecord)
+    : {}
+}
+
+function cleanQbdCustomerType(value?: string): string {
+  return metadataText(value)?.slice(0, 100) || ""
+}
+
+function qbdCustomerTypeFromMetadata(metadata: AnyRecord): string {
+  const explicit =
+    metadata.gp_qbd_customer_type ||
+    metadata.qbd_customer_type ||
+    metadata.qb_customer_type ||
+    metadata.quickbooks_customer_type
+
+  return cleanQbdCustomerType(String(explicit || ""))
+}
+
+function splitAlternateContactName(value?: string) {
+  const name = metadataText(value) || ""
+  if (!name) return { firstName: "", lastName: "" }
+
+  const parts = name.split(/\s+/).filter(Boolean)
+  if (parts.length === 1) return { firstName: parts[0], lastName: "" }
+
+  return {
+    firstName: parts.slice(0, -1).join(" "),
+    lastName: parts[parts.length - 1],
+  }
+}
+
+function alternateContactNameFromMetadata(metadata: AnyRecord): string {
+  const alt = metadataObject(metadata.gp_alt_contact)
+  return [alt.first_name, alt.last_name]
+    .map((part) => String(part || "").trim())
+    .filter(Boolean)
+    .join(" ")
+}
+
+function alternateContactPhoneTypeFromMetadata(
+  metadata: AnyRecord
+): "" | "mobile" | "landline" {
+  const alt = metadataObject(metadata.gp_alt_contact)
+  if (alt.is_mobile === true) return "mobile"
+  if (alt.is_mobile === false) return "landline"
+
+  const lineType = String(alt.phone_line_type || alt.line_type || "")
+    .trim()
+    .toLowerCase()
+  if (lineType === "mobile" || lineType === "landline") return lineType
+
+  return ""
+}
+
+function customerProfileExtraMetadata(input: {
+  qbdCustomerType?: string
+  alternateContactName?: string
+  alternateContactPhone?: string
+  alternateContactPhoneType?: "" | "mobile" | "landline"
+}): AnyRecord {
+  const qbdCustomerType = cleanQbdCustomerType(input.qbdCustomerType)
+  const altName = metadataText(input.alternateContactName) || ""
+  const altPhone = input.alternateContactPhone
+    ? stripPhone(input.alternateContactPhone)
+    : ""
+  const altPhoneType = input.alternateContactPhoneType || ""
+
+  if (altPhone && altPhone.length !== 10) {
+    throw new Error(
+      "Enter a complete, valid 10-digit alternate contact phone number."
+    )
+  }
+  if (altPhone && altPhoneType !== "mobile" && altPhoneType !== "landline") {
+    throw new Error(
+      "Choose whether the alternate contact number is mobile or landline."
+    )
+  }
+
+  const altNameParts = splitAlternateContactName(altName)
+
+  return {
+    gp_qbd_customer_type: qbdCustomerType,
+    qbd_customer_type: qbdCustomerType,
+    gp_alt_contact:
+      altName || altPhone
+        ? {
+            first_name: altNameParts.firstName || null,
+            last_name: altNameParts.lastName || null,
+            email: null,
+            phone: altPhone || null,
+            is_mobile:
+              altPhoneType === "mobile"
+                ? true
+                : altPhoneType === "landline"
+                ? false
+                : null,
+          }
+        : null,
+  }
+}
+
 function toStoreAddress(address: StaffAddressInput): AnyRecord {
   return {
     first_name: address.firstName,
@@ -382,6 +489,8 @@ function customerSummary(
     customer.addresses?.find((addr: AnyRecord) => addr.is_default_shipping) ||
     customer.addresses?.[0] ||
     customer.shipping_address
+  const metadata = metadataObject(customer.metadata)
+  const altContact = metadataObject(metadata.gp_alt_contact)
 
   return {
     id: customer.id,
@@ -390,6 +499,10 @@ function customerSummary(
     lastName: customer.last_name || "",
     phone: customer.phone || defaultAddress?.phone || "",
     company: customer.company_name || defaultAddress?.company || "",
+    qbdCustomerType: qbdCustomerTypeFromMetadata(metadata),
+    alternateContactName: alternateContactNameFromMetadata(metadata),
+    alternateContactPhone: String(altContact.phone || ""),
+    alternateContactPhoneType: alternateContactPhoneTypeFromMetadata(metadata),
     defaultAddress: toStaffAddress(defaultAddress),
     accountClaimStatus: customer.metadata?.account_claim_status || "",
     accountClaimMessage:
@@ -438,6 +551,10 @@ function legacyOrderCustomerSummary(
     lastName: fallbackName.lastName,
     phone: "",
     company: "",
+    qbdCustomerType: "",
+    alternateContactName: "",
+    alternateContactPhone: "",
+    alternateContactPhoneType: "",
     source: "legacy_order",
     matchedLegacyOrderId: order.id,
     matchedLegacyOrderDisplayId:
@@ -1155,6 +1272,10 @@ export async function createStaffCustomer(input: {
   lastName: string
   phone?: string
   company?: string
+  qbdCustomerType?: string
+  alternateContactName?: string
+  alternateContactPhone?: string
+  alternateContactPhoneType?: "" | "mobile" | "landline"
   defaultAddress?: StaffAddressInput
   sendAccountInvite?: boolean
   smsMarketingOptIn?: boolean
@@ -1174,6 +1295,7 @@ export async function createStaffCustomer(input: {
       "Enter a valid 10-digit phone number before opting the customer into texts."
     )
   }
+  const profileMetadata = customerProfileExtraMetadata(input)
   if (defaultAddress) {
     validateAddress(defaultAddress, "New customer address")
   }
@@ -1221,6 +1343,7 @@ export async function createStaffCustomer(input: {
       : await sendAccountClaimReset(email)
   let metadata: AnyRecord = {
     ...(customer.metadata || {}),
+    ...profileMetadata,
     source: "staff_phone_order",
     created_by_staff_customer_id: staff.id,
     created_by_staff_email: staff.email,
@@ -1256,6 +1379,8 @@ export async function createStaffCustomer(input: {
     targetCustomerEmail: email,
     accountClaimStatus: metadata.account_claim_status,
     smsMarketingOptIn: Boolean(input.smsMarketingOptIn),
+    qbdCustomerType: profileMetadata.gp_qbd_customer_type,
+    hasAlternateContact: Boolean(profileMetadata.gp_alt_contact),
     source: "staff_phone_order_create",
   })
   if (defaultAddress) {
@@ -1415,11 +1540,16 @@ export async function updateStaffCustomerProfile(input: {
   lastName: string
   phone?: string
   company?: string
+  qbdCustomerType?: string
+  alternateContactName?: string
+  alternateContactPhone?: string
+  alternateContactPhoneType?: "" | "mobile" | "landline"
 }): Promise<{ ok: boolean; customer?: StaffCustomerContext; error?: string }> {
   try {
     const staff = await requireStaff()
     if (!input.customerId) throw new Error("Missing customer ID.")
     const email = validateEmail(input.email)
+    const profileMetadata = customerProfileExtraMetadata(input)
 
     const current = await adminFetch<{ customer: AnyRecord }>(
       `/admin/customers/${input.customerId}`,
@@ -1434,12 +1564,20 @@ export async function updateStaffCustomerProfile(input: {
         last_name: input.lastName.trim(),
         phone: input.phone ? stripPhone(input.phone) : "",
         company_name: metadataText(input.company) || "",
-        metadata: appendAuditLog(current.customer?.metadata, {
-          type: "staff_customer_profile_update",
-          staffCustomerId: staff.id,
-          staffEmail: staff.email,
-          targetCustomerId: input.customerId,
-        }),
+        metadata: appendAuditLog(
+          {
+            ...(current.customer?.metadata || {}),
+            ...profileMetadata,
+          },
+          {
+            type: "staff_customer_profile_update",
+            staffCustomerId: staff.id,
+            staffEmail: staff.email,
+            targetCustomerId: input.customerId,
+            qbdCustomerType: profileMetadata.gp_qbd_customer_type,
+            hasAlternateContact: Boolean(profileMetadata.gp_alt_contact),
+          }
+        ),
       }),
     })
 

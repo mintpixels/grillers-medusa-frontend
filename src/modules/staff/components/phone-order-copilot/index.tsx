@@ -125,7 +125,22 @@ type DraftCustomer = {
   lastName: string
   phone: string
   company: string
+  qbdCustomerType: string
+  alternateContactName: string
+  alternateContactPhone: string
+  alternateContactPhoneType: "" | "mobile" | "landline"
 }
+
+const qbdCustomerTypeOptions = [
+  { value: "", label: "Not set" },
+  { value: "Local", label: "Local" },
+  { value: "Shipping", label: "Shipping" },
+  { value: "PlantPickup", label: "Plant pickup" },
+  { value: "RouteMemphis", label: "Route Memphis" },
+  { value: "RouteNashville", label: "Route Nashville" },
+  { value: "RouteChattanooga", label: "Route Chattanooga" },
+  { value: "RouteBirmingham", label: "Route Birmingham" },
+]
 
 type CustomerAccountActionKind = "customer_note" | "customer_credit"
 
@@ -150,6 +165,10 @@ function draftFromCustomer(customer: StaffCustomerSummary): DraftCustomer {
     lastName: customer.lastName,
     phone: customer.phone,
     company: customer.company,
+    qbdCustomerType: customer.qbdCustomerType || "",
+    alternateContactName: customer.alternateContactName || "",
+    alternateContactPhone: customer.alternateContactPhone || "",
+    alternateContactPhoneType: customer.alternateContactPhoneType || "",
   }
 }
 
@@ -366,6 +385,10 @@ export default function PhoneOrderCopilot({
     lastName: "",
     phone: "",
     company: "",
+    qbdCustomerType: "",
+    alternateContactName: "",
+    alternateContactPhone: "",
+    alternateContactPhoneType: "",
   })
   const [showNewCustomerForm, setShowNewCustomerForm] = useState(false)
   const [sendAccountInvite, setSendAccountInvite] = useState(true)
@@ -492,6 +515,92 @@ export default function PhoneOrderCopilot({
 
   function updateDraftCustomer(patch: Partial<DraftCustomer>) {
     setDraftCustomer((current) => ({ ...current, ...patch }))
+  }
+
+  function qbdCustomerTypeSelectOptions() {
+    if (
+      !draftCustomer.qbdCustomerType ||
+      qbdCustomerTypeOptions.some(
+        (option) => option.value === draftCustomer.qbdCustomerType
+      )
+    ) {
+      return qbdCustomerTypeOptions
+    }
+
+    return [
+      ...qbdCustomerTypeOptions,
+      {
+        value: draftCustomer.qbdCustomerType,
+        label: `Existing: ${draftCustomer.qbdCustomerType}`,
+      },
+    ]
+  }
+
+  function renderQuickBooksCustomerFields() {
+    return (
+      <>
+        <label className="flex flex-col gap-1 md:col-span-2">
+          <span className={labelClass()}>QB customer type</span>
+          <select
+            className={fieldClass()}
+            value={draftCustomer.qbdCustomerType}
+            onChange={(event) =>
+              updateDraftCustomer({ qbdCustomerType: event.target.value })
+            }
+          >
+            {qbdCustomerTypeSelectOptions().map((option) => (
+              <option key={option.value || "none"} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className={labelClass()}>Alternate contact name</span>
+          <input
+            className={fieldClass()}
+            value={draftCustomer.alternateContactName}
+            onChange={(event) =>
+              updateDraftCustomer({
+                alternateContactName: event.target.value,
+              })
+            }
+          />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className={labelClass()}>Alternate contact number</span>
+          <input
+            className={fieldClass()}
+            inputMode="tel"
+            value={draftCustomer.alternateContactPhone}
+            onChange={(event) =>
+              updateDraftCustomer({
+                alternateContactPhone: event.target.value,
+              })
+            }
+          />
+        </label>
+        <label className="flex flex-col gap-1 md:col-span-2">
+          <span className={labelClass()}>Alternate number type</span>
+          <select
+            className={fieldClass()}
+            value={draftCustomer.alternateContactPhoneType}
+            onChange={(event) =>
+              updateDraftCustomer({
+                alternateContactPhoneType: event.target.value as
+                  | ""
+                  | "mobile"
+                  | "landline",
+              })
+            }
+          >
+            <option value="">Select mobile or landline</option>
+            <option value="mobile">Mobile</option>
+            <option value="landline">Landline</option>
+          </select>
+        </label>
+      </>
+    )
   }
 
   function updateCustomerQuery(value: string) {
@@ -752,6 +861,10 @@ export default function PhoneOrderCopilot({
       lastName: "",
       phone: "",
       company: "",
+      qbdCustomerType: "",
+      alternateContactName: "",
+      alternateContactPhone: "",
+      alternateContactPhoneType: "",
     })
     setShippingAddress({
       ...emptyAddress,
@@ -1806,6 +1919,7 @@ export default function PhoneOrderCopilot({
                           }
                         />
                       </label>
+                      {renderQuickBooksCustomerFields()}
                       <label className="flex flex-col gap-1 md:col-span-2">
                         <span className={labelClass()}>Address 1</span>
                         <input
@@ -2111,6 +2225,7 @@ export default function PhoneOrderCopilot({
                         }
                       />
                     </label>
+                    {renderQuickBooksCustomerFields()}
                   </div>
 
                   {!draftCustomer.id && (

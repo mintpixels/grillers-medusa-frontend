@@ -3,11 +3,16 @@ import userEvent from "@testing-library/user-event"
 
 import PhoneOrderCopilot from "@modules/staff/components/phone-order-copilot"
 import StaffTeamAccessConsole from "@modules/staff/components/team-access-console"
-import { searchStaffCustomers } from "@lib/data/staff/order-entry"
+import {
+  createStaffCustomer,
+  searchStaffCustomers,
+  updateStaffCustomerProfile,
+} from "@lib/data/staff/order-entry"
 import {
   searchStaffTeamUsers,
   updateStaffTeamRole,
 } from "@lib/data/staff/team-access"
+import { startStaffImpersonation } from "@lib/data/staff/impersonation"
 
 const routerReplace = jest.fn()
 const routerRefresh = jest.fn()
@@ -90,12 +95,21 @@ jest.mock("@modules/staff/components/merchandising-workspace", () => ({
 const mockedSearchStaffCustomers = searchStaffCustomers as jest.MockedFunction<
   typeof searchStaffCustomers
 >
+const mockedCreateStaffCustomer = createStaffCustomer as jest.MockedFunction<
+  typeof createStaffCustomer
+>
+const mockedUpdateStaffCustomerProfile =
+  updateStaffCustomerProfile as jest.MockedFunction<
+    typeof updateStaffCustomerProfile
+  >
 const mockedSearchStaffTeamUsers = searchStaffTeamUsers as jest.MockedFunction<
   typeof searchStaffTeamUsers
 >
 const mockedUpdateStaffTeamRole = updateStaffTeamRole as jest.MockedFunction<
   typeof updateStaffTeamRole
 >
+const mockedStartStaffImpersonation =
+  startStaffImpersonation as jest.MockedFunction<typeof startStaffImpersonation>
 
 const superAdminCustomer = {
   id: "cus_avi",
@@ -112,6 +126,10 @@ const greenbergCustomer = {
   lastName: "Greenberg",
   phone: "",
   company: "",
+  qbdCustomerType: "",
+  alternateContactName: "",
+  alternateContactPhone: "",
+  alternateContactPhoneType: "" as const,
   source: "customer" as const,
   recentOrders: [],
   legacyOrders: [],
@@ -145,11 +163,29 @@ describe("staff loading states", () => {
       .find((element) => element.closest('[aria-hidden="true"]') === null)!
   }
 
+  function visibleControl(label: string) {
+    return screen
+      .getAllByLabelText(label)
+      .find((element) => element.closest('[aria-hidden="true"]') === null)!
+  }
+
+  function visibleButton(name: string | RegExp) {
+    return screen
+      .getAllByRole("button", { name })
+      .find((element) => element.closest('[aria-hidden="true"]') === null)!
+  }
+
   function visibleTextCount(text: string) {
     return screen
       .queryAllByText(text)
       .filter((element) => element.closest('[aria-hidden="true"]') === null)
       .length
+  }
+
+  function visibleTextElement(text: string) {
+    return screen
+      .getAllByText(text)
+      .find((element) => element.closest('[aria-hidden="true"]') === null)!
   }
 
   it("clears the customer account search spinner after results render", async () => {
@@ -262,6 +298,125 @@ describe("staff loading states", () => {
     expect(accountSearch).toHaveValue("")
     expect(visibleTextCount("Meyer Greenberg")).toBe(0)
     expect(screen.getByRole("button", { name: "Search" })).not.toBeDisabled()
+  })
+
+  it("passes QuickBooks customer fields through new customer creation", async () => {
+    const user = userEvent.setup()
+    const createdCustomer = {
+      ...greenbergCustomer,
+      id: "cus_new",
+      email: "new.customer@example.com",
+      firstName: "New",
+      lastName: "Customer",
+      phone: "4045550101",
+      qbdCustomerType: "Shipping",
+      alternateContactName: "Backup Contact",
+      alternateContactPhone: "4045550199",
+      alternateContactPhoneType: "mobile" as const,
+    }
+    mockedCreateStaffCustomer.mockResolvedValue(createdCustomer)
+    mockedStartStaffImpersonation.mockResolvedValue({
+      ok: true,
+      session: {
+        targetCustomerId: "cus_new",
+        targetEmail: "new.customer@example.com",
+        targetName: "New Customer",
+      } as any,
+    })
+
+    render(
+      <PhoneOrderCopilot
+        countryCode="us"
+        initialImpersonation={null}
+        initialWorkspace="new_customer"
+        staffCustomer={superAdminCustomer}
+      />
+    )
+
+    await user.type(visibleControl("Email"), "new.customer@example.com")
+    await user.type(visibleControl("Phone"), "4045550101")
+    await user.type(visibleControl("First name"), "New")
+    await user.type(visibleControl("Last name"), "Customer")
+    await user.selectOptions(visibleControl("QB customer type"), "Shipping")
+    await user.type(visibleControl("Alternate contact name"), "Backup Contact")
+    await user.type(visibleControl("Alternate contact number"), "4045550199")
+    await user.selectOptions(visibleControl("Alternate number type"), "mobile")
+
+    await user.click(visibleButton("Create Customer"))
+
+    await waitFor(() => {
+      expect(mockedCreateStaffCustomer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          email: "new.customer@example.com",
+          firstName: "New",
+          lastName: "Customer",
+          phone: "4045550101",
+          qbdCustomerType: "Shipping",
+          alternateContactName: "Backup Contact",
+          alternateContactPhone: "4045550199",
+          alternateContactPhoneType: "mobile",
+        })
+      )
+    })
+  })
+
+  it("passes QuickBooks customer fields through existing customer updates", async () => {
+    const user = userEvent.setup()
+    mockedSearchStaffCustomers.mockResolvedValue([
+      {
+        ...greenbergCustomer,
+        qbdCustomerType: "Local",
+        alternateContactName: "Old Contact",
+        alternateContactPhone: "4045550000",
+        alternateContactPhoneType: "landline",
+      },
+    ])
+    mockedUpdateStaffCustomerProfile.mockResolvedValue({
+      ok: true,
+      customer: {
+        ...greenbergCustomer,
+        qbdCustomerType: "RouteMemphis",
+        alternateContactName: "Ruth Greenberg",
+        alternateContactPhone: "4045552222",
+        alternateContactPhoneType: "mobile",
+      },
+    })
+
+    render(
+      <PhoneOrderCopilot
+        countryCode="us"
+        initialImpersonation={null}
+        initialWorkspace="new_customer"
+        staffCustomer={superAdminCustomer}
+      />
+    )
+
+    await user.type(visibleCustomerSearch(), "greenberg")
+    await user.click(visibleButton("Search"))
+    await waitFor(() => {
+      expect(visibleTextCount("Meyer Greenberg")).toBeGreaterThan(0)
+    })
+    await user.click(visibleTextElement("Meyer Greenberg"))
+
+    await user.selectOptions(visibleControl("QB customer type"), "RouteMemphis")
+    await user.clear(visibleControl("Alternate contact name"))
+    await user.type(visibleControl("Alternate contact name"), "Ruth Greenberg")
+    await user.clear(visibleControl("Alternate contact number"))
+    await user.type(visibleControl("Alternate contact number"), "4045552222")
+    await user.selectOptions(visibleControl("Alternate number type"), "mobile")
+    await user.click(visibleButton("Save Customer"))
+
+    await waitFor(() => {
+      expect(mockedUpdateStaffCustomerProfile).toHaveBeenCalledWith(
+        expect.objectContaining({
+          customerId: "cus_greenberg",
+          qbdCustomerType: "RouteMemphis",
+          alternateContactName: "Ruth Greenberg",
+          alternateContactPhone: "4045552222",
+          alternateContactPhoneType: "mobile",
+        })
+      )
+    })
   })
 
   it("clears the team access search spinner after results render", async () => {
