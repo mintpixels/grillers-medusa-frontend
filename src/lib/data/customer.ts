@@ -13,6 +13,7 @@ import {
   formWantsSmsMarketing,
 } from "@lib/util/sms-consent"
 import { canUseOfficeConsole, isStaffCustomer } from "@lib/util/staff-access"
+import { emitCartTransferRecoveryFailureAlert } from "@lib/cart-transfer-ops-alerts"
 import { HttpTypes } from "@medusajs/types"
 import { revalidateTag } from "next/cache"
 import { redirect } from "next/navigation"
@@ -694,11 +695,29 @@ export async function transferCart() {
         variant_id: i.variant_id as string,
         quantity: i.quantity,
       }))
-  } catch {
+  } catch (readErr) {
+    void emitCartTransferRecoveryFailureAlert({
+      stage: "cart_read_failed",
+      cartId,
+      error: readErr,
+    }).catch(() => {
+      // Fail open: recovery already falls back to dropping the broken cart.
+    })
     // best-effort; if the broken cart can't be read, just drop it and continue
   }
 
   await removeCartId()
+
+  if (!regionId && preservedItems.length > 0) {
+    void emitCartTransferRecoveryFailureAlert({
+      stage: "missing_region_for_recovery",
+      cartId,
+      lineItemCount: preservedItems.length,
+      hasRegionId: false,
+    }).catch(() => {
+      // Fail open: sign-in should not wait on alerting.
+    })
+  }
 
   if (regionId) {
     try {
@@ -713,6 +732,15 @@ export async function transferCart() {
       }
     } catch (recreateErr) {
       console.error("[transferCart] item preservation failed", recreateErr)
+      void emitCartTransferRecoveryFailureAlert({
+        stage: "item_preservation_failed",
+        cartId,
+        lineItemCount: preservedItems.length,
+        hasRegionId: true,
+        error: recreateErr,
+      }).catch(() => {
+        // Fail open: sign-in should not wait on alerting.
+      })
     }
   }
 
