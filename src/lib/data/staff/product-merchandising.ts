@@ -604,33 +604,113 @@ async function fetchStrapiUploadFile(imageId: number): Promise<RawImage> {
   return strapiGet<RawImage>(`/api/upload/files/${imageId}`)
 }
 
-async function writeStrapiUploadCaption(imageId: number, caption: string) {
-  const response = await fetch(`${strapiEndpoint()}/api/upload?id=${imageId}`, {
-    method: "POST",
-    headers: {
-      ...strapiRewriteHeaders(),
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      fileInfo: {
-        caption,
-      },
-    }),
-  })
+function storedCaptionSummary(caption: string | null | undefined) {
+  const parsed = parseReviewCaption(caption)
+  if (parsed.review.status !== "unreviewed") return reviewSummary(parsed.review)
+  if (caption) return "a caption with no review metadata"
+  return "no review metadata"
+}
 
+async function requireSuccessfulStrapiWrite(response: Response) {
   const json = await response.json().catch(() => null)
 
-  if (!response.ok || json?.errors) {
-    const message = json?.error?.message || json?.errors?.[0]?.message
-    throw new Error(
-      `Strapi image review write failed: ${message || response.status}`
+  if (!response.ok || json?.errors || json?.error) {
+    const message = errorMessage(
+      json?.error || json?.errors?.[0],
+      String(response.status || "write failed")
     )
+    throw new Error(message)
+  }
+}
+
+function strapiUploadCaptionWriteAttempts(imageId: number, caption: string) {
+  const endpoint = strapiEndpoint()
+  const rewriteHeaders = strapiRewriteHeaders()
+  const fileInfoBody = JSON.stringify({
+    fileInfo: {
+      caption,
+    },
+  })
+
+  return [
+    {
+      name: "legacy upload fileInfo JSON",
+      run: () =>
+        fetch(`${endpoint}/api/upload?id=${imageId}`, {
+          method: "POST",
+          headers: {
+            ...rewriteHeaders,
+            "Content-Type": "application/json",
+          },
+          body: fileInfoBody,
+        }),
+    },
+    {
+      name: "upload file caption JSON",
+      run: () =>
+        fetch(`${endpoint}/api/upload/files/${imageId}`, {
+          method: "PUT",
+          headers: {
+            ...rewriteHeaders,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ caption }),
+        }),
+    },
+    {
+      name: "upload fileInfo JSON",
+      run: () =>
+        fetch(`${endpoint}/api/upload/files/${imageId}`, {
+          method: "PUT",
+          headers: {
+            ...rewriteHeaders,
+            "Content-Type": "application/json",
+          },
+          body: fileInfoBody,
+        }),
+    },
+    {
+      name: "legacy upload fileInfo form",
+      run: () => {
+        const formData = new FormData()
+        formData.append("fileInfo", JSON.stringify({ caption }))
+
+        return fetch(`${endpoint}/api/upload?id=${imageId}`, {
+          method: "POST",
+          headers: rewriteHeaders,
+          body: formData,
+        })
+      },
+    },
+  ]
+}
+
+async function writeStrapiUploadCaption(imageId: number, caption: string) {
+  const failures: string[] = []
+
+  for (const attempt of strapiUploadCaptionWriteAttempts(imageId, caption)) {
+    try {
+      const response = await attempt.run()
+      await requireSuccessfulStrapiWrite(response)
+      const latest = await fetchStrapiUploadFile(imageId)
+
+      if ((latest.caption || null) === caption) {
+        return
+      }
+
+      failures.push(
+        `${attempt.name}: accepted but media readback still showed ${storedCaptionSummary(
+          latest.caption
+        )}`
+      )
+    } catch (error) {
+      failures.push(
+        `${attempt.name}: ${errorMessage(error, "unknown write failure")}`
+      )
+    }
   }
 
-  // Keep the L3 summary cache warm after annotation writes. The detail page
-  // patches the changed image locally, while the overview summary refreshes on
-  // its short TTL. Purging this cache on every review/claim made active staff
-  // sessions rebuild the full Strapi product summary repeatedly.
+  throw new Error(`Strapi image review write failed: ${failures.join("; ")}`)
 }
 
 function staffIdentity(

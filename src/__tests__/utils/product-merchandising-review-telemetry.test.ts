@@ -65,6 +65,7 @@ describe("product merchandising review telemetry", () => {
       review: { status: "unreviewed" },
       auditHistory: [],
     })
+    let writtenCaption = ""
     const fetchMock = jest.fn(async (url: string, init?: RequestInit) => {
       if (url.includes("/api/upload/files?")) {
         return {
@@ -82,9 +83,22 @@ describe("product merchandising review telemetry", () => {
 
       if (url.endsWith("/api/upload?id=123")) {
         expect(init?.method).toBe("POST")
+        writtenCaption = JSON.parse(String(init?.body)).fileInfo.caption
         return {
           ok: true,
           json: async () => ({}),
+        } as unknown as Response
+      }
+
+      if (url.endsWith("/api/upload/files/123")) {
+        return {
+          ok: true,
+          json: async () => ({
+            id: 123,
+            documentId: "img_doc",
+            url: "/uploads/img_doc.jpg",
+            caption: writtenCaption,
+          }),
         } as unknown as Response
       }
 
@@ -112,6 +126,82 @@ describe("product merchandising review telemetry", () => {
         countryCode: "us",
         status: "approved",
         previousStatus: "unreviewed",
+      })
+    )
+  })
+
+  it("falls back when the legacy Strapi upload endpoint accepts but does not persist the caption", async () => {
+    const latestCaption = reviewCaption({
+      review: { status: "unreviewed" },
+      auditHistory: [],
+    })
+    let writtenCaption = ""
+    const fetchMock = jest.fn(async (url: string, init?: RequestInit) => {
+      if (url.includes("/api/upload/files?")) {
+        return {
+          ok: true,
+          json: async () => [
+            {
+              id: 123,
+              documentId: "img_doc",
+              url: "/uploads/img_doc.jpg",
+              caption: latestCaption,
+            },
+          ],
+        } as unknown as Response
+      }
+
+      if (url.endsWith("/api/upload?id=123")) {
+        expect(init?.method).toBe("POST")
+        return {
+          ok: true,
+          json: async () => ({}),
+        } as unknown as Response
+      }
+
+      if (url.endsWith("/api/upload/files/123") && init?.method === "PUT") {
+        writtenCaption =
+          JSON.parse(String(init.body)).caption ||
+          JSON.parse(String(init.body)).fileInfo?.caption
+        return {
+          ok: true,
+          json: async () => ({}),
+        } as unknown as Response
+      }
+
+      if (url.endsWith("/api/upload/files/123")) {
+        return {
+          ok: true,
+          json: async () => ({
+            id: 123,
+            documentId: "img_doc",
+            url: "/uploads/img_doc.jpg",
+            caption: writtenCaption || latestCaption,
+          }),
+        } as unknown as Response
+      }
+
+      throw new Error(`Unexpected fetch ${url}`)
+    })
+    global.fetch = fetchMock as unknown as typeof fetch
+
+    const result = await reviewMerchandisingImage({
+      imageId: 123,
+      imageDocumentId: "img_doc",
+      countryCode: "us",
+      status: "rejected",
+      reason: "other",
+      note: "Options note",
+      currentCaption: latestCaption,
+    })
+
+    expect(result.ok).toBe(true)
+    expect(result.review?.status).toBe("rejected")
+    expect(result.review?.reason).toBe("other")
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://strapi.example.test/api/upload/files/123",
+      expect.objectContaining({
+        method: "PUT",
       })
     )
   })
@@ -217,7 +307,7 @@ describe("product merchandising review telemetry", () => {
       review: { status: "unreviewed" },
       auditHistory: [],
     })
-    const fetchMock = jest.fn(async (url: string) => {
+    const fetchMock = jest.fn(async (url: string, init?: RequestInit) => {
       if (url.includes("/api/upload/files?")) {
         return {
           ok: true,
@@ -232,7 +322,10 @@ describe("product merchandising review telemetry", () => {
         } as unknown as Response
       }
 
-      if (url.endsWith("/api/upload?id=123")) {
+      if (
+        url.endsWith("/api/upload?id=123") ||
+        (url.endsWith("/api/upload/files/123") && init?.method === "PUT")
+      ) {
         return {
           ok: false,
           status: 500,
@@ -253,6 +346,74 @@ describe("product merchandising review telemetry", () => {
     })
 
     expect(result.ok).toBe(false)
+    expect(emitActionFailureMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "review",
+        imageId: 123,
+        imageDocumentId: "img_doc",
+        countryCode: "us",
+        status: "approved",
+        error: expect.any(Error),
+      })
+    )
+  })
+
+  it("keeps accepted-but-unpersisted Strapi writes on the page-level action alert", async () => {
+    const latestCaption = reviewCaption({
+      review: { status: "unreviewed" },
+      auditHistory: [],
+    })
+    const fetchMock = jest.fn(async (url: string, init?: RequestInit) => {
+      if (url.includes("/api/upload/files?")) {
+        return {
+          ok: true,
+          json: async () => [
+            {
+              id: 123,
+              documentId: "img_doc",
+              url: "/uploads/img_doc.jpg",
+              caption: latestCaption,
+            },
+          ],
+        } as unknown as Response
+      }
+
+      if (
+        url.endsWith("/api/upload?id=123") ||
+        (url.endsWith("/api/upload/files/123") && init?.method === "PUT")
+      ) {
+        return {
+          ok: true,
+          json: async () => ({}),
+        } as unknown as Response
+      }
+
+      if (url.endsWith("/api/upload/files/123")) {
+        return {
+          ok: true,
+          json: async () => ({
+            id: 123,
+            documentId: "img_doc",
+            url: "/uploads/img_doc.jpg",
+            caption: latestCaption,
+          }),
+        } as unknown as Response
+      }
+
+      throw new Error(`Unexpected fetch ${url}`)
+    })
+    global.fetch = fetchMock as unknown as typeof fetch
+
+    const result = await reviewMerchandisingImage({
+      imageId: 123,
+      imageDocumentId: "img_doc",
+      countryCode: "us",
+      status: "approved",
+      currentCaption: latestCaption,
+    })
+
+    expect(result.ok).toBe(false)
+    expect(result.error).toContain("accepted but media readback")
     expect(emitActionFailureMock).toHaveBeenCalledWith(
       expect.objectContaining({
         action: "review",

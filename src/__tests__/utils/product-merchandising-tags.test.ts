@@ -336,6 +336,7 @@ describe("getProductMerchandisingTags", () => {
       review: { status: "unreviewed" },
       auditHistory: [],
     })
+    let writtenCaption = ""
     const fetchMock = jest.fn(async (url: string, init?: RequestInit) => {
       if (String(url).includes("/api/upload/files?")) {
         return {
@@ -353,9 +354,22 @@ describe("getProductMerchandisingTags", () => {
 
       if (String(url).endsWith("/api/upload?id=123")) {
         expect(init?.method).toBe("POST")
+        writtenCaption = JSON.parse(String(init?.body)).fileInfo.caption
         return {
           ok: true,
           json: async () => ({}),
+        } as unknown as Response
+      }
+
+      if (String(url).endsWith("/api/upload/files/123")) {
+        return {
+          ok: true,
+          json: async () => ({
+            id: 123,
+            documentId: "image-123",
+            url: "/uploads/image-123.jpg",
+            caption: writtenCaption,
+          }),
         } as unknown as Response
       }
 
@@ -384,7 +398,7 @@ describe("getProductMerchandisingTags", () => {
       review: { status: "unreviewed" },
       auditHistory: [],
     })
-    const fetchMock = jest.fn(async (url: string) => {
+    const fetchMock = jest.fn(async (url: string, init?: RequestInit) => {
       if (String(url).includes("/api/upload/files?")) {
         return {
           ok: true,
@@ -399,7 +413,11 @@ describe("getProductMerchandisingTags", () => {
         } as unknown as Response
       }
 
-      if (String(url).endsWith("/api/upload?id=123")) {
+      if (
+        String(url).endsWith("/api/upload?id=123") ||
+        (String(url).endsWith("/api/upload/files/123") &&
+          init?.method === "PUT")
+      ) {
         return {
           ok: false,
           status: 403,

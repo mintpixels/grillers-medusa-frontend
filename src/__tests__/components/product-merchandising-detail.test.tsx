@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event"
 import type { ReactNode } from "react"
 
 import ProductMerchandisingDetailView from "@modules/staff/components/product-merchandising-detail"
+import { reviewMerchandisingImage } from "@lib/data/staff/product-merchandising"
 
 jest.mock("next/image", () => ({
   __esModule: true,
@@ -38,6 +39,11 @@ jest.mock("@modules/common/components/localized-client-link", () => ({
     </a>
   ),
 }))
+
+const reviewMerchandisingImageMock =
+  reviewMerchandisingImage as jest.MockedFunction<
+    typeof reviewMerchandisingImage
+  >
 
 const reviewedAt = "2026-06-28T14:00:00.000Z"
 
@@ -121,6 +127,10 @@ const detail = {
 }
 
 describe("ProductMerchandisingDetailView", () => {
+  beforeEach(() => {
+    jest.clearAllMocks()
+  })
+
   it("shows reviewed status with reviewer and opens image comments", async () => {
     const user = userEvent.setup()
 
@@ -165,5 +175,77 @@ describe("ProductMerchandisingDetailView", () => {
       within(dialog).getAllByText("Looks accurate and customer-safe.").length
     ).toBeGreaterThan(0)
     expect(within(dialog).getByText("Reviewed: Approved")).toBeInTheDocument()
+  })
+
+  it("keeps a submitted Other rejection visible on the image card", async () => {
+    const user = userEvent.setup()
+    const rejectedAt = "2026-06-29T13:45:00.000Z"
+
+    reviewMerchandisingImageMock.mockResolvedValueOnce({
+      ok: true,
+      caption: "GP_IMAGE_REVIEW_V1:rejected",
+      review: {
+        status: "rejected",
+        reason: "other",
+        note: "Options note",
+        reviewerName: "Avi Swerdlow",
+        reviewerEmail: "avi@example.com",
+        reviewedAt: rejectedAt,
+      },
+      auditHistory: [
+        {
+          action: "reviewed",
+          at: rejectedAt,
+          staffName: "Avi Swerdlow",
+          staffEmail: "avi@example.com",
+          review: {
+            status: "rejected",
+            reason: "other",
+            note: "Options note",
+            reviewerName: "Avi Swerdlow",
+            reviewerEmail: "avi@example.com",
+            reviewedAt: rejectedAt,
+          },
+        },
+      ],
+    })
+
+    render(
+      <ProductMerchandisingDetailView
+        countryCode="us"
+        detail={detail}
+        staffEmail="avi@example.com"
+        staffName="Avi Swerdlow"
+      />
+    )
+
+    await user.click(screen.getByRole("button", { name: "Reject" }))
+    await user.click(screen.getByRole("button", { name: "Other" }))
+    await user.type(
+      screen.getByRole("textbox", { name: "Optional note" }),
+      "Options note"
+    )
+    await user.click(screen.getByRole("button", { name: "Submit rejection" }))
+
+    expect(reviewMerchandisingImageMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        imageId: 102,
+        imageDocumentId: "img_open",
+        countryCode: "us",
+        status: "rejected",
+        reason: "other",
+        note: "Options note",
+        currentCaption: null,
+      })
+    )
+    expect(
+      await screen.findByText("Ground beef alternate marked rejected.")
+    ).toBeInTheDocument()
+    expect(screen.getByText("Rejected by Avi Swerdlow")).toBeInTheDocument()
+    expect(screen.getByText("Other")).toBeInTheDocument()
+    expect(screen.getByText("Comment: Options note")).toBeInTheDocument()
+    expect(
+      screen.queryByRole("button", { name: "Submit rejection" })
+    ).not.toBeInTheDocument()
   })
 })
