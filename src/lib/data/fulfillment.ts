@@ -9,6 +9,7 @@ import {
   FULFILLMENT_DISPLAY_ORDER 
 } from "@lib/config/shipping-mapping"
 import type { FulfillmentType } from "./cart"
+import { emitCheckoutFulfillmentOptionsFailureAlert } from "@lib/checkout-fulfillment-options-alerts"
 
 export const listCartShippingMethods = async (cartId: string) => {
   const headers = {
@@ -35,7 +36,14 @@ export const listCartShippingMethods = async (cartId: string) => {
       }
     )
     .then(({ shipping_options }) => shipping_options)
-    .catch(() => {
+    .catch((err) => {
+      void emitCheckoutFulfillmentOptionsFailureAlert({
+        stage: "cart_shipping_methods",
+        cartId,
+        error: err,
+      }).catch(() => {
+        // Fail open: checkout already handles a null shipping-method list.
+      })
       return null
     })
 }
@@ -63,6 +71,13 @@ export const listAllFulfillmentOptions = async (cartId: string) => {
     .then(({ shipping_options }) => shipping_options)
     .catch((err) => {
       console.error("Error fetching fulfillment options:", err)
+      void emitCheckoutFulfillmentOptionsFailureAlert({
+        stage: "all_fulfillment_options",
+        cartId,
+        error: err,
+      }).catch(() => {
+        // Fail open: checkout already handles an empty fulfillment type list.
+      })
       return null
     })
 }
