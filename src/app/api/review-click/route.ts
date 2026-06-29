@@ -1,5 +1,6 @@
-import { createHmac, timingSafeEqual } from "crypto"
+import { createHash, createHmac, timingSafeEqual } from "crypto"
 import { NextResponse } from "next/server"
+import { emitStorefrontOpsAlert, type OpsAlertSeverity } from "@lib/ops-alert"
 
 const SECRET =
   process.env.REVIEW_CLICK_SECRET ||
@@ -40,6 +41,63 @@ function decodeDestination(encoded: string): string | null {
   } catch {
     return null
   }
+}
+
+function destinationHost(encoded: string): string | null {
+  try {
+    const decoded = Buffer.from(encoded, "base64url").toString("utf8")
+    return new URL(decoded).hostname || null
+  } catch {
+    return null
+  }
+}
+
+function hashOperationalId(value: string): string | null {
+  if (!value) return null
+  return createHash("sha256").update(value).digest("hex").slice(0, 16)
+}
+
+function isCompleteReviewClickAttempt(input: {
+  platform: string
+  orderId: string
+  encodedDestination: string
+  providedSig: string
+}) {
+  return Boolean(
+    input.platform &&
+      input.orderId &&
+      input.encodedDestination &&
+      input.providedSig
+  )
+}
+
+function emitReviewClickFailureAlert(input: {
+  reason: "missing_secret" | "invalid_destination" | "signature_mismatch"
+  severity?: OpsAlertSeverity
+  platform: string
+  orderId: string
+  encodedDestination: string
+  providedSig: string
+  requestUrl: URL
+}) {
+  if (!isCompleteReviewClickAttempt(input)) return
+
+  void emitStorefrontOpsAlert({
+    alertKind: "review_click_tracking_failed",
+    severity: input.severity || "warn",
+    title: `Review click link failed: ${input.reason}`,
+    path: "src/app/api/review-click/route.ts",
+    meta: {
+      reason: input.reason,
+      platform: input.platform || null,
+      order_hash: hashOperationalId(input.orderId),
+      destination_host: destinationHost(input.encodedDestination),
+      has_signature: Boolean(input.providedSig),
+      request_host: input.requestUrl.hostname,
+    },
+  }).catch(() => {
+    // Fail open: review links should still redirect even if alerting is down.
+  })
 }
 
 function renderRedirectHtml(opts: {
@@ -84,12 +142,45 @@ export async function GET(req: Request): Promise<Response> {
   const providedSig = url.searchParams.get("s") || ""
   const destination = decodeDestination(encodedDestination)
 
-  if (!SECRET || !platform || !orderId || !destination || !providedSig) {
+  if (!SECRET) {
+    emitReviewClickFailureAlert({
+      reason: "missing_secret",
+      severity: "page",
+      platform,
+      orderId,
+      encodedDestination,
+      providedSig,
+      requestUrl: url,
+    })
+    return NextResponse.redirect(new URL("/us", url.origin), 302)
+  }
+
+  if (!platform || !orderId || !providedSig) {
+    return NextResponse.redirect(new URL("/us", url.origin), 302)
+  }
+
+  if (!destination) {
+    emitReviewClickFailureAlert({
+      reason: "invalid_destination",
+      platform,
+      orderId,
+      encodedDestination,
+      providedSig,
+      requestUrl: url,
+    })
     return NextResponse.redirect(new URL("/us", url.origin), 302)
   }
 
   const expected = sign(platform, orderId, encodedDestination)
   if (!timingSafeStringEq(expected, providedSig)) {
+    emitReviewClickFailureAlert({
+      reason: "signature_mismatch",
+      platform,
+      orderId,
+      encodedDestination,
+      providedSig,
+      requestUrl: url,
+    })
     return NextResponse.redirect(new URL("/us", url.origin), 302)
   }
 
