@@ -7,6 +7,7 @@ import {
   requestPasswordReset,
   retrieveAuthenticatedCustomer,
   saveCartAddressesToAccount,
+  signupWithCredentials,
 } from "@lib/data/customer"
 import { emitStorefrontOpsAlert } from "@lib/ops-alert"
 import { revalidateTag } from "next/cache"
@@ -15,12 +16,14 @@ jest.mock("@lib/config", () => ({
   sdk: {
     auth: {
       login: jest.fn(),
+      register: jest.fn(),
     },
     client: {
       fetch: jest.fn(),
     },
     store: {
       customer: {
+        create: jest.fn(),
         createAddress: jest.fn(),
         retrieve: jest.fn(),
       },
@@ -61,6 +64,12 @@ const mockSdkFetch = sdk.client.fetch as jest.MockedFunction<
 >
 const mockAuthLogin = sdk.auth.login as jest.MockedFunction<
   typeof sdk.auth.login
+>
+const mockAuthRegister = sdk.auth.register as jest.MockedFunction<
+  typeof sdk.auth.register
+>
+const mockCreateCustomer = sdk.store.customer.create as jest.MockedFunction<
+  typeof sdk.store.customer.create
 >
 const mockCreateAddress = sdk.store.customer.createAddress as jest.MockedFunction<
   typeof sdk.store.customer.createAddress
@@ -312,6 +321,103 @@ describe("customer login alerts", () => {
     })
 
     await loginWithCredentials("shopper@example.com", "wrong-password")
+
+    expect(mockEmitStorefrontOpsAlert).not.toHaveBeenCalled()
+  })
+})
+
+describe("customer signup alerts", () => {
+  beforeEach(() => {
+    jest.clearAllMocks()
+    mockGetAuthHeaders.mockResolvedValue({ authorization: "Bearer test" } as any)
+    mockGetCacheTag.mockResolvedValue("customers")
+    mockGetCartId.mockResolvedValue(undefined)
+    mockAuthLogin.mockResolvedValue("login_token" as any)
+    mockAuthRegister.mockResolvedValue("register_token" as any)
+    mockCreateCustomer.mockResolvedValue({ customer: { id: "cus_123" } } as any)
+  })
+
+  it("alerts when account registration fails before customer creation", async () => {
+    mockAuthRegister.mockRejectedValueOnce(
+      new Error("Auth register timeout for shopper@example.com auth_123")
+    )
+
+    await expect(
+      signupWithCredentials({
+        email: "shopper@example.com",
+        password: "password123",
+        first_name: "Shopper",
+        last_name: "Example",
+      })
+    ).resolves.toEqual({
+      success: false,
+      error: "Could not create account. Please try again.",
+    })
+
+    expect(mockEmitStorefrontOpsAlert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        alertKind: "customer_signup_failed",
+        severity: "page",
+        title: "Customer signup failed",
+        path: "src/lib/data/customer.ts:signupWithCredentials",
+        source: "storefront-server",
+        fingerprint: "customer_signup_failed:auth_register",
+        meta: expect.objectContaining({
+          account_surface: "customer_signup",
+          failure_stage: "auth_register",
+          has_phone: false,
+          sms_marketing_opt_in: false,
+          error_message:
+            "Auth register timeout for [redacted-email] [redacted-id]",
+        }),
+      })
+    )
+  })
+
+  it("alerts with stage context when customer creation fails", async () => {
+    mockCreateCustomer.mockRejectedValueOnce(
+      new Error("Customer create failed for shopper@example.com cus_123")
+    )
+
+    await signupWithCredentials({
+      email: "shopper@example.com",
+      password: "password123",
+      first_name: "Shopper",
+      last_name: "Example",
+      phone: "(404) 555-1212",
+      sms_marketing_opt_in: true,
+    })
+
+    expect(mockEmitStorefrontOpsAlert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        alertKind: "customer_signup_failed",
+        fingerprint: "customer_signup_failed:customer_create",
+        meta: expect.objectContaining({
+          failure_stage: "customer_create",
+          has_phone: true,
+          sms_marketing_opt_in: true,
+          error_message: "Customer create failed for [redacted-email] [redacted-id]",
+        }),
+      })
+    )
+  })
+
+  it("does not alert when signup reports a duplicate email", async () => {
+    mockAuthRegister.mockRejectedValueOnce(
+      new Error("Customer already exists for shopper@example.com")
+    )
+
+    await expect(
+      signupWithCredentials({
+        email: "shopper@example.com",
+        password: "password123",
+        first_name: "Shopper",
+        last_name: "Example",
+      })
+    ).resolves.toEqual({
+      success: false,
+      error: "An account with this email already exists. Try signing in instead.",
+    })
 
     expect(mockEmitStorefrontOpsAlert).not.toHaveBeenCalled()
   })

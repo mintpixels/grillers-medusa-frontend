@@ -109,6 +109,39 @@ export function reportCustomerLoginFailure(input: {
   })
 }
 
+export function reportCustomerSignupFailure(input: {
+  stage:
+    | "auth_register"
+    | "auth_token"
+    | "auth_headers"
+    | "customer_create"
+    | "emailpass_login"
+    | "cache_revalidate"
+    | "cart_transfer"
+    | "cart_address_persistence"
+  error: unknown
+  hasPhone?: boolean
+  smsMarketingOptIn?: boolean
+}): void {
+  void emitStorefrontOpsAlert({
+    alertKind: "customer_signup_failed",
+    severity: "page",
+    title: "Customer signup failed",
+    path: "src/lib/data/customer.ts:signupWithCredentials",
+    source: "storefront-server",
+    fingerprint: `customer_signup_failed:${input.stage}`,
+    meta: {
+      account_surface: "customer_signup",
+      failure_stage: input.stage,
+      has_phone: Boolean(input.hasPhone),
+      sms_marketing_opt_in: Boolean(input.smsMarketingOptIn),
+      error_message: redactedErrorMessage(input.error),
+    },
+  }).catch(() => {
+    // Fail-open: signup response should not depend on alert delivery.
+  })
+}
+
 export async function reportPasswordResetRequestFailure(input: {
   stage: "request_failed" | "backend_rejected"
   responseStatus?: number | null

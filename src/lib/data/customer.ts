@@ -17,6 +17,7 @@ import {
   reportCartAddressPersistenceFailure,
   reportAuthenticatedCustomerLoadFailure,
   reportCustomerLoginFailure,
+  reportCustomerSignupFailure,
   reportLegacyLoginFallbackFailure,
   reportPasswordResetRequestFailure,
 } from "@lib/account-ops-alerts"
@@ -402,6 +403,16 @@ export async function signupWithCredentials(data: {
   sms_marketing_opt_in?: boolean
 }) {
   const phone = data.phone ? stripPhone(data.phone) : ""
+  let stage:
+    | "auth_register"
+    | "auth_token"
+    | "auth_headers"
+    | "customer_create"
+    | "emailpass_login"
+    | "cache_revalidate"
+    | "cart_transfer"
+    | "cart_address_persistence" = "auth_register"
+
   if (data.sms_marketing_opt_in && phone.length !== 10) {
     return {
       success: false,
@@ -410,13 +421,17 @@ export async function signupWithCredentials(data: {
   }
 
   try {
+    stage = "auth_register"
     const token = await sdk.auth.register("customer", "emailpass", {
       email: data.email,
       password: data.password,
     })
+    stage = "auth_token"
     await setAuthToken(token as string)
 
+    stage = "auth_headers"
     const headers = { ...(await getAuthHeaders()) }
+    stage = "customer_create"
     await sdk.store.customer.create(
       {
         email: data.email,
@@ -434,19 +449,24 @@ export async function signupWithCredentials(data: {
       headers
     )
 
+    stage = "emailpass_login"
     const loginToken = await sdk.auth.login("customer", "emailpass", {
       email: data.email,
       password: data.password,
     })
+    stage = "auth_token"
     await setAuthToken(loginToken as string)
 
+    stage = "cache_revalidate"
     const customerCacheTag = await getCacheTag("customers")
     revalidateTag(customerCacheTag)
+    stage = "cart_transfer"
     await transferCart()
 
     // Issue #74 — Path A: copy the in-flight cart's shipping address to the
     // newly-created customer's address book so first-order checkout
     // populates "saved addresses".
+    stage = "cart_address_persistence"
     await saveCartAddressesToAccount()
 
     return { success: true, error: null }
@@ -459,6 +479,12 @@ export async function signupWithCredentials(data: {
           "An account with this email already exists. Try signing in instead.",
       }
     }
+    reportCustomerSignupFailure({
+      stage,
+      error,
+      hasPhone: Boolean(phone),
+      smsMarketingOptIn: Boolean(data.sms_marketing_opt_in),
+    })
     return {
       success: false,
       error: "Could not create account. Please try again.",
