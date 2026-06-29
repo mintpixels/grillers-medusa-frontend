@@ -1,5 +1,7 @@
 import {
   applyStaffCustomerAccountAction,
+  getStaffCustomerContext,
+  searchStaffCustomers,
   saveStaffCustomerAddress,
   updateStaffCustomerProfile,
 } from "@lib/data/staff/order-entry"
@@ -128,6 +130,211 @@ describe("staff order-entry customer context mutation alerts", () => {
           qbd_posting_required: false,
           error_message:
             "Medusa write failed for [redacted-email] [redacted-id]",
+        }),
+      })
+    )
+  })
+
+  it("alerts when staff customer search loses recent and legacy order context", async () => {
+    global.fetch = jest.fn(async (url) => {
+      const href = String(url)
+      if (href.includes("/admin/customers")) {
+        return response(true, 200, {
+          customers: [
+            {
+              id: "cus_target",
+              email: "customer@example.com",
+              first_name: "Test",
+              last_name: "Customer",
+              metadata: {},
+              addresses: [],
+            },
+          ],
+        })
+      }
+      if (href.includes("/admin/orders")) {
+        return response(false, 503, {
+          message: "Order search failed for customer@example.com order_123",
+        })
+      }
+      if (href.includes("/admin/legacy-orders")) {
+        return response(false, 503, {
+          message: "Legacy search failed for customer@example.com legacy_123",
+        })
+      }
+      throw new Error(`Unexpected fetch ${href}`)
+    }) as unknown as typeof fetch
+
+    const results = await searchStaffCustomers("customer@example.com")
+
+    expect(results).toHaveLength(1)
+    expect(results[0]).toEqual(
+      expect.objectContaining({
+        id: "cus_target",
+        source: "customer",
+      })
+    )
+    expect(mockEmitStorefrontOpsAlert).toHaveBeenCalledTimes(2)
+    expect(mockEmitStorefrontOpsAlert).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        alertKind: "staff_customer_context_data_degraded",
+        severity: "warn",
+        fingerprint: "staff_customer_context:search_recent_orders:degraded",
+        meta: expect.objectContaining({
+          staff_module: "phone_order",
+          surface: "search",
+          stage: "search_recent_orders",
+          query_kind: "email",
+          has_customer_id: false,
+          result_count: 1,
+          include_legacy_order_requested: false,
+          error_message:
+            "Order search failed for [redacted-email] [redacted-id]",
+        }),
+      })
+    )
+    expect(mockEmitStorefrontOpsAlert).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        alertKind: "staff_customer_context_data_degraded",
+        fingerprint: "staff_customer_context:search_legacy_orders:degraded",
+        meta: expect.objectContaining({
+          surface: "search",
+          stage: "search_legacy_orders",
+          query_kind: "email",
+          result_count: 1,
+          error_message:
+            "Legacy search failed for [redacted-email] [redacted-id]",
+        }),
+      })
+    )
+    const alertJson = JSON.stringify(mockEmitStorefrontOpsAlert.mock.calls)
+    expect(alertJson).not.toContain("customer@example.com")
+    expect(alertJson).not.toContain("order_123")
+    expect(alertJson).not.toContain("legacy_123")
+  })
+
+  it("alerts when selected customer context loses recent and legacy detail data", async () => {
+    global.fetch = jest.fn(async (url) => {
+      const href = String(url)
+      if (href.includes("/admin/customers/cus_target")) {
+        return response(true, 200, {
+          customer: {
+            id: "cus_target",
+            email: "customer@example.com",
+            first_name: "Test",
+            last_name: "Customer",
+            metadata: {},
+            addresses: [],
+          },
+        })
+      }
+      if (href.includes("/admin/orders")) {
+        return response(false, 503, {
+          message: "Recent orders failed for customer@example.com order_123",
+        })
+      }
+      if (href.includes("/admin/legacy-orders/legacy_123")) {
+        return response(false, 503, {
+          message: "Legacy detail failed for legacy_123",
+        })
+      }
+      if (href.includes("/admin/legacy-orders")) {
+        return response(true, 200, {
+          orders: [
+            {
+              id: "legacy_123",
+              customer_name: "Test Customer",
+              line_count: 0,
+              lines: [],
+            },
+          ],
+        })
+      }
+      throw new Error(`Unexpected fetch ${href}`)
+    }) as unknown as typeof fetch
+
+    const context = await getStaffCustomerContext("cus_target")
+
+    expect(context.id).toBe("cus_target")
+    expect(context.recentOrders).toEqual([])
+    expect(context.legacyOrders).toHaveLength(1)
+    expect(mockEmitStorefrontOpsAlert).toHaveBeenCalledTimes(2)
+    expect(mockEmitStorefrontOpsAlert).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        alertKind: "staff_customer_context_data_degraded",
+        fingerprint: "staff_customer_context:context_recent_orders:degraded",
+        meta: expect.objectContaining({
+          surface: "context",
+          stage: "context_recent_orders",
+          query_kind: null,
+          has_customer_id: true,
+          error_message:
+            "Recent orders failed for [redacted-email] [redacted-id]",
+        }),
+      })
+    )
+    expect(mockEmitStorefrontOpsAlert).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        alertKind: "staff_customer_context_data_degraded",
+        fingerprint: "staff_customer_context:context_legacy_order_detail:degraded",
+        meta: expect.objectContaining({
+          surface: "context",
+          stage: "context_legacy_order_detail",
+          has_customer_id: true,
+          failure_count: 1,
+          error_message: "Legacy detail failed for [redacted-id]",
+        }),
+      })
+    )
+  })
+
+  it("alerts when selected customer context loses the legacy order list", async () => {
+    global.fetch = jest.fn(async (url) => {
+      const href = String(url)
+      if (href.includes("/admin/customers/cus_target")) {
+        return response(true, 200, {
+          customer: {
+            id: "cus_target",
+            email: "customer@example.com",
+            first_name: "Test",
+            last_name: "Customer",
+            metadata: {},
+            addresses: [],
+          },
+        })
+      }
+      if (href.includes("/admin/orders")) {
+        return response(true, 200, { orders: [] })
+      }
+      if (href.includes("/admin/legacy-orders")) {
+        return response(false, 503, {
+          message: "Legacy list failed for customer@example.com legacy_123",
+        })
+      }
+      throw new Error(`Unexpected fetch ${href}`)
+    }) as unknown as typeof fetch
+
+    const context = await getStaffCustomerContext("cus_target", {
+      includeLegacyOrderId: "legacy_123",
+    })
+
+    expect(context.id).toBe("cus_target")
+    expect(context.legacyOrders).toHaveLength(1)
+    expect(mockEmitStorefrontOpsAlert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        alertKind: "staff_customer_context_data_degraded",
+        fingerprint: "staff_customer_context:context_legacy_order_list:degraded",
+        meta: expect.objectContaining({
+          surface: "context",
+          stage: "context_legacy_order_list",
+          has_customer_id: true,
+          include_legacy_order_requested: true,
+          error_message:
+            "Legacy list failed for [redacted-email] [redacted-id]",
         }),
       })
     )

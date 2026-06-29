@@ -750,6 +750,7 @@ function staffOrderEntryErrorMessage(error: unknown) {
 
   return message
     .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[redacted-email]")
+    .replace(/\b(?:legacy-order|order):[A-Za-z0-9_-]+\b/g, "[redacted-id]")
     .replace(
       /\b(?:auth|cus|customer|cart|order|ord|pay|pm|pi|provider|seti|legacy|addr)_[A-Za-z0-9_:-]+/g,
       "[redacted-id]"
@@ -845,6 +846,51 @@ async function emitProductSearchAvailabilityFailureAlert(input: {
       result_count: input.resultCount,
       fulfillment_type: input.fulfillmentType || "plant_pickup",
       scheduled_date_provided: Boolean(input.scheduledDate),
+      error_message: staffOrderEntryErrorMessage(input.error).slice(0, 300),
+    },
+  })
+}
+
+function staffSearchQueryKind(query?: string) {
+  const value = String(query || "").trim()
+  if (!value) return "empty"
+  if (value.includes("@")) return "email"
+  if (stripPhone(value).length >= 7) return "phone"
+  return "text"
+}
+
+async function emitStaffCustomerContextDataDegradedAlert(input: {
+  stage:
+    | "search_recent_orders"
+    | "search_legacy_orders"
+    | "context_recent_orders"
+    | "context_legacy_order_list"
+    | "context_legacy_order_detail"
+  surface: "search" | "context"
+  error: unknown
+  query?: string
+  customerId?: string
+  resultCount?: number
+  failureCount?: number
+  includeLegacyOrderRequested?: boolean
+}) {
+  await emitStorefrontOpsAlert({
+    alertKind: "staff_customer_context_data_degraded",
+    severity: "warn",
+    title: `Staff customer context data degraded: ${input.stage}`,
+    path: "src/lib/data/staff/order-entry.ts",
+    source: "medusa-server",
+    fingerprint: `staff_customer_context:${input.stage}:degraded`,
+    meta: {
+      staff_module: "phone_order",
+      surface: input.surface,
+      stage: input.stage,
+      query_kind:
+        input.surface === "search" ? staffSearchQueryKind(input.query) : null,
+      has_customer_id: Boolean(input.customerId),
+      result_count: input.resultCount ?? null,
+      failure_count: input.failureCount ?? null,
+      include_legacy_order_requested: Boolean(input.includeLegacyOrderRequested),
       error_message: staffOrderEntryErrorMessage(input.error).slice(0, 300),
     },
   })
@@ -1274,14 +1320,25 @@ export async function searchStaffCustomers(
     }
   }
 
-  const orderResp = await adminFetch<{ orders: AnyRecord[] }>("/admin/orders", {
-    query: {
-      q,
-      limit: 8,
-      fields:
-        "id,display_id,email,customer_id,*customer,*shipping_address,*billing_address",
-    },
-  }).catch(() => ({ orders: [] }))
+  let orderResp: { orders: AnyRecord[] } = { orders: [] }
+  try {
+    orderResp = await adminFetch<{ orders: AnyRecord[] }>("/admin/orders", {
+      query: {
+        q,
+        limit: 8,
+        fields:
+          "id,display_id,email,customer_id,*customer,*shipping_address,*billing_address",
+      },
+    })
+  } catch (err) {
+    await emitStaffCustomerContextDataDegradedAlert({
+      stage: "search_recent_orders",
+      surface: "search",
+      query: q,
+      resultCount: results.length,
+      error: err,
+    })
+  }
 
   orderResp.orders?.forEach((order) => {
     if (order.customer) add(order.customer, "order")
@@ -1297,15 +1354,26 @@ export async function searchStaffCustomers(
     }
   })
 
-  const legacyOrderResp = await adminFetch<{ orders: AnyRecord[] }>(
-    "/admin/legacy-orders",
-    {
-      query: {
-        q,
-        limit: 8,
-      },
-    }
-  ).catch(() => ({ orders: [] }))
+  let legacyOrderResp: { orders: AnyRecord[] } = { orders: [] }
+  try {
+    legacyOrderResp = await adminFetch<{ orders: AnyRecord[] }>(
+      "/admin/legacy-orders",
+      {
+        query: {
+          q,
+          limit: 8,
+        },
+      }
+    )
+  } catch (err) {
+    await emitStaffCustomerContextDataDegradedAlert({
+      stage: "search_legacy_orders",
+      surface: "search",
+      query: q,
+      resultCount: results.length,
+      error: err,
+    })
+  }
 
   legacyOrderResp.orders?.forEach((order) => {
     const summary = legacyOrderCustomerSummary(order)
@@ -1492,29 +1560,50 @@ export async function getStaffCustomerContext(
     }
   )
 
-  const { orders } = await adminFetch<{ orders: AnyRecord[] }>(
-    "/admin/orders",
-    {
-      query: {
-        customer_id: customerId,
-        limit: 5,
-        order: "-created_at",
-        fields:
-          "id,display_id,email,total,currency_code,created_at,status,*shipping_address,*items,*items.variant",
-      },
-    }
-  ).catch(() => ({ orders: [] }))
+  let orders: AnyRecord[] = []
+  try {
+    ;({ orders } = await adminFetch<{ orders: AnyRecord[] }>(
+      "/admin/orders",
+      {
+        query: {
+          customer_id: customerId,
+          limit: 5,
+          order: "-created_at",
+          fields:
+            "id,display_id,email,total,currency_code,created_at,status,*shipping_address,*items,*items.variant",
+        },
+      }
+    ))
+  } catch (err) {
+    await emitStaffCustomerContextDataDegradedAlert({
+      stage: "context_recent_orders",
+      surface: "context",
+      customerId,
+      error: err,
+    })
+  }
 
-  const legacyOrderList = await adminFetch<{ orders: AnyRecord[] }>(
-    "/admin/legacy-orders",
-    {
-      query: {
-        customer_id: customerId,
-        limit: 5,
-        offset: 0,
-      },
-    }
-  ).catch(() => ({ orders: [] }))
+  let legacyOrderList: { orders: AnyRecord[] } = { orders: [] }
+  try {
+    legacyOrderList = await adminFetch<{ orders: AnyRecord[] }>(
+      "/admin/legacy-orders",
+      {
+        query: {
+          customer_id: customerId,
+          limit: 5,
+          offset: 0,
+        },
+      }
+    )
+  } catch (err) {
+    await emitStaffCustomerContextDataDegradedAlert({
+      stage: "context_legacy_order_list",
+      surface: "context",
+      customerId,
+      includeLegacyOrderRequested: Boolean(options.includeLegacyOrderId?.trim()),
+      error: err,
+    })
+  }
 
   const legacyOrderStubs = [...(legacyOrderList.orders || []).slice(0, 5)]
   const includeLegacyOrderId = options.includeLegacyOrderId?.trim()
@@ -1525,6 +1614,8 @@ export async function getStaffCustomerContext(
     legacyOrderStubs.unshift({ id: includeLegacyOrderId })
   }
 
+  let legacyDetailFailures = 0
+  let firstLegacyDetailError: unknown = null
   const legacyOrders = await Promise.all(
     legacyOrderStubs.slice(0, 6).map(async (order) => {
       const id = String(order.id || "")
@@ -1532,9 +1623,23 @@ export async function getStaffCustomerContext(
 
       return adminFetch<{ order: AnyRecord }>(`/admin/legacy-orders/${id}`)
         .then((response) => response.order || order)
-        .catch(() => order)
+        .catch((err) => {
+          legacyDetailFailures += 1
+          if (!firstLegacyDetailError) firstLegacyDetailError = err
+          return order
+        })
     })
   )
+  if (legacyDetailFailures > 0 && firstLegacyDetailError) {
+    await emitStaffCustomerContextDataDegradedAlert({
+      stage: "context_legacy_order_detail",
+      surface: "context",
+      customerId,
+      failureCount: legacyDetailFailures,
+      includeLegacyOrderRequested: Boolean(includeLegacyOrderId),
+      error: firstLegacyDetailError,
+    })
+  }
 
   const metadata = customer.metadata || {}
 
