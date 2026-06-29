@@ -8,6 +8,7 @@ import {
   planHeartbeat,
   planMisconfiguredAlert,
   planReviewAcquisitionAlert,
+  planReviewAcquisitionSuppressionAlert,
 } from "@lib/cron-ops-alerts"
 
 const ALERT_PATH = "src/app/api/cron/review-acquisition/route.ts"
@@ -86,9 +87,23 @@ type DeliveredOrderFetchResult = {
   sourceError?: string
 }
 
+type SuppressionLookupResult = {
+  suppressed: boolean
+  failed?: boolean
+  status?: number
+  error?: string
+}
+
 function errorMessage(error: unknown) {
   if (error instanceof Error) return error.message
   return String(error)
+}
+
+function redactedErrorMessage(error: unknown) {
+  return errorMessage(error)
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[email]")
+    .replace(/\s+/g, " ")
+    .trim()
 }
 
 function withinDayOf(timestamp: string | undefined, daysAgo: number): boolean {
@@ -210,8 +225,14 @@ async function fetchRecentlyDelivered(): Promise<DeliveredOrderFetchResult> {
   }
 }
 
-async function isSuppressed(email: string): Promise<boolean> {
-  if (!STRAPI_BASE) return false
+async function isSuppressed(email: string): Promise<SuppressionLookupResult> {
+  if (!STRAPI_BASE) {
+    return {
+      suppressed: false,
+      failed: true,
+      error: "STRAPI_ENDPOINT missing",
+    }
+  }
   try {
     const params = new URLSearchParams({
       "filters[Email][$eqi]": email.toLowerCase(),
@@ -224,12 +245,23 @@ async function isSuppressed(email: string): Promise<boolean> {
         : {},
       cache: "no-store",
     })
-    if (!res.ok) return false
+    if (!res.ok) {
+      return {
+        suppressed: false,
+        failed: true,
+        status: res.status,
+        error: res.statusText,
+      }
+    }
     const json = (await res.json()) as { data?: unknown[] }
-    return Array.isArray(json.data) && json.data.length > 0
+    return { suppressed: Array.isArray(json.data) && json.data.length > 0 }
   } catch (err) {
     console.error("[cron/review-acquisition] suppression lookup threw", err)
-    return false
+    return {
+      suppressed: false,
+      failed: true,
+      error: redactedErrorMessage(err).slice(0, 300),
+    }
   }
 }
 
@@ -392,6 +424,9 @@ export async function POST(req: Request): Promise<Response> {
     sentYelp: 0,
     failed: 0,
     metadataFailed: 0,
+    suppressionLookupFailed: 0,
+    suppressionFailureStatus: undefined as number | undefined,
+    suppressionFailureError: undefined as string | undefined,
     skipped: 0,
     skippedNoEmail: 0,
     skippedNoDeliveredAt: 0,
@@ -429,7 +464,13 @@ export async function POST(req: Request): Promise<Response> {
       summary.skippedBadSignal++
       continue
     }
-    if (await isSuppressed(email)) {
+    const suppression = await isSuppressed(email)
+    if (suppression.failed) {
+      summary.suppressionLookupFailed++
+      summary.suppressionFailureStatus ??= suppression.status
+      summary.suppressionFailureError ??= suppression.error
+    }
+    if (suppression.suppressed) {
       summary.skipped++
       summary.skippedSuppressed++
       continue
@@ -491,6 +532,10 @@ export async function POST(req: Request): Promise<Response> {
   // Emit a failure alert (warn, or page when eligible-but-nothing-sent) when
   // review-ask sends failed, then a success heartbeat for silence detection.
   // Both fire before returning and never alter the HTTP response.
+  await emitCronAlert(
+    planReviewAcquisitionSuppressionAlert(summary),
+    ALERT_PATH
+  )
   await emitCronAlert(planReviewAcquisitionAlert(summary), ALERT_PATH)
   await emitCronAlert(
     planHeartbeat("review-acquisition", {
@@ -498,6 +543,7 @@ export async function POST(req: Request): Promise<Response> {
       sent_google: summary.sentGoogle,
       sent_yelp: summary.sentYelp,
       metadata_failed: summary.metadataFailed,
+      suppression_lookup_failed: summary.suppressionLookupFailed,
       source_failed: summary.sourceFailed,
       source_failure_stage: summary.sourceFailureStage || null,
       dry_run: summary.dryRun,

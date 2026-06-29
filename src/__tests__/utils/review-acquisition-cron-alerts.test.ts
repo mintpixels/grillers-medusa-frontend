@@ -127,4 +127,67 @@ describe("review acquisition cron alerting", () => {
       })
     )
   })
+
+  it("pages when suppression lookup fails open while preserving cron 200", async () => {
+    global.fetch = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          orders: [
+            {
+              id: "order_1",
+              email: "shopper@example.com",
+              customer: {
+                email: "shopper@example.com",
+                metadata: {},
+              },
+              shipping_address: {
+                postal_code: "30328",
+              },
+              metadata: {
+                delivered_at: new Date().toISOString(),
+                order_count_at_time_of_purchase: 1,
+              },
+            },
+          ],
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 503,
+        statusText: "Service Unavailable",
+        json: async () => ({}),
+      }) as any
+
+    const response = await cronPost(request())
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toEqual(
+      expect.objectContaining({
+        ok: true,
+        scanned: 1,
+        suppressionLookupFailed: 1,
+        suppressionFailureStatus: 503,
+        skippedNotDue: 1,
+      })
+    )
+    expect(emitStorefrontOpsAlertMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        alertKind: "cron_review_acquisition_suppression_lookup_failed",
+        severity: "page",
+        path: "src/app/api/cron/review-acquisition/route.ts",
+        source: "storefront-cron",
+        meta: expect.objectContaining({
+          cron: "review-acquisition",
+          scanned: 1,
+          suppression_lookup_failed: 1,
+          suppression_failure_status: 503,
+        }),
+      })
+    )
+    expect(JSON.stringify(emitStorefrontOpsAlertMock.mock.calls)).not.toContain(
+      "shopper@example.com"
+    )
+  })
 })

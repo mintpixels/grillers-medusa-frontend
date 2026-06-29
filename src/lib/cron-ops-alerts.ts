@@ -104,6 +104,9 @@ export type ReviewAcquisitionSummaryLike = {
   sentYelp: number
   failed: number
   metadataFailed?: number
+  suppressionLookupFailed?: number
+  suppressionFailureStatus?: number
+  suppressionFailureError?: string
   sourceFailed?: boolean
   sourceFailureStage?: string
   sourceStatus?: number
@@ -180,6 +183,28 @@ export function planReviewAcquisitionAlert(
       eligible_yelp: summary.eligibleYelp,
       failed: summary.failed,
       metadata_failed: metadataFailed,
+    },
+  }
+}
+
+export function planReviewAcquisitionSuppressionAlert(
+  summary: ReviewAcquisitionSummaryLike
+): CronAlertPlan {
+  const suppressionFailures = summary.suppressionLookupFailed || 0
+  if (summary.dryRun || suppressionFailures <= 0) return null
+
+  return {
+    alertKind: "cron_review_acquisition_suppression_lookup_failed",
+    severity: "page",
+    title: `cron review-acquisition suppression lookup failed open for ${suppressionFailures} order(s)`,
+    meta: {
+      cron: "review-acquisition",
+      scanned: summary.scanned,
+      suppression_lookup_failed: suppressionFailures,
+      suppression_failure_status: summary.suppressionFailureStatus ?? null,
+      suppression_failure_error: summary.suppressionFailureError || null,
+      sent_google: summary.sentGoogle,
+      sent_yelp: summary.sentYelp,
     },
   }
 }
