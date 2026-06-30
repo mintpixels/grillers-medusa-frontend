@@ -23,7 +23,7 @@ describe("storefront api ops alerts", () => {
       reason: "request_failed",
       path: "src/app/api/storefront/side-cart/route.ts",
       timeoutMs: 900,
-      error: new Error("Strapi unavailable"),
+      error: new Error("Strapi unavailable for shopper@example.com cart_123"),
     })
 
     expect(emitStorefrontOpsAlertMock).toHaveBeenCalledWith(
@@ -38,9 +38,15 @@ describe("storefront api ops alerts", () => {
           stage: "upsells",
           reason: "request_failed",
           timeout_ms: 900,
-          error_message: "Strapi unavailable",
+          error_message: "Strapi unavailable for [redacted-email] [redacted-id]",
         }),
       })
+    )
+    expect(JSON.stringify(emitStorefrontOpsAlertMock.mock.calls)).not.toContain(
+      "shopper@example.com"
+    )
+    expect(JSON.stringify(emitStorefrontOpsAlertMock.mock.calls)).not.toContain(
+      "cart_123"
     )
   })
 

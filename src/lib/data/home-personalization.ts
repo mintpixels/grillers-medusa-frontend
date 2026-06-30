@@ -8,7 +8,6 @@ import {
 } from "@lib/data/strapi/collections"
 import type { PurchaseHistoryItem } from "@lib/data/orders"
 import strapiClient from "@lib/strapi"
-import { withTimeout } from "@lib/util/promise-timeout"
 
 export type ReorderStrapiMap = Record<string, StrapiCollectionProduct>
 
@@ -39,32 +38,23 @@ export async function getReorderStrapiMap(
     return reorderStrapiMap
   }
 
-  try {
-    const strapiProducts = await withTimeout(
-      getProductsByMedusaLookupRefs(
-        { productIds: ids, variantIds, skus },
-        strapiClient
-      ),
-      1800,
-      [],
-      "home reorder enrichment"
-    )
+  const strapiProducts = await getProductsByMedusaLookupRefs(
+    { productIds: ids, variantIds, skus },
+    strapiClient
+  )
 
-    for (const sp of strapiProducts) {
-      if (sp.MedusaProduct?.ProductId) {
-        reorderStrapiMap[sp.MedusaProduct.ProductId] = sp
+  for (const sp of strapiProducts) {
+    if (sp.MedusaProduct?.ProductId) {
+      reorderStrapiMap[sp.MedusaProduct.ProductId] = sp
+    }
+    for (const variant of sp.MedusaProduct?.Variants || []) {
+      if (variant.VariantId) {
+        reorderStrapiMap[variant.VariantId] = sp
       }
-      for (const variant of sp.MedusaProduct?.Variants || []) {
-        if (variant.VariantId) {
-          reorderStrapiMap[variant.VariantId] = sp
-        }
-        if (variant.Sku) {
-          reorderStrapiMap[variant.Sku.trim().toLowerCase()] = sp
-        }
+      if (variant.Sku) {
+        reorderStrapiMap[variant.Sku.trim().toLowerCase()] = sp
       }
     }
-  } catch (error) {
-    console.error("Error fetching reorder strapi enrichment:", error)
   }
 
   return reorderStrapiMap

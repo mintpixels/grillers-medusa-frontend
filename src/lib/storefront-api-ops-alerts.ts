@@ -31,6 +31,15 @@ function errorMessage(error: unknown) {
   }
 }
 
+function redactAlertMessage(message: string) {
+  return message
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[redacted-email]")
+    .replace(
+      /\b(?:cart|order|cus|customer|prod|variant|line|li)_[A-Za-z0-9_]+/g,
+      "[redacted-id]"
+    )
+}
+
 function routeLabel(route: StorefrontApiRoute) {
   switch (route) {
     case "session":
@@ -68,7 +77,7 @@ export async function emitStorefrontApiDataFailureAlert({
       stage,
       reason,
       timeout_ms: timeoutMs,
-      error_message: message ? message.slice(0, 300) : null,
+      error_message: message ? redactAlertMessage(message).slice(0, 300) : null,
     },
   })
 }
