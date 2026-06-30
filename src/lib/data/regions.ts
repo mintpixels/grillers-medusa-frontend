@@ -4,6 +4,7 @@ import { sdk } from "@lib/config"
 import medusaError from "@lib/util/medusa-error"
 import { HttpTypes } from "@medusajs/types"
 import { getCacheOptions } from "./cookies"
+import { reportRegionLookupFailure } from "@lib/region-ops-alerts"
 
 export const listRegions = async (
   options: { personalizedCacheTag?: boolean } = {}
@@ -66,6 +67,11 @@ export const getRegion = async (countryCode: string) => {
 
     return region
   } catch (e: any) {
+    reportRegionLookupFailure({
+      stage: "country_region_lookup",
+      countryCode,
+      error: e,
+    })
     return null
   }
 }
