@@ -8,6 +8,7 @@ import { SortOptions } from "@modules/store/components/refinement-list/sort-prod
 import { getAuthHeaders, getCacheOptions } from "./cookies"
 import { getRegion, retrieveRegion } from "./regions"
 import type { StrapiCollectionProduct } from "@lib/data/strapi/collections"
+import { reportProductEnrichmentFailure } from "@lib/product-enrichment-ops-alerts"
 
 function isLegacyReorderOnlyProduct(product: HttpTypes.StoreProduct) {
   const metadata = product.metadata as Record<string, unknown> | null | undefined
@@ -196,6 +197,14 @@ export const enrichStrapiProductsWithMedusaPrices = async <T extends StrapiColle
             `enrichStrapiProductsWithMedusaPrices: Medusa fetch chunk ${start}-${start + chunk.length} failed`,
             err
           )
+          reportProductEnrichmentFailure({
+            stage: "medusa_price_inventory_chunk",
+            countryCode,
+            productCount: productIds.length,
+            chunkIndex: index,
+            chunkSize: chunk.length,
+            error: err,
+          })
           // Continue with other chunks rather than dropping every product's price.
           return []
         }
