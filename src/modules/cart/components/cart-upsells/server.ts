@@ -1,5 +1,5 @@
 import strapiClient from "@lib/strapi"
-import { getProductsByHandles } from "@lib/data/strapi/collections"
+import { getProductsByHandlesStrict } from "@lib/data/strapi/collections"
 import { enrichStrapiProductsWithMedusaPrices } from "@lib/data/products"
 import { isVariantPurchasable } from "@lib/util/product-availability"
 import { CART_UPSELL_HANDLES } from "./config"
@@ -8,7 +8,7 @@ import type { CartUpsellProduct } from "./types"
 export async function getCartUpsellProducts(
   countryCode = "us"
 ): Promise<CartUpsellProduct[]> {
-  const strapiProducts = await getProductsByHandles(
+  const strapiProducts = await getProductsByHandlesStrict(
     [...CART_UPSELL_HANDLES],
     strapiClient
   )

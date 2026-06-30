@@ -866,11 +866,18 @@ function sortProductsByHandleOrder(
   })
 }
 
-export async function getProductsByHandles(
+function collectionErrorMessage(error: unknown) {
+  if (error instanceof Error) return error.message
+  return String(error || "unknown error")
+}
+
+export async function getProductsByHandlesStrict(
   handles: string[],
   client: any
 ): Promise<StrapiCollectionProduct[]> {
   if (!handles.length) return []
+  let primaryError: unknown
+
   try {
     const result = await client.request(GetProductsByHandlesQuery, { handles })
     const products: StrapiCollectionProduct[] = result.products || []
@@ -880,6 +887,7 @@ export async function getProductsByHandles(
       sortProductsByHandleOrder(products, handles)
     )
   } catch (error) {
+    primaryError = error
     console.error("Error fetching products by handles:", error)
   }
 
@@ -892,8 +900,19 @@ export async function getProductsByHandles(
     )
   } catch (error) {
     console.error("Error fetching legacy products by handles:", error)
-    return []
+    throw new Error(
+      `Strapi product handle lookup failed. primary=${collectionErrorMessage(
+        primaryError
+      )}; legacy=${collectionErrorMessage(error)}`
+    )
   }
+}
+
+export async function getProductsByHandles(
+  handles: string[],
+  client: any
+): Promise<StrapiCollectionProduct[]> {
+  return getProductsByHandlesStrict(handles, client).catch(() => [])
 }
 
 // Query to fetch all products (image filtering done client-side since Strapi can't filter on media fields)
