@@ -31,6 +31,14 @@ type CuratedCollectionTimeoutInput = {
   slug?: string | null
 }
 
+type CuratedCollectionRenderFailureInput = {
+  surface: CuratedCollectionAlertSurface | string
+  countryCode?: string | null
+  productHandle?: string | null
+  recommendationVariant?: string | null
+  error: unknown
+}
+
 type CuratedCollectionTimeoutOptions<T> = CuratedCollectionTimeoutInput & {
   promise: Promise<T>
   fallback: T
@@ -44,6 +52,15 @@ function errorMessage(error: unknown) {
   } catch {
     return String(error)
   }
+}
+
+export function redactCuratedCollectionsAlertMessage(message: string) {
+  return message
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[redacted-email]")
+    .replace(
+      /\b(?:prod|variant|cart|order|cus|customer|line|li)_[A-Za-z0-9_]+/g,
+      "[redacted-id]"
+    )
 }
 
 export async function emitCuratedCollectionsStrapiFailureAlert({
@@ -82,7 +99,41 @@ export async function emitCuratedCollectionsStrapiFailureAlert({
       customer_state: customerState || null,
       limit: limit ?? null,
       slug: slug || null,
-      error_message: message.slice(0, 300),
+      error_message: redactCuratedCollectionsAlertMessage(message).slice(
+        0,
+        300
+      ),
+    },
+  })
+}
+
+export async function emitCuratedCollectionsRenderFailureAlert({
+  surface,
+  countryCode,
+  productHandle,
+  recommendationVariant,
+  error,
+}: CuratedCollectionRenderFailureInput) {
+  const message = errorMessage(error)
+
+  await emitStorefrontOpsAlert({
+    alertKind: "curated_collections_render_failed",
+    severity: "warn",
+    title: `Curated collections render failed on ${surface}`,
+    path: "src/modules/products/components/pairs-well-with/index.tsx",
+    source: "storefront-server",
+    fingerprint: `curated_collections:render:${surface}:failed`,
+    meta: {
+      content_surface: "curated_collections",
+      operation: "render",
+      surface,
+      country_code: countryCode || null,
+      product_handle: productHandle || null,
+      recommendation_variant: recommendationVariant || null,
+      error_message: redactCuratedCollectionsAlertMessage(message).slice(
+        0,
+        300
+      ),
     },
   })
 }

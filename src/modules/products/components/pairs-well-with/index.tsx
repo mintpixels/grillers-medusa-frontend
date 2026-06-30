@@ -7,7 +7,11 @@ import {
   getCuratedCollections,
   type CuratedCollection,
 } from "@lib/data/strapi/curated-collections"
-import { withCuratedCollectionsTimeoutAlert } from "@lib/curated-collections-ops-alerts"
+import {
+  emitCuratedCollectionsRenderFailureAlert,
+  redactCuratedCollectionsAlertMessage,
+  withCuratedCollectionsTimeoutAlert,
+} from "@lib/curated-collections-ops-alerts"
 import type { HttpTypes } from "@medusajs/types"
 import {
   getCollectionSubstitutionGuardrails,
@@ -141,7 +145,18 @@ export default async function PairsWellWith({
     console.error("Failed to render PDP curated collections:", {
       productId: product.id,
       handle: product.handle,
+      errorMessage: redactCuratedCollectionsAlertMessage(
+        error instanceof Error ? error.message : String(error)
+      ),
+    })
+    await emitCuratedCollectionsRenderFailureAlert({
+      surface: "pdp",
+      countryCode,
+      productHandle: product.handle,
+      recommendationVariant,
       error,
+    }).catch(() => {
+      // Fail open: PDP merchandising alerting must not block the product page.
     })
     return null
   }
