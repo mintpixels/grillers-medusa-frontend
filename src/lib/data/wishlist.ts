@@ -1,6 +1,7 @@
 "use server"
 
 import { sdk } from "@lib/config"
+import { reportCustomerSavedItemsFailure } from "@lib/account-ops-alerts"
 import { revalidateTag } from "next/cache"
 import { getAuthHeaders, getCacheTag } from "./cookies"
 import { cookies } from "next/headers"
@@ -18,6 +19,12 @@ export type WishlistMetadata = {
 }
 
 const GUEST_WISHLIST_COOKIE = "grillers_wishlist"
+
+type WishlistAction = "read" | "add" | "remove" | "toggle"
+type WishlistFailureStage =
+  | "customer_metadata_read"
+  | "customer_metadata_update"
+  | "cache_revalidate"
 
 function hasAuthHeaders(
   headers: Awaited<ReturnType<typeof getAuthHeaders>>
@@ -40,7 +47,11 @@ async function fetchAuthenticatedWishlist(
 
 async function saveAuthenticatedWishlist(
   headers: { authorization: string },
-  wishlist: WishlistItem[]
+  wishlist: WishlistItem[],
+  context: {
+    action: WishlistAction
+    hasItemKey?: boolean
+  }
 ) {
   await sdk.store.customer.update(
     {
@@ -52,8 +63,19 @@ async function saveAuthenticatedWishlist(
     headers
   )
 
-  const cacheTag = await getCacheTag("customers")
-  revalidateTag(cacheTag)
+  try {
+    const cacheTag = await getCacheTag("customers")
+    revalidateTag(cacheTag)
+  } catch (error) {
+    reportCustomerSavedItemsFailure({
+      collection: "wishlist",
+      action: context.action,
+      stage: "cache_revalidate",
+      error,
+      hasItemKey: context.hasItemKey,
+      itemCount: wishlist.length,
+    })
+  }
 }
 
 /**
@@ -101,6 +123,12 @@ export async function getWishlist(): Promise<WishlistItem[]> {
     return await fetchAuthenticatedWishlist(headers)
   } catch (error) {
     console.error("Error fetching wishlist:", error)
+    reportCustomerSavedItemsFailure({
+      collection: "wishlist",
+      action: "read",
+      stage: "customer_metadata_read",
+      error,
+    })
     return []
   }
 }
@@ -144,6 +172,7 @@ export async function addToWishlist(
     }
   }
 
+  let stage: WishlistFailureStage = "customer_metadata_read"
   try {
     const currentWishlist = await fetchAuthenticatedWishlist(headers)
 
@@ -154,11 +183,22 @@ export async function addToWishlist(
 
     const updatedWishlist = [...currentWishlist, newItem]
 
-    await saveAuthenticatedWishlist(headers, updatedWishlist)
+    stage = "customer_metadata_update"
+    await saveAuthenticatedWishlist(headers, updatedWishlist, {
+      action: "add",
+      hasItemKey: Boolean(productId),
+    })
 
     return { success: true }
   } catch (error: any) {
     console.error("Error adding to wishlist:", error)
+    reportCustomerSavedItemsFailure({
+      collection: "wishlist",
+      action: "add",
+      stage,
+      error,
+      hasItemKey: Boolean(productId),
+    })
     return {
       success: false,
       error: error.message || "Failed to add to wishlist",
@@ -191,17 +231,29 @@ export async function removeFromWishlist(
     }
   }
 
+  let stage: WishlistFailureStage = "customer_metadata_read"
   try {
     const currentWishlist = await fetchAuthenticatedWishlist(headers)
     const updatedWishlist = currentWishlist.filter(
       (item) => item.productId !== productId
     )
 
-    await saveAuthenticatedWishlist(headers, updatedWishlist)
+    stage = "customer_metadata_update"
+    await saveAuthenticatedWishlist(headers, updatedWishlist, {
+      action: "remove",
+      hasItemKey: Boolean(productId),
+    })
 
     return { success: true }
   } catch (error: any) {
     console.error("Error removing from wishlist:", error)
+    reportCustomerSavedItemsFailure({
+      collection: "wishlist",
+      action: "remove",
+      stage,
+      error,
+      hasItemKey: Boolean(productId),
+    })
     return {
       success: false,
       error: error.message || "Failed to remove from wishlist",
@@ -218,6 +270,7 @@ export async function toggleWishlist(
   title: string,
   thumbnail?: string
 ): Promise<{ success: boolean; isWishlisted: boolean; error?: string }> {
+  let stage: WishlistFailureStage = "customer_metadata_read"
   try {
     const headers = await getAuthHeaders()
 
@@ -253,26 +306,46 @@ export async function toggleWishlist(
     )
 
     if (isCurrentlyWishlisted) {
+      stage = "customer_metadata_update"
       await saveAuthenticatedWishlist(
         headers,
-        currentWishlist.filter((item) => item.productId !== productId)
+        currentWishlist.filter((item) => item.productId !== productId),
+        {
+          action: "toggle",
+          hasItemKey: Boolean(productId),
+        }
       )
       return { success: true, isWishlisted: false }
     } else {
-      await saveAuthenticatedWishlist(headers, [
-        ...currentWishlist,
+      stage = "customer_metadata_update"
+      await saveAuthenticatedWishlist(
+        headers,
+        [
+          ...currentWishlist,
+          {
+            productId,
+            productHandle,
+            title,
+            thumbnail,
+            addedAt: new Date().toISOString(),
+          },
+        ],
         {
-          productId,
-          productHandle,
-          title,
-          thumbnail,
-          addedAt: new Date().toISOString(),
-        },
-      ])
+          action: "toggle",
+          hasItemKey: Boolean(productId),
+        }
+      )
       return { success: true, isWishlisted: true }
     }
   } catch (error: any) {
     console.error("Error toggling wishlist:", error)
+    reportCustomerSavedItemsFailure({
+      collection: "wishlist",
+      action: "toggle",
+      stage,
+      error,
+      hasItemKey: Boolean(productId),
+    })
     return {
       success: false,
       isWishlisted: false,

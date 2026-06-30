@@ -396,6 +396,52 @@ export function reportCartAddressPersistenceFailure(input: {
   })
 }
 
+export function reportCustomerSavedItemsFailure(input: {
+  collection: "wishlist" | "favorite_recipes"
+  action: "read" | "add" | "remove" | "toggle"
+  stage:
+    | "customer_metadata_read"
+    | "customer_metadata_update"
+    | "cache_revalidate"
+  error: unknown
+  hasItemKey?: boolean
+  itemCount?: number
+}): void {
+  const status = errorStatus(input.error)
+  const collectionLabel =
+    input.collection === "favorite_recipes" ? "favorite recipes" : "wishlist"
+
+  void emitStorefrontOpsAlert({
+    alertKind: "customer_saved_items_failed",
+    severity: "warn",
+    title: `Customer ${collectionLabel} persistence failed`,
+    path:
+      input.collection === "favorite_recipes"
+        ? "src/lib/data/favorites.ts"
+        : "src/lib/data/wishlist.ts",
+    source: "storefront-server",
+    fingerprint: `customer_saved_items_failed:${input.collection}:${input.action}:${input.stage}`,
+    meta: {
+      account_surface: "customer_saved_items",
+      collection: input.collection,
+      action: input.action,
+      failure_stage: input.stage,
+      route_dependency:
+        input.stage === "customer_metadata_read"
+          ? "/store/customers/me"
+          : input.stage === "customer_metadata_update"
+            ? "sdk.store.customer.update"
+            : "next/cache revalidateTag(customers)",
+      response_status: status,
+      has_item_key: Boolean(input.hasItemKey),
+      item_count: Math.max(0, Math.min(input.itemCount || 0, 200)),
+      error_message: redactedErrorMessage(input.error),
+    },
+  }).catch(() => {
+    // Fail-open: saved-item buttons should not depend on alert delivery.
+  })
+}
+
 export async function reportLegacyLoginFallbackFailure(input: {
   stage: "request_failed" | "backend_rejected"
   identifierKind: "email" | "legacy_identifier"

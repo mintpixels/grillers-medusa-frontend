@@ -1,6 +1,7 @@
 "use server"
 
 import { sdk } from "@lib/config"
+import { reportCustomerSavedItemsFailure } from "@lib/account-ops-alerts"
 import { revalidateTag } from "next/cache"
 import { getAuthHeaders, getCacheTag } from "./cookies"
 
@@ -13,6 +14,12 @@ export type FavoriteRecipe = {
 export type FavoritesMetadata = {
   favoriteRecipes?: FavoriteRecipe[]
 }
+
+type FavoriteRecipeAction = "read" | "add" | "remove" | "toggle"
+type FavoriteRecipeFailureStage =
+  | "customer_metadata_read"
+  | "customer_metadata_update"
+  | "cache_revalidate"
 
 function hasAuthHeaders(
   headers: Awaited<ReturnType<typeof getAuthHeaders>>
@@ -35,7 +42,11 @@ async function fetchFavoriteRecipes(
 
 async function saveFavoriteRecipes(
   headers: { authorization: string },
-  favoriteRecipes: FavoriteRecipe[]
+  favoriteRecipes: FavoriteRecipe[],
+  context: {
+    action: FavoriteRecipeAction
+    hasItemKey?: boolean
+  }
 ) {
   await sdk.store.customer.update(
     {
@@ -47,8 +58,19 @@ async function saveFavoriteRecipes(
     headers
   )
 
-  const cacheTag = await getCacheTag("customers")
-  revalidateTag(cacheTag)
+  try {
+    const cacheTag = await getCacheTag("customers")
+    revalidateTag(cacheTag)
+  } catch (error) {
+    reportCustomerSavedItemsFailure({
+      collection: "favorite_recipes",
+      action: context.action,
+      stage: "cache_revalidate",
+      error,
+      hasItemKey: context.hasItemKey,
+      itemCount: favoriteRecipes.length,
+    })
+  }
 }
 
 /**
@@ -65,6 +87,12 @@ export async function getFavoriteRecipes(): Promise<FavoriteRecipe[]> {
     return await fetchFavoriteRecipes(headers)
   } catch (error) {
     console.error("Error fetching favorite recipes:", error)
+    reportCustomerSavedItemsFailure({
+      collection: "favorite_recipes",
+      action: "read",
+      stage: "customer_metadata_read",
+      error,
+    })
     return []
   }
 }
@@ -82,6 +110,7 @@ export async function addFavoriteRecipe(
     return { success: false, error: "Not authenticated" }
   }
 
+  let stage: FavoriteRecipeFailureStage = "customer_metadata_read"
   try {
     const currentFavorites = await fetchFavoriteRecipes(headers)
 
@@ -99,11 +128,22 @@ export async function addFavoriteRecipe(
 
     const updatedFavorites = [...currentFavorites, newFavorite]
 
-    await saveFavoriteRecipes(headers, updatedFavorites)
+    stage = "customer_metadata_update"
+    await saveFavoriteRecipes(headers, updatedFavorites, {
+      action: "add",
+      hasItemKey: Boolean(slug),
+    })
 
     return { success: true }
   } catch (error: any) {
     console.error("Error adding favorite recipe:", error)
+    reportCustomerSavedItemsFailure({
+      collection: "favorite_recipes",
+      action: "add",
+      stage,
+      error,
+      hasItemKey: Boolean(slug),
+    })
     return {
       success: false,
       error: error.message || "Failed to add favorite",
@@ -123,17 +163,29 @@ export async function removeFavoriteRecipe(
     return { success: false, error: "Not authenticated" }
   }
 
+  let stage: FavoriteRecipeFailureStage = "customer_metadata_read"
   try {
     const currentFavorites = await fetchFavoriteRecipes(headers)
 
     // Filter out the recipe to remove
     const updatedFavorites = currentFavorites.filter((fav) => fav.slug !== slug)
 
-    await saveFavoriteRecipes(headers, updatedFavorites)
+    stage = "customer_metadata_update"
+    await saveFavoriteRecipes(headers, updatedFavorites, {
+      action: "remove",
+      hasItemKey: Boolean(slug),
+    })
 
     return { success: true }
   } catch (error: any) {
     console.error("Error removing favorite recipe:", error)
+    reportCustomerSavedItemsFailure({
+      collection: "favorite_recipes",
+      action: "remove",
+      stage,
+      error,
+      hasItemKey: Boolean(slug),
+    })
     return {
       success: false,
       error: error.message || "Failed to remove favorite",
@@ -154,6 +206,7 @@ export async function toggleFavoriteRecipe(
     return { success: false, isFavorited: false, error: "Not authenticated" }
   }
 
+  let stage: FavoriteRecipeFailureStage = "customer_metadata_read"
   try {
     const currentFavorites = await fetchFavoriteRecipes(headers)
     const isCurrentlyFavorited = currentFavorites.some(
@@ -161,24 +214,44 @@ export async function toggleFavoriteRecipe(
     )
 
     if (isCurrentlyFavorited) {
+      stage = "customer_metadata_update"
       await saveFavoriteRecipes(
         headers,
-        currentFavorites.filter((fav) => fav.slug !== slug)
+        currentFavorites.filter((fav) => fav.slug !== slug),
+        {
+          action: "toggle",
+          hasItemKey: Boolean(slug),
+        }
       )
       return { success: true, isFavorited: false }
     } else {
-      await saveFavoriteRecipes(headers, [
-        ...currentFavorites,
+      stage = "customer_metadata_update"
+      await saveFavoriteRecipes(
+        headers,
+        [
+          ...currentFavorites,
+          {
+            slug,
+            title,
+            addedAt: new Date().toISOString(),
+          },
+        ],
         {
-          slug,
-          title,
-          addedAt: new Date().toISOString(),
-        },
-      ])
+          action: "toggle",
+          hasItemKey: Boolean(slug),
+        }
+      )
       return { success: true, isFavorited: true }
     }
   } catch (error: any) {
     console.error("Error toggling favorite:", error)
+    reportCustomerSavedItemsFailure({
+      collection: "favorite_recipes",
+      action: "toggle",
+      stage,
+      error,
+      hasItemKey: Boolean(slug),
+    })
     return {
       success: false,
       isFavorited: false,
