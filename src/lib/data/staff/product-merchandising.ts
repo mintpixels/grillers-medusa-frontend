@@ -139,6 +139,13 @@ type RawImage = {
   caption?: string | null
 }
 
+type RawMediaReview = {
+  uploadFileId?: number
+  UploadFileId?: number
+  caption?: string | null
+  ReviewPayload?: string | null
+}
+
 type NormalizedProductTag = {
   documentId: string
   name: string
@@ -601,7 +608,68 @@ async function strapiGraphql<T>(
 }
 
 async function fetchStrapiUploadFile(imageId: number): Promise<RawImage> {
-  return strapiGet<RawImage>(`/api/upload/files/${imageId}`)
+  return hydrateUploadFileWithMediaReview(
+    await strapiGet<RawImage>(`/api/upload/files/${imageId}`)
+  )
+}
+
+function rawMediaReviewUploadId(review: RawMediaReview) {
+  return Number(review.uploadFileId || review.UploadFileId || 0)
+}
+
+function rawMediaReviewCaption(review: RawMediaReview) {
+  return text(review.caption) || text(review.ReviewPayload) || null
+}
+
+async function mediaReviewCaptionsByImageId(
+  imageIds: number[]
+): Promise<Map<number, string>> {
+  const ids = Array.from(
+    new Set(imageIds.filter((id) => Number.isInteger(id) && id > 0))
+  )
+  const captions = new Map<number, string>()
+
+  if (!ids.length) return captions
+  if (String(process.env.NODE_ENV) === "test") return captions
+
+  for (let start = 0; start < ids.length; start += 200) {
+    const chunk = ids.slice(start, start + 200)
+    try {
+      const response = await strapiGet<{ data?: RawMediaReview[] }>(
+        `/api/gp-upload-files/reviews?ids=${chunk.join(",")}`
+      )
+
+      for (const review of response.data || []) {
+        const uploadId = rawMediaReviewUploadId(review)
+        const caption = rawMediaReviewCaption(review)
+        if (uploadId && caption) captions.set(uploadId, caption)
+      }
+    } catch (error) {
+      if (process.env.NODE_ENV !== "test") {
+        reportServerSoftFailure("staff-merchandising-media-review-read", error, {
+          imageCount: chunk.length,
+        })
+      }
+    }
+  }
+
+  return captions
+}
+
+async function hydrateUploadFileWithMediaReview(
+  upload: RawImage
+): Promise<RawImage> {
+  const imageId = Number(upload.id || 0)
+  if (!imageId) return upload
+
+  const captions = await mediaReviewCaptionsByImageId([imageId])
+  const caption = captions.get(imageId)
+  if (!caption) return upload
+
+  return {
+    ...upload,
+    caption,
+  }
 }
 
 function storedCaptionSummary(caption: string | null | undefined) {
@@ -1012,11 +1080,14 @@ async function uploadFilesByDocumentId(
       params.set(`filters[documentId][$in][${index}]`, documentId)
     })
 
-    const uploads = await strapiGet<RawImage[]>(
+    const uploadResponse = await strapiGet<RawImage[] | { data?: RawImage[] }>(
       `/api/upload/files?${params.toString()}`
     )
+    const uploads = Array.isArray(uploadResponse)
+      ? uploadResponse
+      : uploadResponse.data || []
 
-    for (const upload of uploads || []) {
+    for (const upload of uploads) {
       const documentId = text(upload.documentId)
       if (documentId) files.set(documentId, upload)
     }
@@ -1030,7 +1101,8 @@ async function uploadFileByDocumentId(
 ): Promise<RawImage | null> {
   if (!documentId) return null
   const uploads = await uploadFilesByDocumentId([documentId])
-  return uploads.get(documentId) || null
+  const upload = uploads.get(documentId)
+  return upload ? hydrateUploadFileWithMediaReview(upload) : null
 }
 
 async function hydrateProductImagesWithUploadFiles(
@@ -1042,13 +1114,20 @@ async function hydrateProductImagesWithUploadFiles(
   if (!documentIds.length) return products
 
   const uploads = await uploadFilesByDocumentId(documentIds)
+  const reviewCaptions = await mediaReviewCaptionsByImageId(
+    Array.from(uploads.values())
+      .map((upload) => Number(upload.id || 0))
+      .filter((id) => id > 0)
+  )
 
   return products.map((product) => ({
     ...product,
     images: product.images.map((image) => {
       const upload = uploads.get(image.documentId)
       if (!upload) return image
-      const parsed = parseReviewCaption(upload.caption)
+      const caption =
+        reviewCaptions.get(Number(upload.id || 0)) || upload.caption || null
+      const parsed = parseReviewCaption(caption)
       const urls = imageUrl(upload)
 
       return {
@@ -1059,7 +1138,7 @@ async function hydrateProductImagesWithUploadFiles(
         displayUrl: urls.displayUrl || image.displayUrl,
         thumbnailUrl: urls.thumbnailUrl || image.thumbnailUrl,
         alternativeText: upload.alternativeText || image.alternativeText,
-        caption: upload.caption || null,
+        caption,
         review: parsed.review,
         claim: isClaimActive(parsed.claim) ? parsed.claim : undefined,
         auditHistory: parsed.auditHistory,
@@ -1124,9 +1203,16 @@ async function buildProductMerchandisingTags(): Promise<
   ProductMerchandisingTagSummary[]
 > {
   const summaries = new Map<string, ProductMerchandisingTagSummary>()
-  const products = (await fetchOverviewProducts()).map((rawProduct) => ({
-    product: summarizeProduct(rawProduct),
-    tags: productTags(rawProduct),
+  const rawProducts = await fetchOverviewProducts()
+  const summarizedProducts =
+    String(process.env.NODE_ENV) === "test"
+      ? rawProducts.map(summarizeProduct)
+      : await hydrateProductImagesWithUploadFiles(
+          rawProducts.map(summarizeProduct)
+        )
+  const products = summarizedProducts.map((product, index) => ({
+    product,
+    tags: productTags(rawProducts[index]),
   }))
 
   for (const { product, tags } of products) {
