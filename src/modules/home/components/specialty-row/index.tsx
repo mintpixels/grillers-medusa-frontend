@@ -1,7 +1,8 @@
 import strapiClient from "@lib/strapi"
-import { getProductsByHandles } from "@lib/data/strapi/collections"
+import { getProductsByHandlesStrict } from "@lib/data/strapi/collections"
 import { enrichStrapiProductsWithMedusaPrices } from "@lib/data/products"
 import { compactCollectionProducts } from "@lib/util/collection-product"
+import { emitHomepageProductRailFailureAlert } from "@lib/homepage-ops-alerts"
 import { suppressInvalidProductTag } from "@lib/util/product-claims"
 import SpecialtySwiper from "./swiper"
 
@@ -53,7 +54,21 @@ export default async function SpecialtyRow({
   countryCode?: string
 }) {
   const handles = [...SPECIALTY_PRODUCT_HANDLES]
-  const strapiProducts = await getProductsByHandles(handles, strapiClient)
+  let strapiProducts: Awaited<ReturnType<typeof getProductsByHandlesStrict>> =
+    []
+  try {
+    strapiProducts = await getProductsByHandlesStrict(handles, strapiClient)
+  } catch (error) {
+    await emitHomepageProductRailFailureAlert({
+      rail: "specialty",
+      countryCode,
+      handleCount: handles.length,
+      error,
+    }).catch(() => {
+      // Fail open: product rail alerting must not block the homepage.
+    })
+  }
+
   const products = await enrichStrapiProductsWithMedusaPrices(
     strapiProducts,
     countryCode

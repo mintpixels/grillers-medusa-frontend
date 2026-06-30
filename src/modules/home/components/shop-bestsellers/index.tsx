@@ -1,7 +1,8 @@
 import strapiClient from "@lib/strapi"
-import { getProductsByHandles } from "@lib/data/strapi/collections"
+import { getProductsByHandlesStrict } from "@lib/data/strapi/collections"
 import { enrichStrapiProductsWithMedusaPrices } from "@lib/data/products"
 import { compactCollectionProducts } from "@lib/util/collection-product"
+import { emitHomepageProductRailFailureAlert } from "@lib/homepage-ops-alerts"
 import BestsellersSwiper from "./swiper"
 
 // Strapi seeds this section with a curated list — each entry's `Slug` field
@@ -28,7 +29,21 @@ export default async function BestsellersSection({
     .map((p) => p?.Slug?.trim())
     .filter((s): s is string => !!s)
 
-  const strapiProducts = await getProductsByHandles(handles, strapiClient)
+  let strapiProducts: Awaited<ReturnType<typeof getProductsByHandlesStrict>> =
+    []
+  try {
+    strapiProducts = await getProductsByHandlesStrict(handles, strapiClient)
+  } catch (error) {
+    await emitHomepageProductRailFailureAlert({
+      rail: "bestsellers",
+      countryCode,
+      handleCount: handles.length,
+      error,
+    }).catch(() => {
+      // Fail open: product rail alerting must not block the homepage.
+    })
+  }
+
   const products = await enrichStrapiProductsWithMedusaPrices(
     strapiProducts,
     countryCode
