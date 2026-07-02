@@ -16,8 +16,8 @@ describe("isVariantPurchasable", () => {
     ).toBe(false)
   })
 
-  it("does not block when inventory quantity is not present", () => {
-    expect(isVariantPurchasable({ manage_inventory: true })).toBe(true)
+  it("blocks managed variants when inventory quantity is not present", () => {
+    expect(isVariantPurchasable({ manage_inventory: true })).toBe(false)
+    expect(isVariantPurchasable({})).toBe(false)
   })
 })
-

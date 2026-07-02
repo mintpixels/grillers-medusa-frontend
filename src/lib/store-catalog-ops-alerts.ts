@@ -15,6 +15,17 @@ type StoreCatalogEmptyAlertInput = {
   visibleCount: number
 }
 
+type StoreCatalogInventoryMissingAlertInput = {
+  productCount: number
+  variantCount: number
+  examples: Array<{
+    productId?: string | null
+    productTitle?: string | null
+    variantId?: string | null
+    sku?: string | null
+  }>
+}
+
 function errorMessage(error: unknown) {
   if (error instanceof Error) return `${error.name}: ${error.message}`
   if (typeof error === "string") return error
@@ -75,6 +86,27 @@ export async function emitStoreCatalogEmptyAlert({
       catalog_surface: "store",
       raw_product_count: rawCount,
       visible_product_count: visibleCount,
+    },
+  })
+}
+
+export async function emitStoreCatalogInventoryMissingAlert({
+  productCount,
+  variantCount,
+  examples,
+}: StoreCatalogInventoryMissingAlertInput) {
+  await emitStorefrontOpsAlert({
+    alertKind: "store_catalog_inventory_missing",
+    severity: "warn",
+    title: "Store catalog has product cards without live inventory observations",
+    path: "src/app/[countryCode]/(main)/store/page.tsx",
+    source: "medusa-server",
+    fingerprint: "store_catalog:inventory_missing",
+    meta: {
+      catalog_surface: "store",
+      product_count: productCount,
+      variant_count: variantCount,
+      examples: examples.slice(0, 5),
     },
   })
 }

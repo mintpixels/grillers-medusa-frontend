@@ -3,7 +3,9 @@ import { Metadata } from "next"
 import { generateAlternates } from "@lib/util/seo"
 import { getBaseURL } from "@lib/util/env"
 import { getStoreProducts } from "@lib/data/strapi/collections"
+import { enrichStrapiProductsWithMedusaPrices } from "@lib/data/products"
 import { compactCollectionProducts } from "@lib/util/collection-product"
+import { variantNeedsInventoryObservation } from "@lib/util/product-availability"
 import CollectionTemplate from "@modules/collections/templates"
 import ExperimentExposure from "@lib/experiments/exposure"
 import { getExperimentAssignment } from "@lib/experiments/server"
@@ -11,6 +13,7 @@ import { itemListJsonLd, webPageJsonLd } from "@lib/util/structured-data"
 import strapiClient from "@lib/strapi"
 import {
   emitStoreCatalogEmptyAlert,
+  emitStoreCatalogInventoryMissingAlert,
   emitStoreCatalogLoadFailureAlert,
 } from "@lib/store-catalog-ops-alerts"
 
@@ -61,6 +64,32 @@ export default async function StorePage(props: Params) {
       `Store catalog resolved with no visible products (${rawProducts.length} raw products)`
     )
   }
+  const enrichedProducts = await enrichStrapiProductsWithMedusaPrices(
+    visibleProducts,
+    countryCode
+  )
+  const missingInventoryVariants = enrichedProducts.flatMap((product) =>
+    (product.MedusaProduct?.Variants ?? [])
+      .filter(variantNeedsInventoryObservation)
+      .map((variant) => ({
+        productId: product.MedusaProduct?.ProductId || null,
+        productTitle: product.Title || null,
+        variantId: variant.VariantId || null,
+        sku: variant.Sku || null,
+      }))
+  )
+  if (missingInventoryVariants.length > 0) {
+    const productCount = new Set(
+      missingInventoryVariants.map((variant) => variant.productId)
+    ).size
+    void emitStoreCatalogInventoryMissingAlert({
+      productCount,
+      variantCount: missingInventoryVariants.length,
+      examples: missingInventoryVariants.slice(0, 5),
+    }).catch(() => {
+      // Fail-open for alert delivery; availability itself fails closed.
+    })
+  }
   const plpExperiment = await getExperimentAssignment("plp_merchandising_v1", {
     routeMarket: countryCode,
     customerType: "unknown",
@@ -107,7 +136,7 @@ export default async function StorePage(props: Params) {
         title="All Products"
         slug="store"
         countryCode={countryCode}
-        products={compactCollectionProducts(visibleProducts)}
+        products={compactCollectionProducts(enrichedProducts)}
       />
     </>
   )

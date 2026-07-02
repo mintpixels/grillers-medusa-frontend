@@ -1,5 +1,6 @@
 import {
   emitStoreCatalogEmptyAlert,
+  emitStoreCatalogInventoryMissingAlert,
   emitStoreCatalogLoadFailureAlert,
 } from "@lib/store-catalog-ops-alerts"
 import { emitStorefrontOpsAlert } from "@lib/ops-alert"
@@ -80,6 +81,41 @@ describe("store catalog ops alerts", () => {
           catalog_surface: "store",
           raw_product_count: 0,
           visible_product_count: 0,
+        }),
+      })
+    )
+  })
+
+  it("emits a warn alert when store cards are missing live inventory observations", async () => {
+    await emitStoreCatalogInventoryMissingAlert({
+      productCount: 1,
+      variantCount: 2,
+      examples: [
+        {
+          productId: "prod_123",
+          productTitle: "Kosher Chuck Roast",
+          variantId: "variant_123",
+          sku: "1-01-01-1",
+        },
+      ],
+    })
+
+    expect(mockEmitStorefrontOpsAlert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        alertKind: "store_catalog_inventory_missing",
+        severity: "warn",
+        fingerprint: "store_catalog:inventory_missing",
+        path: "src/app/[countryCode]/(main)/store/page.tsx",
+        meta: expect.objectContaining({
+          catalog_surface: "store",
+          product_count: 1,
+          variant_count: 2,
+          examples: [
+            expect.objectContaining({
+              productId: "prod_123",
+              variantId: "variant_123",
+            }),
+          ],
         }),
       })
     )
