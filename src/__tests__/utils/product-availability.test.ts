@@ -16,8 +16,27 @@ describe("isVariantPurchasable", () => {
     ).toBe(false)
   })
 
-  it("blocks managed variants when inventory quantity is not present", () => {
-    expect(isVariantPurchasable({ manage_inventory: true })).toBe(false)
-    expect(isVariantPurchasable({})).toBe(false)
+  it("allows managed variants with positive inventory", () => {
+    expect(
+      isVariantPurchasable({
+        manage_inventory: true,
+        allow_backorder: false,
+        inventory_quantity: 3,
+      })
+    ).toBe(true)
+  })
+
+  it("fails open when inventory quantity is unobserved", () => {
+    // No numeric quantity means enrichment has not run (or failed) for this
+    // surface. Fail open so unenriched/transient surfaces don't render a
+    // store-wide false "Out of stock"; the server-side ATP gate in place-order
+    // is the authoritative oversell backstop.
+    expect(isVariantPurchasable({ manage_inventory: true })).toBe(true)
+    expect(isVariantPurchasable({})).toBe(true)
+  })
+
+  it("blocks a missing variant", () => {
+    expect(isVariantPurchasable(null)).toBe(false)
+    expect(isVariantPurchasable(undefined)).toBe(false)
   })
 })

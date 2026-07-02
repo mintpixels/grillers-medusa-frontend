@@ -22,6 +22,10 @@ jest.mock("@lib/data/strapi/collections", () => ({
   getProductsByMedusaLookupRefs: jest.fn(),
 }))
 
+jest.mock("@lib/data/products", () => ({
+  enrichStrapiProductsWithMedusaPrices: jest.fn(async (products) => products),
+}))
+
 jest.mock("@lib/order-history-ops-alerts", () => ({
   emitOrderHistoryDataFailureAlert: jest.fn(async () => undefined),
 }))

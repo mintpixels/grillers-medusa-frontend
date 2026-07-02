@@ -8,6 +8,8 @@ import {
   generateRecipeJsonLd,
   type RecipeData,
 } from "@lib/data/strapi/recipes"
+import { enrichStrapiProductsWithMedusaPrices } from "@lib/data/products"
+import { reportProductEnrichmentFailure } from "@lib/product-enrichment-ops-alerts"
 import RecipeTemplate from "@modules/recipes/templates/recipe-detail"
 import { generateAlternates } from "@lib/util/seo"
 import { getBaseURL } from "@lib/util/env"
@@ -80,13 +82,40 @@ export default async function RecipePage({ params }: PageProps) {
     notFound()
   }
 
+  // Strapi holds the recipe → product links, but Medusa is the source of truth
+  // for live price AND inventory. Overlay live Medusa state onto the recipe's
+  // linked products so the hero renders the current price and an accurate
+  // in-stock hint (the Strapi query carries no inventory fields). Fail open to
+  // the raw Strapi products on enrichment failure — the server-side ATP gate in
+  // place-order is the authoritative oversell backstop.
+  let relatedProducts = record.RelatedProducts ?? []
+  if (relatedProducts.length > 0) {
+    try {
+      relatedProducts = await enrichStrapiProductsWithMedusaPrices(
+        relatedProducts,
+        countryCode
+      )
+    } catch (error) {
+      reportProductEnrichmentFailure({
+        stage: "medusa_price_inventory_chunk",
+        countryCode,
+        productCount: relatedProducts.length,
+        chunkIndex: 0,
+        chunkSize: relatedProducts.length,
+        error,
+      })
+      // Fail open: the recipe hero should still render with raw Strapi products.
+    }
+  }
+  const recipe: RecipeData = { ...record, RelatedProducts: relatedProducts }
+
   // Check authentication and favorite status
   const isLoggedIn = !!customer
   const isFavorited = isLoggedIn ? await isRecipeFavorited(handle) : false
 
   // Generate Recipe JSON-LD for SEO
   const baseUrl = getBaseURL()
-  const recipeJsonLd = generateRecipeJsonLd(record, baseUrl, countryCode)
+  const recipeJsonLd = generateRecipeJsonLd(recipe, baseUrl, countryCode)
 
   return (
     <>
@@ -96,7 +125,7 @@ export default async function RecipePage({ params }: PageProps) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(recipeJsonLd) }}
       />
       <RecipeTemplate
-        recipe={record}
+        recipe={recipe}
         countryCode={countryCode}
         isLoggedIn={isLoggedIn}
         isFavorited={isFavorited}
