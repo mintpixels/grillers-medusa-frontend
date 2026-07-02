@@ -23,7 +23,7 @@ import PaymentWrapper from "@modules/checkout/components/payment-wrapper"
 import CheckoutForm from "@modules/checkout/templates/checkout-form"
 import CheckoutSummary from "@modules/checkout/templates/checkout-summary"
 import { Metadata } from "next"
-import { notFound, redirect } from "next/navigation"
+import { redirect } from "next/navigation"
 
 export const dynamic = "force-dynamic"
 
@@ -323,13 +323,38 @@ type PageProps = {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }
 
+async function retrieveCheckoutCart() {
+  try {
+    return await retrieveCart(undefined, {
+      fresh: true,
+      throwOnFetchError: true,
+    })
+  } catch (error) {
+    reportServerSoftFailure(`${CHECKOUT_PAGE_PATH}:retrieveCart`, error, {
+      stage: "initial_checkout_cart_load",
+    })
+  }
+
+  try {
+    return await retrieveCart(undefined, {
+      fresh: true,
+      throwOnFetchError: true,
+    })
+  } catch (error) {
+    reportServerSoftFailure(`${CHECKOUT_PAGE_PATH}:retrieveCart`, error, {
+      stage: "retry_checkout_cart_load",
+    })
+    throw error
+  }
+}
+
 export default async function Checkout({ params, searchParams }: PageProps) {
   const { countryCode } = await params
   const resolvedSearchParams = await searchParams
-  let cart = await retrieveCart()
+  let cart = await retrieveCheckoutCart()
 
   if (!cart) {
-    return notFound()
+    redirect(`/${countryCode}/cart`)
   }
 
   // If cart is empty, redirect to cart page

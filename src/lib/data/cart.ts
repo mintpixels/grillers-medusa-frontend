@@ -237,7 +237,7 @@ function withStaffCartMetadata<T extends Record<string, any>>(
  */
 export async function retrieveCart(
   cartId?: string,
-  options: { fresh?: boolean } = {}
+  options: { fresh?: boolean; throwOnFetchError?: boolean } = {}
 ) {
   const active = await getCartStaffContext()
   const explicitCartId = Boolean(cartId)
@@ -284,13 +284,48 @@ export async function retrieveCart(
 
       return cart
     })
-    .catch((e) => {
+    .catch(async (e) => {
+      if (isCartNotFoundError(e) && !explicitCartId) {
+        await removeCurrentCartId(active)
+        return null
+      }
+
       // Checkout/order path: a failed cart fetch silently blanks the cart.
       reportServerSoftFailure("src/lib/data/cart.ts:retrieveCart", e, {
         cart_id: id,
       })
+
+      if (options.throwOnFetchError) {
+        throw e
+      }
+
       return null
     })
+}
+
+function isCartNotFoundError(error: unknown) {
+  const maybe = error as {
+    status?: unknown
+    statusCode?: unknown
+    response?: { status?: unknown }
+    data?: { type?: unknown; message?: unknown }
+    message?: unknown
+  }
+  const status = Number(
+    maybe?.status ?? maybe?.statusCode ?? maybe?.response?.status
+  )
+  if (status === 404) return true
+
+  const type = String(maybe?.data?.type || "").toLowerCase()
+  const message = String(
+    maybe?.data?.message || maybe?.message || ""
+  ).toLowerCase()
+
+  return (
+    type.includes("not_found") ||
+    message.includes("cart not found") ||
+    message.includes("cart was not found")
+  )
 }
 
 export async function getOrSetCart(countryCode: string) {

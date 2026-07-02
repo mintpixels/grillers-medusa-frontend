@@ -34,6 +34,7 @@ import {
   getProductFreeDeliveryEligibility,
 } from "@lib/util/free-delivery-eligibility"
 import { formatProductPriceDisplay } from "@lib/util/price-display"
+import { isVariantPurchasable } from "@lib/util/product-availability"
 import type { StrapiCollectionProduct } from "@lib/data/strapi/collections"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import { toast } from "@medusajs/ui"
@@ -226,17 +227,17 @@ function getPrimaryVariant(product?: StrapiCollectionProduct) {
   return product?.MedusaProduct?.Variants?.[0]
 }
 
-function itemVariantId(item: HydratedHistoryItem) {
+function itemVariant(item: HydratedHistoryItem) {
   const variants = item.strapiProduct.MedusaProduct?.Variants || []
-  const purchasedVariant = variants.find(
-    (variant) => variant.VariantId && variant.VariantId === item.variantId
-  )
-
   return (
-    purchasedVariant?.VariantId ||
-    getPrimaryVariant(item.strapiProduct)?.VariantId ||
-    ""
+    variants.find(
+      (variant) => variant.VariantId && variant.VariantId === item.variantId
+    ) || getPrimaryVariant(item.strapiProduct)
   )
+}
+
+function itemVariantId(item: HydratedHistoryItem) {
+  return itemVariant(item)?.VariantId || ""
 }
 
 function itemImage(item: HydratedHistoryItem) {
@@ -318,8 +319,7 @@ function dueScore(item: HydratedHistoryItem) {
 }
 
 function itemPriceNumber(item: HydratedHistoryItem) {
-  const productPrice = getPrimaryVariant(item.strapiProduct)?.Price
-    ?.CalculatedPriceNumber
+  const productPrice = itemVariant(item)?.Price?.CalculatedPriceNumber
   if (typeof productPrice === "number" && Number.isFinite(productPrice)) {
     return productPrice
   }
@@ -329,7 +329,7 @@ function itemPriceNumber(item: HydratedHistoryItem) {
 }
 
 function itemPriceLabel(item: HydratedHistoryItem) {
-  const variant = getPrimaryVariant(item.strapiProduct)
+  const variant = itemVariant(item)
   const price = variant?.Price?.CalculatedPriceNumber
   if (
     item.strapiProduct &&
@@ -356,14 +356,17 @@ function itemPriceLabel(item: HydratedHistoryItem) {
 }
 
 function canAddItem(item: HydratedHistoryItem) {
+  const variant = itemVariant(item)
+
   return (
     isRenderableCatalogProduct(item.strapiProduct) &&
-    Boolean(itemVariantId(item))
+    Boolean(variant?.VariantId) &&
+    isVariantPurchasable(variant)
   )
 }
 
 function itemMetadata(item: HydratedHistoryItem) {
-  const variant = getPrimaryVariant(item.strapiProduct)
+  const variant = itemVariant(item)
   const eligibility = item.strapiProduct
     ? freeDeliveryEligibilityMetadata(
         getProductFreeDeliveryEligibility(item.strapiProduct, variant?.Sku)
@@ -754,6 +757,7 @@ function HistoryItemRow({
   const title = itemTitle(item, item.strapiProduct)
   const category = categoryForItem(item)
   const variantId = itemVariantId(item)
+  const canAdd = canAddItem(item)
   const selected = Boolean(selectedQuantity)
   const handle = itemHandle(item)
   const lastOrderedDays = daysSince(item.lastOrderedAt)
@@ -810,7 +814,7 @@ function HistoryItemRow({
       </div>
 
       <div className="flex flex-wrap items-center gap-2 small:justify-end">
-        {variantId ? (
+        {variantId && canAdd ? (
           <>
             <QuantityStepper
               value={selectedQuantity || typicalQuantity(item)}
@@ -835,14 +839,23 @@ function HistoryItemRow({
             </button>
           </>
         ) : (
-          <button
-            type="button"
-            onClick={onRequest}
-            disabled={requestState === "submitting" || requestState === "sent"}
-            className="inline-flex min-h-[40px] min-w-[116px] items-center justify-center rounded-[5px] border border-Charcoal px-4 py-2 text-xs font-rexton font-bold uppercase text-Charcoal transition-colors hover:bg-Charcoal hover:text-white disabled:cursor-not-allowed disabled:border-Charcoal/30 disabled:text-Charcoal/35 disabled:hover:bg-transparent"
-          >
-            {requestLabel}
-          </button>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {variantId ? (
+              <span className="rounded-full bg-SilverPlate px-2.5 py-1 text-[10px] font-maison-neue-mono uppercase text-Charcoal/55">
+                Unavailable
+              </span>
+            ) : null}
+            <button
+              type="button"
+              onClick={onRequest}
+              disabled={
+                requestState === "submitting" || requestState === "sent"
+              }
+              className="inline-flex min-h-[40px] min-w-[116px] items-center justify-center rounded-[5px] border border-Charcoal px-4 py-2 text-xs font-rexton font-bold uppercase text-Charcoal transition-colors hover:bg-Charcoal hover:text-white disabled:cursor-not-allowed disabled:border-Charcoal/30 disabled:text-Charcoal/35 disabled:hover:bg-transparent"
+            >
+              {requestLabel}
+            </button>
+          </div>
         )}
       </div>
       <span className="sr-only">{key}</span>
@@ -876,6 +889,7 @@ function PastOrdersTab({
   onAddOrder,
   onAddLine,
   onRequestLine,
+  canAddLine,
 }: {
   orders: LegacyCustomerOrder[]
   totalCount?: number
@@ -889,6 +903,7 @@ function PastOrdersTab({
     line: LegacyCustomerOrder["lines"][number]
   ) => void
   onRequestLine: (line: LegacyCustomerOrder["lines"][number]) => void
+  canAddLine: (line: LegacyCustomerOrder["lines"][number]) => boolean
 }) {
   const [expandedOrderIds, setExpandedOrderIds] = useState<
     Record<string, boolean>
@@ -924,9 +939,7 @@ function PastOrdersTab({
       </div>
 
       {visibleOrders.map((order) => {
-        const availableLines = order.lines.filter(
-          (line) => line.medusa_variant_id
-        )
+        const availableLines = order.lines.filter(canAddLine)
         const orderAdding = order.lines.some(
           (line) => addStates[legacyLineStateKey(line)] === "adding"
         )
@@ -992,12 +1005,13 @@ function PastOrdersTab({
                     <span className="text-Charcoal/55 small:text-right">
                       {formatLegacyMoney(line.line_total, line.currency_code)}
                     </span>
-                    {line.medusa_variant_id ? (
+                    {line.medusa_variant_id && canAddLine(line) ? (
                       <button
                         type="button"
                         onClick={() => onAddLine(order, line)}
                         disabled={
-                          lineAddState === "adding" || lineAddState === "added"
+                          lineAddState === "adding" ||
+                          lineAddState === "added"
                         }
                         className="inline-flex min-h-[34px] items-center justify-center rounded-[5px] border border-Charcoal px-3 text-xs font-rexton font-bold uppercase text-Charcoal transition-colors hover:bg-Charcoal hover:text-white disabled:cursor-not-allowed disabled:border-Charcoal/30 disabled:text-Charcoal/35 disabled:hover:bg-transparent"
                       >
@@ -1251,8 +1265,8 @@ export default function ReorderBrowser({
   )
   const selectedItems = useMemo(() => {
     const selectedKeys = new Set(Object.keys(selection))
-    return hydratedHistory.filter((item) => selectedKeys.has(historyKey(item)))
-  }, [hydratedHistory, selection])
+    return reorderableItems.filter((item) => selectedKeys.has(historyKey(item)))
+  }, [reorderableItems, selection])
   const selectedCategories = useMemo(
     () => Array.from(new Set(selectedItems.map(categoryForItem))),
     [selectedItems]
@@ -1353,6 +1367,13 @@ export default function ReorderBrowser({
   }
 
   const toggleItemSelection = (item: HydratedHistoryItem) => {
+    if (!canAddItem(item)) {
+      toast.error("Item is not available", {
+        description: "Ask staff if you want help finding a substitute.",
+      })
+      return
+    }
+
     const key = historyKey(item)
     setSelection((current) => {
       if (current[key]) {
@@ -1363,6 +1384,17 @@ export default function ReorderBrowser({
 
       return { ...current, [key]: typicalQuantity(item) }
     })
+  }
+
+  const canAddLegacyLine = (line: LegacyCustomerOrder["lines"][number]) => {
+    if (!line.medusa_variant_id) return false
+
+    const product = strapiMap[line.medusa_variant_id]
+    const variant = product?.MedusaProduct?.Variants?.find(
+      (candidate) => candidate.VariantId === line.medusa_variant_id
+    )
+
+    return Boolean(variant && isVariantPurchasable(variant))
   }
 
   const selectUsuals = () => {
@@ -1388,7 +1420,7 @@ export default function ReorderBrowser({
     const key = historyKey(item)
     const variantId = itemVariantId(item)
     const current = addStates[key] || "idle"
-    if (current === "adding" || !variantId) return
+    if (current === "adding" || !variantId || !canAddItem(item)) return
 
     setAddStates((states) => ({ ...states, [key]: "adding" }))
 
@@ -1449,7 +1481,8 @@ export default function ReorderBrowser({
     if (
       current === "adding" ||
       current === "added" ||
-      !line.medusa_variant_id
+      !line.medusa_variant_id ||
+      !canAddLegacyLine(line)
     ) {
       return
     }
@@ -1496,7 +1529,7 @@ export default function ReorderBrowser({
   }
 
   const handleLegacyOrderAddToCart = async (order: LegacyCustomerOrder) => {
-    const availableLines = order.lines.filter((line) => line.medusa_variant_id)
+    const availableLines = order.lines.filter(canAddLegacyLine)
     if (!availableLines.length) return
 
     try {
@@ -1611,7 +1644,7 @@ export default function ReorderBrowser({
         onSelectUsuals={selectUsuals}
         onRepeatLastOrder={repeatLastOrder}
         canRepeatLastOrder={Boolean(
-          latestLegacyOrder?.lines?.some((line) => line.medusa_variant_id)
+          latestLegacyOrder?.lines?.some(canAddLegacyLine)
         )}
       />
 
@@ -1678,6 +1711,7 @@ export default function ReorderBrowser({
                 }
               }}
               onRequestLine={handleLegacyLineReorderRequest}
+              canAddLine={canAddLegacyLine}
             />
           ) : filteredItems.length ? (
             <div className="space-y-3">

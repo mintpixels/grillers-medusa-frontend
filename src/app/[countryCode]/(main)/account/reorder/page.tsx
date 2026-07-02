@@ -10,6 +10,7 @@ import {
   getProductsByMedusaLookupRefs,
   type StrapiCollectionProduct,
 } from "@lib/data/strapi/collections"
+import { enrichStrapiProductsWithMedusaPrices } from "@lib/data/products"
 import { emitOrderHistoryDataFailureAlert } from "@lib/order-history-ops-alerts"
 import strapiClient from "@lib/strapi"
 import ReorderBrowser from "@modules/account/components/reorder-browser"
@@ -86,9 +87,13 @@ export default async function ReorderPage({
 
   let strapiProducts: StrapiCollectionProduct[] = []
   try {
-    strapiProducts = await getProductsByMedusaLookupRefs(
+    const products = await getProductsByMedusaLookupRefs(
       { productIds, variantIds, skus },
       strapiClient
+    )
+    strapiProducts = await enrichStrapiProductsWithMedusaPrices(
+      products,
+      countryCode
     )
   } catch (error) {
     void emitOrderHistoryDataFailureAlert({
