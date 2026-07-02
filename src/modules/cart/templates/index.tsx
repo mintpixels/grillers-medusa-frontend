@@ -10,6 +10,7 @@ import Summary from "./summary"
 import type { AtlantaZipDayConfig } from "@lib/util/eligible-arrival-dates"
 import { withTimeout } from "@lib/util/promise-timeout"
 import type { CartProductDetailsMap } from "@lib/util/cart-product-details"
+import CartViewedTracker from "../components/cart-viewed-tracker"
 
 async function CartUpsellsBlock({
   countryCode,
@@ -63,6 +64,7 @@ const CartTemplate = ({
 }) => {
   return (
     <div className="py-12">
+      {cart && <CartViewedTracker cart={cart} />}
       <div className="content-container" data-testid="cart-container">
         {cart?.items?.length ? (
           <div className="grid grid-cols-1 small:grid-cols-[1fr_360px] gap-x-10">

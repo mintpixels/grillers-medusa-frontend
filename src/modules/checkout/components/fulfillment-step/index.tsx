@@ -217,7 +217,9 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
 
   const normalizeMinimum = (value: number | undefined, defaultValue: number): number => {
     if (value === undefined || value === null) return defaultValue
-    return value > 500 ? value / 100 : value
+    // Strapi MinimumOrderThresholds stores values in dollars (not cents).
+    // The old > 500 ? / 100 heuristic incorrectly halved any threshold above $500.
+    return value
   }
 
   const minimums = useMemo(() => ({
