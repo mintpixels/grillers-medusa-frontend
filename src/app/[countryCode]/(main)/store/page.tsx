@@ -16,6 +16,10 @@ import {
   emitStoreCatalogInventoryMissingAlert,
   emitStoreCatalogLoadFailureAlert,
 } from "@lib/store-catalog-ops-alerts"
+import {
+  resolveEmptyStoreCatalogDecision,
+  isProductionBuildPhase,
+} from "@lib/store-catalog-resolution"
 
 type Params = {
   params: Promise<{ countryCode: string }>
@@ -43,8 +47,16 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 export default async function StorePage(props: Params) {
   const { countryCode } = await props.params
 
+  // Track whether the catalog came back empty because Strapi ERRORED/timed out
+  // (onLoadFailure fires unrecovered) vs. genuinely returned nothing. These must
+  // be handled differently — a transient Strapi outage must not take down the
+  // browse page or block the deploy (which prerenders this page).
+  let catalogLoadFailed = false
   const rawProducts = await getStoreProducts(strapiClient, {
     onLoadFailure: (failure) => {
+      if (failure.recovered === false) {
+        catalogLoadFailed = true
+      }
       void emitStoreCatalogLoadFailureAlert(failure).catch(() => {
         // Fail-open: catalog alerting must never block store rendering.
       })
@@ -60,9 +72,26 @@ export default async function StorePage(props: Params) {
     }).catch(() => {
       // Fail-open for alert delivery, but not for rendering an empty store.
     })
-    throw new Error(
-      `Store catalog resolved with no visible products (${rawProducts.length} raw products)`
-    )
+    const decision = resolveEmptyStoreCatalogDecision({
+      loadFailed: catalogLoadFailed,
+      isBuildPhase: isProductionBuildPhase(),
+    })
+    if (decision === "fail_empty") {
+      // Strapi responded but the catalog is genuinely empty — a real problem.
+      throw new Error(
+        `Store catalog resolved with no visible products (${rawProducts.length} raw products)`
+      )
+    }
+    if (decision === "preserve_stale") {
+      // Transient Strapi failure at runtime: throw so Next's ISR keeps serving the
+      // last-good cached page instead of an empty store or a hard timeout.
+      throw new Error(
+        "Store catalog Strapi load failed; preserving the last-good ISR render"
+      )
+    }
+    // decision === "render_soft": transient Strapi failure during `next build`.
+    // Do NOT fail the deploy — fall through and render the store shell with no
+    // products; ISR repopulates /store within `revalidate` once Strapi recovers.
   }
   const enrichedProducts = await enrichStrapiProductsWithMedusaPrices(
     visibleProducts,
