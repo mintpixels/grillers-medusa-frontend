@@ -78,6 +78,74 @@ describe("emitStorefrontOpsAlert", () => {
     expect(body.properties.fingerprint.length).toBeGreaterThan(0)
   })
 
+  it("includes every ingestion-schema-required field so events aren't rejected with 400", async () => {
+    // Regression: the storefront emitter omitted session_id + anonymous_id + the
+    // experience_version/route_market/customer_type enums, so the ingestion API
+    // 400'd EVERY storefront ops-alert (store-catalog outages included) — they
+    // never reached the warehouse or Slack.
+    process.env = {
+      ...originalEnv,
+      GP_ANALYTICS_ENDPOINT: "https://ingest.example.com",
+      GP_ANALYTICS_SERVER_KEY: "server-key",
+    }
+    const fetchMock = jest.fn().mockResolvedValue({ ok: true })
+    global.fetch = fetchMock as any
+
+    await emitStorefrontOpsAlert({
+      alertKind: "store_catalog_load_failure",
+      title: "Store catalog Strapi load failed",
+      path: "src/app/[countryCode]/(main)/store/page.tsx",
+      severity: "page",
+    })
+
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body)
+    // Top-level required by services/ingestion-api/src/schema/event.schema.json
+    for (const key of [
+      "event",
+      "event_id",
+      "event_timestamp_ms",
+      "session_id",
+      "experience_version",
+      "route_market",
+      "customer_type",
+      "source",
+    ]) {
+      expect(body[key]).toBeDefined()
+    }
+    // anyOf: must carry an identity (anonymous_id OR user_id)
+    expect(body.anonymous_id || body.user_id).toBeDefined()
+    // enum constraints the ingestion API validates
+    expect(["client", "medusa-server", "admin"]).toContain(body.source)
+    expect(["legacy", "medusa"]).toContain(body.experience_version)
+    expect([
+      "atlanta_metro",
+      "southeast",
+      "national",
+      "unknown",
+    ]).toContain(body.route_market)
+    expect(["dtc", "institutional", "unknown"]).toContain(body.customer_type)
+  })
+
+  it("coerces an out-of-enum source to the storefront default 'client'", async () => {
+    process.env = {
+      ...originalEnv,
+      GP_ANALYTICS_ENDPOINT: "https://ingest.example.com",
+      GP_ANALYTICS_SERVER_KEY: "server-key",
+    }
+    const fetchMock = jest.fn().mockResolvedValue({ ok: true })
+    global.fetch = fetchMock as any
+
+    await emitStorefrontOpsAlert({
+      alertKind: "unit_test",
+      title: "Unit test",
+      path: "src/lib/ops-alert.ts",
+      source: "storefront", // not a valid ingestion enum value
+    })
+
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body)
+    expect(body.source).toBe("client")
+  })
+
   it("falls back to the public client endpoint/key", async () => {
     process.env = {
       ...originalEnv,

@@ -75,7 +75,16 @@ export async function emitStorefrontOpsAlert(input: OpsAlertInput) {
 
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), 1500)
-  const source = input.source || "medusa-server"
+  // The ingestion event schema constrains `source` to an enum; the storefront's
+  // designated source is "client". Coerce anything unexpected so a caller can't
+  // produce an invalid payload the ingestion API rejects with 400 (which is what
+  // silently swallowed every storefront ops-alert, incl. store-catalog outages).
+  const ALLOWED_SOURCES = ["client", "medusa-server", "admin"] as const
+  const source = (ALLOWED_SOURCES as readonly string[]).includes(
+    input.source || ""
+  )
+    ? (input.source as string)
+    : "client"
   const severity: OpsAlertSeverity = input.severity || "warn"
   const fingerprint =
     input.fingerprint ||
@@ -89,6 +98,16 @@ export async function emitStorefrontOpsAlert(input: OpsAlertInput) {
     event: "ops_alert",
     event_id: input.eventId || randomUUID(),
     event_timestamp_ms: Date.now(),
+    // The ingestion schema REQUIRES these (session_id + one of anonymous_id/
+    // user_id via anyOf, plus the experience_version/route_market/customer_type
+    // enums). Omitting them 400'd every storefront ops-alert. Ops alerts aren't
+    // tied to a real session/customer, so use synthetic ids + system constants
+    // (mirrors the medusa-admin emitter that already lands).
+    session_id: randomUUID(),
+    anonymous_id: randomUUID(),
+    experience_version: "medusa",
+    route_market: "national",
+    customer_type: "dtc",
     source,
     properties: {
       ...(input.meta || {}),
