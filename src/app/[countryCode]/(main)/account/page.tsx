@@ -1,8 +1,15 @@
+import { redirect } from "next/navigation"
 import Overview from "@modules/account/components/overview"
 import LoginTemplate from "@modules/account/templates/login-template"
 import { retrieveCustomer } from "@lib/data/customer"
+import { getStaffImpersonationSession } from "@lib/data/staff/impersonation"
 import { listAllOrders, listLegacyCustomerOrders } from "@lib/data/orders"
 import { emitOrderHistoryDataFailureAlert } from "@lib/order-history-ops-alerts"
+import LocalizedClientLink from "@modules/common/components/localized-client-link"
+import {
+  needsContactVerification,
+  shouldShowVerificationReminder,
+} from "@lib/util/contact-verification"
 
 // /us/account branches on session: signed-in customers see the account
 // overview, everyone else sees the sign-in form. Previously this was a
@@ -13,11 +20,25 @@ import { emitOrderHistoryDataFailureAlert } from "@lib/order-history-ops-alerts"
 // plain branching page.tsx avoids the parallel-routes path entirely.
 export const dynamic = "force-dynamic"
 
-export default async function AccountPage() {
+export default async function AccountPage(props: {
+  params: Promise<{ countryCode: string }>
+}) {
+  const { countryCode } = await props.params
   const customer = await retrieveCustomer().catch(() => null)
 
   if (!customer) {
     return <LoginTemplate />
+  }
+
+  // Migrated (pre-launch) customers confirm their contact details on first
+  // login: primary mobile + SMS opt-in, email, default shipping address.
+  // Completing or choosing "remind me later" clears this redirect; staff
+  // impersonation never triggers it (consent must come from the customer).
+  if (needsContactVerification(customer)) {
+    const impersonation = await getStaffImpersonationSession().catch(() => null)
+    if (!impersonation) {
+      redirect(`/${countryCode}/account/verify-contact`)
+    }
   }
 
   const [orders, legacyOrderHistory] = await Promise.all([
@@ -35,11 +56,31 @@ export default async function AccountPage() {
   ])
 
   return (
-    <Overview
-      customer={customer}
-      orders={orders || null}
-      legacyOrders={legacyOrderHistory.orders || []}
-      legacyOrderCount={legacyOrderHistory.count || 0}
-    />
+    <>
+      {shouldShowVerificationReminder(customer) ? (
+        <div
+          className="mb-6 flex flex-col gap-y-2 rounded-lg border border-ui-border-base bg-ui-bg-subtle p-4 small:flex-row small:items-center small:justify-between"
+          data-testid="contact-verification-reminder"
+        >
+          <p className="text-small-regular text-ui-fg-base">
+            <span className="font-semibold">Quick favor:</span> confirm your
+            mobile number, email, and shipping address so your orders reach
+            you without a hitch.
+          </p>
+          <LocalizedClientLink
+            href="/account/verify-contact"
+            className="shrink-0 text-small-semi underline underline-offset-4"
+          >
+            Confirm my details
+          </LocalizedClientLink>
+        </div>
+      ) : null}
+      <Overview
+        customer={customer}
+        orders={orders || null}
+        legacyOrders={legacyOrderHistory.orders || []}
+        legacyOrderCount={legacyOrderHistory.count || 0}
+      />
+    </>
   )
 }
