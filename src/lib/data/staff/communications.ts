@@ -295,6 +295,8 @@ export async function createCommunicationCampaign(input: {
   cta_url?: string
   intro?: string
   scheduled_at?: string
+  /** Canvas-designed gp_email_template key. */
+  template_key?: string
 }) {
   const staff = await requireCommunicationsStaff()
   try {
@@ -457,6 +459,43 @@ export async function runCommunicationFlowsNow() {
       error,
       meta: {
         staff_actor_customer_id: staff.id || "",
+      },
+    })
+    throw error
+  }
+}
+
+export async function saveCommunicationTemplate(input: {
+  key: string
+  name: string
+  subject: string
+  preheader?: string | null
+  html_body: string
+  text_body?: string | null
+  mjml_source?: string | null
+  canvas_project?: unknown
+  message_stream?: string
+}) {
+  const staff = await requireCommunicationsStaff()
+  try {
+    return await adminFetch<{
+      ok: boolean
+      template: { key: string; id: string; version: number }
+    }>("/admin/grillers/communications/templates", {
+      method: "POST",
+      body: JSON.stringify({ ...input, saved_by: staff.email || staff.id }),
+    })
+  } catch (error) {
+    await emitCommunicationsFailureAlert({
+      alertKind: "staff_communications_template_save_failed",
+      title: "Staff communications template save failed",
+      action: "save_template",
+      fingerprint: "staff_communications:template_save:failed",
+      error,
+      meta: {
+        staff_actor_customer_id: staff.id || "",
+        key_present: Boolean(input.key),
+        html_length_bucket: textLengthBucket(input.html_body, 5000),
       },
     })
     throw error

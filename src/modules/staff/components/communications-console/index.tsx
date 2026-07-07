@@ -308,6 +308,13 @@ export default function StaffCommunicationsConsole({
           </div>
           <div className="flex flex-wrap gap-2">
             <LocalizedClientLink
+              href="/account/staff/communications/canvas"
+              className="inline-flex min-h-[40px] items-center justify-center rounded-md border border-Charcoal px-4 text-sm font-rexton font-bold uppercase text-Charcoal transition hover:bg-Charcoal hover:text-white"
+              data-testid="open-campaign-canvas"
+            >
+              Campaign Canvas
+            </LocalizedClientLink>
+            <LocalizedClientLink
               href="/account/staff/orders"
               className="inline-flex min-h-[40px] items-center justify-center rounded-md border border-Charcoal px-4 text-sm font-rexton font-bold uppercase text-Charcoal transition hover:bg-Charcoal hover:text-white"
             >
