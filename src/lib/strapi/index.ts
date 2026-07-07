@@ -18,22 +18,40 @@ import { GraphQLClient } from "graphql-request"
 //   curl https://grillers-medusa-frontend.vercel.app/api/revalidate
 // which returns { secretConfigured: true|false }. A POST with the
 // matching secret should return 200 with { revalidated: true }.
+// Every Strapi call is wall-clock bounded at the CLIENT level. During the
+// 2026-07-07 outage (even /_health dead), unbounded layout-level fetches
+// (cookie consent, nav) hung ~40s toward 504s on every page — blowing the
+// 60s-per-page prerender budget across the whole app (/us, /store,
+// /collections, even /_not-found via the root layout) and failing the
+// BUILD twice. Per-call timeouts can't win that game; bounding the shared
+// client covers every call-site, current and future. On timeout the
+// request rejects fast and each surface's existing fail-open fallback
+// takes over. Data Cache hits return instantly and are unaffected.
+const STRAPI_FETCH_TIMEOUT_MS = Number(
+  process.env.STRAPI_FETCH_TIMEOUT_MS || 10_000
+)
+
 const strapiClient = new GraphQLClient(
   `${process.env.STRAPI_ENDPOINT}/graphql`,
   {
     headers: {
       Authorization: `Bearer ${process.env.STRAPI_API_TOKEN}`,
     },
-    fetch: (url, init) =>
-      fetch(url as string, {
-        ...(init as RequestInit),
-        cache: (init as RequestInit | undefined)?.cache || "force-cache",
+    fetch: (url, init) => {
+      const reqInit = (init as RequestInit) || {}
+      return fetch(url as string, {
+        ...reqInit,
+        cache: reqInit.cache || "force-cache",
+        // Preserve a caller-supplied signal if one ever appears; today no
+        // call-site passes one, so the timeout signal is the bound.
+        signal: reqInit.signal || AbortSignal.timeout(STRAPI_FETCH_TIMEOUT_MS),
         next: {
-          ...((init as RequestInit & { next?: Record<string, unknown> })
+          ...((reqInit as RequestInit & { next?: Record<string, unknown> })
             ?.next || {}),
           tags: ["strapi"],
         },
-      }),
+      })
+    },
   }
 )
 
