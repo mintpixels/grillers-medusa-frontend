@@ -1,5 +1,6 @@
 import { gql } from "graphql-request"
 import { compactCollectionProducts } from "@lib/util/collection-product"
+import { withTimeout } from "@lib/util/promise-timeout"
 import type { StrapiSEO, StrapiSocialMeta } from "./seo"
 import type { IngredientDisclosure } from "types/strapi"
 
@@ -912,7 +913,20 @@ export async function getProductsByHandles(
   handles: string[],
   client: any
 ): Promise<StrapiCollectionProduct[]> {
-  return getProductsByHandlesStrict(handles, client).catch(() => [])
+  // Bound the WALL-CLOCK, not just the error path: this already failed
+  // open, but with Strapi degraded each attempt (primary then legacy)
+  // hangs ~40s toward a 504 — during the 2026-07-07 outage that blew the
+  // homepage's 60s prerender budget 3× and failed the whole BUILD. A dead
+  // Strapi now costs at most 12s and the rail renders empty (the homepage
+  // fallback + ops alert already handle that gracefully).
+  return withTimeout(
+    getProductsByHandlesStrict(handles, client).catch(
+      () => [] as StrapiCollectionProduct[]
+    ),
+    12_000,
+    [] as StrapiCollectionProduct[],
+    "Products-by-handles Strapi lookup"
+  )
 }
 
 // Query to fetch all products (image filtering done client-side since Strapi can't filter on media fields)
