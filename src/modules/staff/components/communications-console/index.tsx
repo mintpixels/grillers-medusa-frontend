@@ -894,7 +894,7 @@ export default function StaffCommunicationsConsole({
                       ?.total_estimated_incremental_revenue || 0
                   )}
                   <span className="block text-[11px] font-normal uppercase tracking-wide text-Charcoal/50">
-                    est. incremental
+                    est. incremental (upper bound)
                   </span>
                 </span>
               </div>
@@ -928,11 +928,15 @@ export default function StaffCommunicationsConsole({
                         lift {(flow.conversion_lift * 100).toFixed(1)}pt ·{" "}
                         {formatMoney(flow.incremental_revenue_per_enrolled)}/enrolled
                       </span>
-                      {flow.low_confidence && (
+                      {flow.no_holdout ? (
+                        <span className="rounded-full bg-gray-100 px-2 py-0.5 font-semibold text-Charcoal/60">
+                          no holdout — not measurable
+                        </span>
+                      ) : flow.low_confidence ? (
                         <span className="rounded-full bg-amber-50 px-2 py-0.5 font-semibold text-amber-700">
                           low confidence
                         </span>
-                      )}
+                      ) : null}
                     </div>
                   </div>
                 ))}

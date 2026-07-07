@@ -205,9 +205,11 @@ export type CommunicationReports = {
       holdout_revenue_per_enrolled: number
       incremental_revenue_per_enrolled: number
       estimated_incremental_revenue: number
+      no_holdout?: boolean
       low_confidence: boolean
     }>
     total_estimated_incremental_revenue: number
+    total_is_upper_bound?: boolean
   } | null
   deliverability?: {
     days: number
