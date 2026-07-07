@@ -191,6 +191,45 @@ export type CommunicationReports = {
     total: { orders: number; revenue: number }
     rows: Array<Record<string, any>>
   }
+  incremental?: {
+    days: number
+    conversion_window_days: number
+    flows: Array<{
+      flow_key: string
+      treated: { enrolled: number; converters: number; orders: number; revenue: number }
+      holdout: { enrolled: number; converters: number; orders: number; revenue: number }
+      treated_conversion_rate: number
+      holdout_conversion_rate: number
+      conversion_lift: number
+      treated_revenue_per_enrolled: number
+      holdout_revenue_per_enrolled: number
+      incremental_revenue_per_enrolled: number
+      estimated_incremental_revenue: number
+      low_confidence: boolean
+    }>
+    total_estimated_incremental_revenue: number
+  } | null
+  deliverability?: {
+    days: number
+    streams: Record<
+      string,
+      {
+        sent: number
+        delivered: number
+        bounced: number
+        complained: number
+        failed: number
+        total: number
+        bounce_rate: number
+        complaint_rate: number
+        delivery_rate: number
+        health: "healthy" | "watch" | "at_risk"
+      }
+    >
+    day_series: Array<{ day: string; stream: string; status: string; count: number }>
+    suppressions: Array<{ reason: string; count: number }>
+    sms_by_status: Record<string, number>
+  } | null
   import_runs: Array<Record<string, any>>
 }
 

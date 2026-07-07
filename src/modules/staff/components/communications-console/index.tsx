@@ -797,6 +797,7 @@ export default function StaffCommunicationsConsole({
         )}
 
         {tab === "reports" && (
+          <>
           <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
             <section className="rounded-lg border border-gray-200 bg-white p-5">
               <div className="flex items-center justify-between gap-4">
@@ -877,6 +878,130 @@ export default function StaffCommunicationsConsole({
               </div>
             </section>
           </div>
+
+          <div className="mt-5 grid gap-5 xl:grid-cols-2">
+            <section className="rounded-lg border border-gray-200 bg-white p-5">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className={labelClass()}>Holdout lift · last 90 days</p>
+                  <h2 className="mt-1 text-xl font-gyst font-bold">
+                    Incremental revenue by flow
+                  </h2>
+                </div>
+                <span className="text-right text-sm font-maison-neue font-semibold">
+                  {formatMoney(
+                    overview.reports?.incremental
+                      ?.total_estimated_incremental_revenue || 0
+                  )}
+                  <span className="block text-[11px] font-normal uppercase tracking-wide text-Charcoal/50">
+                    est. incremental
+                  </span>
+                </span>
+              </div>
+              <div className="mt-5 divide-y divide-gray-100 rounded-md border border-gray-100">
+                {(overview.reports?.incremental?.flows || []).length === 0 && (
+                  <p className="px-4 py-6 text-sm text-Charcoal/55">
+                    No flow enrollments in the window yet. Holdout lift appears
+                    once flows start enrolling profiles.
+                  </p>
+                )}
+                {(overview.reports?.incremental?.flows || []).map((flow) => (
+                  <div key={flow.flow_key} className="px-4 py-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="min-w-0 truncate font-maison-neue font-semibold">
+                        {flow.flow_key}
+                      </p>
+                      <span className="whitespace-nowrap text-sm font-maison-neue font-semibold">
+                        {formatMoney(flow.estimated_incremental_revenue)}
+                      </span>
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-Charcoal/60">
+                      <span>
+                        treated {(flow.treated_conversion_rate * 100).toFixed(1)}%
+                        ({flow.treated.converters}/{flow.treated.enrolled})
+                      </span>
+                      <span>
+                        holdout {(flow.holdout_conversion_rate * 100).toFixed(1)}%
+                        ({flow.holdout.converters}/{flow.holdout.enrolled})
+                      </span>
+                      <span>
+                        lift {(flow.conversion_lift * 100).toFixed(1)}pt ·{" "}
+                        {formatMoney(flow.incremental_revenue_per_enrolled)}/enrolled
+                      </span>
+                      {flow.low_confidence && (
+                        <span className="rounded-full bg-amber-50 px-2 py-0.5 font-semibold text-amber-700">
+                          low confidence
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section className="rounded-lg border border-gray-200 bg-white p-5">
+              <p className={labelClass()}>Deliverability · last 30 days</p>
+              <h2 className="mt-1 text-xl font-gyst font-bold">
+                Sender health by stream
+              </h2>
+              <div className="mt-5 space-y-3">
+                {Object.entries(overview.reports?.deliverability?.streams || {})
+                  .length === 0 && (
+                  <p className="rounded-md border border-gray-100 px-4 py-6 text-sm text-Charcoal/55">
+                    No email volume in the window yet.
+                  </p>
+                )}
+                {Object.entries(
+                  overview.reports?.deliverability?.streams || {}
+                ).map(([stream, s]) => (
+                  <div
+                    key={stream}
+                    className="rounded-md border border-gray-100 px-4 py-3"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="font-maison-neue font-semibold">{stream}</p>
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${
+                          s.health === "at_risk"
+                            ? "bg-red-50 text-red-700"
+                            : s.health === "watch"
+                              ? "bg-amber-50 text-amber-700"
+                              : "bg-emerald-50 text-emerald-700"
+                        }`}
+                      >
+                        {s.health.replace("_", " ")}
+                      </span>
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-Charcoal/60">
+                      <span>{s.total} sent</span>
+                      <span>{(s.delivery_rate * 100).toFixed(1)}% delivered</span>
+                      <span>{(s.bounce_rate * 100).toFixed(2)}% bounced</span>
+                      <span>
+                        {(s.complaint_rate * 100).toFixed(3)}% complaints
+                      </span>
+                    </div>
+                  </div>
+                ))}
+                <div className="flex flex-wrap gap-x-4 gap-y-1 pt-1 text-xs text-Charcoal/55">
+                  {(overview.reports?.deliverability?.suppressions || []).map(
+                    (row) => (
+                      <span key={row.reason}>
+                        {row.reason}: {row.count}
+                      </span>
+                    )
+                  )}
+                  {Object.entries(
+                    overview.reports?.deliverability?.sms_by_status || {}
+                  ).map(([status, count]) => (
+                    <span key={`sms-${status}`}>
+                      sms {status}: {count}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </section>
+          </div>
+          </>
         )}
 
         {tab === "templates" && (
