@@ -191,6 +191,8 @@ const CampaignCanvas = ({ countryCode, staffEmail, segments, templates }: Props)
       editor.setComponents(STARTER_MJML)
       registerGpBlocks(editor)
       editorRef.current = editor
+      // Staff-only page: expose the editor for debugging and e2e checks.
+      ;(window as any).__gpCanvasEditor = editor
       setReady(true)
     })()
     return () => {
@@ -280,10 +282,26 @@ const CampaignCanvas = ({ countryCode, staffEmail, segments, templates }: Props)
         body: "",
         template_key: template.key,
       })
-      await sendCommunicationCampaign(campaign.campaign.id, {
+      const result = await sendCommunicationCampaign(campaign.campaign.id, {
         test_email: testEmail,
       })
-      setStatus(`Test sent to ${testEmail} (template v${template.version}).`)
+      // Report what actually happened — the send gate can suppress
+      // (unsubscribed address) or defer (Shabbat/Yom Tov blackout).
+      if ((result as any)?.deferred) {
+        setStatus(
+          `Test deferred by the send blackout — resumes ${
+            (result as any).resume_at || "after havdalah"
+          }.`
+        )
+      } else if (result.sent >= 1) {
+        setStatus(`Test sent to ${testEmail} (template v${template.version}).`)
+      } else if (result.skipped >= 1) {
+        setStatus(
+          `Test NOT sent: ${testEmail} is suppressed (unsubscribed or blocked).`
+        )
+      } else {
+        setStatus(`Test send failed — check the console Health tab.`)
+      }
     } catch (error: any) {
       setStatus(`Test send failed: ${error?.message || "unknown error"}`)
     } finally {
