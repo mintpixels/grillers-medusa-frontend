@@ -21,6 +21,7 @@ import LocalizedClientLink from "@modules/common/components/localized-client-lin
 import {
   createCommunicationCampaign,
   createCommunicationSegment,
+  updateCommunicationFlow,
   getCommunicationProfileTimeline,
   importConstantContactRows,
   previewCommunicationSegment,
@@ -164,6 +165,8 @@ export default function StaffCommunicationsConsole({
     scheduled_at: "",
   })
   const [campaignChannel, setCampaignChannel] = useState<"email" | "sms">("email")
+  const [subjectB, setSubjectB] = useState("")
+  const [coupon, setCoupon] = useState({ enabled: false, kind: "percent", value: "10", expires_days: "14", prefix: "GP" })
   const [smsBody, setSmsBody] = useState("")
   const [testPhone, setTestPhone] = useState("")
   const [segmentDraft, setSegmentDraft] = useState({
@@ -181,6 +184,13 @@ export default function StaffCommunicationsConsole({
     holiday_buyer: false,
     sms_consent: false,
   })
+  const [editingFlow, setEditingFlow] = useState<{
+    key: string
+    name: string
+    description: string
+    status: string
+    steps: Array<Record<string, any>>
+  } | null>(null)
   const [segmentPreview, setSegmentPreview] = useState<{
     count: number
     sms_reachable: number
@@ -254,6 +264,14 @@ export default function StaffCommunicationsConsole({
             scheduled_at: campaignDraft.scheduled_at || undefined,
             channel: "sms",
             sms_body: smsBody.trim(),
+            coupon: coupon.enabled
+              ? {
+                  kind: coupon.kind as "percent" | "fixed",
+                  value: Number(coupon.value),
+                  expires_days: Number(coupon.expires_days) || 14,
+                  prefix: coupon.prefix || "GP",
+                }
+              : undefined,
           })
           setStatus(
             `Text blast drafted: ${result.campaign.name}. Send a test to your phone, then Send.`
@@ -267,6 +285,15 @@ export default function StaffCommunicationsConsole({
         const result = await createCommunicationCampaign({
           ...campaignDraft,
           segment_key: campaignDraft.segment_key || undefined,
+          subject_b: subjectB.trim() || undefined,
+          coupon: coupon.enabled
+            ? {
+                kind: coupon.kind as "percent" | "fixed",
+                value: Number(coupon.value),
+                expires_days: Number(coupon.expires_days) || 14,
+                prefix: coupon.prefix || "GP",
+              }
+            : undefined,
         })
         setStatus(`Draft created: ${result.campaign.name}.`)
       } catch {
@@ -432,6 +459,98 @@ export default function StaffCommunicationsConsole({
         )
       } catch {
         setError("Could not send the test text.")
+      }
+    })
+  }
+
+  function startFlowEdit(flow: {
+    key: string
+    name: string
+    description?: string | null
+    status: string
+    steps?: Array<Record<string, any>> | null
+  }) {
+    setEditingFlow({
+      key: flow.key,
+      name: flow.name,
+      description: flow.description || "",
+      status: flow.status,
+      steps: (Array.isArray(flow.steps) ? flow.steps : []).map((step) => ({
+        ...step,
+      })),
+    })
+  }
+
+  function patchEditingStep(index: number, patch: Record<string, any>) {
+    setEditingFlow((current) => {
+      if (!current) return current
+      const steps = current.steps.map((step, i) =>
+        i === index ? { ...step, ...patch } : step
+      )
+      return { ...current, steps }
+    })
+  }
+
+  function moveEditingStep(index: number, direction: -1 | 1) {
+    setEditingFlow((current) => {
+      if (!current) return current
+      const target = index + direction
+      if (target < 0 || target >= current.steps.length) return current
+      const steps = [...current.steps]
+      const [step] = steps.splice(index, 1)
+      steps.splice(target, 0, step)
+      return { ...current, steps }
+    })
+  }
+
+  function removeEditingStep(index: number) {
+    setEditingFlow((current) => {
+      if (!current) return current
+      return { ...current, steps: current.steps.filter((_, i) => i !== index) }
+    })
+  }
+
+  function addEditingStep(type: string) {
+    setEditingFlow((current) => {
+      if (!current) return current
+      const fresh =
+        type === "delay"
+          ? { type: "delay", days: 1 }
+          : type === "exit_if_event"
+            ? { type: "exit_if_event", event_name: "order_completed" }
+            : type === "sms"
+              ? { type: "sms", template_key: `${current.key}-sms`, body: "" }
+              : {
+                  type: "email",
+                  template_key: `${current.key}-new`,
+                  subject: "",
+                  heading: "",
+                  paragraphs: [""],
+                  ctaLabel: "Shop now",
+                  ctaUrl: "/us/store",
+                  topic: "promotions",
+                }
+      return { ...current, steps: [...current.steps, fresh] }
+    })
+  }
+
+  function saveFlowEdit() {
+    if (!editingFlow) return
+    clearFeedback()
+    startTransition(async () => {
+      try {
+        await updateCommunicationFlow(editingFlow.key, {
+          name: editingFlow.name,
+          description: editingFlow.description,
+          status: editingFlow.status,
+          steps: editingFlow.steps,
+        })
+        setStatus(
+          `Flow "${editingFlow.name}" saved. Your copy now owns this flow — reload to see it live.`
+        )
+        setEditingFlow(null)
+      } catch (err: any) {
+        setError(err?.message || "Could not save the flow.")
       }
     })
   }
@@ -971,6 +1090,7 @@ export default function StaffCommunicationsConsole({
                   }
                 />
                 {campaignChannel === "email" ? (
+                <>
                 <input
                   className={fieldClass()}
                   placeholder="Subject"
@@ -982,7 +1102,71 @@ export default function StaffCommunicationsConsole({
                     }))
                   }
                 />
+                <input
+                  className={fieldClass()}
+                  placeholder="A/B test: alternate subject (optional — 50/50 split)"
+                  value={subjectB}
+                  onChange={(event) => setSubjectB(event.target.value)}
+                />
+                </>
                 ) : null}
+                <div className="rounded-md border border-gray-200 p-3">
+                  <label className="flex cursor-pointer items-center gap-2 text-sm font-maison-neue">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 accent-Gold"
+                      checked={coupon.enabled}
+                      onChange={(event) =>
+                        setCoupon((c) => ({ ...c, enabled: event.target.checked }))
+                      }
+                    />
+                    Include a unique coupon code per person
+                  </label>
+                  {coupon.enabled ? (
+                    <div className="mt-3 grid gap-2 sm:grid-cols-4">
+                      <select
+                        className={fieldClass()}
+                        value={coupon.kind}
+                        onChange={(event) =>
+                          setCoupon((c) => ({ ...c, kind: event.target.value }))
+                        }
+                      >
+                        <option value="percent">% off</option>
+                        <option value="fixed">$ off</option>
+                      </select>
+                      <input
+                        className={fieldClass()}
+                        type="number"
+                        placeholder="Value"
+                        value={coupon.value}
+                        onChange={(event) =>
+                          setCoupon((c) => ({ ...c, value: event.target.value }))
+                        }
+                      />
+                      <input
+                        className={fieldClass()}
+                        type="number"
+                        placeholder="Days valid"
+                        value={coupon.expires_days}
+                        onChange={(event) =>
+                          setCoupon((c) => ({ ...c, expires_days: event.target.value }))
+                        }
+                      />
+                      <input
+                        className={fieldClass()}
+                        placeholder="Prefix"
+                        value={coupon.prefix}
+                        onChange={(event) =>
+                          setCoupon((c) => ({ ...c, prefix: event.target.value }))
+                        }
+                      />
+                      <p className="text-xs text-Charcoal/55 sm:col-span-4">
+                        Put {"{{coupon_code}}"} in the subject or body — each
+                        person gets their own single-use code at checkout.
+                      </p>
+                    </div>
+                  ) : null}
+                </div>
                 <select
                   className={fieldClass()}
                   value={campaignDraft.segment_key}
@@ -1127,6 +1311,183 @@ export default function StaffCommunicationsConsole({
                 Run due steps now
               </button>
             </section>
+            {editingFlow ? (
+              <section className="rounded-lg border-2 border-Gold bg-white p-5">
+                <div className="flex items-center justify-between gap-3">
+                  <h2 className="text-xl font-gyst font-bold">
+                    Editing: {editingFlow.name}
+                  </h2>
+                  <button
+                    type="button"
+                    onClick={() => setEditingFlow(null)}
+                    className="text-sm text-Charcoal/55 underline underline-offset-4"
+                  >
+                    Cancel
+                  </button>
+                </div>
+                <div className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_160px]">
+                  <input
+                    className={fieldClass()}
+                    value={editingFlow.name}
+                    onChange={(event) =>
+                      setEditingFlow((c) => (c ? { ...c, name: event.target.value } : c))
+                    }
+                  />
+                  <select
+                    className={fieldClass()}
+                    value={editingFlow.status}
+                    onChange={(event) =>
+                      setEditingFlow((c) => (c ? { ...c, status: event.target.value } : c))
+                    }
+                  >
+                    <option value="active">Active</option>
+                    <option value="paused">Paused</option>
+                  </select>
+                </div>
+                <textarea
+                  className={`${fieldClass()} mt-3 w-full`}
+                  placeholder="Description"
+                  value={editingFlow.description}
+                  onChange={(event) =>
+                    setEditingFlow((c) =>
+                      c ? { ...c, description: event.target.value } : c
+                    )
+                  }
+                />
+                <div className="mt-4 grid gap-3">
+                  {editingFlow.steps.map((step, index) => (
+                    <div
+                      key={index}
+                      className="rounded-md border border-gray-200 p-3"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-maison-neue-mono uppercase text-Charcoal/55">
+                          Step {index + 1} · {String(step.type)}
+                        </span>
+                        <span className="flex gap-1">
+                          <button type="button" onClick={() => moveEditingStep(index, -1)} className="rounded border border-gray-200 px-2 text-xs">↑</button>
+                          <button type="button" onClick={() => moveEditingStep(index, 1)} className="rounded border border-gray-200 px-2 text-xs">↓</button>
+                          <button type="button" onClick={() => removeEditingStep(index)} className="rounded border border-red-200 px-2 text-xs text-red-600">Remove</button>
+                        </span>
+                      </div>
+                      {step.type === "delay" ? (
+                        <div className="mt-2 flex items-center gap-2 text-sm">
+                          Wait
+                          <input
+                            type="number"
+                            className={`${fieldClass()} w-24`}
+                            value={step.days ?? Math.round(Number(step.minutes || 0) / 60 / 24) ?? 1}
+                            onChange={(event) =>
+                              patchEditingStep(index, {
+                                days: Number(event.target.value),
+                                minutes: undefined,
+                              })
+                            }
+                          />
+                          day(s)
+                        </div>
+                      ) : null}
+                      {step.type === "exit_if_event" ? (
+                        <div className="mt-2 flex items-center gap-2 text-sm">
+                          Stop the flow if
+                          <select
+                            className={fieldClass()}
+                            value={step.event_name || ""}
+                            onChange={(event) =>
+                              patchEditingStep(index, { event_name: event.target.value })
+                            }
+                          >
+                            <option value="order_completed">they place an order</option>
+                            <option value="cart_updated">they start a cart</option>
+                            <option value="checkout_started">they start checkout</option>
+                          </select>
+                        </div>
+                      ) : null}
+                      {step.type === "email" ? (
+                        <div className="mt-2 grid gap-2">
+                          <input
+                            className={fieldClass()}
+                            placeholder="Subject"
+                            value={step.subject || ""}
+                            onChange={(event) =>
+                              patchEditingStep(index, { subject: event.target.value })
+                            }
+                          />
+                          <input
+                            className={fieldClass()}
+                            placeholder="Heading"
+                            value={step.heading || ""}
+                            onChange={(event) =>
+                              patchEditingStep(index, { heading: event.target.value })
+                            }
+                          />
+                          <textarea
+                            className={`${fieldClass()} min-h-[90px]`}
+                            placeholder="Body paragraphs (blank line between)"
+                            value={(step.paragraphs || []).join("\n\n")}
+                            onChange={(event) =>
+                              patchEditingStep(index, {
+                                paragraphs: event.target.value
+                                  .split(/\n{2,}/)
+                                  .map((part: string) => part)
+                              })
+                            }
+                          />
+                          <div className="grid gap-2 sm:grid-cols-2">
+                            <input
+                              className={fieldClass()}
+                              placeholder="Button label"
+                              value={step.ctaLabel || ""}
+                              onChange={(event) =>
+                                patchEditingStep(index, { ctaLabel: event.target.value })
+                              }
+                            />
+                            <input
+                              className={fieldClass()}
+                              placeholder="/us/store"
+                              value={step.ctaUrl || ""}
+                              onChange={(event) =>
+                                patchEditingStep(index, { ctaUrl: event.target.value })
+                              }
+                            />
+                          </div>
+                        </div>
+                      ) : null}
+                      {step.type === "sms" ? (
+                        <textarea
+                          className={`${fieldClass()} mt-2 min-h-[70px] w-full`}
+                          placeholder="Text message ({{first_name}} works)"
+                          value={step.body || ""}
+                          onChange={(event) =>
+                            patchEditingStep(index, { body: event.target.value })
+                          }
+                        />
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {["email", "sms", "delay", "exit_if_event"].map((type) => (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => addEditingStep(type)}
+                      className="rounded-md border border-gray-200 px-3 py-1.5 text-xs font-maison-neue-mono uppercase text-Charcoal/70"
+                    >
+                      + {type === "exit_if_event" ? "stop condition" : type}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={saveFlowEdit}
+                  disabled={isPending}
+                  className="mt-4 inline-flex min-h-[42px] items-center justify-center rounded-md bg-Charcoal px-5 text-sm font-rexton font-bold uppercase text-white disabled:opacity-50"
+                >
+                  Save flow
+                </button>
+              </section>
+            ) : null}
             <div className="grid gap-5 lg:grid-cols-2">
               {overview.flows.map((flow) => {
                 const steps = Array.isArray(flow.steps) ? flow.steps : []
@@ -1144,7 +1505,16 @@ export default function StaffCommunicationsConsole({
                           {humanTrigger(flow)}
                         </p>
                       </div>
-                      <Badge status={flow.status}>{flow.status}</Badge>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => startFlowEdit(flow)}
+                          className="rounded-md border border-Charcoal px-3 py-1 text-xs font-rexton font-bold uppercase text-Charcoal"
+                        >
+                          Edit
+                        </button>
+                        <Badge status={flow.status}>{flow.status}</Badge>
+                      </div>
                     </div>
                     {flow.description ? (
                       <p className="mt-3 text-sm text-Charcoal/70">

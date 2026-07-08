@@ -29,6 +29,11 @@ export async function subscribeToNewsletter(
     return { success: false, error: "Please enter a valid email address." }
   }
 
+  // GP Comms (the first-party marketing platform) is the canonical list:
+  // express consent + email_signup event -> Welcome Series enrollment.
+  const gpResult = await subscribeViaGpComms(email, source)
+  if (gpResult) return gpResult
+
   // Self-hosted service (#77). Server action context: no request headers are
   // available here for IP/UA, so the audit log will fall back to whatever
   // the service can extract from the proxy hop. Real subscriber metadata is
@@ -219,5 +224,36 @@ async function subscribeViaMailchimp(
       success: false,
       error: "Unable to subscribe. Please try again later.",
     }
+  }
+}
+
+/**
+ * GP Comms subscribe: the platform's public endpoint upserts the profile
+ * with express consent and enrolls the Welcome Series. Returns null on
+ * network failure so the legacy fallback chain still has a chance.
+ */
+async function subscribeViaGpComms(
+  email: string,
+  source?: string
+): Promise<NewsletterResult | null> {
+  const backend =
+    process.env.MEDUSA_BACKEND_URL ||
+    "https://grillers-medusa-admin-production.up.railway.app"
+  try {
+    const response = await fetch(`${backend}/newsletter/subscribe`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, source: source || "storefront" }),
+      cache: "no-store",
+    })
+    if (response.ok) {
+      return { success: true, message: "You're on the list!" }
+    }
+    if (response.status === 400) {
+      return { success: false, error: "Please enter a valid email address." }
+    }
+    return null
+  } catch {
+    return null
   }
 }

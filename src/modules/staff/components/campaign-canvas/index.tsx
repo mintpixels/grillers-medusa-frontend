@@ -65,7 +65,7 @@ const STARTER_MJML = `
         <mj-text align="center" font-size="11px" color="#6b7280" line-height="1.6">
           Griller's Pride · 3939 McElroy Road, Doraville, GA 30340 · (770) 454-8108
           <br/>You're receiving this because you opted in at getgrillerspride.com.
-          <br/><a href="{{{ pm:unsubscribe }}}" style="color:#6b7280;">Unsubscribe</a>
+          <br/><a href="{{ preference_url }}" style="color:#6b7280;">Manage preferences</a> · <a href="{{{ pm:unsubscribe }}}" style="color:#6b7280;">Unsubscribe</a>
         </mj-text>
       </mj-column>
     </mj-section>
@@ -154,7 +154,7 @@ function registerGpBlocks(editor: any) {
         <mj-column>
           <mj-text align="center" font-size="11px" color="#6b7280" line-height="1.6">
             Griller's Pride · 3939 McElroy Road, Doraville, GA 30340 · (770) 454-8108
-            <br/><a href="{{{ pm:unsubscribe }}}" style="color:#6b7280;">Unsubscribe</a>
+            <br/><a href="{{ preference_url }}" style="color:#6b7280;">Manage preferences</a> · <a href="{{{ pm:unsubscribe }}}" style="color:#6b7280;">Unsubscribe</a>
           </mj-text>
         </mj-column>
       </mj-section>`,

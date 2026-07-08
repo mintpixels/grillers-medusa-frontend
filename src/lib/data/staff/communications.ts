@@ -345,6 +345,10 @@ export async function createCommunicationCampaign(input: {
   channel?: string
   /** SMS campaigns: the text body ({{first_name}} supported). */
   sms_body?: string
+  /** A/B test: variant-B subject (deterministic 50/50 split). */
+  subject_b?: string
+  /** Unique per-recipient coupon: {kind, value, expires_days, prefix}. */
+  coupon?: { kind: "percent" | "fixed"; value: number; expires_days?: number; prefix?: string }
 }) {
   const staff = await requireCommunicationsStaff()
   try {
@@ -624,4 +628,34 @@ export async function getCommunicationTemplate(key: string) {
   }>(
     `/admin/grillers/communications/templates?key=${encodeURIComponent(key)}`
   )
+}
+
+export type FlowStepInput = Record<string, any>
+
+export async function updateCommunicationFlow(
+  key: string,
+  patch: {
+    name?: string
+    description?: string
+    status?: string
+    steps?: FlowStepInput[]
+  }
+) {
+  const staff = await requireCommunicationsStaff()
+  try {
+    return await adminFetch<{ flow: CommunicationFlow }>(
+      `/admin/grillers/communications/flows/${encodeURIComponent(key)}`,
+      { method: "PATCH", body: JSON.stringify(patch) }
+    )
+  } catch (error) {
+    await emitCommunicationsFailureAlert({
+      alertKind: "staff_communications_flow_update_failed",
+      title: "Staff communications flow update failed",
+      action: "update_flow",
+      fingerprint: "staff_communications:update_flow",
+      error,
+      meta: { staff_customer_id: staff.id, flow_key: key },
+    })
+    throw error
+  }
 }

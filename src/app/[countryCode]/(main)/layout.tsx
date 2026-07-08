@@ -2,6 +2,8 @@ import { Suspense } from "react"
 import { Metadata } from "next"
 
 import { getBaseURL } from "@lib/util/env"
+import { retrieveCustomer } from "@lib/data/customer"
+import NewsletterPopup from "@components/newsletter-popup"
 import { Toaster } from "@medusajs/ui"
 import Footer from "@modules/layout/templates/footer"
 import Nav from "@modules/layout/templates/nav"
@@ -20,6 +22,8 @@ export default async function PageLayout(props: {
   params: Promise<{ countryCode: string }>
 }) {
   const { countryCode } = await props.params
+  // Popup is guest-only: signed-in customers manage email in their account.
+  const customer = await retrieveCustomer().catch(() => null)
 
   return (
     <CartProvider>
@@ -32,6 +36,7 @@ export default async function PageLayout(props: {
           <Footer />
         </Suspense>
         <SideCartWrapper countryCode={countryCode} />
+        {!customer ? <NewsletterPopup /> : null}
         <Toaster position="bottom-center" />
       </StorefrontSessionProvider>
     </CartProvider>
