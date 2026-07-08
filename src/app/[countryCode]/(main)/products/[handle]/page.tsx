@@ -3,7 +3,7 @@ import { notFound } from "next/navigation"
 import { listProducts } from "@lib/data/products"
 import { getRegion } from "@lib/data/regions"
 import ProductTemplate from "@modules/products/templates"
-import strapiClient from "@lib/strapi"
+import { cachedStrapiRequest } from "@lib/strapi"
 import {
   GetCommonPdpQuery,
   GetProductQuery,
@@ -74,7 +74,7 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
   // Fetch Strapi product data for SEO. If this degrades, metadata falls back to
   // Medusa fields but ops should still see that customer-facing PDP copy is stale.
   const strapiProductData: any = await withPdpStrapiFallback(
-    strapiClient.request(GetProductQuery, {
+    cachedStrapiRequest("pdp-product", GetProductQuery, {
       medusa_product_id: product.id,
     }),
     null,
@@ -167,7 +167,7 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
 export default async function ProductPage(props: Props) {
   const params = await props.params
   const strapiCommonPdpDataPromise = withPdpStrapiFallback(
-    strapiClient.request(GetCommonPdpQuery),
+    cachedStrapiRequest("pdp-common", GetCommonPdpQuery),
     null,
     {
       stage: "common_pdp",
@@ -202,10 +202,9 @@ export default async function ProductPage(props: Props) {
   }
 
   const strapiProductDataPromise = withPdpStrapiFallback<StrapiProductResponse>(
-    strapiClient
-      .request<{ products?: any[] }>(GetProductQuery, {
-        medusa_product_id: pricedProduct.id,
-      }),
+    cachedStrapiRequest<{ products?: any[] }>("pdp-product", GetProductQuery, {
+      medusa_product_id: pricedProduct.id,
+    }),
     null,
     {
       stage: "product_data",

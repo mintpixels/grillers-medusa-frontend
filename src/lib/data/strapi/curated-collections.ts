@@ -1,5 +1,5 @@
 import { gql } from "graphql-request"
-import strapiClient from "@lib/strapi"
+import strapiClient, { cachedStrapiRequest } from "@lib/strapi"
 import { enrichStrapiProductsWithMedusaPrices } from "@lib/data/products"
 import { emitCuratedCollectionsStrapiFailureAlert } from "@lib/curated-collections-ops-alerts"
 import { compactCollectionProduct } from "@lib/util/collection-product"
@@ -681,9 +681,11 @@ export async function getCuratedCollections({
   let primaryError: unknown
 
   try {
-    const data = await strapiClient.request<{
+    const data = await cachedStrapiRequest<{
       curatedCollections: CuratedCollection[]
-    }>(GetCuratedCollectionsQuery, { limit: queryLimit })
+    }>("curated-collections-list", GetCuratedCollectionsQuery, {
+      limit: queryLimit,
+    })
 
     const collections = applyFilters(data.curatedCollections)
     return enrichPrices
@@ -695,9 +697,11 @@ export async function getCuratedCollections({
   }
 
   try {
-    const data = await strapiClient.request<{
+    const data = await cachedStrapiRequest<{
       curatedCollections: CuratedCollection[]
-    }>(LegacyCuratedCollectionsQuery, { limit: queryLimit })
+    }>("curated-collections-list-legacy", LegacyCuratedCollectionsQuery, {
+      limit: queryLimit,
+    })
     const collections = applyFilters(data.curatedCollections)
     if (primaryError) {
       void emitCuratedCollectionsStrapiFailureAlert({
@@ -751,9 +755,11 @@ export async function getCuratedCollectionCards({
   const queryLimit = Math.max(limit, 100)
 
   try {
-    const data = await strapiClient.request<{
+    const data = await cachedStrapiRequest<{
       curatedCollections: CuratedCollection[]
-    }>(GetCuratedCollectionCardsQuery, { limit: queryLimit })
+    }>("curated-collections-cards", GetCuratedCollectionCardsQuery, {
+      limit: queryLimit,
+    })
 
     return (data.curatedCollections || [])
       .filter((collection) => isVisibleNow(collection))
@@ -792,9 +798,9 @@ export async function getCuratedCollectionBySlug(
   let primaryError: unknown
 
   try {
-    const data = await strapiClient.request<{
+    const data = await cachedStrapiRequest<{
       curatedCollections: CuratedCollection[]
-    }>(GetCuratedCollectionBySlugQuery, { slug })
+    }>("curated-collection-by-slug", GetCuratedCollectionBySlugQuery, { slug })
     return enrichVisibleCollection(data.curatedCollections?.[0])
   } catch (error) {
     primaryError = error
@@ -802,9 +808,11 @@ export async function getCuratedCollectionBySlug(
   }
 
   try {
-    const data = await strapiClient.request<{
+    const data = await cachedStrapiRequest<{
       curatedCollections: CuratedCollection[]
-    }>(LegacyCuratedCollectionBySlugQuery, { slug })
+    }>("curated-collection-by-slug-legacy", LegacyCuratedCollectionBySlugQuery, {
+      slug,
+    })
     if (primaryError) {
       void emitCuratedCollectionsStrapiFailureAlert({
         operation: "detail",

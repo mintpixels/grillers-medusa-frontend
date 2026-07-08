@@ -17,6 +17,10 @@ jest.mock("@lib/strapi", () => ({
   default: {
     request: mockStrapiRequest,
   },
+  // cachedStrapiRequest(name, query, variables) → the same underlying
+  // request mock, so failure-path assertions keep exercising the alerts.
+  cachedStrapiRequest: (_name: string, query: unknown, variables?: unknown) =>
+    mockStrapiRequest(query, variables),
 }))
 
 jest.mock("@lib/data/products", () => ({

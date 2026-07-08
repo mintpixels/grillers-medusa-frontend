@@ -1,4 +1,5 @@
 import { GraphQLClient } from "graphql-request"
+import { unstable_cache } from "next/cache"
 
 // Strapi content is editor-managed and edits must reflect on the site
 // immediately on publish. Every fetch is tagged "strapi"; a Strapi
@@ -56,3 +57,30 @@ const strapiClient = new GraphQLClient(
 )
 
 export default strapiClient
+
+/**
+ * Result-level cache for Strapi GraphQL reads. graphql-request sends
+ * POSTs, and Next's Data Cache does not cache POST fetches — so before
+ * this, EVERY render re-paid the full Strapi round trip. The curated-
+ * collections query measures 8-11s at ~600KB against Strapi Cloud,
+ * straddling the client's 10s abort bound: every cache-miss render was
+ * a coin flip that paged ops (~200 alerts/12h on 2026-07-08).
+ *
+ * unstable_cache stores the RESULT keyed by (name + variables), tagged
+ * "strapi" so the existing publish webhook (revalidateTag("strapi"))
+ * still busts it instantly; the TTL is a safety net between publishes.
+ */
+export function cachedStrapiRequest<T>(
+  name: string,
+  query: string,
+  variables?: Record<string, unknown>,
+  revalidateSeconds = 600
+): Promise<T> {
+  const keyed = unstable_cache(
+    async (vars: string) =>
+      strapiClient.request<T>(query, JSON.parse(vars) as Record<string, unknown>),
+    ["strapi-gql", name],
+    { tags: ["strapi"], revalidate: revalidateSeconds }
+  )
+  return keyed(JSON.stringify(variables || {}))
+}
