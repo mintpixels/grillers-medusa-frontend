@@ -21,6 +21,8 @@ import LocalizedClientLink from "@modules/common/components/localized-client-lin
 import {
   createCommunicationCampaign,
   createCommunicationSegment,
+  deleteCommunicationCampaign,
+  deleteCommunicationSegment,
   updateCommunicationFlow,
   getCommunicationProfileTimeline,
   importConstantContactRows,
@@ -459,6 +461,30 @@ export default function StaffCommunicationsConsole({
         )
       } catch {
         setError("Could not send the test text.")
+      }
+    })
+  }
+
+  function removeCampaign(campaignId: string, name: string) {
+    clearFeedback()
+    startTransition(async () => {
+      try {
+        await deleteCommunicationCampaign(campaignId)
+        setStatus(`Draft "${name}" deleted. Reload to refresh the list.`)
+      } catch {
+        setError("Could not delete that campaign (sent campaigns are kept as history).")
+      }
+    })
+  }
+
+  function removeSegment(key: string, name: string) {
+    clearFeedback()
+    startTransition(async () => {
+      try {
+        await deleteCommunicationSegment(key)
+        setStatus(`Segment "${name}" deleted. Reload to refresh the list.`)
+      } catch {
+        setError("Could not delete that segment (built-in segments can't be deleted).")
       }
     })
   }
@@ -1032,8 +1058,17 @@ export default function StaffCommunicationsConsole({
                       </p>
                     </div>
                     <Badge status={campaign.status}>{campaign.status}</Badge>
-                    <span className="text-xs text-Charcoal/55">
+                    <span className="flex items-center gap-2 text-xs text-Charcoal/55">
                       {formatDate(campaign.sent_at || campaign.scheduled_at)}
+                      {campaign.status !== "sent" ? (
+                        <button
+                          type="button"
+                          onClick={() => removeCampaign(campaign.id, campaign.name)}
+                          className="rounded border border-red-200 px-2 py-0.5 text-[11px] font-semibold uppercase text-red-600"
+                        >
+                          Delete
+                        </button>
+                      ) : null}
                     </span>
                   </div>
                 ))}
@@ -1586,13 +1621,24 @@ export default function StaffCommunicationsConsole({
                     <span className="text-sm font-maison-neue font-semibold">
                       {segment.cached_count ?? "…"} people
                     </span>
-                    <Badge status={segment.status}>{segment.status}</Badge>
+                    <span className="flex items-center gap-2">
+                      <Badge status={segment.status}>{segment.status}</Badge>
+                      <button
+                        type="button"
+                        onClick={() => removeSegment(segment.key, segment.name)}
+                        className="rounded border border-red-200 px-2 py-0.5 text-[11px] font-semibold uppercase text-red-600"
+                        title="Built-in segments can't be deleted"
+                      >
+                        Delete
+                      </button>
+                    </span>
                   </div>
                 ))}
               </div>
               <p className="mt-3 text-xs text-Charcoal/55">
                 Counts refresh automatically every maintenance pass and when a
-                segment is saved.
+                segment is saved. Built-in segments can&apos;t be deleted —
+                only ones you created here.
               </p>
             </section>
 

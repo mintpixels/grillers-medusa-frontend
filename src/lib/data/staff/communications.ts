@@ -659,3 +659,19 @@ export async function updateCommunicationFlow(
     throw error
   }
 }
+
+export async function deleteCommunicationCampaign(campaignId: string) {
+  await requireCommunicationsStaff()
+  return adminFetch<{ ok: boolean }>(
+    `/admin/grillers/communications/campaigns/${encodeURIComponent(campaignId)}`,
+    { method: "DELETE" }
+  )
+}
+
+export async function deleteCommunicationSegment(key: string) {
+  await requireCommunicationsStaff()
+  return adminFetch<{ ok: boolean }>(
+    `/admin/grillers/communications/segments/${encodeURIComponent(key)}`,
+    { method: "DELETE" }
+  )
+}
