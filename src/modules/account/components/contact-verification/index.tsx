@@ -1,16 +1,13 @@
 "use client"
 
-import { useActionState, useEffect, useRef, useState, useTransition } from "react"
+import { useActionState, useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { HttpTypes } from "@medusajs/types"
 import Input from "@modules/common/components/input"
 import ErrorMessage from "@modules/checkout/components/error-message"
 import { SubmitButton } from "@modules/checkout/components/submit-button"
 import { jitsuTrack } from "@lib/jitsu"
-import {
-  submitContactVerification,
-  skipContactVerification,
-} from "@lib/data/contact-verification"
+import { submitContactVerification } from "@lib/data/contact-verification"
 import {
   SMS_MARKETING_DISCLOSURE,
   SMS_MARKETING_OPT_IN_LABEL,
@@ -34,8 +31,9 @@ const sectionNumber = (n: number) => (
 
 /**
  * First-login verification for migrated customers: primary mobile + SMS
- * opt-in (optional — TCPA consent is never a condition), primary email,
- * and default shipping address. One submit; skippable.
+ * opt-in (optional — TCPA consent is never a condition of purchase),
+ * primary email, and default shipping address. One submit; NOT skippable —
+ * details must be confirmed before the account dashboard is reachable.
  */
 const ContactVerification = ({
   customer,
@@ -44,8 +42,6 @@ const ContactVerification = ({
 }: Props) => {
   const router = useRouter()
   const [state, formAction] = useActionState(submitContactVerification, null)
-  const [skipping, startSkip] = useTransition()
-  const [skipError, setSkipError] = useState<string | null>(null)
 
   const hasCandidates = phoneCandidates.length > 0
   const [phoneChoice, setPhoneChoice] = useState(
@@ -82,24 +78,6 @@ const ContactVerification = ({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state?.success])
-
-  const onSkip = () => {
-    setSkipError(null)
-    startSkip(async () => {
-      const result = await skipContactVerification()
-      if (!result?.ok) {
-        // Without a recorded skip, /account would bounce straight back
-        // here — surface it instead of silently looping the customer.
-        setSkipError(
-          "We couldn't save that just now — please try again, or go ahead and confirm your details below."
-        )
-        return
-      }
-      jitsuTrack("contact_verification_skipped", { customer_id: customer.id })
-      router.push(`/${countryCode}/account`)
-      router.refresh()
-    })
-  }
 
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-10 small:py-14">
@@ -145,9 +123,6 @@ const ContactVerification = ({
                   <span className="block text-base-semi text-ui-fg-base">
                     {formatPhoneForDisplay(candidate.value)}
                   </span>
-                  <span className="block text-xs text-ui-fg-subtle">
-                    From {candidate.sources.join(" · ")}
-                  </span>
                 </span>
               </label>
             ))}
@@ -189,6 +164,7 @@ const ContactVerification = ({
               name="sms_marketing_opt_in"
               type="checkbox"
               value="on"
+              defaultChecked
               data-testid="sms-marketing-opt-in"
             />
             <span className="text-left">
@@ -388,20 +364,6 @@ const ContactVerification = ({
           >
             Confirm my details
           </SubmitButton>
-          <button
-            type="button"
-            onClick={onSkip}
-            disabled={skipping}
-            className="text-small-regular text-ui-fg-subtle underline underline-offset-4 hover:text-ui-fg-base disabled:opacity-50"
-            data-testid="contact-verification-skip"
-          >
-            {skipping ? "One moment…" : "Remind me later"}
-          </button>
-          {skipError ? (
-            <p className="text-center text-small-regular text-ui-fg-error">
-              {skipError}
-            </p>
-          ) : null}
         </div>
       </form>
     </div>

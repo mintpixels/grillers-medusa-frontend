@@ -16,6 +16,12 @@ type Props = {
   staffEmail: string
   segments: CommunicationSegment[]
   templates: CommunicationTemplate[]
+  initialTemplate?: {
+    key: string
+    name: string
+    subject: string
+    mjml_source?: string | null
+  } | null
 }
 
 /**
@@ -155,16 +161,16 @@ function registerGpBlocks(editor: any) {
   })
 }
 
-const CampaignCanvas = ({ countryCode, staffEmail, segments, templates }: Props) => {
+const CampaignCanvas = ({ countryCode, staffEmail, segments, templates, initialTemplate }: Props) => {
   const editorRef = useRef<any>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [ready, setReady] = useState(false)
   const [status, setStatus] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
-  const [templateKey, setTemplateKey] = useState("")
-  const [templateName, setTemplateName] = useState("")
-  const [subject, setSubject] = useState("")
+  const [templateKey, setTemplateKey] = useState(initialTemplate?.key || "")
+  const [templateName, setTemplateName] = useState(initialTemplate?.name || "")
+  const [subject, setSubject] = useState(initialTemplate?.subject || "")
   const [segmentKey, setSegmentKey] = useState("")
   const [scheduledAt, setScheduledAt] = useState("")
   const [testEmail, setTestEmail] = useState(staffEmail)
@@ -188,7 +194,9 @@ const CampaignCanvas = ({ countryCode, staffEmail, segments, templates }: Props)
         plugins: [mjmlPlugin],
         pluginsOpts: { [mjmlPlugin as any]: {} },
       })
-      editor.setComponents(STARTER_MJML)
+      editor.setComponents(
+        initialTemplate?.mjml_source?.trim() || STARTER_MJML
+      )
       registerGpBlocks(editor)
       editorRef.current = editor
       // Staff-only page: expose the editor for debugging and e2e checks.

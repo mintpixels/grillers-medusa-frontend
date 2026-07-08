@@ -72,6 +72,7 @@ export type CommunicationOverview = {
   metrics: {
     profiles: number
     consented: number
+    sms_consented?: number
     messages_sent: number
     messages_delivered: number
     messages_failed: number
@@ -119,10 +120,12 @@ export type CommunicationFlow = {
   id: string
   key: string
   name: string
+  description?: string | null
   status: string
   message_stream: string
   message_purpose?: string | null
   trigger_event?: string | null
+  steps?: Array<Record<string, any>> | null
 }
 
 export type CommunicationSegment = {
@@ -338,6 +341,10 @@ export async function createCommunicationCampaign(input: {
   scheduled_at?: string
   /** Canvas-designed gp_email_template key. */
   template_key?: string
+  /** "email" (default) or "sms". */
+  channel?: string
+  /** SMS campaigns: the text body ({{first_name}} supported). */
+  sms_body?: string
 }) {
   const staff = await requireCommunicationsStaff()
   try {
@@ -401,7 +408,7 @@ export async function importConstantContactRows(input: {
 
 export async function sendCommunicationCampaign(
   campaignId: string,
-  input: { test_email?: string } = {}
+  input: { test_email?: string; test_phone?: string } = {}
 ) {
   const staff = await requireCommunicationsStaff()
   try {
@@ -541,4 +548,80 @@ export async function saveCommunicationTemplate(input: {
     })
     throw error
   }
+}
+
+export type SegmentDefinitionInput = {
+  customer_type?: string
+  route_market?: string
+  lifecycle_stage?: string
+  email_consent?: boolean
+  sms_consent?: boolean
+  holiday_buyer?: boolean
+  last_order_within_days?: number
+  engagement_score_gte?: number
+  preferred_delivery_zone?: string
+  preferred_cuts_any?: string[]
+  preferred_kosher_types_any?: string[]
+  min_total_orders?: number
+  min_total_revenue?: number
+}
+
+export async function createCommunicationSegment(input: {
+  key?: string
+  name: string
+  description?: string
+  definition: SegmentDefinitionInput
+}) {
+  const staff = await requireCommunicationsStaff()
+  try {
+    return await adminFetch<{ segment: CommunicationSegment }>(
+      "/admin/grillers/communications/segments",
+      {
+        method: "POST",
+        body: JSON.stringify(input),
+      }
+    )
+  } catch (error) {
+    await emitCommunicationsFailureAlert({
+      alertKind: "staff_communications_segment_create_failed",
+      title: "Staff communications segment create failed",
+      action: "create_segment",
+      fingerprint: "staff_communications:create_segment",
+      error,
+      meta: {
+        staff_customer_id: staff.id,
+        name_length: textLengthBucket(input.name, 20),
+      },
+    })
+    throw error
+  }
+}
+
+export async function previewCommunicationSegment(
+  definition: SegmentDefinitionInput
+) {
+  await requireCommunicationsStaff()
+  return adminFetch<{
+    count: number
+    sms_reachable: number
+    sample: Array<{ email: string; first_name?: string; last_name?: string }>
+  }>("/admin/grillers/communications/segments/preview", {
+    method: "POST",
+    body: JSON.stringify({ definition }),
+  })
+}
+
+export async function getCommunicationTemplate(key: string) {
+  await requireCommunicationsStaff()
+  return adminFetch<{
+    template: {
+      key: string
+      name: string
+      subject: string
+      html_body?: string | null
+      metadata?: { mjml_source?: string | null } | null
+    }
+  }>(
+    `/admin/grillers/communications/templates?key=${encodeURIComponent(key)}`
+  )
 }

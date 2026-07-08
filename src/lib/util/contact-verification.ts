@@ -57,13 +57,16 @@ export function isMigratedCustomer(
   return createdAt < new Date(CONTACT_VERIFY_CUTOFF_ISO)
 }
 
-/** Migrated customer who has neither completed nor skipped the flow. */
+/**
+ * Migrated customer who hasn't completed the flow. Earlier skips no longer
+ * count: the "Remind me later" escape hatch was removed (2026-07-07) —
+ * previously-skipped customers are re-prompted and must confirm.
+ */
 export function needsContactVerification(
   customer: CustomerLike | null | undefined
 ): boolean {
   if (!customer) return false
   if (hasCompletedContactVerification(customer)) return false
-  if (hasSkippedContactVerification(customer)) return false
   return isMigratedCustomer(customer)
 }
 
