@@ -1,4 +1,4 @@
-import strapiClient from "@lib/strapi"
+import { cachedStrapiRequest } from "@lib/strapi"
 import {
   GetAnnouncementBarQuery,
   type AnnouncementBarData,
@@ -7,9 +7,10 @@ import AnnouncementBar from "./announcement-bar"
 
 async function getAnnouncementBarConfig(): Promise<AnnouncementBarData | null> {
   try {
-    const data = await strapiClient.request<AnnouncementBarData>({
-      document: GetAnnouncementBarQuery,
-    })
+    const data = await cachedStrapiRequest<AnnouncementBarData>(
+      "announcement-bar",
+      GetAnnouncementBarQuery
+    )
     return data
   } catch (error) {
     console.error("Error fetching announcement bar config:", error)

@@ -1,4 +1,4 @@
-import strapiClient from "@lib/strapi"
+import { cachedStrapiRequest } from "@lib/strapi"
 import {
   GetCookieConsentQuery,
   type CookieConsentData,
@@ -7,9 +7,10 @@ import CookieConsentBanner from "./cookie-consent-banner"
 
 async function getCookieConsentConfig(): Promise<CookieConsentData | null> {
   try {
-    const data = await strapiClient.request<CookieConsentData>({
-      document: GetCookieConsentQuery,
-    })
+    const data = await cachedStrapiRequest<CookieConsentData>(
+      "cookie-consent",
+      GetCookieConsentQuery
+    )
     return data
   } catch (error) {
     console.error("Error fetching cookie consent config:", error)

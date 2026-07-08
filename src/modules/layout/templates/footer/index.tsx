@@ -3,7 +3,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { cache } from "react"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
-import strapiClient from "@lib/strapi"
+import { cachedStrapiRequest } from "@lib/strapi"
 import { GetFooterQuery, type FooterData } from "@lib/data/strapi/footer"
 import { withLayoutDataFallback } from "@lib/layout-ops-alerts"
 
@@ -11,9 +11,7 @@ const FOOTER_LAYOUT_PATH = "src/modules/layout/templates/footer/index.tsx"
 
 const getFooterData = cache(async (): Promise<FooterData | null> => {
   return withLayoutDataFallback({
-    promise: strapiClient.request<FooterData>({
-      document: GetFooterQuery,
-    }),
+    promise: cachedStrapiRequest<FooterData>("footer", GetFooterQuery),
     fallback: null,
     surface: "footer",
     stage: "strapi_footer",

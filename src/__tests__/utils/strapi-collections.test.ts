@@ -6,6 +6,15 @@ jest.mock("graphql-request", () => ({
     ),
 }))
 
+// Every test here injects its own mock client (which takes the uncached
+// client.request path in collections.ts), but the module still imports
+// @lib/strapi, whose unstable_cache import can't load under Jest.
+jest.mock("@lib/strapi", () => ({
+  __esModule: true,
+  default: { request: jest.fn() },
+  cachedStrapiRequest: jest.fn(),
+}))
+
 import {
   getAllProductsWithImages,
   getStoreProducts,

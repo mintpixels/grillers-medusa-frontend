@@ -1,12 +1,13 @@
-import strapiClient from "@lib/strapi"
+import { cachedStrapiRequest } from "@lib/strapi"
 import { GetAnalyticsQuery, type AnalyticsData } from "@lib/data/strapi/analytics"
 import ConditionalGTMScript from "./conditional-gtm-script"
 
 async function getAnalyticsConfig(): Promise<AnalyticsData | null> {
   try {
-    const data = await strapiClient.request<AnalyticsData>({
-      document: GetAnalyticsQuery,
-    })
+    const data = await cachedStrapiRequest<AnalyticsData>(
+      "analytics-config",
+      GetAnalyticsQuery
+    )
     return data
   } catch (error) {
     console.error("Error fetching analytics config:", error)

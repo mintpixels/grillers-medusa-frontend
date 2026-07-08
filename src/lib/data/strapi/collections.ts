@@ -1,8 +1,34 @@
 import { gql } from "graphql-request"
+import strapiClient, { cachedStrapiRequest } from "@lib/strapi"
 import { compactCollectionProducts } from "@lib/util/collection-product"
 import { withTimeout } from "@lib/util/promise-timeout"
 import type { StrapiSEO, StrapiSocialMeta } from "./seo"
 import type { IngredientDisclosure } from "types/strapi"
+
+// Every cachedStrapiRequest cache name must map to exactly one query string, so
+// derive it from the operation name plus a hash of the full text (the legacy
+// variants share operation names with their primary queries).
+function strapiQueryCacheName(query: string): string {
+  const op = query.match(/(?:query|mutation)\s+([A-Za-z0-9_]+)/)?.[1] || "anon"
+  let hash = 0
+  for (let i = 0; i < query.length; i += 1) {
+    hash = ((hash << 5) - hash + query.charCodeAt(i)) | 0
+  }
+  return `collections-${op}-${(hash >>> 0).toString(36)}`
+}
+
+// Tests inject their own mock clients; only the shared client goes through the
+// Data Cache (graphql-request POSTs are never cached by Next on their own).
+function requestStrapi<T>(
+  client: any,
+  query: string,
+  variables?: Record<string, unknown>
+): Promise<T> {
+  if (!client || client === strapiClient) {
+    return cachedStrapiRequest<T>(strapiQueryCacheName(query), query, variables)
+  }
+  return client.request(query, variables)
+}
 
 export type ProductCollectionData = {
   Name: string
@@ -108,7 +134,7 @@ export async function getProductTagBySlug(
   client: any
 ): Promise<ProductTag | null> {
   try {
-    const result = await client.request(GetProductTagBySlugQuery)
+    const result = await requestStrapi<any>(client, GetProductTagBySlugQuery)
     const tags = result.productTags || []
 
     // Find tag where generated slug matches the handle
@@ -500,7 +526,7 @@ async function requestStrapiProductsWithRetry(
 
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     try {
-      const result = await client.request(query, variables)
+      const result = await requestStrapi<any>(client, query, variables)
       if (!Array.isArray(result?.products)) {
         throw new Error("Strapi products response was not an array.")
       }
@@ -752,7 +778,7 @@ export async function getProductsByMedusaIds(
   if (productIds.length === 0) return []
 
   try {
-    const result = await client.request(GetProductsByMedusaIdsQuery, {
+    const result = await requestStrapi<any>(client, GetProductsByMedusaIdsQuery, {
       productIds,
       limit: productIds.length,
       start: 0,
@@ -764,11 +790,15 @@ export async function getProductsByMedusaIds(
   }
 
   try {
-    const result = await client.request(LegacyGetProductsByMedusaIdsQuery, {
-      productIds,
-      limit: productIds.length,
-      start: 0,
-    })
+    const result = await requestStrapi<any>(
+      client,
+      LegacyGetProductsByMedusaIdsQuery,
+      {
+        productIds,
+        limit: productIds.length,
+        start: 0,
+      }
+    )
 
     return compactCollectionProducts(result.products || [])
   } catch (error) {
@@ -880,7 +910,9 @@ export async function getProductsByHandlesStrict(
   let primaryError: unknown
 
   try {
-    const result = await client.request(GetProductsByHandlesQuery, { handles })
+    const result = await requestStrapi<any>(client, GetProductsByHandlesQuery, {
+      handles,
+    })
     const products: StrapiCollectionProduct[] = result.products || []
     // Strapi doesn't preserve the input order — re-sort to match the curated
     // sequence so editors control the display order in Strapi.
@@ -893,9 +925,11 @@ export async function getProductsByHandlesStrict(
   }
 
   try {
-    const result = await client.request(LegacyGetProductsByHandlesQuery, {
-      handles,
-    })
+    const result = await requestStrapi<any>(
+      client,
+      LegacyGetProductsByHandlesQuery,
+      { handles }
+    )
     return compactCollectionProducts(
       sortProductsByHandleOrder(result.products || [], handles)
     )

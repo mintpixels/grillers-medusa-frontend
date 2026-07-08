@@ -1,7 +1,7 @@
 import { listRegions } from "@lib/data/regions"
 import { HeaderNavQuery } from "@lib/data/strapi/header"
 import type { HeaderNavLink } from "@lib/data/strapi/header"
-import strapiClient from "@lib/strapi"
+import { cachedStrapiRequest } from "@lib/strapi"
 import { withLayoutDataFallback } from "@lib/layout-ops-alerts"
 import { augmentHeaderNav } from "@lib/util/header-nav"
 import AnnouncementBarProvider from "../../../../components/announcement-bar-provider"
@@ -13,7 +13,7 @@ const NAV_LAYOUT_PATH = "src/modules/layout/templates/nav/index.tsx"
 export default async function Nav() {
   const [navLinksData, regions] = await Promise.all([
     withLayoutDataFallback({
-      promise: strapiClient.request<any>(HeaderNavQuery),
+      promise: cachedStrapiRequest<any>("header-nav", HeaderNavQuery),
       fallback: null,
       surface: "header_nav",
       stage: "strapi_header_nav",

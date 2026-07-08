@@ -17,7 +17,7 @@ import DeliveryPromiseSection from "@modules/home/components/delivery-promise"
 import LazySection from "@modules/common/components/lazy-section"
 import StandardsComparison from "@modules/common/components/standards-comparison"
 import { getCuratedCollectionCards } from "@lib/data/strapi/curated-collections"
-import strapiClient from "@lib/strapi"
+import { cachedStrapiRequest } from "@lib/strapi"
 import { GetHomePageQuery, type HomePageData } from "@lib/data/strapi/home"
 import {
   GetGlobalQuery,
@@ -75,7 +75,8 @@ export async function generateMetadata({
 }: PageProps): Promise<Metadata> {
   const { countryCode } = await params
   try {
-    const strapiData = await strapiClient.request<HomePageData>(
+    const strapiData = await cachedStrapiRequest<HomePageData>(
+      "home-page",
       GetHomePageQuery
     )
     const seo = strapiData?.home?.SEO
@@ -141,13 +142,17 @@ export default async function Home(props: {
 
   const [strapiData, globalData] = await Promise.all([
     withTimeout(
-      strapiClient.request<HomePageData>(GetHomePageQuery).catch(() => null),
+      cachedStrapiRequest<HomePageData>("home-page", GetHomePageQuery).catch(
+        () => null
+      ),
       3000,
       null,
       "home Strapi data"
     ),
     withTimeout(
-      strapiClient.request<GlobalData>(GetGlobalQuery).catch(() => null),
+      cachedStrapiRequest<GlobalData>("home-global", GetGlobalQuery).catch(
+        () => null
+      ),
       1500,
       null,
       "home global data"
