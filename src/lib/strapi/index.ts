@@ -74,7 +74,11 @@ export function cachedStrapiRequest<T>(
   name: string,
   query: string,
   variables?: Record<string, unknown>,
-  revalidateSeconds = 600
+  // Freshness comes from the publish webhook's revalidateTag("strapi"), not
+  // this TTL — it only bounds how long a key can serve if a webhook is missed.
+  // Kept long deliberately: every expiry re-runs the underlying query live,
+  // and the big primary queries cost 8-11s against Strapi Cloud.
+  revalidateSeconds = 3600
 ): Promise<T> {
   const keyed = unstable_cache(
     async (vars: string) =>
