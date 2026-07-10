@@ -100,6 +100,19 @@ const Register = ({ setCurrentView }: Props) => {
               </span>
             </span>
           </label>
+          {/* Links live outside the <label> so tapping them can't toggle consent */}
+          <span className="-mt-1 block text-xs text-ui-fg-subtle">
+            <LocalizedClientLink href="/page/sms-terms" className="underline">
+              SMS Terms
+            </LocalizedClientLink>{" "}
+            ·{" "}
+            <LocalizedClientLink
+              href="/page/privacy-policy"
+              className="underline"
+            >
+              Privacy Policy
+            </LocalizedClientLink>
+          </span>
           <Input
             label="Password"
             name="password"

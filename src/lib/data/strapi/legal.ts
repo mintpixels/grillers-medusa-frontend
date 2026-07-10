@@ -232,6 +232,7 @@ export const LEGAL_SLUGS = [
   "privacy-policy",
   "terms-of-sale",
   "terms-of-use",
+  "sms-terms",
 ] as const
 
 export type LegalSlug = (typeof LEGAL_SLUGS)[number]
@@ -244,6 +245,7 @@ const PLACEHOLDER_TITLES: Record<LegalSlug, string> = {
   "privacy-policy": "Privacy Policy",
   "terms-of-sale": "Terms of Sale",
   "terms-of-use": "Terms of Use",
+  "sms-terms": "SMS Program Terms",
 }
 
 // BlocksRenderer-shaped placeholder content (Lorem ipsum). Lives in code
@@ -321,6 +323,30 @@ const PLACEHOLDER_CONTENT: Record<LegalSlug, any[]> = {
     LATIN_PARAGRAPH(LOREM_MED),
     LATIN_HEADING("Changes to These Terms"),
     LATIN_PARAGRAPH(LOREM_SHORT),
+  ],
+  // Real program terms, not Lorem — this is compliance copy carriers review
+  // during toll-free verification, so the code fallback must match the
+  // Strapi entry rather than render filler if Strapi is unavailable.
+  "sms-terms": [
+    LATIN_PARAGRAPH(
+      "Griller's Pride Text Updates is a recurring SMS program operated by Grillerspride, LLC (\"Griller's Pride\") that sends order and delivery notifications (order confirmed, shipped, out for delivery, pickup reminders) and occasional marketing messages such as seasonal specials and holiday pre-order deadlines."
+    ),
+    LATIN_HEADING("Enrollment & Consent"),
+    LATIN_PARAGRAPH(
+      "You enroll by checking the SMS opt-in box during account signup or in your account contact preferences, providing your mobile number, and submitting the form. Consent to receive text messages is not a condition of any purchase. We keep a record of your consent, including the date, the enrollment source, and the consent language shown to you."
+    ),
+    LATIN_HEADING("Message Frequency & Cost"),
+    LATIN_PARAGRAPH(
+      "Message frequency varies with your order activity — typically 2 to 6 messages per month. Message and data rates may apply according to your mobile plan. Carriers are not liable for delayed or undelivered messages."
+    ),
+    LATIN_HEADING("Opt Out & Help"),
+    LATIN_PARAGRAPH(
+      "Reply STOP to any message to unsubscribe at any time; you will receive a single confirmation message. Reply HELP for help, or contact us at (770) 454-8108 or peter@grillerspride.com. You can also manage your text preferences from your account's communication preferences page."
+    ),
+    LATIN_HEADING("Privacy"),
+    LATIN_PARAGRAPH(
+      "Your mobile number and consent records are handled as described in our Privacy Policy. We do not sell your phone number, and text messaging originator opt-in data and consent are not shared with third parties for their own marketing purposes."
+    ),
   ],
 }
 

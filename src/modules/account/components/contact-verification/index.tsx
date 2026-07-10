@@ -4,6 +4,7 @@ import { useActionState, useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { HttpTypes } from "@medusajs/types"
 import Input from "@modules/common/components/input"
+import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import ErrorMessage from "@modules/checkout/components/error-message"
 import { SubmitButton } from "@modules/checkout/components/submit-button"
 import { jitsuTrack } from "@lib/jitsu"
@@ -158,13 +159,17 @@ const ContactVerification = ({
             ) : null}
           </div>
 
+          {/* Must stay unchecked-by-default: TCPA "express written consent"
+              requires the subscriber's own affirmative action, and Twilio
+              toll-free verification rejected the number (code 30446) over
+              exactly this. Pre-checking also contradicts the consent
+              declaration in our carrier filing. */}
           <label className="mt-4 flex cursor-pointer items-start gap-x-3 rounded-md bg-ui-bg-subtle p-3">
             <input
               className="mt-1 h-4 w-4 shrink-0 accent-Gold"
               name="sms_marketing_opt_in"
               type="checkbox"
               value="on"
-              defaultChecked
               data-testid="sms-marketing-opt-in"
             />
             <span className="text-left">
@@ -176,6 +181,18 @@ const ContactVerification = ({
               </span>
             </span>
           </label>
+          <span className="mt-1 block text-xs text-ui-fg-subtle">
+            <LocalizedClientLink href="/page/sms-terms" className="underline">
+              SMS Terms
+            </LocalizedClientLink>{" "}
+            ·{" "}
+            <LocalizedClientLink
+              href="/page/privacy-policy"
+              className="underline"
+            >
+              Privacy Policy
+            </LocalizedClientLink>
+          </span>
         </section>
 
         {/* ── 2 · Email ─────────────────────────────────────────── */}
