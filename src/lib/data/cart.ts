@@ -669,7 +669,13 @@ export async function setRequestedDeliveryDate({
       const { getAtlantaDeliveryZipConfig } = await import(
         "@lib/data/strapi/fulfillment"
       )
-      const atlantaZipConfig = await getAtlantaDeliveryZipConfig()
+      const { getFulfillmentBlackouts } = await import(
+        "@lib/data/strapi/checkout"
+      )
+      const [atlantaZipConfig, fulfillmentBlackouts] = await Promise.all([
+        getAtlantaDeliveryZipConfig(),
+        getFulfillmentBlackouts(),
+      ])
       const cart = await retrieveCart(cartId)
       const fulfillmentType = cart?.metadata?.fulfillmentType as
         | string
@@ -704,6 +710,7 @@ export async function setRequestedDeliveryDate({
           method,
           destinationZip: destZip,
           atlantaZipConfig,
+          blackouts: fulfillmentBlackouts,
         })
         if (!ok) {
           throw new Error(
@@ -715,6 +722,7 @@ export async function setRequestedDeliveryDate({
       const qbdDueDate = computeQuickBooksDueDateForArrival(date, {
         method,
         destinationZip: destZip,
+        blackouts: fulfillmentBlackouts,
       })
 
       return sdk.store.cart
