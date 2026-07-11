@@ -422,7 +422,7 @@ const PLACEHOLDER_CONTENT: Record<LegalSlug, any[]> = {
     ),
     LATIN_HEADING("Information We Collect"),
     LATIN_PARAGRAPH(
-      "When you opt in, we collect the mobile number you provide and evidence of your consent, including the date and time, enrollment source, disclosure language and version, and the related cart or order identifier. We also use the minimum order and fulfillment context needed to send accurate updates, plus opt-out, help, delivery-status, and error records."
+      "When you opt in, we collect the mobile number you provide and evidence of your consent, including the date and time, enrollment source, disclosure language and version, and the related cart or order identifier. We also use the minimum order and UPS fulfillment context needed to send accurate shipping and tracking updates, plus opt-out, help, delivery-status, and error records."
     ),
     LATIN_HEADING("How We Use It"),
     LATIN_PARAGRAPH(
