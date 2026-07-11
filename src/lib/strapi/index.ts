@@ -30,7 +30,7 @@ import { strapiCacheTagsForRequest, type StrapiCacheTag } from "./cache-tags"
 // request rejects fast and each surface's existing fail-open fallback
 // takes over. Data Cache hits return instantly and are unaffected.
 const STRAPI_FETCH_TIMEOUT_MS = Number(
-  process.env.STRAPI_FETCH_TIMEOUT_MS || 10_000
+  process.env.STRAPI_FETCH_TIMEOUT_MS || 20_000
 )
 
 const strapiClient = new GraphQLClient(

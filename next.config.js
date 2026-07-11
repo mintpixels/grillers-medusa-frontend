@@ -22,6 +22,14 @@ const nextConfig = {
       "",
   },
   reactStrictMode: true,
+  experimental: {
+    // Strapi Cloud handles normal storefront traffic well but a cold build can
+    // otherwise fan 8 static pages out at once, each with several GraphQL
+    // reads. Keep prerender pressure bounded so production artifacts contain
+    // real CMS content instead of timeout fallbacks.
+    staticGenerationMaxConcurrency: 2,
+    staticGenerationMinPagesPerWorker: 100,
+  },
   productionBrowserSourceMaps: true,
   logging: {
     fetches: {
