@@ -18,6 +18,9 @@ describe("Strapi cache tags", () => {
       STRAPI_CACHE_TAGS.curatedCollections,
       STRAPI_CACHE_TAGS.products,
     ])
+    expect(strapiCacheTagsForRequest("atlanta-delivery-zones")).toEqual([
+      STRAPI_CACHE_TAGS.fulfillment,
+    ])
   })
 
   it("maps namespaced Strapi webhook models to only affected tags", () => {
@@ -33,6 +36,12 @@ describe("Strapi cache tags", () => {
         model: "curated-collection",
       })
     ).toEqual([STRAPI_CACHE_TAGS.curatedCollections])
+    expect(
+      strapiCacheTagsForWebhook({
+        event: "entry.update",
+        model: "api::atlanta-delivery-zone.atlanta-delivery-zone",
+      })
+    ).toEqual([STRAPI_CACHE_TAGS.fulfillment])
   })
 
   it("invalidates every model only for genuinely cross-model or unknown events", () => {

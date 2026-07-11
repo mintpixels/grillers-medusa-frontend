@@ -10,6 +10,7 @@ export const STRAPI_CACHE_TAGS = {
   analytics: "strapi:model:analytic",
   cookieConsent: "strapi:model:cookie-consent",
   pdp: "strapi:model:pdp",
+  fulfillment: "strapi:model:fulfillment",
 } as const
 
 // Previous storefront releases tagged every Strapi result with this value.
@@ -76,6 +77,10 @@ const TAGS_BY_CACHE_NAME: Array<{
     matches: (name) => name === "cookie-consent",
     tags: [STRAPI_CACHE_TAGS.cookieConsent],
   },
+  {
+    matches: (name) => name === "atlanta-delivery-zones",
+    tags: [STRAPI_CACHE_TAGS.fulfillment],
+  },
 ]
 
 /**
@@ -113,6 +118,10 @@ const TAGS_BY_WEBHOOK_MODEL: Record<string, StrapiCacheTag[]> = {
   analytic: [STRAPI_CACHE_TAGS.analytics],
   "cookie-consent": [STRAPI_CACHE_TAGS.cookieConsent],
   pdp: [STRAPI_CACHE_TAGS.pdp],
+  checkout: [STRAPI_CACHE_TAGS.fulfillment],
+  "shipping-setting": [STRAPI_CACHE_TAGS.fulfillment],
+  "atlanta-delivery-zone": [STRAPI_CACHE_TAGS.fulfillment],
+  "southeast-pickup-location": [STRAPI_CACHE_TAGS.fulfillment],
 }
 
 function webhookModelCandidates(model: string | null | undefined) {

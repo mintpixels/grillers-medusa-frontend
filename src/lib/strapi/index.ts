@@ -83,6 +83,7 @@ type CachedRequestOptions = {
 type CachedFetcher = (serializedVariables: string) => Promise<unknown>
 
 const cachedFetchers = new Map<string, CachedFetcher>()
+const inFlightCachedRequests = new Map<string, Promise<unknown>>()
 
 function queryHash(query: string) {
   let hash = 0
@@ -140,5 +141,20 @@ export function cachedStrapiRequest<T>(
     cachedFetchers.set(fetcherKey, keyed)
   }
 
-  return keyed(JSON.stringify(variables || {})) as Promise<T>
+  const serializedVariables = JSON.stringify(variables || {})
+  const requestKey = `${fetcherKey}|${serializedVariables}`
+  const existingRequest = inFlightCachedRequests.get(requestKey)
+  if (existingRequest) return existingRequest as Promise<T>
+
+  // A cold build/render can ask for the same layout data from many routes at
+  // once. unstable_cache persists the result but does not guarantee that
+  // concurrent misses share one upstream request, so explicitly coalesce the
+  // in-process miss and prevent a Strapi thundering herd.
+  const request = keyed(serializedVariables).finally(() => {
+    if (inFlightCachedRequests.get(requestKey) === request) {
+      inFlightCachedRequests.delete(requestKey)
+    }
+  })
+  inFlightCachedRequests.set(requestKey, request)
+  return request as Promise<T>
 }

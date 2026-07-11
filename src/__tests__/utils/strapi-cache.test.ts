@@ -83,4 +83,28 @@ describe("cachedStrapiRequest", () => {
 
     expect(mockUnstableCache).toHaveBeenCalledTimes(2)
   })
+
+  it("coalesces concurrent cold requests for the same query and variables", async () => {
+    let resolveRequest:
+      | ((value: { variables: unknown }) => void)
+      | undefined
+    mockRequest.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveRequest = resolve
+        })
+    )
+    const { cachedStrapiRequest } = await import("@lib/strapi")
+    const query = "query Header { header { id } }"
+
+    const first = cachedStrapiRequest("header-nav", query, { locale: "en" })
+    const second = cachedStrapiRequest("header-nav", query, { locale: "en" })
+
+    expect(mockRequest).toHaveBeenCalledTimes(1)
+    resolveRequest?.({ variables: { locale: "en" } })
+    await expect(Promise.all([first, second])).resolves.toEqual([
+      { variables: { locale: "en" } },
+      { variables: { locale: "en" } },
+    ])
+  })
 })

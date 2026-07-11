@@ -145,7 +145,7 @@ export default async function Home(props: {
       cachedStrapiRequest<HomePageData>("home-page", GetHomePageQuery).catch(
         () => null
       ),
-      3000,
+      5000,
       null,
       "home Strapi data"
     ),
@@ -153,7 +153,7 @@ export default async function Home(props: {
       cachedStrapiRequest<GlobalData>("home-global", GetGlobalQuery).catch(
         () => null
       ),
-      1500,
+      3000,
       null,
       "home global data"
     ),
@@ -171,7 +171,7 @@ export default async function Home(props: {
     countryCode,
     customerState: "guest_or_no_orders",
     limit: 8,
-    timeoutMs: 1800,
+    timeoutMs: 4000,
   })
   // Fail open: the body is driven by the Strapi `home` query (3s timeout +
   // .catch(()=>null)). A slow/errored live re-fetch once returned null

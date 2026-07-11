@@ -1,5 +1,5 @@
 import { gql } from "graphql-request"
-import strapiClient from "@lib/strapi"
+import { cachedStrapiRequest } from "@lib/strapi"
 import {
   ATLANTA_DELIVERY_ZIP_DAYS,
 } from "@lib/util/atlanta-delivery-zips"
@@ -83,9 +83,9 @@ export function zonesToAtlantaZipConfig(
 
 export async function getAtlantaDeliveryZones(): Promise<AtlantaDeliveryZone[]> {
   try {
-    const data = await strapiClient.request<{
+    const data = await cachedStrapiRequest<{
       atlantaDeliveryZones?: AtlantaDeliveryZone[]
-    }>(AtlantaDeliveryZonesQuery)
+    }>("atlanta-delivery-zones", AtlantaDeliveryZonesQuery)
     return data.atlantaDeliveryZones || []
   } catch (error) {
     console.error("Error fetching Atlanta delivery zones:", error)
