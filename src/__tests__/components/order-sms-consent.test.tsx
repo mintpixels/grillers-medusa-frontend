@@ -25,7 +25,7 @@ const mockedSetOrderSmsConsent = setOrderSmsConsent as jest.MockedFunction<
 const cart = {
   id: "cart_order_sms",
   shipping_address: { phone: "4045551212" },
-  metadata: {},
+  metadata: { fulfillmentType: "ups_shipping" },
 }
 
 function renderConsent(testCart: any = cart) {
@@ -63,6 +63,31 @@ describe("delivery-only order SMS consent", () => {
     ).toHaveAttribute("href", "/us/page/order-sms-privacy")
   })
 
+  it("is unavailable outside UPS shipping and removes any prior grant", async () => {
+    const granted = buildOrderSmsConsentMetadata({
+      granted: true,
+      phone: "4045551212",
+      timestamp: "2026-07-11T00:00:00.000Z",
+    })
+
+    renderConsent({
+      ...cart,
+      metadata: {
+        fulfillmentType: "atlanta_delivery",
+        order_sms_consent: granted,
+      },
+    })
+
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Place Order" })).toBeDisabled()
+    await waitFor(() =>
+      expect(mockedSetOrderSmsConsent).toHaveBeenCalledWith({
+        cartId: "cart_order_sms",
+        granted: false,
+      })
+    )
+  })
+
   it("blocks order placement only while an opt-in is being persisted", async () => {
     const user = userEvent.setup()
     let resolveSave: ((value: unknown) => void) | undefined
@@ -94,7 +119,10 @@ describe("delivery-only order SMS consent", () => {
       phone: "4045551212",
       timestamp: "2026-07-11T00:00:00.000Z",
     })
-    renderConsent({ ...cart, metadata: { order_sms_consent: granted } })
+    renderConsent({
+      ...cart,
+      metadata: { ...cart.metadata, order_sms_consent: granted },
+    })
 
     expect(screen.getByRole("checkbox")).toBeChecked()
     await user.click(screen.getByRole("checkbox"))
@@ -122,7 +150,7 @@ describe("delivery-only order SMS consent", () => {
 
     renderConsent({
       ...cart,
-      metadata: { order_sms_consent: grantedForOldPhone },
+      metadata: { ...cart.metadata, order_sms_consent: grantedForOldPhone },
     })
 
     expect(screen.getByRole("checkbox")).not.toBeChecked()

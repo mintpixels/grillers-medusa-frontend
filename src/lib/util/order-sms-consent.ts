@@ -1,7 +1,7 @@
-export const ORDER_SMS_CONSENT_VERSION = "transactional-sms-v1-2026-07-11"
+export const ORDER_SMS_CONSENT_VERSION = "transactional-sms-v2-2026-07-11"
 
 export const ORDER_SMS_DISCLOSURE =
-  "Text me automated Griller's Pride pickup and delivery updates for this order. Message frequency varies, up to 6 messages per order. Message and data rates may apply. Reply STOP to opt out or HELP for help. Consent is not a condition of purchase."
+  "Text me recurring automated Griller's Pride UPS shipping and tracking updates for this order. Message frequency varies, up to 6 messages per order, including an enrollment confirmation. Message and data rates may apply. Reply STOP to opt out or HELP for help. Consent is not a condition of purchase."
 
 export const ORDER_SMS_CONSENT_SOURCE = "checkout_order_updates"
 export const ORDER_SMS_PROVIDER = "twilio"

@@ -28,8 +28,13 @@ const OrderSmsConsent = ({
   children,
 }: OrderSmsConsentProps) => {
   const phone = String(cart?.shipping_address?.phone || "").trim()
+  const fulfillmentType = String(
+    cart?.metadata?.fulfillmentType || cart?.metadata?.fulfillment_type || ""
+  ).trim()
+  const isUpsShipping = fulfillmentType === "ups_shipping"
   const storedConsent = cart?.metadata?.order_sms_consent
-  const storedConsentIsCurrent = isCurrentOrderSmsConsent(storedConsent, phone)
+  const storedConsentIsCurrent =
+    isUpsShipping && isCurrentOrderSmsConsent(storedConsent, phone)
   const staleGrantedConsent =
     isGrantedConsent(storedConsent) && !storedConsentIsCurrent
 
@@ -42,7 +47,9 @@ const OrderSmsConsent = ({
   )
   const [error, setError] = useState<string | null>(null)
   const resetScope = useRef<string | null>(null)
-  const previousCartScope = useRef(`${cart?.id || ""}:${phone}`)
+  const previousCartScope = useRef(
+    `${cart?.id || ""}:${phone}:${fulfillmentType}`
+  )
 
   const isStaffCart = Boolean(
     cart?.metadata?.staff_impersonation ||
@@ -53,7 +60,7 @@ const OrderSmsConsent = ({
   // If the fulfillment phone or consent contract changed, fail closed by
   // replacing the old granted object before order placement can continue.
   useEffect(() => {
-    const scope = `${cart?.id || ""}:${phone}`
+    const scope = `${cart?.id || ""}:${phone}:${fulfillmentType}`
     if (previousCartScope.current !== scope) {
       previousCartScope.current = scope
       resetScope.current = null
@@ -90,6 +97,7 @@ const OrderSmsConsent = ({
   }, [
     cart?.id,
     phone,
+    fulfillmentType,
     staleGrantedConsent,
     storedConsentIsCurrent,
     isStaffCart,
@@ -102,7 +110,7 @@ const OrderSmsConsent = ({
   // Prop changes render before effects run. Include a newly detected stale
   // grant in the rendered gate immediately so there is no one-frame window in
   // which Place Order can be clicked with an old fulfillment phone.
-  const currentCartScope = `${cart?.id || ""}:${phone}`
+  const currentCartScope = `${cart?.id || ""}:${phone}:${fulfillmentType}`
   const unresolvedStaleGrant =
     staleGrantedConsent &&
     (previousCartScope.current !== currentCartScope || !staleGrantCleared)
@@ -142,11 +150,39 @@ const OrderSmsConsent = ({
     }
   }
 
+  if (!isUpsShipping) {
+    return (
+      <>
+        {effectiveOrderPlacementBlocked && (
+          <div className="mb-5 rounded-lg border border-amber-200 bg-amber-50 p-4">
+            <p
+              className="text-xs text-amber-800"
+              role={error ? "alert" : "status"}
+            >
+              {error || "Removing the previous UPS shipping-text choice…"}
+            </p>
+            {error && (
+              <button
+                className="mt-2 text-xs font-semibold text-Gold underline"
+                disabled={pending}
+                onClick={() => void saveChoice(false)}
+                type="button"
+              >
+                Try again
+              </button>
+            )}
+          </div>
+        )}
+        {children({ orderPlacementBlocked: effectiveOrderPlacementBlocked })}
+      </>
+    )
+  }
+
   return (
     <>
       <div className="mb-5 rounded-lg border border-gray-200 bg-gray-50 p-4">
         <p className="mb-2 text-sm font-semibold text-gray-900">
-          Pickup and delivery text updates (optional)
+          UPS shipping and tracking texts (optional)
         </p>
         <label className="flex items-start gap-3">
           <input

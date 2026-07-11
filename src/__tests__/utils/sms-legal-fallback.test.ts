@@ -74,7 +74,8 @@ describe("order SMS legal fallbacks", () => {
     expect(copy).toMatch(/particular order/i)
     expect(copy).toMatch(/unchecked/i)
     expect(copy).toMatch(/up to 6 messages per order/i)
-    expect(copy).toMatch(/actual shipping and tracking updates/i)
+    expect(copy).toMatch(/required enrollment confirmation/i)
+    expect(copy).toMatch(/actual UPS shipping and tracking updates/i)
     expect(copy).toMatch(/Reply STOP/i)
     expect(copy).toMatch(/Reply HELP/i)
     expect(copy).not.toMatch(/seasonal specials|promotional offers/i)
@@ -103,9 +104,10 @@ describe("order SMS legal fallbacks", () => {
     expect(copy).toMatch(/related cart or order identifier/i)
     expect(copy).toMatch(/solely to operate and secure/i)
     expect(copy).toMatch(
-      /will not be shared with third parties or affiliates for their marketing or promotional purposes/i
+      /All the above categories exclude text messaging originator opt-in data and consent/i
     )
-    expect(copy).toMatch(/service providers and wireless carriers/i)
+    expect(copy).toMatch(/won’t be shared with any third parties/i)
+    expect(copy).toMatch(/service providers solely to deliver and support/i)
 
     render(
       createElement(StructuredInfoContent, {

@@ -373,15 +373,15 @@ const PLACEHOLDER_CONTENT: Record<LegalSlug, any[]> = {
   // carrier reviewers.
   "order-sms-terms": [
     LATIN_PARAGRAPH(
-      "Griller's Pride Order Updates is an automated, non-promotional text messaging program operated by Grillerspride, LLC (\"Griller's Pride\"). If you opt in at checkout for a particular order, the program may send pickup or delivery notifications about that order. At launch, messages are limited to actual shipping and tracking updates. Pickup-ready messages will be sent only when an actual pickup-ready order event is available."
+      "Griller's Pride Order Updates is an automated, non-promotional text messaging program operated by Grillerspride, LLC (\"Griller's Pride\"). If you choose UPS shipping and opt in at checkout for a particular order, the first message is a required enrollment confirmation. Any later messages are limited to actual UPS shipping and tracking updates for that order. Pickup-ready and local-delivery messages are not part of the launch program."
     ),
     LATIN_HEADING("Enrollment & Order-Specific Consent"),
     LATIN_PARAGRAPH(
-      "You enroll for a specific order by entering your mobile number and affirmatively checking the unchecked Griller's Pride Order Updates box at checkout before placing the order. The checkbox is optional, checkout works without selecting it, and consent is not a condition of purchase. By selecting the box and placing the order, you consent to receive automated text messages solely for pickup and delivery updates about that order at the number provided."
+      "You enroll for a specific UPS-shipped order by entering your mobile number and affirmatively checking the unchecked Griller's Pride Order Updates box at checkout before placing the order. The checkbox is shown only for UPS shipping, is optional, and checkout works without selecting it. Consent is not a condition of purchase. By selecting the box and placing the order, you consent to receive recurring automated enrollment, UPS shipping, and tracking text messages solely for that order at the number provided."
     ),
     LATIN_HEADING("Message Frequency & Cost"),
     LATIN_PARAGRAPH(
-      "Message frequency varies, up to 6 messages per order. Message and data rates may apply according to your mobile plan. Griller's Pride and wireless carriers are not liable for delayed or undelivered messages."
+      "Message frequency varies, up to 6 messages per order, including the enrollment confirmation. Message and data rates may apply according to your mobile plan. Griller's Pride and wireless carriers are not liable for delayed or undelivered messages."
     ),
     LATIN_HEADING("Non-Marketing Scope"),
     LATIN_PARAGRAPH(
@@ -418,7 +418,7 @@ const PLACEHOLDER_CONTENT: Record<LegalSlug, any[]> = {
   ],
   "order-sms-privacy": [
     LATIN_PARAGRAPH(
-      "This notice applies only to Griller's Pride Order Updates, the optional, order-specific program for pickup and delivery text notifications. It supplements, and does not replace, other Griller's Pride privacy notices."
+      "This notice applies only to Griller's Pride Order Updates, the optional, order-specific program for enrollment confirmation plus UPS shipping and tracking text notifications. It supplements, and does not replace, other Griller's Pride privacy notices."
     ),
     LATIN_HEADING("Information We Collect"),
     LATIN_PARAGRAPH(
@@ -426,11 +426,11 @@ const PLACEHOLDER_CONTENT: Record<LegalSlug, any[]> = {
     ),
     LATIN_HEADING("How We Use It"),
     LATIN_PARAGRAPH(
-      "We use this information solely to operate and secure Griller's Pride Order Updates: to document your order-specific consent, send accurate pickup or delivery notifications, honor STOP, START, and HELP requests, investigate delivery problems, provide support, and meet legal and carrier obligations. We do not use this consent to send marketing or promotional texts."
+      "We use this information solely to operate and secure Griller's Pride Order Updates: to document your order-specific consent, send the required enrollment confirmation and accurate UPS shipping or tracking notifications, honor STOP, START, and HELP requests, investigate delivery problems, provide support, and meet legal and carrier obligations. We do not use this consent to send marketing or promotional texts."
     ),
     LATIN_HEADING("How We Share It"),
     LATIN_PARAGRAPH(
-      "We do not sell your mobile number or program data. Your mobile information, text messaging originator opt-in data, and consent will not be shared with third parties or affiliates for their marketing or promotional purposes. We may provide the minimum necessary information to service providers and wireless carriers that help operate the program, subject to appropriate confidentiality and use restrictions."
+      "We do not sell your mobile number or program data. All the above categories exclude text messaging originator opt-in data and consent; this information won’t be shared with any third parties. This restriction does not prevent us from using service providers solely to deliver and support the messages you requested; they receive only the minimum mobile and order data needed and may not use it for their own marketing."
     ),
     LATIN_HEADING("Retention & Security"),
     LATIN_PARAGRAPH(
