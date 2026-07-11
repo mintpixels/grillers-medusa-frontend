@@ -575,6 +575,7 @@ const sections: GuideSection[] = [
       "Twilio is the assumed SMS delivery provider, but Medusa remains the durable consent source. Only the current marketing-only consent collected by a customer-controlled storefront checkbox qualifies; staff-created, prechecked, mixed-use, or older consent does not.",
       "The current toll-free program is marketing-only. Do not use it for order confirmations, delivery notices, pickup reminders, refunds, cancellations, password messages, or other transactional texts.",
       "Describe the marketing program only as seasonal specials, product announcements, promotional offers, and holiday sales deadlines. Message frequency varies, up to 6 messages per month.",
+      "When no trusted recipient timezone is available, marketing texts can send only from 3:00 p.m. to 9:00 p.m. Eastern. Staff test texts require qualifying consent, obey the same window, and count toward the hard six-message rolling 30-day cap.",
       "Campaigns and broad announcements use the broadcast stream. Order, refund, cancellation, password, and account messages remain transactional or service messages.",
       "A Postmark send status does not prove the customer opened or clicked the email.",
       "Do not use this console as the order source of truth. Use Medusa and Stripe for order/payment state.",
