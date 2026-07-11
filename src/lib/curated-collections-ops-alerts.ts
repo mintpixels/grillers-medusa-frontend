@@ -1,4 +1,5 @@
 import { emitStorefrontOpsAlert } from "@lib/ops-alert"
+import { shouldEmitRuntimeOpsAlerts } from "@lib/util/build-context"
 
 type CuratedCollectionAlertSurface =
   | "homepage"
@@ -44,6 +45,14 @@ type CuratedCollectionTimeoutOptions<T> = CuratedCollectionTimeoutInput & {
   fallback: T
 }
 
+function suppressDuringProductionBuild(alertKind: string) {
+  if (shouldEmitRuntimeOpsAlerts()) return false
+  console.warn(
+    `[build] ${alertKind} observed; runtime ops alert intentionally suppressed`
+  )
+  return true
+}
+
 function errorMessage(error: unknown) {
   if (error instanceof Error) return error.message
   if (typeof error === "string") return error
@@ -74,6 +83,16 @@ export async function emitCuratedCollectionsStrapiFailureAlert({
   recovered,
   error,
 }: CuratedCollectionFailureInput) {
+  if (
+    suppressDuringProductionBuild(
+      recovered
+        ? "curated_collections_strapi_degraded"
+        : "curated_collections_strapi_failed"
+    )
+  ) {
+    return
+  }
+
   const message = errorMessage(error)
 
   await emitStorefrontOpsAlert({
@@ -114,6 +133,10 @@ export async function emitCuratedCollectionsRenderFailureAlert({
   recommendationVariant,
   error,
 }: CuratedCollectionRenderFailureInput) {
+  if (suppressDuringProductionBuild("curated_collections_render_failed")) {
+    return
+  }
+
   const message = errorMessage(error)
 
   await emitStorefrontOpsAlert({
@@ -147,6 +170,8 @@ export async function emitCuratedCollectionsTimeoutAlert({
   limit,
   slug,
 }: CuratedCollectionTimeoutInput) {
+  if (suppressDuringProductionBuild("curated_collections_timeout")) return
+
   await emitStorefrontOpsAlert({
     alertKind: "curated_collections_timeout",
     severity: "warn",

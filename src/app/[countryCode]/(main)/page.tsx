@@ -31,6 +31,7 @@ import { withTimeout } from "@lib/util/promise-timeout"
 import { resolveHomeSections } from "@lib/util/home-sections"
 import { emitFallbackHomepageOpsAlert } from "@lib/homepage-ops-alerts"
 import { withCuratedCollectionsTimeoutAlert } from "@lib/curated-collections-ops-alerts"
+import { resolveHomepageCmsPolicies } from "@lib/home-cms-policy"
 
 type PageProps = {
   params: Promise<{ countryCode: string }>
@@ -140,12 +141,18 @@ export default async function Home(props: {
 
   const { countryCode } = params
 
+  const {
+    home: homeCmsPolicy,
+    global: globalCmsPolicy,
+    curated: curatedCmsPolicy,
+  } = resolveHomepageCmsPolicies()
+
   const [strapiData, globalData] = await Promise.all([
     withTimeout(
       cachedStrapiRequest<HomePageData>("home-page", GetHomePageQuery).catch(
         () => null
       ),
-      5000,
+      homeCmsPolicy.timeoutMs,
       null,
       "home Strapi data"
     ),
@@ -153,7 +160,7 @@ export default async function Home(props: {
       cachedStrapiRequest<GlobalData>("home-global", GetGlobalQuery).catch(
         () => null
       ),
-      3000,
+      globalCmsPolicy.timeoutMs,
       null,
       "home global data"
     ),
@@ -171,10 +178,10 @@ export default async function Home(props: {
     countryCode,
     customerState: "guest_or_no_orders",
     limit: 8,
-    timeoutMs: 4000,
+    timeoutMs: curatedCmsPolicy.timeoutMs,
   })
-  // Fail open: the body is driven by the Strapi `home` query (3s timeout +
-  // .catch(()=>null)). A slow/errored live re-fetch once returned null
+  // Fail open: the body is driven by the bounded Strapi `home` query above.
+  // A slow/errored live re-fetch once returned null
   // sections and the page rendered an empty <section> ("blank on normal load,
   // appears on hard reload"). resolveHomeSections substitutes a usable set so
   // the homepage is never blank.

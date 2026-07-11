@@ -1,6 +1,15 @@
 import { emitStorefrontOpsAlert } from "@lib/ops-alert"
+import { shouldEmitRuntimeOpsAlerts } from "@lib/util/build-context"
 
 export type HomepageProductRail = "bestsellers" | "specialty"
+
+function suppressDuringProductionBuild(alertKind: string) {
+  if (shouldEmitRuntimeOpsAlerts()) return false
+  console.warn(
+    `[build] ${alertKind} observed; runtime ops alert intentionally suppressed`
+  )
+  return true
+}
 
 function redactedErrorMessage(error: unknown): string {
   const message =
@@ -50,6 +59,8 @@ export async function emitFallbackHomepageOpsAlert({
   hasStrapiData: boolean
   hasGlobalData: boolean
 }) {
+  if (suppressDuringProductionBuild("fallback_homepage_rendered")) return
+
   return emitStorefrontOpsAlert({
     alertKind: "fallback_homepage_rendered",
     title: `Fallback homepage rendered for ${countryCode}`,
@@ -74,6 +85,8 @@ export async function emitHomepageProductRailFailureAlert({
   error: unknown
 }) {
   const label = railLabel(rail)
+
+  if (suppressDuringProductionBuild("homepage_product_rail_degraded")) return
 
   return emitStorefrontOpsAlert({
     alertKind: "homepage_product_rail_degraded",

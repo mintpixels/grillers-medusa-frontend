@@ -9,8 +9,24 @@ jest.mock("@lib/ops-alert", () => ({
 }))
 
 describe("homepage ops alerts", () => {
+  const originalNextPhase = process.env.NEXT_PHASE
+  let consoleWarnSpy: jest.SpyInstance
+
   beforeEach(() => {
     jest.clearAllMocks()
+    process.env.NEXT_PHASE = "phase-production-server"
+    consoleWarnSpy = jest
+      .spyOn(console, "warn")
+      .mockImplementation(() => undefined)
+  })
+
+  afterEach(() => {
+    consoleWarnSpy.mockRestore()
+    if (originalNextPhase === undefined) {
+      delete process.env.NEXT_PHASE
+    } else {
+      process.env.NEXT_PHASE = originalNextPhase
+    }
   })
 
   it("emits an ops alert for fallback homepage renders", async () => {
@@ -66,5 +82,29 @@ describe("homepage ops alerts", () => {
     )
     expect(alertCalls).not.toContain("shopper@example.com")
     expect(alertCalls).not.toContain("prod_bestseller")
+  })
+
+  it("keeps build telemetry in logs without emitting runtime ops alerts", async () => {
+    process.env.NEXT_PHASE = "phase-production-build"
+
+    await emitFallbackHomepageOpsAlert({
+      countryCode: "us",
+      hasStrapiData: false,
+      hasGlobalData: true,
+    })
+    await emitHomepageProductRailFailureAlert({
+      rail: "bestsellers",
+      countryCode: "us",
+      handleCount: 3,
+      error: new Error("build-time CMS timeout"),
+    })
+
+    expect(emitStorefrontOpsAlert).not.toHaveBeenCalled()
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      "[build] fallback_homepage_rendered observed; runtime ops alert intentionally suppressed"
+    )
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      "[build] homepage_product_rail_degraded observed; runtime ops alert intentionally suppressed"
+    )
   })
 })

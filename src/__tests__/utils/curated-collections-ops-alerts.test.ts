@@ -13,8 +13,24 @@ const emitStorefrontOpsAlertMock =
   emitStorefrontOpsAlert as jest.MockedFunction<typeof emitStorefrontOpsAlert>
 
 describe("curated collection ops alerts", () => {
+  const originalNextPhase = process.env.NEXT_PHASE
+  let consoleWarnSpy: jest.SpyInstance
+
   beforeEach(() => {
     jest.clearAllMocks()
+    process.env.NEXT_PHASE = "phase-production-server"
+    consoleWarnSpy = jest
+      .spyOn(console, "warn")
+      .mockImplementation(() => undefined)
+  })
+
+  afterEach(() => {
+    consoleWarnSpy.mockRestore()
+    if (originalNextPhase === undefined) {
+      delete process.env.NEXT_PHASE
+    } else {
+      process.env.NEXT_PHASE = originalNextPhase
+    }
   })
 
   it("emits a warn alert when a legacy query recovers curated collections", async () => {
@@ -137,6 +153,40 @@ describe("curated collection ops alerts", () => {
           limit: 8,
         }),
       })
+    )
+  })
+
+  it("logs but does not emit source or timeout alerts during a production build", async () => {
+    process.env.NEXT_PHASE = "phase-production-build"
+
+    await emitCuratedCollectionsStrapiFailureAlert({
+      operation: "cards",
+      stage: "primary",
+      surface: "homepage",
+      countryCode: "us",
+      customerState: "guest_or_no_orders",
+      limit: 8,
+      recovered: false,
+      error: new Error("build-time Strapi failure"),
+    })
+    const result = await withCuratedCollectionsTimeoutAlert({
+      promise: new Promise<string[]>(() => {}),
+      fallback: [],
+      operation: "cards",
+      surface: "homepage",
+      countryCode: "us",
+      customerState: "guest_or_no_orders",
+      limit: 8,
+      timeoutMs: 0,
+    })
+
+    expect(result).toEqual([])
+    expect(emitStorefrontOpsAlertMock).not.toHaveBeenCalled()
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      "[build] curated_collections_strapi_failed observed; runtime ops alert intentionally suppressed"
+    )
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      "[build] curated_collections_timeout observed; runtime ops alert intentionally suppressed"
     )
   })
 })

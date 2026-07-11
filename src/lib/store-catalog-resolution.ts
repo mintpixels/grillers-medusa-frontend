@@ -40,9 +40,4 @@ export function resolveEmptyStoreCatalogDecision(input: {
   return input.isBuildPhase ? "render_soft" : "preserve_stale"
 }
 
-/** True during a production build (Next sets NEXT_PHASE), where a throw fails the deploy. */
-export function isProductionBuildPhase(
-  env: Record<string, string | undefined> = process.env
-): boolean {
-  return env.NEXT_PHASE === "phase-production-build"
-}
+export { isProductionBuildPhase } from "@lib/util/build-context"
