@@ -89,6 +89,26 @@ describe("PaymentButton", () => {
     })
   })
 
+  it("does not place an order while an external checkout requirement is pending", async () => {
+    const user = userEvent.setup()
+
+    render(
+      <PaymentButton
+        cart={readyCart}
+        disabled
+        savedPaymentMethodId="pm_test_123"
+        data-testid="submit-order-button"
+      />
+    )
+
+    const placeOrder = screen.getByRole("button", { name: /place order/i })
+    expect(placeOrder).toBeDisabled()
+
+    await user.click(placeOrder)
+    expect(mockVerifyInventory).not.toHaveBeenCalled()
+    expect(mockPlaceOrder).not.toHaveBeenCalled()
+  })
+
   it("pages ops when saved-card order submission returns an error", async () => {
     const user = userEvent.setup()
     mockPlaceOrder.mockResolvedValue({

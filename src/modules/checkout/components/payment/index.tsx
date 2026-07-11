@@ -14,6 +14,7 @@ import { clx } from "@medusajs/ui"
 import ErrorMessage from "@modules/checkout/components/error-message"
 import InventoryResolutionNotice from "@modules/checkout/components/inventory-resolution-notice"
 import PaymentButton from "@modules/checkout/components/payment-button"
+import OrderSmsConsent from "@modules/checkout/components/order-sms-consent"
 import { StripeCardContainer } from "@modules/checkout/components/payment-container"
 import {
   getCheckoutAnalyticsItems,
@@ -519,15 +520,20 @@ const Payment = ({
                 <NetWeightDisclaimer />
               )}
 
-              <PaymentButton
-                cart={cart}
-                cardComplete={cardComplete}
-                savedPaymentMethodId={selectedSavedPaymentMethodId}
-                setupIntentClientSecret={setupIntentClientSecret}
-                payByInvoice={payByInvoice}
-                onSubmittingChange={setSubmitting}
-                data-testid="submit-order-button"
-              />
+              <OrderSmsConsent cart={cart} controlsDisabled={submitting}>
+                {({ orderPlacementBlocked }) => (
+                  <PaymentButton
+                    cart={cart}
+                    cardComplete={cardComplete}
+                    disabled={orderPlacementBlocked}
+                    savedPaymentMethodId={selectedSavedPaymentMethodId}
+                    setupIntentClientSecret={setupIntentClientSecret}
+                    payByInvoice={payByInvoice}
+                    onSubmittingChange={setSubmitting}
+                    data-testid="submit-order-button"
+                  />
+                )}
+              </OrderSmsConsent>
 
               <p className="text-xs text-gray-500 mt-4 leading-relaxed text-center">
                 By clicking Place Order, you agree to our{" "}

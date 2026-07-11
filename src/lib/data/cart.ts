@@ -36,6 +36,7 @@ import {
   repairCheckoutAddressForWrite,
   reportCheckoutAddressRepair,
 } from "@lib/checkout-address-quality"
+import { buildOrderSmsConsentMetadata } from "@lib/util/order-sms-consent"
 
 type ActiveStaffContext = Awaited<
   ReturnType<typeof getActiveStaffImpersonation>
@@ -884,6 +885,61 @@ export async function setOrderNotes({
     .then(async () => {
       const cartCacheTag = await getCacheTag("carts")
       revalidateTag(cartCacheTag)
+    })
+    .catch(medusaError)
+}
+
+/**
+ * Stores the customer's order-scoped pickup/delivery SMS choice on the cart.
+ *
+ * The phone is read from the fresh server-side cart rather than accepted from
+ * the browser. Revocation replaces the object with a deliberately sparse
+ * record so an earlier phone, timestamp, or disclosure cannot survive.
+ */
+export async function setOrderSmsConsent({
+  cartId,
+  granted,
+}: {
+  cartId: string
+  granted: boolean
+}) {
+  const active = await getCartStaffContext()
+  if (active) {
+    throw new Error(
+      "Order text consent must be collected directly from the customer."
+    )
+  }
+
+  const currentCartId = await getCurrentCartId(active)
+  if (!currentCartId || currentCartId !== cartId) {
+    throw new Error("The active cart changed. Refresh checkout and try again.")
+  }
+
+  const cart = await retrieveCart(cartId, {
+    fresh: true,
+    throwOnFetchError: true,
+  })
+  if (!cart) {
+    throw new Error("The active cart could not be found.")
+  }
+
+  const consent = buildOrderSmsConsentMetadata({
+    granted,
+    phone: cart.shipping_address?.phone,
+  })
+  const headers = await cartHeadersForStaffContext(active)
+
+  return sdk.store.cart
+    .update(
+      cartId,
+      { metadata: { order_sms_consent: consent } },
+      {},
+      headers
+    )
+    .then(async ({ cart: updatedCart }) => {
+      const cartCacheTag = await getCacheTag("carts")
+      revalidateTag(cartCacheTag)
+      return updatedCart
     })
     .catch(medusaError)
 }

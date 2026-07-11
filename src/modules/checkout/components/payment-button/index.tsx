@@ -47,6 +47,7 @@ const GoldButton = ({
 type PaymentButtonProps = {
   cart: HttpTypes.StoreCart
   cardComplete?: boolean
+  disabled?: boolean
   savedPaymentMethodId?: string | null
   setupIntentClientSecret?: string | null
   // #283: approved B2B accounts placing a no-card invoice order.
@@ -119,6 +120,7 @@ function reportCheckoutPaymentFailure({
 const PaymentButton: React.FC<PaymentButtonProps> = ({
   cart,
   cardComplete = false,
+  disabled = false,
   savedPaymentMethodId,
   setupIntentClientSecret,
   payByInvoice = false,
@@ -136,7 +138,7 @@ const PaymentButton: React.FC<PaymentButtonProps> = ({
   if (payByInvoice) {
     return (
       <InvoicePaymentButton
-        notReady={notReady}
+        notReady={notReady || disabled}
         cart={cart}
         onSubmittingChange={onSubmittingChange}
         data-testid={dataTestId}
@@ -147,7 +149,7 @@ const PaymentButton: React.FC<PaymentButtonProps> = ({
   if (savedPaymentMethodId) {
     return (
       <SavedPaymentMethodButton
-        notReady={notReady}
+        notReady={notReady || disabled}
         cart={cart}
         savedPaymentMethodId={savedPaymentMethodId}
         onSubmittingChange={onSubmittingChange}
@@ -159,7 +161,7 @@ const PaymentButton: React.FC<PaymentButtonProps> = ({
   if (setupIntentClientSecret) {
     return (
       <NewCardSetupPaymentButton
-        notReady={notReady}
+        notReady={notReady || disabled}
         cart={cart}
         cardComplete={cardComplete}
         setupIntentClientSecret={setupIntentClientSecret}
