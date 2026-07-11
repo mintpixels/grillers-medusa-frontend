@@ -233,6 +233,8 @@ export const LEGAL_SLUGS = [
   "terms-of-sale",
   "terms-of-use",
   "sms-terms",
+  "order-sms-terms",
+  "order-sms-privacy",
 ] as const
 
 export type LegalSlug = (typeof LEGAL_SLUGS)[number]
@@ -246,6 +248,8 @@ const PLACEHOLDER_TITLES: Record<LegalSlug, string> = {
   "terms-of-sale": "Terms of Sale",
   "terms-of-use": "Terms of Use",
   "sms-terms": "SMS Program Terms",
+  "order-sms-terms": "Griller's Pride Order Updates Terms",
+  "order-sms-privacy": "Griller's Pride Order Updates Privacy Notice",
 }
 
 // BlocksRenderer-shaped placeholder content (Lorem ipsum). Lives in code
@@ -360,6 +364,98 @@ const PLACEHOLDER_CONTENT: Record<LegalSlug, any[]> = {
           type: "text",
           text: ". We do not sell your phone number, and text messaging originator opt-in data and consent are not shared with third parties for their own marketing purposes.",
         },
+      ],
+    },
+  ],
+  // Dedicated transactional program fallbacks. These are intentionally
+  // separate from the marketing SMS terms and general privacy policy so a
+  // Strapi outage cannot blur the two consent programs for customers or
+  // carrier reviewers.
+  "order-sms-terms": [
+    LATIN_PARAGRAPH(
+      "Griller's Pride Order Updates is an automated, non-promotional text messaging program operated by Grillerspride, LLC (\"Griller's Pride\"). If you opt in at checkout for a particular order, the program may send pickup or delivery notifications about that order. At launch, messages are limited to actual shipping and tracking updates. Pickup-ready messages will be sent only when an actual pickup-ready order event is available."
+    ),
+    LATIN_HEADING("Enrollment & Order-Specific Consent"),
+    LATIN_PARAGRAPH(
+      "You enroll for a specific order by entering your mobile number and affirmatively checking the unchecked Griller's Pride Order Updates box at checkout before placing the order. The checkbox is optional, checkout works without selecting it, and consent is not a condition of purchase. By selecting the box and placing the order, you consent to receive automated text messages solely for pickup and delivery updates about that order at the number provided."
+    ),
+    LATIN_HEADING("Message Frequency & Cost"),
+    LATIN_PARAGRAPH(
+      "Message frequency varies, up to 6 messages per order. Message and data rates may apply according to your mobile plan. Griller's Pride and wireless carriers are not liable for delayed or undelivered messages."
+    ),
+    LATIN_HEADING("Non-Marketing Scope"),
+    LATIN_PARAGRAPH(
+      "Griller's Pride Order Updates does not send promotions, product offers, review requests, or other marketing messages. Order confirmations, payment receipts, cancellation notices, and refund notices continue to be delivered by email. Enrollment in Griller's Pride marketing texts is separate from this program and requires separate consent."
+    ),
+    LATIN_HEADING("Opt Out & Help"),
+    LATIN_PARAGRAPH(
+      "Reply STOP to unsubscribe from future Griller's Pride Order Updates; you may receive one confirmation message. Reply HELP for help, or contact us at (770) 454-8108 or peter@grillerspride.com. Reply START or UNSTOP to restore carrier delivery only where a still-valid order consent applies."
+    ),
+    LATIN_HEADING("Privacy"),
+    {
+      type: "paragraph",
+      children: [
+        {
+          type: "text",
+          text: "We handle your mobile number, order context, and consent record as described in the ",
+        },
+        {
+          type: "link",
+          url: "/page/order-sms-privacy",
+          children: [
+            {
+              type: "text",
+              text: "Griller's Pride Order Updates Privacy Notice",
+            },
+          ],
+        },
+        {
+          type: "text",
+          text: ". Your mobile information, text messaging originator opt-in data, and consent will not be shared with third parties or affiliates for their marketing or promotional purposes.",
+        },
+      ],
+    },
+  ],
+  "order-sms-privacy": [
+    LATIN_PARAGRAPH(
+      "This notice applies only to Griller's Pride Order Updates, the optional, order-specific program for pickup and delivery text notifications. It supplements, and does not replace, other Griller's Pride privacy notices."
+    ),
+    LATIN_HEADING("Information We Collect"),
+    LATIN_PARAGRAPH(
+      "When you opt in, we collect the mobile number you provide and evidence of your consent, including the date and time, enrollment source, disclosure language and version, and the related cart or order identifier. We also use the minimum order and fulfillment context needed to send accurate updates, plus opt-out, help, delivery-status, and error records."
+    ),
+    LATIN_HEADING("How We Use It"),
+    LATIN_PARAGRAPH(
+      "We use this information solely to operate and secure Griller's Pride Order Updates: to document your order-specific consent, send accurate pickup or delivery notifications, honor STOP, START, and HELP requests, investigate delivery problems, provide support, and meet legal and carrier obligations. We do not use this consent to send marketing or promotional texts."
+    ),
+    LATIN_HEADING("How We Share It"),
+    LATIN_PARAGRAPH(
+      "We do not sell your mobile number or program data. Your mobile information, text messaging originator opt-in data, and consent will not be shared with third parties or affiliates for their marketing or promotional purposes. We may provide the minimum necessary information to service providers and wireless carriers that help operate the program, subject to appropriate confidentiality and use restrictions."
+    ),
+    LATIN_HEADING("Retention & Security"),
+    LATIN_PARAGRAPH(
+      "We retain mobile, consent, order-context, opt-out, and message records only as long as reasonably necessary to operate the program, document consent and compliance, resolve delivery or support issues, and satisfy applicable legal obligations. We use reasonable safeguards designed to protect this information."
+    ),
+    LATIN_HEADING("Your Choices & Help"),
+    LATIN_PARAGRAPH(
+      "Consent is optional and is not a condition of purchase. Reply STOP to unsubscribe from Griller's Pride Order Updates or HELP for help. Choosing not to receive texts does not affect your order; use email or phone support for status instead."
+    ),
+    LATIN_HEADING("Contact & Program Terms"),
+    {
+      type: "paragraph",
+      children: [
+        {
+          type: "text",
+          text: "For privacy questions or requests, call (770) 454-8108 or email peter@grillerspride.com. See the ",
+        },
+        {
+          type: "link",
+          url: "/page/order-sms-terms",
+          children: [
+            { type: "text", text: "Griller's Pride Order Updates Terms" },
+          ],
+        },
+        { type: "text", text: " for complete program details." },
       ],
     },
   ],

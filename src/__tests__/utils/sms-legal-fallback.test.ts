@@ -60,3 +60,62 @@ describe("SMS terms fallback", () => {
     ).toHaveAttribute("href", "/us/page/privacy-policy")
   })
 })
+
+describe("order SMS legal fallbacks", () => {
+  it("keeps the order-update terms delivery-only and order-specific", async () => {
+    ;(strapiClient.request as jest.Mock).mockRejectedValueOnce(
+      new Error("Strapi unavailable")
+    )
+
+    const page = await getLegalPage("order-sms-terms")
+    const copy = flattenText(page?.Content)
+
+    expect(copy).toMatch(/automated, non-promotional/i)
+    expect(copy).toMatch(/particular order/i)
+    expect(copy).toMatch(/unchecked/i)
+    expect(copy).toMatch(/up to 6 messages per order/i)
+    expect(copy).toMatch(/actual shipping and tracking updates/i)
+    expect(copy).toMatch(/Reply STOP/i)
+    expect(copy).toMatch(/Reply HELP/i)
+    expect(copy).not.toMatch(/seasonal specials|promotional offers/i)
+
+    render(
+      createElement(StructuredInfoContent, {
+        content: page?.Content,
+      })
+    )
+    expect(
+      screen.getByRole("link", {
+        name: "Griller's Pride Order Updates Privacy Notice",
+      })
+    ).toHaveAttribute("href", "/us/page/order-sms-privacy")
+  })
+
+  it("keeps mobile consent out of third-party marketing sharing", async () => {
+    ;(strapiClient.request as jest.Mock).mockRejectedValueOnce(
+      new Error("Strapi unavailable")
+    )
+
+    const page = await getLegalPage("order-sms-privacy")
+    const copy = flattenText(page?.Content)
+
+    expect(copy).toMatch(/evidence of your consent/i)
+    expect(copy).toMatch(/related cart or order identifier/i)
+    expect(copy).toMatch(/solely to operate and secure/i)
+    expect(copy).toMatch(
+      /will not be shared with third parties or affiliates for their marketing or promotional purposes/i
+    )
+    expect(copy).toMatch(/service providers and wireless carriers/i)
+
+    render(
+      createElement(StructuredInfoContent, {
+        content: page?.Content,
+      })
+    )
+    expect(
+      screen.getByRole("link", {
+        name: "Griller's Pride Order Updates Terms",
+      })
+    ).toHaveAttribute("href", "/us/page/order-sms-terms")
+  })
+})
