@@ -248,10 +248,17 @@ export default function FulfillmentStep({ cart, customer, config, availableFulfi
   const savedAddresses = customer?.addresses || []
   const canSwitchAddress = savedAddresses.length > 1
   const activeAddressId = (() => {
-    const directId =
-      (activeAddress as HttpTypes.StoreCustomerAddress | null | undefined)
-        ?.id || null
-    if (directId) return directId
+    // Cart and customer addresses use different records (and different ID
+    // namespaces). `activeAddress` normally comes from cart.shipping_address,
+    // so its `caaddr_*` ID must never be sent to the customer-address update
+    // endpoint, which expects the matching saved `cuaddr_*` record. Accept a
+    // direct ID only when it is actually present in the customer's address
+    // book; otherwise resolve the saved address by its normalized fields.
+    const directId = activeAddress?.id || null
+    const savedDirectMatch = directId
+      ? savedAddresses.find((address) => address.id === directId)
+      : null
+    if (savedDirectMatch?.id) return savedDirectMatch.id
 
     return (
       savedAddresses.find((address) =>

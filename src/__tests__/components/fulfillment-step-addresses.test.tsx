@@ -215,4 +215,45 @@ describe("FulfillmentStep saved address selection", () => {
 
     expect(mockSaveAddressToProfileAndCart).not.toHaveBeenCalled()
   })
+
+  it("uses the saved customer address ID when the active cart address has its own ID", async () => {
+    const user = userEvent.setup()
+    const cartAddress = {
+      ...currentAddress,
+      id: "caaddr_cart_copy",
+    }
+
+    render(
+      <FulfillmentStep
+        cart={{ ...cart, shipping_address: cartAddress } as any}
+        customer={{ ...customer, addresses: [currentAddress] } as any}
+        config={checkoutConfig}
+        availableFulfillmentTypes={[
+          "ups_shipping",
+          "atlanta_delivery",
+          "plant_pickup",
+          "southeast_pickup",
+        ]}
+        pickupCreditConfig={{
+          threshold: 250,
+          creditAmount: 750,
+          promoCode: "PLANTPICKUP750",
+        }}
+      />
+    )
+
+    await user.click(screen.getByRole("button", { name: "Change" }))
+    await user.click(screen.getByRole("button", { name: "Update Address" }))
+
+    expect(mockSaveAddressToProfileAndCart).toHaveBeenCalledWith(
+      expect.objectContaining({
+        address_id: "addr_current",
+        address_1: "220 Glen Meadow Ct",
+        postal_code: "30328",
+      })
+    )
+    expect(mockSaveAddressToProfileAndCart).not.toHaveBeenCalledWith(
+      expect.objectContaining({ address_id: "caaddr_cart_copy" })
+    )
+  })
 })
