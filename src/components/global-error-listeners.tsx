@@ -55,10 +55,11 @@ export default function GlobalErrorListeners() {
       if (isNoise(message)) return
       reportClientError({
         kind: "client_unhandledrejection",
-        error:
-          reason instanceof Error
-            ? reason
-            : new Error(message || "Unhandled promise rejection"),
+        // Preserve structured framework errors (notably a digest-only
+        // NEXT_REDIRECT signal) for the shared reporter's classification.
+        // Replacing them here with a generic Error discards the digest and
+        // turns successful navigation into a false production alert.
+        error: reason ?? new Error(message || "Unhandled promise rejection"),
         severity: "warn",
       })
     }

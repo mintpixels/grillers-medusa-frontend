@@ -15,10 +15,11 @@ export function isExpectedNextRedirect(error: unknown): boolean {
       : typeof error === "string"
       ? error.trim()
       : String(record?.message || "").trim()
+  const normalizedMessage = message.replace(/^Error:\s*/, "")
 
   return (
     digest === "NEXT_REDIRECT" ||
     digest.startsWith("NEXT_REDIRECT;") ||
-    message === "NEXT_REDIRECT"
+    normalizedMessage === "NEXT_REDIRECT"
   )
 }

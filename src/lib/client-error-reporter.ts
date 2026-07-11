@@ -1,4 +1,5 @@
 import { isTransientNavigationError } from "@lib/util/transient-navigation-error"
+import { isExpectedNextRedirect } from "@lib/util/next-redirect"
 
 /**
  * Client-side error reporter. POSTs to the same-origin `/api/ops-alert` proxy
@@ -81,6 +82,12 @@ function fingerprint(kind: string, message: string): string {
 
 export function reportClientError(input: ReportInput): void {
   const { kind, error, severity, extra } = input
+
+  // Next.js implements successful server-action redirects by rejecting with
+  // the NEXT_REDIRECT control-flow signal. It can reach any route's segment
+  // boundary or the window-level unhandledrejection listener, so classify it
+  // at the shared reporting boundary rather than in individual pages.
+  if (isExpectedNextRedirect(error)) return
 
   const errLike =
     error instanceof Error

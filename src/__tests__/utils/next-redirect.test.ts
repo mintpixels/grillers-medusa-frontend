@@ -4,7 +4,9 @@ describe("isExpectedNextRedirect", () => {
   it.each([
     new Error("NEXT_REDIRECT"),
     "NEXT_REDIRECT",
+    "Error: NEXT_REDIRECT",
     { message: "NEXT_REDIRECT" },
+    { message: "Error: NEXT_REDIRECT" },
     { digest: "NEXT_REDIRECT;replace;/us/order/order_123/confirmed;307;" },
   ])("recognizes redirect signals across the server-action bridge", (error) => {
     expect(isExpectedNextRedirect(error)).toBe(true)
