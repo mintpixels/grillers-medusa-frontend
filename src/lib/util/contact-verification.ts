@@ -1,5 +1,5 @@
 import { HttpTypes } from "@medusajs/types"
-import { stripPhone } from "@lib/util/format-phone"
+import { normalizeSmsMarketingPhone } from "@lib/util/sms-consent"
 
 /**
  * First-login contact verification for migrated (pre-launch) customers.
@@ -99,8 +99,8 @@ export function collectPhoneCandidates(
   const seen = new Map<string, Set<string>>()
 
   const add = (raw: string | null | undefined, source: string) => {
-    const digits = stripPhone(raw || "")
-    if (digits.length !== 10) return
+    const digits = normalizeSmsMarketingPhone(raw)
+    if (!digits) return
     if (!seen.has(digits)) seen.set(digits, new Set())
     seen.get(digits)!.add(source)
   }

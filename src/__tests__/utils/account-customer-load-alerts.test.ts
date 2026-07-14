@@ -10,6 +10,7 @@ import {
   requestPasswordReset,
   retrieveAuthenticatedCustomer,
   saveCartAddressesToAccount,
+  signup,
   signupWithCredentials,
   updateCustomer,
   updateCustomerAddress,
@@ -533,6 +534,36 @@ describe("customer signup alerts", () => {
       {},
       expect.any(Object)
     )
+  })
+
+  it("rejects extra digits at both checkout and account-signup consent boundaries", async () => {
+    await expect(
+      signupWithCredentials({
+        email: "shopper@example.com",
+        password: "password123",
+        first_name: "Shopper",
+        last_name: "Example",
+        phone: "4045551212999",
+        sms_marketing_opt_in: true,
+      })
+    ).resolves.toEqual({
+      success: false,
+      error: "Enter a valid 10-digit phone number to get text messages.",
+    })
+
+    const signupForm = new FormData()
+    signupForm.set("email", "shopper@example.com")
+    signupForm.set("password", "password123")
+    signupForm.set("first_name", "Shopper")
+    signupForm.set("last_name", "Example")
+    signupForm.set("phone", "4045551212999")
+    signupForm.set("sms_marketing_opt_in", "on")
+    await expect(signup(null, signupForm)).resolves.toBe(
+      "Enter a valid 10-digit phone number to get text messages."
+    )
+
+    expect(mockAuthRegister).not.toHaveBeenCalled()
+    expect(mockCreateCustomer).not.toHaveBeenCalled()
   })
 
   it("alerts when account registration fails before customer creation", async () => {

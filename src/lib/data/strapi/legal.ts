@@ -337,7 +337,7 @@ const PLACEHOLDER_CONTENT: Record<LegalSlug, any[]> = {
     ),
     LATIN_HEADING("Enrollment & Consent"),
     LATIN_PARAGRAPH(
-      "You enroll by checking the marketing text opt-in box during account signup or first-login contact verification, providing your mobile number, and submitting the form. The box is optional and unchecked by default. Consent to receive marketing text messages is not a condition of any purchase. We keep a record of your consent, including the date, enrollment source, mobile number, and consent language shown to you."
+      "You enroll by checking the marketing text opt-in box during account signup, first-login contact verification, or another clearly labeled Griller's Pride marketing form, providing your mobile number, and submitting the form. The box is optional and unchecked by default. Consent to receive marketing text messages is not a condition of any purchase. We keep a record of your consent, including the date, enrollment source, mobile number, and consent language shown to you."
     ),
     LATIN_HEADING("Message Frequency & Cost"),
     LATIN_PARAGRAPH(

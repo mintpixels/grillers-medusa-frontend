@@ -44,6 +44,9 @@ describe("SMS terms fallback", () => {
     )
     expect(copy).toMatch(/unchecked by default/i)
     expect(copy).toMatch(
+      /another clearly labeled Griller's Pride marketing form/i
+    )
+    expect(copy).toMatch(
       /message frequency varies, up to 6 messages per month/i
     )
     expect(copy).toMatch(/reply STOP/i)

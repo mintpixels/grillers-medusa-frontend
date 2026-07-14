@@ -1,17 +1,22 @@
 import {
   SMS_MARKETING_CONSENT_VERSION,
+  SMS_MARKETING_CONSENT_METHOD,
+  SMS_MARKETING_CONSENT_PURPOSE,
+  SMS_MARKETING_CUSTOMER_SOURCES,
   SMS_MARKETING_DISCLOSURE,
   SMS_MARKETING_OPT_IN_LABEL,
   SMS_MARKETING_PROGRAM,
   SMS_MARKETING_PROVIDER,
   buildSmsMarketingConsentMetadata,
   formWantsSmsMarketing,
+  normalizeSmsMarketingPhone,
 } from "@lib/util/sms-consent"
 
 describe("sms consent helpers", () => {
   it("defines one explicit marketing-only v3 program", () => {
     expect(SMS_MARKETING_CONSENT_VERSION).toBe("sms-v3-2026-07-10")
     expect(SMS_MARKETING_PROGRAM).toBe("grillers_pride_marketing")
+    expect(SMS_MARKETING_CUSTOMER_SOURCES).toContain("account_profile")
     expect(SMS_MARKETING_OPT_IN_LABEL).toMatch(/deals and promotional updates/i)
     expect(SMS_MARKETING_DISCLOSURE).toBe(
       "By checking this box, I agree to receive recurring automated marketing and promotional text messages from Griller's Pride, including seasonal specials, product announcements, promotional offers, and holiday sales deadlines, at the mobile number provided. Consent is not a condition of purchase. Message frequency varies, up to 6 messages per month. Msg & data rates may apply. Reply STOP to opt out or HELP for help."
@@ -46,8 +51,26 @@ describe("sms consent helpers", () => {
       sms_consent_phone: "4045550100",
       sms_consent_provider: SMS_MARKETING_PROVIDER,
       sms_program: SMS_MARKETING_PROGRAM,
-      sms_consent_purpose: "marketing",
-      sms_consent_method: "customer_checkbox",
+      sms_consent_purpose: SMS_MARKETING_CONSENT_PURPOSE,
+      sms_consent_method: SMS_MARKETING_CONSENT_METHOD,
     })
+  })
+
+  it("normalizes exact US phones without truncating malformed input", () => {
+    expect(normalizeSmsMarketingPhone("(404) 555-0100")).toBe("4045550100")
+    expect(normalizeSmsMarketingPhone("+1 404 555 0100")).toBe("4045550100")
+    expect(normalizeSmsMarketingPhone("4045550100123")).toBeNull()
+    expect(normalizeSmsMarketingPhone("404555010")).toBeNull()
+    expect(normalizeSmsMarketingPhone("1045550100")).toBeNull()
+    expect(normalizeSmsMarketingPhone("4041550100")).toBeNull()
+  })
+
+  it("refuses to build consent evidence for malformed destinations", () => {
+    expect(() =>
+      buildSmsMarketingConsentMetadata({
+        phone: "4045550100123",
+        source: "account_profile",
+      })
+    ).toThrow(/valid US mobile number/i)
   })
 })

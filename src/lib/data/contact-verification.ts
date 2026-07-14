@@ -7,7 +7,10 @@ import { retrieveCustomer, addCustomerAddress } from "@lib/data/customer"
 import { getStaffImpersonationSession } from "@lib/data/staff/impersonation"
 import { emitStorefrontOpsAlert } from "@lib/ops-alert"
 import { isValidUSPhone, stripPhone } from "@lib/util/format-phone"
-import { buildSmsMarketingConsentMetadata } from "@lib/util/sms-consent"
+import {
+  buildSmsMarketingConsentMetadata,
+  normalizeSmsMarketingPhone,
+} from "@lib/util/sms-consent"
 import {
   CONTACT_VERIFICATION_VERSION,
   CONTACT_VERIFIED_AT_KEY,
@@ -76,21 +79,32 @@ export async function submitContactVerification(
   }
 
   // ── Primary mobile ────────────────────────────────────────────────
+  const smsOptIn = formData.get("sms_marketing_opt_in") === "on"
   const phoneChoice = (formData.get("primary_phone") as string) || ""
   const otherPhoneRaw = (formData.get("primary_phone_other") as string) || ""
   const candidates = collectPhoneCandidates(customer)
   let primaryPhone = ""
 
   if (phoneChoice === "other") {
-    if (!isValidUSPhone(otherPhoneRaw) || !otherPhoneRaw) {
+    const consentPhone = smsOptIn
+      ? normalizeSmsMarketingPhone(otherPhoneRaw)
+      : null
+    if (
+      smsOptIn
+        ? !consentPhone
+        : !isValidUSPhone(otherPhoneRaw) || !otherPhoneRaw
+    ) {
       return {
         success: false,
         error: "Enter a valid 10-digit US mobile number.",
       }
     }
-    primaryPhone = stripPhone(otherPhoneRaw)
+    primaryPhone = consentPhone || stripPhone(otherPhoneRaw)
   } else {
-    primaryPhone = stripPhone(phoneChoice)
+    const consentPhone = smsOptIn
+      ? normalizeSmsMarketingPhone(phoneChoice)
+      : null
+    primaryPhone = consentPhone || (smsOptIn ? "" : stripPhone(phoneChoice))
     const known = candidates.some((c) => c.value === primaryPhone)
     if (!known || primaryPhone.length !== 10) {
       return {
@@ -99,8 +113,6 @@ export async function submitContactVerification(
       }
     }
   }
-
-  const smsOptIn = formData.get("sms_marketing_opt_in") === "on"
 
   // ── Email ─────────────────────────────────────────────────────────
   const emailChoice = (formData.get("email_choice") as string) || "current"

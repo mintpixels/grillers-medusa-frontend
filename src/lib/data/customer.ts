@@ -11,6 +11,7 @@ import {
 import {
   buildSmsMarketingConsentMetadata,
   formWantsSmsMarketing,
+  normalizeSmsMarketingPhone,
 } from "@lib/util/sms-consent"
 import { canUseOfficeConsole, isStaffCustomer } from "@lib/util/staff-access"
 import {
@@ -416,7 +417,18 @@ export async function signupWithCredentials(data: {
   phone?: string
   sms_marketing_opt_in?: boolean
 }) {
-  const phone = data.phone ? stripPhone(data.phone) : ""
+  const rawPhone = data.phone || ""
+  const consentPhone = data.sms_marketing_opt_in
+    ? normalizeSmsMarketingPhone(rawPhone)
+    : null
+  // Preserve the legacy non-consent phone behavior. When consent is requested,
+  // use the strict parser so extra digits can never be silently truncated into
+  // a different SMS destination.
+  const phone = data.sms_marketing_opt_in
+    ? consentPhone || ""
+    : rawPhone
+      ? stripPhone(rawPhone)
+      : ""
   let stage:
     | "auth_register"
     | "auth_token"
@@ -427,7 +439,7 @@ export async function signupWithCredentials(data: {
     | "cart_transfer"
     | "cart_address_persistence" = "auth_register"
 
-  if (data.sms_marketing_opt_in && phone.length !== 10) {
+  if (data.sms_marketing_opt_in && !consentPhone) {
     return {
       success: false,
       error: "Enter a valid 10-digit phone number to get text messages.",
@@ -694,9 +706,16 @@ export async function signup(_currentState: unknown, formData: FormData) {
   const password = formData.get("password") as string
   const rawPhone = (formData.get("phone") as string) || ""
   const smsMarketingOptIn = formWantsSmsMarketing(formData)
-  const phone = rawPhone ? stripPhone(rawPhone) : ""
+  const consentPhone = smsMarketingOptIn
+    ? normalizeSmsMarketingPhone(rawPhone)
+    : null
+  const phone = smsMarketingOptIn
+    ? consentPhone || ""
+    : rawPhone
+      ? stripPhone(rawPhone)
+      : ""
 
-  if (smsMarketingOptIn && phone.length !== 10) {
+  if (smsMarketingOptIn && !consentPhone) {
     return "Enter a valid 10-digit phone number to get text messages."
   }
 
