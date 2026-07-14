@@ -28,4 +28,17 @@ describe("Twilio toll-free verification evidence", () => {
     expect(dimensions.width).toBeGreaterThanOrEqual(400)
     expect(dimensions.height).toBeGreaterThanOrEqual(900)
   })
+
+  it("keeps the transactional order opt-in proof complete instead of tightly cropped", () => {
+    const evidencePath = path.join(
+      process.cwd(),
+      "public/images/order-sms-opt-in-web-form.png"
+    )
+    const dimensions = readPngDimensions(evidencePath)
+
+    // Carrier review needs the branded checkout context, UPS fulfillment,
+    // customer phone, payment step, unchecked consent, legal links, and CTA.
+    expect(dimensions.width).toBeGreaterThanOrEqual(1200)
+    expect(dimensions.height).toBeGreaterThanOrEqual(900)
+  })
 })
